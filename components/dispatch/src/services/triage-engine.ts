@@ -1,396 +1,209 @@
 /**
  * ============================================================================
- * Diagnostic Triage Engine — Probability Distribution Generator
+ * Diagnostic Triage Engine — adaptive form + ML decision tree
  * ============================================================================
- * 
- * Core algorithm that transforms questionnaire responses (Q1-Q8) into a
- * probability distribution over 9 service types. This is the heart of SO1.
- * 
- * Three-tier system:
- *   Tier 1: Questionnaire-only (baseline)
- *   Tier 2: OBD-enhanced (Phase 6)
- *   Tier 3: Bayesian-learned (Phase 7)
- * 
- * Algorithm approach:
- *   1. Start with uniform prior over 9 service types
- *   2. Each answer applies multiplicative weight adjustments
- *   3. Normalize to ensure probabilities sum to 1.0
- *   4. Calculate confidence (1 - normalized entropy)
- * 
+ *
+ * Replaces the hand-tuned multiplicative weight tables with the ML-derived
+ * decision tree from ml/exported_tree_tier{1,2}.json. Same input/output
+ * contract as before — `runTriageEngine(responses, obdData?)` returns a
+ * `TriageResult` — but the internal logic is now data-driven.
+ *
+ * Tiering:
+ *   - Tier 1 (QUESTIONNAIRE_ONLY): no `obdData` argument → tree 1
+ *   - Tier 2 (OBD_ENHANCED):       `obdData.available === true` → tree 2
+ *   - Tier 3 (BAYESIAN_LEARNED):   reserved for the upcoming Bayesian layer
+ *
+ * Fast-path short-circuit: if `responses.Q1_intent` is a fast-path intent,
+ * the engine skips ML inference entirely and returns a deterministic result
+ * with probability 1.0 on the corresponding service type.
+ *
  * @module services/triage-engine
  * @author Janukshan Sivakumar - IT22635266
  */
 
 import {
-  ServiceType, SERVICE_TYPES, TriageResponses, TriageResult,
-  ServiceTypeProbabilities, TriageTier, OBDData,
-  DashboardLamp, EngineSound,
+  TriageResponses, TriageResult, TriageTier,
+  ServiceType, ServiceTypeProbabilities, SERVICE_TYPES,
+  OBDData,
+  FAST_PATH_INTENT_TO_SERVICE, isFastPathIntent,
 } from '../types';
+import { runDecisionTree, TreeInput } from './decision-tree-engine';
 import { logger } from '../utils/logger';
 
-// ─────────────────────────────────────────────────────────
-// Weight Tables — Expert-knowledge-based diagnostic weights
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Q1: Visible Damage weights
- * Crash damage strongly suggests towing; no damage shifts toward electrical/fuel
+ * Build a TreeInput dict from the adaptive questionnaire responses
+ * (and OBD data if provided). Field names match the trained tree's
+ * feature_names exactly — see ml/generate_dataset.py.
  */
-const VISIBLE_DAMAGE_WEIGHTS: Record<string, Partial<Record<ServiceType, number>>> = {
-  CRASH: {
-    TOW_HEAVY: 4.0, TOW_LIGHT: 3.0, MECHANIC_FIX: 1.5,
-    BATTERY_JUMP: 0.3, BATTERY_REPLACE: 0.3, STARTER_MOTOR: 0.5,
-    FUEL_DELIVERY: 0.1, FLAT_TIRE: 0.8, LOCKOUT: 0.1,
-  },
-  MINOR: {
-    TOW_LIGHT: 1.5, MECHANIC_FIX: 1.8, FLAT_TIRE: 1.5,
-    BATTERY_JUMP: 0.8, BATTERY_REPLACE: 0.8, STARTER_MOTOR: 0.9,
-    FUEL_DELIVERY: 0.5, TOW_HEAVY: 0.8, LOCKOUT: 0.3,
-  },
-  NONE: {
-    BATTERY_JUMP: 1.5, BATTERY_REPLACE: 1.3, STARTER_MOTOR: 1.3,
-    FUEL_DELIVERY: 1.5, FLAT_TIRE: 1.2, LOCKOUT: 1.5,
-    MECHANIC_FIX: 1.0, TOW_LIGHT: 0.6, TOW_HEAVY: 0.3,
-  },
-};
+function toTreeInput(responses: TriageResponses, obd?: OBDData): TreeInput {
+  const input: TreeInput = {
+    // Single-select adaptive questions
+    Q1_intent:           responses.Q1_intent,
+    Q2_engine_start:     responses.Q2_engine_start,
+    Q2b_running_issue:   responses.Q2b_running_issue,
+    Q3_sound:            responses.Q3_sound,
+    Q3b_electrical:      responses.Q3b_electrical,
+    Q4_noise_detail:     responses.Q4_noise_detail,
+    Q7_overheat_detail:  responses.Q7_overheat_detail,
+    Q8_smoke_color:      responses.Q8_smoke_color,
+    Q_brake_detail:      responses.Q_brake_detail,
+    Q_gear_detail:       responses.Q_gear_detail,
+    Q6_smells:           responses.Q6_smells,
 
-/**
- * Q2: Can Start Engine weights
- * Engine won't start → battery/starter/fuel; runs → flat tire/lockout/mechanic
- */
-const ENGINE_START_WEIGHTS: Record<string, Partial<Record<ServiceType, number>>> = {
-  YES: {
-    FLAT_TIRE: 2.5, LOCKOUT: 2.0, MECHANIC_FIX: 1.8,
-    BATTERY_JUMP: 0.2, BATTERY_REPLACE: 0.2, STARTER_MOTOR: 0.1,
-    FUEL_DELIVERY: 0.3, TOW_LIGHT: 0.8, TOW_HEAVY: 0.5,
-  },
-  NO: {
-    BATTERY_JUMP: 2.5, BATTERY_REPLACE: 2.0, STARTER_MOTOR: 2.5,
-    FUEL_DELIVERY: 1.5, MECHANIC_FIX: 1.5, TOW_LIGHT: 1.3,
-    TOW_HEAVY: 1.0, FLAT_TIRE: 0.3, LOCKOUT: 0.1,
-  },
-  PARTIAL: {
-    STARTER_MOTOR: 2.0, BATTERY_JUMP: 1.8, FUEL_DELIVERY: 1.5,
-    MECHANIC_FIX: 2.0, BATTERY_REPLACE: 1.5, TOW_LIGHT: 1.0,
-    TOW_HEAVY: 0.7, FLAT_TIRE: 0.3, LOCKOUT: 0.1,
-  },
-};
+    // Multi-selects (decision-tree-engine treats array values as set membership)
+    Q5_lights:           responses.Q5_lights,
+    Q9_recent:           responses.Q9_recent,
 
-/**
- * Q3: Engine Sound weights
- * Each sound pattern maps to specific fault categories
- */
-const ENGINE_SOUND_WEIGHTS: Record<EngineSound, Partial<Record<ServiceType, number>>> = {
-  RAPID_CLICKING: {
-    BATTERY_JUMP: 4.0, BATTERY_REPLACE: 2.5, STARTER_MOTOR: 1.2,
-    MECHANIC_FIX: 0.5, FUEL_DELIVERY: 0.2,
-  },
-  SINGLE_CLICK: {
-    STARTER_MOTOR: 4.0, BATTERY_JUMP: 1.5, BATTERY_REPLACE: 1.2,
-    MECHANIC_FIX: 1.0, TOW_LIGHT: 1.5,
-  },
-  GRINDING_WHIRRING: {
-    STARTER_MOTOR: 3.0, MECHANIC_FIX: 2.5, TOW_LIGHT: 2.0,
-    TOW_HEAVY: 1.5, BATTERY_JUMP: 0.5,
-  },
-  CRANKS_NO_START: {
-    FUEL_DELIVERY: 3.0, MECHANIC_FIX: 2.5, STARTER_MOTOR: 1.0,
-    TOW_LIGHT: 1.5, BATTERY_JUMP: 0.5,
-  },
-  NO_SOUND: {
-    BATTERY_JUMP: 3.5, BATTERY_REPLACE: 3.0, STARTER_MOTOR: 1.5,
-    MECHANIC_FIX: 0.8, TOW_LIGHT: 1.0,
-  },
-};
+    // Sri Lankan context
+    location_type:       responses.location_type,
+    recent_rain:         responses.recent_rain,
+    parked_overnight:    responses.parked_overnight,
+    vehicle_age_bucket:  responses.vehicle_age_bucket,
+    last_fueled:         responses.last_fueled,
+  };
 
-/**
- * Q4: Dashboard Warning Lamp weights
- * Each lit lamp shifts probabilities toward associated systems
- */
-const DASHBOARD_LAMP_WEIGHTS: Record<DashboardLamp, Partial<Record<ServiceType, number>>> = {
-  BATTERY: {
-    BATTERY_JUMP: 3.0, BATTERY_REPLACE: 2.5, STARTER_MOTOR: 1.3, MECHANIC_FIX: 0.8,
-  },
-  CHECK_ENGINE: {
-    MECHANIC_FIX: 2.5, TOW_LIGHT: 1.3, FUEL_DELIVERY: 0.8, STARTER_MOTOR: 0.9,
-  },
-  OIL_PRESSURE: {
-    MECHANIC_FIX: 2.5, TOW_LIGHT: 2.0, TOW_HEAVY: 1.5,
-  },
-  TEMPERATURE: {
-    MECHANIC_FIX: 2.5, TOW_LIGHT: 2.0, TOW_HEAVY: 1.3,
-  },
-  ABS: {
-    MECHANIC_FIX: 1.8, TOW_LIGHT: 1.2,
-  },
-  BRAKE: {
-    MECHANIC_FIX: 2.0, TOW_LIGHT: 2.0, TOW_HEAVY: 1.5,
-  },
-  AIRBAG: {
-    MECHANIC_FIX: 1.5, TOW_LIGHT: 1.2,
-  },
-  TIRE_PRESSURE: {
-    FLAT_TIRE: 3.5, MECHANIC_FIX: 1.0,
-  },
-  TRANSMISSION: {
-    TOW_LIGHT: 2.5, TOW_HEAVY: 2.0, MECHANIC_FIX: 2.0,
-  },
-};
-
-/**
- * Q5: Fluid Leaking weights
- */
-const FLUID_LEAK_WEIGHTS: Record<string, Partial<Record<ServiceType, number>>> = {
-  YES_COOLANT: { MECHANIC_FIX: 2.0, TOW_LIGHT: 2.5, TOW_HEAVY: 1.5 },
-  YES_OIL: { MECHANIC_FIX: 2.0, TOW_LIGHT: 2.0, TOW_HEAVY: 1.5 },
-  YES_FUEL: { FUEL_DELIVERY: 1.5, TOW_LIGHT: 2.5, TOW_HEAVY: 2.0, MECHANIC_FIX: 1.5 },
-  YES_UNKNOWN: { MECHANIC_FIX: 1.5, TOW_LIGHT: 1.8, TOW_HEAVY: 1.3 },
-  NO: {}, // No adjustment
-};
-
-/**
- * Q6: Problem Onset weights
- * Sudden problems suggest acute failures; gradual suggests wear
- */
-const PROBLEM_ONSET_WEIGHTS: Record<string, Partial<Record<ServiceType, number>>> = {
-  JUST_NOW: {
-    BATTERY_JUMP: 1.5, FLAT_TIRE: 1.8, LOCKOUT: 1.5, FUEL_DELIVERY: 1.3,
-  },
-  TODAY: {
-    BATTERY_JUMP: 1.2, MECHANIC_FIX: 1.3, STARTER_MOTOR: 1.2,
-  },
-  GRADUAL: {
-    MECHANIC_FIX: 2.0, BATTERY_REPLACE: 1.8, STARTER_MOTOR: 1.5,
-    TOW_LIGHT: 1.3, BATTERY_JUMP: 0.7,
-  },
-};
-
-/**
- * Q7: Unusual Smells weights
- */
-const SMELL_WEIGHTS: Record<string, Partial<Record<ServiceType, number>>> = {
-  BURNING: {
-    MECHANIC_FIX: 2.5, TOW_LIGHT: 2.0, TOW_HEAVY: 1.5,
-    BATTERY_REPLACE: 1.5, STARTER_MOTOR: 1.3,
-  },
-  FUEL: {
-    FUEL_DELIVERY: 2.5, MECHANIC_FIX: 1.8, TOW_LIGHT: 1.5,
-  },
-  ROTTEN_EGGS: {
-    BATTERY_REPLACE: 2.5, MECHANIC_FIX: 2.0, TOW_LIGHT: 1.3,
-  },
-  NONE: {}, // No adjustment
-};
-
-/**
- * Q8: Recent Warning Signs weights
- */
-const WARNING_SIGN_WEIGHTS: Record<string, Partial<Record<ServiceType, number>>> = {
-  FLICKERING_LIGHTS: {
-    BATTERY_JUMP: 2.0, BATTERY_REPLACE: 2.5, STARTER_MOTOR: 1.3, MECHANIC_FIX: 1.2,
-  },
-  POWER_LOSS: {
-    MECHANIC_FIX: 2.0, FUEL_DELIVERY: 1.5, TOW_LIGHT: 1.5, STARTER_MOTOR: 1.3,
-  },
-  UNUSUAL_NOISES: {
-    MECHANIC_FIX: 2.0, STARTER_MOTOR: 1.5, TOW_LIGHT: 1.3, TOW_HEAVY: 1.0,
-  },
-  NONE: {}, // No adjustment
-};
-
-
-// ─────────────────────────────────────────────────────────
-// Core Engine
-// ─────────────────────────────────────────────────────────
-
-/**
- * Initialize a uniform probability distribution over all service types.
- * Each type starts with equal probability: 1/9 ≈ 0.111
- */
-function initializeUniformPrior(): ServiceTypeProbabilities {
-  const prob = {} as ServiceTypeProbabilities;
-  const uniformValue = 1.0 / SERVICE_TYPES.length;
-  for (const st of SERVICE_TYPES) {
-    prob[st] = uniformValue;
+  if (obd?.available) {
+    if (obd.battery_voltage_v        !== undefined) input.battery_voltage_v        = obd.battery_voltage_v;
+    if (obd.battery_temp_c           !== undefined) input.battery_temp_c           = obd.battery_temp_c;
+    if (obd.battery_charge_percent   !== undefined) input.battery_charge_percent   = obd.battery_charge_percent;
+    if (obd.battery_health_percent   !== undefined) input.battery_health_percent   = obd.battery_health_percent;
+    if (obd.alternator_output_v      !== undefined) input.alternator_output_v      = obd.alternator_output_v;
+    if (obd.engine_temp_c            !== undefined) input.engine_temp_c            = obd.engine_temp_c;
+    if (obd.coolant_temp_c           !== undefined) input.coolant_temp_c           = obd.coolant_temp_c;
+    if (obd.engine_rpm               !== undefined) input.engine_rpm               = obd.engine_rpm;
+    if (obd.oil_pressure_psi         !== undefined) input.oil_pressure_psi         = obd.oil_pressure_psi;
+    if (obd.fuel_level_percent       !== undefined) input.fuel_level_percent       = obd.fuel_level_percent;
+    if (obd.engine_load_percent      !== undefined) input.engine_load_percent      = obd.engine_load_percent;
+    if (obd.ambient_temp_c           !== undefined) input.ambient_temp_c           = obd.ambient_temp_c;
+    if (obd.brake_fluid_level_psi    !== undefined) input.brake_fluid_level_psi    = obd.brake_fluid_level_psi;
+    if (obd.brake_pad_wear_mm        !== undefined) input.brake_pad_wear_mm        = obd.brake_pad_wear_mm;
+    if (obd.brake_temp_c             !== undefined) input.brake_temp_c             = obd.brake_temp_c;
   }
-  return prob;
+
+  return input;
+}
+
+/** Initialise a probability distribution with 0 across every service type. */
+function zeroProbabilities(): ServiceTypeProbabilities {
+  const out = {} as ServiceTypeProbabilities;
+  for (const st of SERVICE_TYPES) out[st] = 0;
+  return out;
 }
 
 /**
- * Apply multiplicative weight adjustments from a weight table.
- * For each service type with a weight, multiply the current probability.
- * Types without explicit weights remain unchanged.
+ * Take the ML model's per-class probabilities (which only cover the 19 ML
+ * classes) and project them into the full 29-class ServiceTypeProbabilities
+ * shape that downstream ECM expects. Fast-path classes get 0.
  */
-function applyWeights(
-  probabilities: ServiceTypeProbabilities,
-  weights: Partial<Record<ServiceType, number>>
+function expandToFullDistribution(
+  modelProbs: Record<string, number>,
 ): ServiceTypeProbabilities {
-  const result = { ...probabilities };
-  for (const [serviceType, weight] of Object.entries(weights)) {
-    if (weight !== undefined && result[serviceType as ServiceType] !== undefined) {
-      result[serviceType as ServiceType] *= weight;
-    }
-  }
-  return result;
-}
-
-/**
- * Normalize probabilities so they sum to 1.0.
- * Applies Laplace smoothing (minimum floor) to prevent any type from reaching 0.
- */
-function normalize(probabilities: ServiceTypeProbabilities): ServiceTypeProbabilities {
-  const FLOOR = 0.005; // Minimum probability to prevent zero-out
-  const result = { ...probabilities };
-
-  // Apply floor
+  const out = zeroProbabilities();
   for (const st of SERVICE_TYPES) {
-    if (result[st] < FLOOR) result[st] = FLOOR;
+    if (modelProbs[st] !== undefined) out[st] = modelProbs[st];
   }
-
-  // Normalize to sum = 1.0
-  const total = SERVICE_TYPES.reduce((sum, st) => sum + result[st], 0);
-  for (const st of SERVICE_TYPES) {
-    result[st] = result[st] / total;
+  // Re-normalise in case the model's classes didn't perfectly cover 1.0.
+  const total = Object.values(out).reduce((s, p) => s + p, 0);
+  if (total > 0) {
+    for (const st of SERVICE_TYPES) out[st] /= total;
   }
-
-  return result;
+  return out;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Public API
+// ─────────────────────────────────────────────────────────────────────────
+
 /**
- * Calculate Shannon entropy of the distribution.
- * Lower entropy = more certain diagnosis.
- * Max entropy for 9 types = log2(9) ≈ 3.17
+ * Run the diagnostic triage engine.
+ *
+ * Decision flow:
+ *   1. If Q1_intent is a fast-path intent  → return a deterministic
+ *      probability of 1.0 on the mapped ServiceType. No ML.
+ *   2. Else, run the appropriate decision tree:
+ *        - Tier 2 (OBD-enhanced) if `obdData?.available`
+ *        - Tier 1 (questionnaire-only) otherwise
+ *
+ * The Bayesian layer (Tier 3) hooks in *after* this function in a future
+ * commit by post-processing the returned probabilities.
  */
-function calculateEntropy(probabilities: ServiceTypeProbabilities): number {
-  let entropy = 0;
-  for (const st of SERVICE_TYPES) {
-    const p = probabilities[st];
-    if (p > 0) {
-      entropy -= p * Math.log2(p);
-    }
+export function runTriageEngine(
+  responses: TriageResponses,
+  obdData?: OBDData,
+): TriageResult {
+  const startedAt = Date.now();
+
+  // ── Fast-path short-circuit ──────────────────────────────────────────
+  if (isFastPathIntent(responses.Q1_intent)) {
+    const serviceType = FAST_PATH_INTENT_TO_SERVICE[responses.Q1_intent];
+    const probs = zeroProbabilities();
+    probs[serviceType] = 1.0;
+
+    const result: TriageResult = {
+      probabilities:         probs,
+      predictedServiceType:  serviceType,
+      confidence:            1.0,
+      tier:                  'QUESTIONNAIRE_ONLY' as TriageTier,
+      entropy:               0,
+      obdDataUsed:           false,
+      bayesianPriorsApplied: false,
+    };
+
+    logger.info('Triage fast-path dispatched', {
+      Q1_intent: responses.Q1_intent,
+      serviceType,
+      elapsedMs: Date.now() - startedAt,
+    });
+    return result;
   }
-  return entropy;
-}
 
-/**
- * Calculate confidence as 1 - (entropy / maxEntropy).
- * Range: [0, 1] where 1 = perfectly certain.
- */
-function calculateConfidence(entropy: number): number {
-  const maxEntropy = Math.log2(SERVICE_TYPES.length); // log2(9) ≈ 3.17
-  return Math.max(0, 1 - (entropy / maxEntropy));
-}
+  // ── ML path ──────────────────────────────────────────────────────────
+  const tier: 1 | 2 = obdData?.available ? 2 : 1;
+  const treeInput = toTreeInput(responses, obdData);
+  const treeResult = runDecisionTree(treeInput, tier);
 
-/**
- * Find the service type with highest probability.
- */
-function getPredictedServiceType(probabilities: ServiceTypeProbabilities): ServiceType {
-  let maxProb = 0;
-  let predicted: ServiceType = 'MECHANIC_FIX';
+  const probabilities = expandToFullDistribution(treeResult.probabilities);
+
+  // Pick argmax across the FULL distribution (not just the model's classes).
+  // This is robust if expansion ever changes the ranking.
+  let predictedServiceType: ServiceType = 'BATTERY_JUMP';
+  let maxProb = -1;
   for (const st of SERVICE_TYPES) {
     if (probabilities[st] > maxProb) {
       maxProb = probabilities[st];
-      predicted = st;
+      predictedServiceType = st;
     }
   }
-  return predicted;
-}
-
-
-// ─────────────────────────────────────────────────────────
-// Public API
-// ─────────────────────────────────────────────────────────
-
-/**
- * Run the Diagnostic Triage Engine (Tier 1: Questionnaire-Only).
- * 
- * Takes the 8 questionnaire responses and produces a probability
- * distribution over 9 service types.
- * 
- * Algorithm:
- * 1. Start with uniform prior (1/9 each)
- * 2. Q1 (damage) → apply weights
- * 3. Q2 (engine start) → apply weights
- * 4. Q3 (sound, conditional) → apply weights if applicable
- * 5. Q4 (dashboard lamps) → apply weights for each selected lamp
- * 6. Q5 (fluid leak) → apply weights if provided
- * 7. Q6 (onset) → apply weights
- * 8. Q7 (smells) → apply weights
- * 9. Q8 (warnings) → apply weights for each selected warning
- * 10. Normalize → calculate entropy → determine confidence
- */
-export function runTriageEngine(responses: TriageResponses): TriageResult {
-  const startTime = Date.now();
-
-  // Step 1: Uniform prior
-  let probs = initializeUniformPrior();
-
-  // Step 2: Q1 — Visible damage
-  probs = applyWeights(probs, VISIBLE_DAMAGE_WEIGHTS[responses.visibleDamage] || {});
-
-  // Step 3: Q2 — Can start engine
-  probs = applyWeights(probs, ENGINE_START_WEIGHTS[responses.canStartEngine] || {});
-
-  // Step 4: Q3 — Engine sound (conditional on Q2 != YES)
-  if (responses.engineSound && responses.canStartEngine !== 'YES') {
-    probs = applyWeights(probs, ENGINE_SOUND_WEIGHTS[responses.engineSound] || {});
-  }
-
-  // Step 5: Q4 — Dashboard lamps (multi-select: apply each lamp's weights)
-  for (const lamp of responses.dashboardLamps) {
-    probs = applyWeights(probs, DASHBOARD_LAMP_WEIGHTS[lamp] || {});
-  }
-
-  // Step 6: Q5 — Fluid leaking (optional)
-  if (responses.fluidLeaking) {
-    probs = applyWeights(probs, FLUID_LEAK_WEIGHTS[responses.fluidLeaking] || {});
-  }
-
-  // Step 7: Q6 — Problem onset
-  probs = applyWeights(probs, PROBLEM_ONSET_WEIGHTS[responses.problemOnset] || {});
-
-  // Step 8: Q7 — Unusual smells
-  probs = applyWeights(probs, SMELL_WEIGHTS[responses.unusualSmells] || {});
-
-  // Step 9: Q8 — Recent warnings (multi-select)
-  for (const warning of responses.recentWarnings) {
-    probs = applyWeights(probs, WARNING_SIGN_WEIGHTS[warning] || {});
-  }
-
-  // Step 10: Normalize and compute metrics
-  probs = normalize(probs);
-  const entropy = calculateEntropy(probs);
-  const confidence = calculateConfidence(entropy);
-  const predictedServiceType = getPredictedServiceType(probs);
 
   const result: TriageResult = {
-    probabilities: probs,
+    probabilities,
     predictedServiceType,
-    confidence,
-    tier: 'QUESTIONNAIRE_ONLY' as TriageTier,
-    entropy,
-    obdDataUsed: false,
+    confidence:            treeResult.confidence,
+    tier:                  tier === 2 ? 'OBD_ENHANCED' : 'QUESTIONNAIRE_ONLY',
+    entropy:               treeResult.entropy,
+    obdDataUsed:           tier === 2,
     bayesianPriorsApplied: false,
   };
 
-  const elapsed = Date.now() - startTime;
-
-  logger.info('Triage engine completed', {
-    tier: result.tier,
-    predictedServiceType,
-    confidence: confidence.toFixed(3),
-    entropy: entropy.toFixed(3),
-    elapsedMs: elapsed,
-    topProbabilities: getTopN(probs, 3),
+  logger.info('Triage ML inference completed', {
+    tier:                  result.tier,
+    predictedServiceType:  result.predictedServiceType,
+    confidence:            result.confidence.toFixed(3),
+    entropy:               result.entropy.toFixed(3),
+    leafSamples:           treeResult.samplesAtLeaf,
+    pathDepth:             treeResult.pathDepth,
+    elapsedMs:             Date.now() - startedAt,
+    topThree:              topN(probabilities, 3),
   });
 
   return result;
 }
 
-/**
- * Get top N service types by probability (for logging).
- */
-function getTopN(probs: ServiceTypeProbabilities, n: number) {
+function topN(probs: ServiceTypeProbabilities, n: number) {
   return Object.entries(probs)
     .sort(([, a], [, b]) => b - a)
     .slice(0, n)

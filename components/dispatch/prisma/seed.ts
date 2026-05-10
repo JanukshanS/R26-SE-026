@@ -77,7 +77,11 @@ async function main() {
     _count: true,
   });
   console.log('\nProvider distribution:');
-  counts.forEach((c) => console.log(`  ${c.type}: ${c._count}`));
+
+counts.forEach((c: { type: string; _count: number }) => {
+  console.log(`  ${c.type}: ${c._count}`);
+});
+
   console.log('\n🎉 Seed complete!');
 }
 

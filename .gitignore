@@ -97,3 +97,9 @@ credentials.json
 firebase-adminsdk*.json
 google-services.json
 GoogleService-Info.plist
+
+# Reference proposal PDFs and team-provided datasets — do NOT commit
+docs/*.pdf
+docs/*.txt
+docs/NEV_fault_dataset.csv
+docs/synthetic_telemetry_data.csv
