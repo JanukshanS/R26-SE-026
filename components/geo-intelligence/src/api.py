@@ -165,7 +165,9 @@ def hotspots() -> List[HotspotCluster]:
             incident_count=int(
                 row.get("incident_count", row.get("count", 0))
             ),
-            avg_score=float(row.get("avg_score", 0.0)),
+            avg_score=float(
+                row.get("avg_score", row.get("avgScore", 0.0))
+            ),
             composite_risk=float(
                 row.get("composite_risk", row.get("risk", 0.0))
             ),

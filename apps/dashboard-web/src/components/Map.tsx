@@ -127,6 +127,7 @@ export default function Map({ incidents, hotspots, onSelectIncident, filters, la
           fillOpacity: 0.12,
           weight: 2,
           dashArray: "6 4",
+          interactive: false,
         });
 
         circle.bindPopup(

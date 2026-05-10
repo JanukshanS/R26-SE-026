@@ -61,12 +61,15 @@ class ImpactScoringModel:
     5. Incident Severity Factor (ISF): Type and expected duration of incident
     """
 
+    # Refined weights from SLSQP optimization against SUMO ground truth
+    # (Pearson r = 0.904; +63.7% over the original domain-knowledge defaults).
+    # See RP/docs/slsqp-weight-refinement.md for derivation and caveats.
     WEIGHTS = {
-        "capacity_loss": 0.25,
-        "traffic_volume": 0.25,
-        "temporal": 0.20,
-        "location": 0.15,
-        "incident_severity": 0.15,
+        "capacity_loss": 0.500,
+        "location": 0.220,
+        "incident_severity": 0.180,
+        "traffic_volume": 0.050,
+        "temporal": 0.050,
     }
 
     ROAD_CAPACITY_VPH = {
