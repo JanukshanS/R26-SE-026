@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #F97316;
+  --color-brand-soft: #FFEDD5;
+  --color-brand-pressed: #EA6A0F;
+}
+
+:root {
+  --bg: #FFF7E6;
+  --surface: #FFFFFF;
+  --surface-2: #FAF1DC;
+  --border: #F0E2C8;
+  --text: #1B1B1B;
+  --text-muted: #6B7280;
+  --accent: #F97316;
+  --critical: #ef4444;
+  --high: #f97316;
+  --medium: #eab308;
+  --low: #22c55e;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.leaflet-container {
+  background: var(--surface-2) !important;
+  border-radius: 0.75rem;
+}
+
+.leaflet-popup-content-wrapper {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 8px 32px rgba(15, 15, 15, 0.12) !important;
+}
+
+.leaflet-popup-tip {
+  background: var(--surface) !important;
+}
+
+.priority-critical { color: var(--critical); }
+.priority-high { color: var(--high); }
+.priority-medium { color: var(--medium); }
+.priority-low { color: var(--low); }
