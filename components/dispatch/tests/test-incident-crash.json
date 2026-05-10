@@ -1,0 +1,5 @@
+{
+  "location": { "latitude": 6.8567, "longitude": 79.8650 },
+  "vehicleInfo": { "make": "Nissan", "model": "March", "year": 2015, "fuelType": "PETROL" },
+  "description": "Vehicle crashed into barrier - can't drive"
+}

@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  # 1. Your Dispatch Service
+  dispatch-service:
+    build:
+      context: ./components/dispatch
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=postgresql://kaduna:kaduna_dev@postgres:5432/dispatch_db
+    depends_on:
+      - postgres
+      - redis
+
+  # 2. Predictive Maintenance Service
+  predictive-service:
+    build:
+      context: ./components/predictive-maintenance
+    ports:
+      - "5003:5003"
+
+  # 3. Geo-Intelligence Service
+  geo-intelligence-service:
+    build:
+      context: ./components/geo-intelligence
+    ports:
+      - "5001:5001"
+
+  # Shared Infrastructure
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=kaduna
+      - POSTGRES_PASSWORD=kaduna_dev
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
