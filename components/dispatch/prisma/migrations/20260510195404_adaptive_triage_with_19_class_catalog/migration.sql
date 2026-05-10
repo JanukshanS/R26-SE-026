@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "ServiceType" AS ENUM ('BATTERY_JUMP', 'BATTERY_REPLACE', 'STARTER_MOTOR', 'FUEL_DELIVERY', 'FLAT_TIRE', 'LOCKOUT', 'MECHANIC_FIX', 'TOW_LIGHT', 'TOW_HEAVY');
+CREATE TYPE "ServiceType" AS ENUM ('BATTERY_JUMP', 'BATTERY_TERMINAL_CLEAN', 'BATTERY_REPLACE', 'ALTERNATOR_ISSUE', 'STARTER_MOTOR', 'COOLANT_LOW', 'RADIATOR_FAN_ISSUE', 'RADIATOR_HOSE_LEAK', 'ENGINE_OVERHEAT_SEVERE', 'BELT_BROKEN', 'FUEL_FILTER_CLOGGED', 'FUEL_PUMP', 'IGNITION_SYSTEM', 'ELECTRICAL_FAULT_RAIN', 'BRAKE_PAD_WORN', 'BRAKE_FAILURE', 'CLUTCH_WORN', 'TRANSMISSION_ISSUE', 'SEVERE_MECHANICAL_TOW', 'LOCKOUT', 'KEY_LOST', 'FLAT_TIRE_CHANGE', 'FUEL_EMPTY', 'FUEL_WRONG', 'LIGHT_BULB', 'BLOWN_FUSE', 'MAJOR_ACCIDENT', 'URGENT_TOW', 'FLOOD_RECOVERY');
 
 -- CreateEnum
 CREATE TYPE "ProviderType" AS ENUM ('MOBILE_MECHANIC', 'FUEL_DELIVERY', 'LOCKSMITH', 'TOW_LIGHT', 'TOW_HEAVY');
@@ -38,14 +38,24 @@ CREATE TABLE "incidents" (
 CREATE TABLE "triage_responses" (
     "id" TEXT NOT NULL,
     "incidentId" TEXT NOT NULL,
-    "visibleDamage" TEXT NOT NULL,
-    "canStartEngine" TEXT NOT NULL,
-    "engineSound" TEXT,
-    "dashboardLamps" TEXT[],
-    "fluidLeaking" TEXT,
-    "problemOnset" TEXT NOT NULL,
-    "unusualSmells" TEXT NOT NULL,
-    "recentWarnings" TEXT[],
+    "q1Intent" TEXT NOT NULL,
+    "q2EngineStart" TEXT NOT NULL,
+    "q2bRunningIssue" TEXT NOT NULL,
+    "q3Sound" TEXT NOT NULL,
+    "q3bElectrical" TEXT NOT NULL,
+    "q4NoiseDetail" TEXT NOT NULL,
+    "q7OverheatDetail" TEXT NOT NULL,
+    "q8SmokeColor" TEXT NOT NULL,
+    "qBrakeDetail" TEXT NOT NULL,
+    "qGearDetail" TEXT NOT NULL,
+    "q6Smells" TEXT NOT NULL,
+    "q5Lights" TEXT[],
+    "q9Recent" TEXT[],
+    "locationType" TEXT NOT NULL,
+    "recentRain" TEXT NOT NULL,
+    "parkedOvernight" TEXT NOT NULL,
+    "vehicleAgeBucket" TEXT NOT NULL,
+    "lastFueled" TEXT NOT NULL,
     "probabilities" JSONB NOT NULL,
     "predictedServiceType" "ServiceType" NOT NULL,
     "confidence" DOUBLE PRECISION NOT NULL,

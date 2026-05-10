@@ -28,8 +28,8 @@ import {
 
 export const triageRouter = Router();
 
-/** Persistence flag — set to true once the Prisma migration (1.7) is live. */
-const PERSIST_TRIAGE_RECORDS = false;
+/** Persistence flag — true now that the Prisma migration (1.7) is live. */
+const PERSIST_TRIAGE_RECORDS = true;
 
 // ─────────────────────────────────────────────────────────────────────────
 // GET /api/v1/triage/questions  — adaptive form schema
@@ -320,35 +320,75 @@ triageRouter.post('/submit', async (req, res) => {
     // Run the engine (decision tree, fast-path-aware).
     const triageResult = runTriageEngine(responses as any, obdData as any);
 
-    // Move incident → DISPATCHING (unless fast-path went straight to URGENT etc.).
+    // Persist the triage record to the new adaptive schema.
+    let triageRecordId: string | null = null;
+    if (PERSIST_TRIAGE_RECORDS) {
+      const triageRecord = await prisma.triageResponse.create({
+        data: {
+          incidentId,
+
+          // Q1 intent + adaptive single-selects
+          q1Intent:         responses.Q1_intent,
+          q2EngineStart:    responses.Q2_engine_start,
+          q2bRunningIssue:  responses.Q2b_running_issue,
+          q3Sound:          responses.Q3_sound,
+          q3bElectrical:    responses.Q3b_electrical,
+          q4NoiseDetail:    responses.Q4_noise_detail,
+          q7OverheatDetail: responses.Q7_overheat_detail,
+          q8SmokeColor:     responses.Q8_smoke_color,
+          qBrakeDetail:     responses.Q_brake_detail,
+          qGearDetail:      responses.Q_gear_detail,
+          q6Smells:         responses.Q6_smells,
+
+          // Multi-select tail
+          q5Lights:         responses.Q5_lights,
+          q9Recent:         responses.Q9_recent,
+
+          // Sri Lankan context
+          locationType:      responses.location_type,
+          recentRain:        responses.recent_rain,
+          parkedOvernight:   responses.parked_overnight,
+          vehicleAgeBucket:  responses.vehicle_age_bucket,
+          lastFueled:        responses.last_fueled,
+
+          // Engine output
+          probabilities:         triageResult.probabilities as any,
+          predictedServiceType:  triageResult.predictedServiceType as any,
+          confidence:            triageResult.confidence,
+          tier:                  triageResult.tier,
+          entropy:               triageResult.entropy,
+          obdDataUsed:           triageResult.obdDataUsed,
+          bayesianPriorsApplied: triageResult.bayesianPriorsApplied,
+
+          // Optional OBD telemetry snapshot
+          obdData: obdData ? (obdData as any) : undefined,
+        },
+      });
+      triageRecordId = triageRecord.id;
+    }
+
+    // Move incident → DISPATCHING.
     await prisma.incident.update({
       where: { id: incidentId },
       data:  { status: 'DISPATCHING' },
     });
 
-    // Persistence is intentionally skipped until the Prisma migration (1.7).
-    if (PERSIST_TRIAGE_RECORDS) {
-      logger.warn('PERSIST_TRIAGE_RECORDS is enabled but persistence code ' +
-                  'awaits the new schema in task 1.7 — skipping write.');
-    }
-
     logger.info('Triage submitted', {
       incidentId,
+      triageRecordId,
       Q1_intent:            responses.Q1_intent,
       tier:                 triageResult.tier,
       predictedServiceType: triageResult.predictedServiceType,
       confidence:           triageResult.confidence.toFixed(3),
-      persistedToDB:        PERSIST_TRIAGE_RECORDS,
     });
 
     res.json({
       success: true,
       data: {
         incidentId,
+        triageRecordId,
         result: triageResult,
         message: `Diagnosis: ${triageResult.predictedServiceType} (${(triageResult.confidence * 100).toFixed(1)}% confidence, tier ${triageResult.tier})`,
-        warnings: PERSIST_TRIAGE_RECORDS ? undefined :
-          ['Triage record was NOT persisted to DB (Prisma schema migration pending — task 1.7).'],
       },
       timestamp: new Date().toISOString(),
     });
