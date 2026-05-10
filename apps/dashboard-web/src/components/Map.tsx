@@ -25,12 +25,17 @@ export default function Map({ incidents, hotspots, onSelectIncident, filters, la
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!mapRef.current || leafletMap.current) return;
+    if (!mapRef.current) return;
+    let cancelled = false;
+    let localMap: any = null;
 
     const initMap = async () => {
       const L = (await import("leaflet")).default;
+      if (cancelled || !mapRef.current) return;
+      const node = mapRef.current as HTMLDivElement & { _leaflet_id?: number };
+      if (node._leaflet_id || leafletMap.current) return;
 
-      const map = L.map(mapRef.current!, {
+      const map = L.map(node, {
         center: [6.9271, 79.8612],
         zoom: 12,
         zoomControl: false,
@@ -38,11 +43,17 @@ export default function Map({ incidents, hotspots, onSelectIncident, filters, la
 
       L.control.zoom({ position: "topright" }).addTo(map);
 
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/voyager/{z}/{x}/{y}{r}.png", {
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
-        maxZoom: 19,
-      }).addTo(map);
+      L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+        {
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          subdomains: "abcd",
+          maxZoom: 20,
+        },
+      ).addTo(map);
 
+      localMap = map;
       leafletMap.current = map;
       layersRef.current = {
         incidents: L.layerGroup().addTo(map),
@@ -56,10 +67,14 @@ export default function Map({ incidents, hotspots, onSelectIncident, filters, la
     initMap();
 
     return () => {
-      if (leafletMap.current) {
-        leafletMap.current.remove();
-        leafletMap.current = null;
+      cancelled = true;
+      const m = localMap ?? leafletMap.current;
+      if (m) {
+        try { m.remove(); } catch { /* node already gone */ }
       }
+      leafletMap.current = null;
+      layersRef.current = {};
+      setReady(false);
     };
   }, []);
 
