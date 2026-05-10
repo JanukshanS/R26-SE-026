@@ -1,96 +1,122 @@
 /**
  * ============================================================================
- * Provider Capability Matrix
+ * Provider Capability Matrix (29 service types × 5 provider types)
  * ============================================================================
- * 
- * Defines which service types each provider type can handle.
- * This is the core lookup table used by the ECM algorithm to determine
- * match vs. mismatch costs.
- * 
- * Key insight: Tow trucks have broader capabilities (battery, flat tire, towing)
- * while specialists (locksmith, fuel delivery) are limited. This asymmetry is
- * critical when diagnosis is uncertain — a tow truck is a "safer" dispatch
- * choice but more expensive.
- * 
- * Source: Validated against Sri Lankan roadside provider capabilities through
- * informal consultations with local providers and insurance representatives.
- * 
- * @module constants/capability-matrix
+ *
+ * Lookup table for which provider types can handle which service types.
+ * Used by the ECM optimizer to decide MATCH vs MISMATCH cost for every
+ * (provider, service_type) pair.
+ *
+ * The 29 service types come from src/types/index.ts:
+ *   - 19 ML-diagnosable types (output of the decision tree)
+ *   - 10 fast-path types (driver self-selects)
+ *
+ * Capability rationale:
+ *   - MOBILE_MECHANIC: anything fixable on-scene (battery, fuel filter,
+ *     belt, sensor, fuse, light bulb). Cannot tow.
+ *   - FUEL_DELIVERY:   only fuel-related fast-paths.
+ *   - LOCKSMITH:       only lock/key fast-paths.
+ *   - TOW_LIGHT:       can tow most cars; can also cover quick on-scene
+ *     fixes that don't need a full mechanic visit (jump, tire change).
+ *   - TOW_HEAVY:       superset of TOW_LIGHT plus heavy/severe cases.
+ *
  * @author Janukshan Sivakumar - IT22635266
  */
 
 import { ProviderType, ServiceType } from '../types';
 
-/**
- * Provider Type → Set of ServiceTypes it can handle.
- * 
- * Matrix (from research proposal Table 13):
- * 
- * Provider Type     | Battery | Flat Tire | Fuel | Lockout | Mechanic Fix | Tow Light | Tow Heavy
- * ─────────────────-+---------+-----------+------+---------+--------------+-----------+----------
- * Mobile Mechanic   |    ✓    |     ✓     |  ✗   |    ✗    |      ✓       |     ✗     |    ✗
- * Fuel Delivery     |    ✗    |     ✗     |  ✓   |    ✗    |      ✗       |     ✗     |    ✗
- * Locksmith         |    ✗    |     ✗     |  ✗   |    ✓    |      ✗       |     ✗     |    ✗
- * Light Tow Truck   |    ✓    |     ✓     |  ✗   |    ✗    |      ✗       |     ✓     |    ✗
- * Heavy Tow Truck   |    ✓    |     ✓     |  ✗   |    ✗    |      ✗       |     ✓     |    ✓
- */
 export const CAPABILITY_MATRIX: Record<ProviderType, Set<ServiceType>> = {
-  MOBILE_MECHANIC: new Set([
+  // ── MOBILE_MECHANIC ─────────────────────────────────────────────────
+  // Anything fixable on the roadside without towing. Battery work,
+  // belts, fluids, fuel filter, sensor reset, bulbs/fuses.
+  MOBILE_MECHANIC: new Set<ServiceType>([
+    'BATTERY_JUMP', 'BATTERY_TERMINAL_CLEAN', 'BATTERY_REPLACE',
+    'ALTERNATOR_ISSUE',
+    'STARTER_MOTOR',
+    'COOLANT_LOW', 'RADIATOR_FAN_ISSUE', 'RADIATOR_HOSE_LEAK',
+    'BELT_BROKEN',
+    'FUEL_FILTER_CLOGGED', 'FUEL_PUMP', 'IGNITION_SYSTEM',
+    'ELECTRICAL_FAULT_RAIN',
+    'BRAKE_PAD_WORN',
+    // Fast-paths
+    'FLAT_TIRE_CHANGE',
+    'LIGHT_BULB', 'BLOWN_FUSE',
+  ]),
+
+  // ── FUEL_DELIVERY ────────────────────────────────────────────────────
+  FUEL_DELIVERY: new Set<ServiceType>([
+    'FUEL_EMPTY',
+    'FUEL_WRONG',  // delivers fresh correct fuel; tow needed if tank contaminated
+  ]),
+
+  // ── LOCKSMITH ────────────────────────────────────────────────────────
+  LOCKSMITH: new Set<ServiceType>([
+    'LOCKOUT', 'KEY_LOST',
+  ]),
+
+  // ── TOW_LIGHT ────────────────────────────────────────────────────────
+  // Light tow truck. Can do battery jumps and tire changes on-scene.
+  // Tows passenger cars to a workshop for the harder work.
+  TOW_LIGHT: new Set<ServiceType>([
     'BATTERY_JUMP',
-    'BATTERY_REPLACE',
-    'FLAT_TIRE',
-    'MECHANIC_FIX',
+    'FLAT_TIRE_CHANGE',
+    'STARTER_MOTOR',                  // tow to garage
+    'ALTERNATOR_ISSUE',               // tow to garage
+    'BELT_BROKEN',                    // tow to garage
+    'RADIATOR_FAN_ISSUE',             // tow to garage
+    'RADIATOR_HOSE_LEAK',             // tow to garage
+    'FUEL_FILTER_CLOGGED', 'FUEL_PUMP', 'IGNITION_SYSTEM',
+    'ELECTRICAL_FAULT_RAIN',
+    'BRAKE_PAD_WORN', 'BRAKE_FAILURE',
+    'CLUTCH_WORN', 'TRANSMISSION_ISSUE',
+    'ENGINE_OVERHEAT_SEVERE',
   ]),
 
-  FUEL_DELIVERY: new Set([
-    'FUEL_DELIVERY',
-  ]),
-
-  LOCKSMITH: new Set([
-    'LOCKOUT',
-  ]),
-
-  TOW_LIGHT: new Set([
+  // ── TOW_HEAVY ────────────────────────────────────────────────────────
+  // Heavy recovery: trucks/SUVs, accidents, ditches, floods.
+  TOW_HEAVY: new Set<ServiceType>([
+    // Everything TOW_LIGHT can do
     'BATTERY_JUMP',
-    'FLAT_TIRE',
-    'TOW_LIGHT',
-  ]),
-
-  TOW_HEAVY: new Set([
-    'BATTERY_JUMP',
-    'FLAT_TIRE',
-    'TOW_LIGHT',
-    'TOW_HEAVY',
+    'FLAT_TIRE_CHANGE',
+    'STARTER_MOTOR',
+    'ALTERNATOR_ISSUE',
+    'BELT_BROKEN',
+    'RADIATOR_FAN_ISSUE', 'RADIATOR_HOSE_LEAK',
+    'FUEL_FILTER_CLOGGED', 'FUEL_PUMP', 'IGNITION_SYSTEM',
+    'ELECTRICAL_FAULT_RAIN',
+    'BRAKE_PAD_WORN', 'BRAKE_FAILURE',
+    'CLUTCH_WORN', 'TRANSMISSION_ISSUE',
+    'ENGINE_OVERHEAT_SEVERE',
+    // Heavy-only
+    'SEVERE_MECHANICAL_TOW',
+    'MAJOR_ACCIDENT',
+    'URGENT_TOW',
+    'FLOOD_RECOVERY',
   ]),
 };
 
-/**
- * Check if a specific provider type can handle a given service type.
- */
-export function canProviderHandle(providerType: ProviderType, serviceType: ServiceType): boolean {
-  return CAPABILITY_MATRIX[providerType]?.has(serviceType) ?? false;
+/** Can this provider type handle this service type? */
+export function canProviderHandle(p: ProviderType, s: ServiceType): boolean {
+  return CAPABILITY_MATRIX[p]?.has(s) ?? false;
+}
+
+/** All service types this provider type can handle. */
+export function getProviderCapabilities(p: ProviderType): ServiceType[] {
+  return Array.from(CAPABILITY_MATRIX[p] ?? []);
 }
 
 /**
- * Get all capabilities for a provider type.
- */
-export function getProviderCapabilities(providerType: ProviderType): ServiceType[] {
-  return Array.from(CAPABILITY_MATRIX[providerType] || []);
-}
-
-/**
- * Calculate mismatch risk: probability that the provider CANNOT handle the actual service needed.
- * mismatchRisk = Σ P(type_k) for all type_k NOT in provider's capabilities
+ * Mismatch risk for a provider given a probability distribution:
+ *   P(provider can't handle the actual service needed)
+ * = Σ P(type_k) for type_k NOT in provider's capabilities.
  */
 export function calculateMismatchRisk(
-  providerType: ProviderType,
-  probabilities: Record<ServiceType, number>
+  p: ProviderType,
+  probabilities: Record<ServiceType, number>,
 ): number {
   let risk = 0;
   for (const [serviceType, probability] of Object.entries(probabilities)) {
-    if (!canProviderHandle(providerType, serviceType as ServiceType)) {
-      risk += probability;
-    }
+    if (!canProviderHandle(p, serviceType as ServiceType)) risk += probability;
   }
   return risk;
 }
