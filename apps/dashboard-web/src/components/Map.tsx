@@ -55,10 +55,13 @@ export default function Map({ incidents, hotspots, onSelectIncident, filters, la
 
       localMap = map;
       leafletMap.current = map;
+      // Order matters: last-added wins z-order. We want incidents on top so
+      // the user can click an incident marker that sits inside a hotspot.
+      // Heatmap is decorative and goes underneath everything else.
       layersRef.current = {
-        incidents: L.layerGroup().addTo(map),
-        hotspots: L.layerGroup().addTo(map),
         heatmap: L.layerGroup().addTo(map),
+        hotspots: L.layerGroup().addTo(map),
+        incidents: L.layerGroup().addTo(map),
       };
 
       setReady(true);
@@ -127,7 +130,6 @@ export default function Map({ incidents, hotspots, onSelectIncident, filters, la
           fillOpacity: 0.12,
           weight: 2,
           dashArray: "6 4",
-          interactive: false,
         });
 
         circle.bindPopup(
