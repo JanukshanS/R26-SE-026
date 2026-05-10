@@ -2,53 +2,100 @@
  * ============================================================================
  * UADO Framework — Core Type Definitions
  * ============================================================================
- * 
+ *
  * Central type definitions for the Uncertainty-Aware Dispatch Optimization
- * framework. All service types, provider types, incident states, and
- * algorithm interfaces are defined here.
- * 
- * Design Decision: We use string literal union types instead of TypeScript
- * enums for better JSON serialization, Prisma compatibility, and tree-shaking.
- * These are mirrored in the Prisma schema as PostgreSQL enums.
- * 
+ * framework. Service types, provider types, lifecycle states, and triage
+ * interfaces all live here.
+ *
  * @module types
  * @author Janukshan Sivakumar - IT22635266
  */
 
-// ─────────────────────────────────────────────────────────
-// Service Types — What kind of help is needed?
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+// Service Types — what kind of help is needed?
+// ─────────────────────────────────────────────────────────────────────────
+//
+// The catalog is split into two cohorts:
+//
+//   - ML_SERVICE_TYPES (19 classes) — diagnosed by the trained decision
+//     tree from questionnaire (+ optional OBD) inputs. These are the
+//     genuinely ambiguous cases where the driver doesn't know what's wrong.
+//
+//   - FAST_PATH_SERVICE_TYPES (10 classes) — selected directly by the driver
+//     in the Q1 intent picker. No ML inference; deterministic dispatch.
+//
+// The combined SERVICE_TYPES tuple is used everywhere downstream (capability
+// matrix, ECM probability distributions, etc.).
+// ─────────────────────────────────────────────────────────────────────────
+
+/** 19 service types diagnosed by the ML decision tree. */
+export const ML_SERVICE_TYPES = [
+  // Battery & charging
+  'BATTERY_JUMP', 'BATTERY_TERMINAL_CLEAN', 'BATTERY_REPLACE', 'ALTERNATOR_ISSUE',
+  // Starting
+  'STARTER_MOTOR',
+  // Cooling
+  'COOLANT_LOW', 'RADIATOR_FAN_ISSUE', 'RADIATOR_HOSE_LEAK', 'ENGINE_OVERHEAT_SEVERE',
+  // Belts
+  'BELT_BROKEN',
+  // Fuel & ignition
+  'FUEL_FILTER_CLOGGED', 'FUEL_PUMP', 'IGNITION_SYSTEM',
+  // Electrical
+  'ELECTRICAL_FAULT_RAIN',
+  // Brakes
+  'BRAKE_PAD_WORN', 'BRAKE_FAILURE',
+  // Drivetrain
+  'CLUTCH_WORN', 'TRANSMISSION_ISSUE',
+  // Severe / tow-required
+  'SEVERE_MECHANICAL_TOW',
+] as const;
+
+export type MLServiceType = typeof ML_SERVICE_TYPES[number];
+
+/** 10 fast-path service types selected directly by the driver in Q1. */
+export const FAST_PATH_SERVICE_TYPES = [
+  'LOCKOUT', 'KEY_LOST',
+  'FLAT_TIRE_CHANGE',
+  'FUEL_EMPTY', 'FUEL_WRONG',
+  'LIGHT_BULB', 'BLOWN_FUSE',
+  'MAJOR_ACCIDENT',
+  'URGENT_TOW',          // fuel leak / electrical fire / immediate safety
+  'FLOOD_RECOVERY',      // landslide / flood / ditch recovery
+] as const;
+
+export type FastPathServiceType = typeof FAST_PATH_SERVICE_TYPES[number];
 
 /**
- * The 9 possible roadside service types that the diagnostic triage engine
- * can identify. These form the probability distribution output.
- * 
- * Based on real-world roadside incident distributions validated through
- * consultations with Sri Lankan roadside assistance providers.
+ * Combined catalog (29 entries). Listed explicitly to preserve the const
+ * tuple type for downstream `typeof[number]` derivations.
  */
 export const SERVICE_TYPES = [
-  'BATTERY_JUMP',
-  'BATTERY_REPLACE',
+  // ML
+  'BATTERY_JUMP', 'BATTERY_TERMINAL_CLEAN', 'BATTERY_REPLACE', 'ALTERNATOR_ISSUE',
   'STARTER_MOTOR',
-  'FUEL_DELIVERY',
-  'FLAT_TIRE',
-  'LOCKOUT',
-  'MECHANIC_FIX',
-  'TOW_LIGHT',
-  'TOW_HEAVY',
+  'COOLANT_LOW', 'RADIATOR_FAN_ISSUE', 'RADIATOR_HOSE_LEAK', 'ENGINE_OVERHEAT_SEVERE',
+  'BELT_BROKEN',
+  'FUEL_FILTER_CLOGGED', 'FUEL_PUMP', 'IGNITION_SYSTEM',
+  'ELECTRICAL_FAULT_RAIN',
+  'BRAKE_PAD_WORN', 'BRAKE_FAILURE',
+  'CLUTCH_WORN', 'TRANSMISSION_ISSUE',
+  'SEVERE_MECHANICAL_TOW',
+  // Fast-path
+  'LOCKOUT', 'KEY_LOST',
+  'FLAT_TIRE_CHANGE',
+  'FUEL_EMPTY', 'FUEL_WRONG',
+  'LIGHT_BULB', 'BLOWN_FUSE',
+  'MAJOR_ACCIDENT',
+  'URGENT_TOW',
+  'FLOOD_RECOVERY',
 ] as const;
 
 export type ServiceType = typeof SERVICE_TYPES[number];
 
-// ─────────────────────────────────────────────────────────
-// Provider Types — Who can help?
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+// Provider Types
+// ─────────────────────────────────────────────────────────────────────────
 
-/**
- * The 5 categories of service providers in the roadside assistance network.
- * Each provider type can handle a specific subset of service types,
- * defined in the capability matrix.
- */
 export const PROVIDER_TYPES = [
   'MOBILE_MECHANIC',
   'FUEL_DELIVERY',
@@ -59,391 +106,348 @@ export const PROVIDER_TYPES = [
 
 export type ProviderType = typeof PROVIDER_TYPES[number];
 
-// ─────────────────────────────────────────────────────────
-// Incident Status — Lifecycle state machine
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+// Incident lifecycle
+// ─────────────────────────────────────────────────────────────────────────
 
-/**
- * Incident lifecycle states. An incident progresses linearly through these
- * states, with possible loops back to DISPATCHING on provider decline.
- * 
- * Flow: CREATED → TRIAGING → DISPATCHING → PROVIDER_ASSIGNED → EN_ROUTE
- *       → ON_SCENE → RESOLVED
- *                  → ESCALATED (if on-scene provider can't handle)
- *       CANCELLED (user cancels at any point)
- */
 export const INCIDENT_STATUSES = [
-  'CREATED',
-  'TRIAGING',
-  'DISPATCHING',
-  'PROVIDER_ASSIGNED',
-  'EN_ROUTE',
-  'ON_SCENE',
-  'RESOLVED',
-  'ESCALATED',
-  'CANCELLED',
+  'CREATED', 'TRIAGING', 'DISPATCHING', 'PROVIDER_ASSIGNED',
+  'EN_ROUTE', 'ON_SCENE', 'RESOLVED', 'ESCALATED', 'CANCELLED',
 ] as const;
 
 export type IncidentStatus = typeof INCIDENT_STATUSES[number];
 
-// ─────────────────────────────────────────────────────────
-// Diagnostic Triage Types
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+// Triage Engine — tier, output, and the adaptive questionnaire shape
+// ─────────────────────────────────────────────────────────────────────────
 
 /**
  * Triage tier determines the data sources used for diagnosis.
- * - QUESTIONNAIRE_ONLY: No OBD-II, no historical data (baseline)
- * - OBD_ENHANCED: Questionnaire + OBD-II vehicle telemetry
- * - BAYESIAN_LEARNED: OBD-enhanced + historical Bayesian priors
+ *   QUESTIONNAIRE_ONLY: questionnaire only, no OBD, no priors  (Tier 1)
+ *   OBD_ENHANCED:       questionnaire + OBD-II telemetry        (Tier 2)
+ *   BAYESIAN_LEARNED:   either tier above, refined by Bayesian priors (Tier 3)
  */
 export type TriageTier = 'QUESTIONNAIRE_ONLY' | 'OBD_ENHANCED' | 'BAYESIAN_LEARNED';
 
-/**
- * A probability distribution over service types.
- * Each key is a ServiceType, and the value is a probability [0, 1].
- * All values must sum to 1.0 (within floating-point tolerance).
- */
+/** Probability distribution over service types. Sums to 1.0. */
 export type ServiceTypeProbabilities = Record<ServiceType, number>;
 
-/**
- * Dashboard warning lamp identifiers.
- * These correspond to visual icons shown to the user in Q4.
- * 
- * Design Decision: We use visual icon selection rather than text options
- * because drivers can visually match lit dashboard indicators more accurately
- * than describing them by name.
- */
-export const DASHBOARD_LAMPS = [
-  'BATTERY',           // Battery/charging system warning
-  'CHECK_ENGINE',      // Engine/MIL warning  
-  'OIL_PRESSURE',      // Oil pressure warning
-  'TEMPERATURE',       // Engine temperature/overheating
-  'ABS',               // Anti-lock braking system
-  'BRAKE',             // Brake system warning
-  'AIRBAG',            // Airbag/SRS system
-  'TIRE_PRESSURE',     // TPMS warning
-  'TRANSMISSION',      // Transmission temperature/fault
-] as const;
+/** Sentinel value used by adaptive form fields the user wasn't asked. */
+export const NOT_ASKED = 'NOT_ASKED' as const;
+export type NotAsked = typeof NOT_ASKED;
 
+/** Helper: makes any string-literal type include the NOT_ASKED sentinel. */
+export type Adaptive<T extends string> = T | NotAsked;
+
+// ── Q1 intent picker ────────────────────────────────────────────────────
+// Both cohorts of answers live here. Fast-path answers cause the front-end
+// to short-circuit ML and dispatch directly; ML-engaging answers continue
+// down the adaptive form.
+
+export const Q1_ML_INTENTS     = ['WONT_START', 'ENGINE_PROBLEM', 'WEIRD_BEHAVIOR',
+                                  'BRAKE_ISSUE', 'GEAR_ISSUE'] as const;
+export const Q1_FAST_INTENTS   = ['LOCKOUT', 'FLAT_TIRE', 'FUEL_EMPTY', 'FUEL_WRONG',
+                                  'MAJOR_CRASH', 'FUEL_LEAK_FIRE_RISK', 'LIGHT_BULB',
+                                  'BLOWN_FUSE', 'KEY_LOST', 'STUCK_FLOOD'] as const;
+
+export type Q1MLIntent   = typeof Q1_ML_INTENTS[number];
+export type Q1FastIntent = typeof Q1_FAST_INTENTS[number];
+export type Q1Intent     = Q1MLIntent | Q1FastIntent;
+
+// ── Adaptive single-select questions ────────────────────────────────────
+
+export type Q2EngineStart    = Adaptive<'STARTS_NORMAL' | 'STARTS_BUT_ISSUE' |
+                                        'CRANKS_NO_START' | 'NO_CRANK'>;
+export type Q2bRunningIssue  = Adaptive<'OVERHEATING' | 'NOISE' | 'NO_POWER' |
+                                        'SMOKE' | 'STALLING'>;
+export type Q3Sound          = Adaptive<'RAPID_CLICKING' | 'SINGLE_CLICK' |
+                                        'NORMAL_CRANKING' | 'GRINDING' |
+                                        'NOTHING' | 'WHIRRING'>;
+export type Q3bElectrical    = Adaptive<'ALL_DEAD_NO_LIGHTS' | 'DIM_LIGHTS' |
+                                        'SOME_LIGHTS_ON'>;
+export type Q4NoiseDetail    = Adaptive<'SQUEAL' | 'KNOCK' | 'GRIND' |
+                                        'WHINE' | 'CLUNK'>;
+export type Q7OverheatDetail = Adaptive<'TRAFFIC_ONLY' | 'ALWAYS' |
+                                        'HILL_CLIMB' | 'WITH_AC'>;
+export type Q8SmokeColor     = Adaptive<'WHITE' | 'BLUE_GREY' | 'BLACK' |
+                                        'ELECTRICAL_BURNING'>;
+export type QBrakeDetail     = Adaptive<'SQUEALING' | 'GRINDING' |
+                                        'PULL_ONE_SIDE' | 'SOFT_PEDAL'>;
+export type QGearDetail      = Adaptive<'SLIPPING' | 'WONT_ENGAGE' |
+                                        'GRINDING' | 'CLUTCH_SOFT'>;
+export type Q6Smells         = 'BURNING_ELECTRICAL' | 'BURNING_OIL' | 'FUEL_SMELL' |
+                               'ROTTEN_EGGS' | 'SWEET' | 'NO_SMELL';
+
+// ── Multi-select tail questions ─────────────────────────────────────────
+
+export const DASHBOARD_LAMPS = [
+  'BATTERY', 'CHECK_ENGINE', 'OIL', 'TEMPERATURE',
+  'ABS', 'BRAKE', 'TIRE_PRESSURE', 'SERVICE', 'GLOW_PLUG', 'NONE',
+] as const;
 export type DashboardLamp = typeof DASHBOARD_LAMPS[number];
 
-/**
- * Engine start sound identifiers for Q3.
- * Each corresponds to a characteristic sound pattern that maps
- * to specific fault categories.
- * 
- * Design Decision: Audio/descriptive samples help users match what they
- * actually hear rather than interpreting technical descriptions.
- */
-export const ENGINE_SOUNDS = [
-  'RAPID_CLICKING',       // → Battery/solenoid issue
-  'SINGLE_CLICK',         // → Starter motor failure
-  'GRINDING_WHIRRING',    // → Starter gear/flywheel damage
-  'CRANKS_NO_START',      // → Fuel/ignition system issue
-  'NO_SOUND',             // → Complete electrical failure
+export const RECENT_WARNINGS = [
+  'HARD_START', 'LIGHTS_FLICKER', 'LOSS_OF_POWER',
+  'OVERHEATING_BEFORE', 'UNUSUAL_NOISE', 'SMELL_BEFORE', 'NO_SIGNS',
 ] as const;
+export type RecentWarning = typeof RECENT_WARNINGS[number];
 
-export type EngineSound = typeof ENGINE_SOUNDS[number];
+// ── Sri Lankan context features ─────────────────────────────────────────
+
+export type LocationType    = 'COASTAL' | 'HILL' | 'URBAN' | 'RURAL';
+export type RecentRain      = 'NONE' | 'YESTERDAY' | 'WITHIN_3_DAYS' | 'MONSOON';
+export type ParkedOvernight = 'INDOOR' | 'OUTDOOR';
+export type VehicleAgeBucket = 'UNDER_3' | '3_7' | '8_15' | 'OVER_15';
+export type LastFueled       = 'TODAY_NEW_STATION' | 'TODAY_USUAL' |
+                               'WITHIN_WEEK' | 'OVER_WEEK';
 
 /**
- * The complete triage questionnaire response structure.
- * Each field corresponds to one of the 8 diagnostic questions.
+ * Adaptive triage questionnaire response.
+ *
+ * Single-select questions on a non-traversed branch carry the literal
+ * "NOT_ASKED" — the decision tree was trained with this encoding and treats
+ * NOT_ASKED as its own categorical value.
  */
 export interface TriageResponses {
-  /** Q1: Visible damage to the vehicle? */
-  visibleDamage: 'CRASH' | 'MINOR' | 'NONE';
+  // Q1 intent picker
+  Q1_intent:           Q1Intent;
 
-  /** Q2: Can you start the engine? */
-  canStartEngine: 'YES' | 'NO' | 'PARTIAL';
+  // Adaptive single-selects
+  Q2_engine_start:     Q2EngineStart;
+  Q2b_running_issue:   Q2bRunningIssue;
+  Q3_sound:            Q3Sound;
+  Q3b_electrical:      Q3bElectrical;
+  Q4_noise_detail:     Q4NoiseDetail;
+  Q7_overheat_detail:  Q7OverheatDetail;
+  Q8_smoke_color:      Q8SmokeColor;
+  Q_brake_detail:      QBrakeDetail;
+  Q_gear_detail:       QGearDetail;
+  Q6_smells:           Q6Smells;
 
-  /** Q3: What sound does the engine make? (shown only if Q2 != YES) */
-  engineSound?: EngineSound;
+  // Always-asked multi-select tail
+  Q5_lights:           DashboardLamp[];
+  Q9_recent:           RecentWarning[];
 
-  /** Q4: Which dashboard warning lights are on? (multi-select icon picker) */
-  dashboardLamps: DashboardLamp[];
-
-  /** Q5: Is there fluid leaking under the vehicle? (conditional on visible clues) */
-  fluidLeaking?: 'YES_COOLANT' | 'YES_OIL' | 'YES_FUEL' | 'YES_UNKNOWN' | 'NO';
-
-  /** Q6: When did the problem start? */
-  problemOnset: 'JUST_NOW' | 'TODAY' | 'GRADUAL';
-
-  /** Q7: Any unusual smells? */
-  unusualSmells: 'BURNING' | 'FUEL' | 'ROTTEN_EGGS' | 'NONE';
-
-  /** Q8: Any recent warning signs before the incident? */
-  recentWarnings: ('FLICKERING_LIGHTS' | 'POWER_LOSS' | 'UNUSUAL_NOISES' | 'NONE')[];
+  // Sri Lankan context (always asked)
+  location_type:       LocationType;
+  recent_rain:         RecentRain;
+  parked_overnight:    ParkedOvernight;
+  vehicle_age_bucket:  VehicleAgeBucket;
+  last_fueled:         LastFueled;
 }
 
-/**
- * Output of the Diagnostic Triage Engine.
- */
+/** Output of the triage engine — same shape across all three tiers. */
 export interface TriageResult {
-  /** Probability distribution over all 9 service types */
-  probabilities: ServiceTypeProbabilities;
-
-  /** The most likely service type */
+  probabilities:        ServiceTypeProbabilities;
   predictedServiceType: ServiceType;
-
-  /** Confidence level [0, 1] — how concentrated the distribution is */
-  confidence: number;
-
-  /** Which tier of triage was used */
-  tier: TriageTier;
-
-  /** Entropy of the probability distribution (lower = more certain) */
-  entropy: number;
-
-  /** Whether OBD-II data was used */
-  obdDataUsed: boolean;
-
-  /** Whether Bayesian priors were applied */
-  bayesianPriorsApplied: boolean;
+  confidence:           number;
+  tier:                 TriageTier;
+  entropy:              number;
+  obdDataUsed:          boolean;
+  bayesianPriorsApplied:boolean;
 }
 
-// ─────────────────────────────────────────────────────────
-// OBD-II Vehicle Telemetry
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+// OBD-II vehicle telemetry
+// ─────────────────────────────────────────────────────────────────────────
 
 /**
- * OBD-II data retrieved from the Predictive Maintenance component.
- * Used in Tier 2 (OBD-Enhanced) to improve diagnostic accuracy.
+ * OBD-II telemetry retrieved from the Predictive Maintenance component.
+ * Field names match the synthetic_telemetry_data.csv schema we trained on.
  */
 export interface OBDData {
-  /** Battery voltage in volts (normal: ~12.4V running, ~14.2V charging) */
-  batteryVoltage?: number;
+  battery_voltage_v?:       number;
+  battery_temp_c?:          number;
+  battery_charge_percent?:  number;
+  battery_health_percent?:  number;
+  alternator_output_v?:     number;
+  engine_temp_c?:           number;
+  coolant_temp_c?:          number;
+  engine_rpm?:              number;
+  oil_pressure_psi?:        number;
+  fuel_level_percent?:      number;
+  engine_load_percent?:     number;
+  ambient_temp_c?:          number;
+  brake_fluid_level_psi?:   number;
+  brake_pad_wear_mm?:       number;
+  brake_temp_c?:            number;
 
-  /** Coolant temperature in Celsius (normal: 80-100°C) */
-  coolantTemp?: number;
-
-  /** Active Diagnostic Trouble Codes (e.g., "P0562", "P0300") */
-  faultCodes: string[];
-
-  /** Engine RPM (0 if engine not running) */
-  engineRPM?: number;
-
-  /** Fuel level percentage [0-100] */
-  fuelLevel?: number;
-
-  /** Oil pressure in PSI (normal: 25-65 PSI) */
-  oilPressure?: number;
-
-  /** Predictive alerts from the Predictive Maintenance component */
-  predictiveAlerts?: string[];
-
-  /** Whether data was successfully retrieved */
-  available: boolean;
+  faultCodes?:        string[];
+  predictiveAlerts?:  string[];
+  available:          boolean;
 }
 
-// ─────────────────────────────────────────────────────────
-// Provider & Dispatch Types
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+// Provider & Dispatch
+// ─────────────────────────────────────────────────────────────────────────
 
-/** Geographic coordinates */
 export interface Location {
-  latitude: number;
+  latitude:  number;
   longitude: number;
 }
 
-/** Provider availability status */
 export type ProviderStatus = 'AVAILABLE' | 'BUSY' | 'OFFLINE';
 
-/**
- * A service provider in the roadside assistance network.
- */
 export interface Provider {
-  id: string;
-  name: string;
-  type: ProviderType;
-  location: Location;
+  id:           string;
+  name:         string;
+  type:         ProviderType;
+  location:     Location;
   capabilities: ServiceType[];
-  trustScore: number;       // [0, 1] — based on historical performance
-  status: ProviderStatus;
-  phone?: string;
+  trustScore:   number;
+  status:       ProviderStatus;
+  phone?:       string;
   vehiclePlate?: string;
 }
 
-/**
- * The result of the ECM dispatch optimization.
- * Contains the ranked list of providers and cost breakdowns.
- */
 export interface DispatchResult {
-  /** Ranked providers from lowest to highest expected cost */
-  rankedProviders: RankedProvider[];
-
-  /** The selected (top-ranked) provider */
-  selectedProvider: RankedProvider;
-
-  /** Total computation time in milliseconds */
+  rankedProviders:   RankedProvider[];
+  selectedProvider:  RankedProvider;
   computationTimeMs: number;
-
-  /** Traffic impact score used (from Geo-Intelligence) */
-  trafficImpactScore: number;
-
-  /** Lambda value used for traffic externality weighting */
-  lambda: number;
+  trafficImpactScore:number;
+  lambda:            number;
 }
 
-/**
- * A provider with computed expected cost and ranking.
- */
 export interface RankedProvider {
-  provider: Provider;
-  expectedCost: number;
-  rank: number;
-  estimatedTravelTimeMin: number;
+  provider:                Provider;
+  expectedCost:            number;
+  rank:                    number;
+  estimatedTravelTimeMin:  number;
   estimatedServiceTimeMin: number;
-  mismatchRisk: number;  // probability that provider can't handle actual service type
-  costBreakdown: CostBreakdown;
+  mismatchRisk:            number;
+  costBreakdown:           CostBreakdown;
 }
 
-/**
- * Detailed cost breakdown for a dispatch decision.
- * Used for transparency, debugging, and audit trails.
- */
 export interface CostBreakdown {
-  /** Expected service cost (weighted by probability of each service type) */
-  expectedServiceCost: number;
-
-  /** Expected mismatch penalty (weighted by probability of mismatches) */
-  expectedMismatchCost: number;
-
-  /** Traffic externality cost component */
+  expectedServiceCost:    number;
+  expectedMismatchCost:   number;
   trafficExternalityCost: number;
-
-  /** Trust score adjustment factor */
-  trustAdjustment: number;
-
-  /** Total expected cost */
-  totalCost: number;
+  trustAdjustment:        number;
+  totalCost:              number;
 }
 
-// ─────────────────────────────────────────────────────────
-// Incident Types
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+// Incident
+// ─────────────────────────────────────────────────────────────────────────
 
-/**
- * An incident request from a stranded driver.
- */
 export interface Incident {
-  id: string;
-  status: IncidentStatus;
-  location: Location;
-  vehicleInfo: VehicleInfo;
-  triageResponses?: TriageResponses;
-  triageResult?: TriageResult;
-  obdData?: OBDData;
-  dispatchResult?: DispatchResult;
+  id:                  string;
+  status:              IncidentStatus;
+  location:            Location;
+  vehicleInfo:         VehicleInfo;
+  triageResponses?:    TriageResponses;
+  triageResult?:       TriageResult;
+  obdData?:            OBDData;
+  dispatchResult?:     DispatchResult;
   assignedProviderId?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  resolvedAt?: Date;
+  createdAt:           Date;
+  updatedAt:           Date;
+  resolvedAt?:         Date;
 }
 
-/**
- * Vehicle information provided by the driver.
- */
 export interface VehicleInfo {
-  make?: string;        // e.g., "Toyota"
-  model?: string;       // e.g., "Corolla"
-  year?: number;        // e.g., 2019
-  fuelType?: 'PETROL' | 'DIESEL' | 'HYBRID' | 'ELECTRIC';
+  make?:               string;
+  model?:              string;
+  year?:               number;
+  fuelType?:           'PETROL' | 'DIESEL' | 'HYBRID' | 'ELECTRIC';
   registrationNumber?: string;
-  hasOBD?: boolean;     // Whether vehicle has connected OBD-II device
+  hasOBD?:             boolean;
 }
 
-// ─────────────────────────────────────────────────────────
-// Bayesian Learning Types
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+// Bayesian learning
+// ─────────────────────────────────────────────────────────────────────────
 
-/**
- * Feedback collected after incident resolution.
- * Used for Bayesian prior updates (Tier 3).
- */
 export interface ResolutionFeedback {
-  incidentId: string;
-  predictedDistribution: ServiceTypeProbabilities;
-  predictedServiceType: ServiceType;
-  predictedConfidence: number;
-  actualServiceType: ServiceType;
-  wasMatch: boolean;
-  resolutionTimeMinutes: number;
-  reDispatches: number;
-  userRating?: number;    // 1-5 stars
-  providerNotes?: string;
-  timestamp: Date;
+  incidentId:             string;
+  predictedDistribution:  ServiceTypeProbabilities;
+  predictedServiceType:   ServiceType;
+  predictedConfidence:    number;
+  actualServiceType:      ServiceType;
+  wasMatch:               boolean;
+  resolutionTimeMinutes:  number;
+  reDispatches:           number;
+  userRating?:            number;
+  providerNotes?:         string;
+  timestamp:              Date;
 }
 
-/**
- * Bayesian prior for a specific symptom → diagnosis mapping.
- */
 export interface BayesianPrior {
-  /** Hash key representing the symptom combination */
-  symptomKey: string;
-
-  /** Current probability distribution */
-  probabilities: ServiceTypeProbabilities;
-
-  /** Number of observations that contributed to this prior */
-  observationCount: number;
-
-  /** Current learning rate (decays with observations) */
+  symptomKey:          string;
+  probabilities:       ServiceTypeProbabilities;
+  observationCount:    number;
   currentLearningRate: number;
-
-  /** Last updated timestamp */
-  updatedAt: Date;
+  updatedAt:           Date;
 }
 
-// ─────────────────────────────────────────────────────────
-// API Request/Response Types
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+// API request/response shapes
+// ─────────────────────────────────────────────────────────────────────────
 
-/** Create incident request body */
 export interface CreateIncidentRequest {
-  location: Location;
+  location:    Location;
   vehicleInfo?: VehicleInfo;
   description?: string;
 }
 
-/** Submit triage response request body */
 export interface SubmitTriageRequest {
   incidentId: string;
-  responses: TriageResponses;
+  responses:  TriageResponses;
+  obdData?:   OBDData;
 }
 
-/** Dispatch optimization request body */
 export interface DispatchRequest {
-  incidentId: string;
-  trafficImpactScore?: number;   // Override from Geo-Intelligence, 1-10
-  maxProviders?: number;         // Max providers to evaluate (default: all)
+  incidentId:          string;
+  trafficImpactScore?: number;
+  maxProviders?:       number;
 }
 
-/** Provider acceptance/decline */
 export interface ProviderResponse {
-  incidentId: string;
-  providerId: string;
-  accepted: boolean;
+  incidentId:    string;
+  providerId:    string;
+  accepted:      boolean;
   declineReason?: string;
 }
 
-/** Resolution report from provider */
 export interface ResolutionReport {
-  incidentId: string;
-  providerId: string;
-  actualServiceType: ServiceType;
-  resolutionTimeMinutes: number;
-  notes?: string;
-  escalationNeeded?: boolean;
+  incidentId:             string;
+  providerId:             string;
+  actualServiceType:      ServiceType;
+  resolutionTimeMinutes:  number;
+  notes?:                 string;
+  escalationNeeded?:      boolean;
 }
-
-// ─────────────────────────────────────────────────────────
-// API Response wrapper
-// ─────────────────────────────────────────────────────────
 
 export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
+  success:   boolean;
+  data?:     T;
+  error?:    string;
+  message?:  string;
   timestamp: string;
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Helpers — fast-path detection
+// ─────────────────────────────────────────────────────────────────────────
+
+export function isMLIntent(intent: Q1Intent): intent is Q1MLIntent {
+  return (Q1_ML_INTENTS as readonly string[]).includes(intent);
+}
+
+export function isFastPathIntent(intent: Q1Intent): intent is Q1FastIntent {
+  return (Q1_FAST_INTENTS as readonly string[]).includes(intent);
+}
+
+/** Map a Q1 fast-path intent to its corresponding ServiceType. */
+export const FAST_PATH_INTENT_TO_SERVICE: Record<Q1FastIntent, ServiceType> = {
+  LOCKOUT:             'LOCKOUT',
+  KEY_LOST:            'KEY_LOST',
+  FLAT_TIRE:           'FLAT_TIRE_CHANGE',
+  FUEL_EMPTY:          'FUEL_EMPTY',
+  FUEL_WRONG:          'FUEL_WRONG',
+  MAJOR_CRASH:         'MAJOR_ACCIDENT',
+  FUEL_LEAK_FIRE_RISK: 'URGENT_TOW',
+  LIGHT_BULB:          'LIGHT_BULB',
+  BLOWN_FUSE:          'BLOWN_FUSE',
+  STUCK_FLOOD:         'FLOOD_RECOVERY',
+};

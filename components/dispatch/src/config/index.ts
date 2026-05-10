@@ -45,17 +45,44 @@ export const config = {
     /** Assessment delay in minutes (time wasted before realizing mismatch) */
     assessmentDelayMinutes: 10,
 
-    /** Average service times by service type (minutes) */
+    /**
+     * Average service times by service type (minutes).
+     * Estimates from the proposal's tiered service catalog (Appendix B
+     * + SL-mechanic consultation tiers). Used by the ECM cost formula.
+     */
     averageServiceTimes: {
-      BATTERY_JUMP: 15,
-      BATTERY_REPLACE: 30,
-      STARTER_MOTOR: 45,
-      FUEL_DELIVERY: 20,
-      FLAT_TIRE: 25,
-      LOCKOUT: 20,
-      MECHANIC_FIX: 60,
-      TOW_LIGHT: 30,
-      TOW_HEAVY: 45,
+      // ── ML-diagnosable (19) ──
+      BATTERY_JUMP:           15,
+      BATTERY_TERMINAL_CLEAN: 10,
+      BATTERY_REPLACE:        30,
+      ALTERNATOR_ISSUE:       60,
+      STARTER_MOTOR:          60,
+      COOLANT_LOW:            10,
+      RADIATOR_FAN_ISSUE:     45,
+      RADIATOR_HOSE_LEAK:     30,
+      ENGINE_OVERHEAT_SEVERE: 120,
+      BELT_BROKEN:            30,
+      FUEL_FILTER_CLOGGED:    25,
+      FUEL_PUMP:              90,
+      IGNITION_SYSTEM:        60,
+      ELECTRICAL_FAULT_RAIN:  90,
+      BRAKE_PAD_WORN:         60,
+      BRAKE_FAILURE:          90,
+      CLUTCH_WORN:            150,
+      TRANSMISSION_ISSUE:     180,
+      SEVERE_MECHANICAL_TOW:  30,    // tow time only; repair is at workshop
+
+      // ── Fast-path (10) ──
+      LOCKOUT:                15,
+      KEY_LOST:               30,
+      FLAT_TIRE_CHANGE:       15,
+      FUEL_EMPTY:             15,
+      FUEL_WRONG:             45,
+      LIGHT_BULB:             15,
+      BLOWN_FUSE:             10,
+      MAJOR_ACCIDENT:         30,    // tow + scene clearance
+      URGENT_TOW:             30,
+      FLOOD_RECOVERY:         60,
     } as Record<string, number>,
   },
 
