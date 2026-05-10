@@ -1,0 +1,5 @@
+{
+  "location": { "latitude": 6.9271, "longitude": 79.8612 },
+  "vehicleInfo": { "make": "Toyota", "model": "Corolla", "year": 2019, "fuelType": "PETROL" },
+  "description": "Car won't start - clicking sound"
+}

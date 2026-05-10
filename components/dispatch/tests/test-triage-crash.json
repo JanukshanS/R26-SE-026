@@ -1,0 +1,13 @@
+{
+  "incidentId": "8a3e6f56-e836-4325-b0cf-0566a05fe2cf",
+  "responses": {
+    "visibleDamage": "CRASH",
+    "canStartEngine": "NO",
+    "engineSound": "NO_SOUND",
+    "dashboardLamps": ["CHECK_ENGINE", "OIL_PRESSURE", "AIRBAG"],
+    "fluidLeaking": "YES_COOLANT",
+    "problemOnset": "JUST_NOW",
+    "unusualSmells": "BURNING",
+    "recentWarnings": ["NONE"]
+  }
+}

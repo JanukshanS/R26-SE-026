@@ -1,0 +1,297 @@
+// ============================================================================
+// UADO Framework — Prisma Database Schema
+// ============================================================================
+//
+// Database design for the Uncertainty-Aware Dispatch Optimization framework.
+// Uses PostgreSQL with the following key tables:
+//
+// - Incident:         Full incident lifecycle from request to resolution
+// - Provider:         Registered service providers with capabilities
+// - TriageResponse:   Structured questionnaire answers + triage results
+// - DispatchDecision: ECM algorithm output with cost breakdowns
+// - ResolutionFeedback: Post-resolution data for Bayesian learning
+// - BayesianPrior:    Learned probability priors per symptom combination
+//
+// Design Decisions:
+// - JSON columns for probability distributions (flexible, no schema migration needed)
+// - Enums for fixed categories (service types, provider types, statuses)
+// - UUID primary keys for distributed-system compatibility
+// - Timestamps on all records for audit trail
+//
+// @author Janukshan Sivakumar - IT22635266
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ──────────────────────────────────────────────
+
+enum ServiceType {
+  BATTERY_JUMP
+  BATTERY_REPLACE
+  STARTER_MOTOR
+  FUEL_DELIVERY
+  FLAT_TIRE
+  LOCKOUT
+  MECHANIC_FIX
+  TOW_LIGHT
+  TOW_HEAVY
+}
+
+enum ProviderType {
+  MOBILE_MECHANIC
+  FUEL_DELIVERY
+  LOCKSMITH
+  TOW_LIGHT
+  TOW_HEAVY
+}
+
+enum IncidentStatus {
+  CREATED
+  TRIAGING
+  DISPATCHING
+  PROVIDER_ASSIGNED
+  EN_ROUTE
+  ON_SCENE
+  RESOLVED
+  ESCALATED
+  CANCELLED
+}
+
+enum ProviderStatus {
+  AVAILABLE
+  BUSY
+  OFFLINE
+}
+
+enum TriageTier {
+  QUESTIONNAIRE_ONLY
+  OBD_ENHANCED
+  BAYESIAN_LEARNED
+}
+
+// ── Incident ───────────────────────────────────────────
+
+model Incident {
+  id          String          @id @default(uuid())
+  status      IncidentStatus  @default(CREATED)
+
+  // Location (GPS coordinates from driver's device)
+  latitude    Float
+  longitude   Float
+
+  // Vehicle information
+  vehicleMake    String?
+  vehicleModel   String?
+  vehicleYear    Int?
+  fuelType       String?
+  registrationNo String?
+  hasOBD         Boolean         @default(false)
+
+  // User-provided description
+  description    String?
+
+  // Relationships
+  triageResponse    TriageResponse?
+  dispatchDecisions DispatchDecision[]
+  feedback          ResolutionFeedback?
+  assignedProvider  Provider?          @relation("AssignedIncidents", fields: [assignedProviderId], references: [id])
+  assignedProviderId String?
+
+  // Timestamps
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  resolvedAt  DateTime?
+
+  @@index([status])
+  @@index([latitude, longitude])
+  @@index([createdAt])
+  @@map("incidents")
+}
+
+// ── Triage Response ────────────────────────────────────
+
+model TriageResponse {
+  id          String    @id @default(uuid())
+  incidentId  String    @unique
+  incident    Incident  @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  // ── Questionnaire Answers (Q1-Q8) ──
+  // Q1: Visible damage?
+  visibleDamage    String    // CRASH | MINOR | NONE
+
+  // Q2: Can you start engine?
+  canStartEngine   String    // YES | NO | PARTIAL
+
+  // Q3: Engine sound (audio picker, conditional on Q2 != YES)
+  engineSound      String?   // RAPID_CLICKING | SINGLE_CLICK | GRINDING_WHIRRING | CRANKS_NO_START | NO_SOUND
+
+  // Q4: Dashboard warning lamps (multi-select icon picker)
+  dashboardLamps   String[]  // Array of lamp identifiers
+
+  // Q5: Fluid leaking? (conditional)
+  fluidLeaking     String?   // YES_COOLANT | YES_OIL | YES_FUEL | YES_UNKNOWN | NO
+
+  // Q6: When did problem start?
+  problemOnset     String    // JUST_NOW | TODAY | GRADUAL
+
+  // Q7: Unusual smells?
+  unusualSmells    String    // BURNING | FUEL | ROTTEN_EGGS | NONE
+
+  // Q8: Recent warning signs (multi-select)
+  recentWarnings   String[]  // FLICKERING_LIGHTS | POWER_LOSS | UNUSUAL_NOISES | NONE
+
+  // ── Triage Engine Output ──
+  // Probability distribution over service types (JSON)
+  probabilities    Json      // { BATTERY_JUMP: 0.45, STARTER_MOTOR: 0.20, ... }
+
+  // Result metadata
+  predictedServiceType ServiceType
+  confidence           Float       // [0, 1]
+  tier                 TriageTier
+  entropy              Float       // Shannon entropy of distribution
+  obdDataUsed          Boolean     @default(false)
+  bayesianPriorsApplied Boolean    @default(false)
+
+  // Raw OBD data if available (JSON)
+  obdData             Json?       // { batteryVoltage: 11.2, faultCodes: ["P0562"], ... }
+
+  createdAt           DateTime    @default(now())
+
+  @@map("triage_responses")
+}
+
+// ── Provider ───────────────────────────────────────────
+
+model Provider {
+  id           String         @id @default(uuid())
+  name         String
+  type         ProviderType
+  status       ProviderStatus @default(AVAILABLE)
+
+  // Location
+  latitude     Float
+  longitude    Float
+
+  // Capabilities (derived from type, but stored for flexibility)
+  capabilities ServiceType[]
+
+  // Performance metrics
+  trustScore   Float          @default(0.75)  // [0, 1]
+  totalJobs    Int            @default(0)
+  successfulJobs Int          @default(0)
+  averageRating Float?
+
+  // Contact info
+  phone        String?
+  vehiclePlate String?
+
+  // Relationships
+  dispatchDecisions DispatchDecision[]
+  assignedIncidents Incident[]           @relation("AssignedIncidents")
+  feedbacks         ResolutionFeedback[]
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([type, status])
+  @@index([latitude, longitude])
+  @@map("providers")
+}
+
+// ── Dispatch Decision ──────────────────────────────────
+
+model DispatchDecision {
+  id           String    @id @default(uuid())
+  incidentId   String
+  incident     Incident  @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  providerId   String
+  provider     Provider  @relation(fields: [providerId], references: [id])
+
+  // ECM algorithm output
+  rank                  Int       // 1 = top choice
+  expectedCost          Float
+  estimatedTravelTimeMin Float
+  estimatedServiceTimeMin Float
+  mismatchRisk          Float     // [0, 1]
+
+  // Cost breakdown (JSON for detailed audit)
+  costBreakdown         Json      // { expectedServiceCost, expectedMismatchCost, trafficExternalityCost, ... }
+
+  // Traffic externality parameters used
+  trafficImpactScore    Float     // [1, 10] from Geo-Intelligence
+  lambdaUsed            Float     // λ parameter value
+
+  // Dispatch outcome
+  accepted              Boolean?
+  declineReason         String?
+  responseTimeSeconds   Int?
+
+  // Algorithm metadata
+  computationTimeMs     Float
+  totalProvidersEvaluated Int
+
+  createdAt             DateTime  @default(now())
+
+  @@index([incidentId])
+  @@map("dispatch_decisions")
+}
+
+// ── Resolution Feedback ────────────────────────────────
+// Collected after every resolved incident for Bayesian learning
+
+model ResolutionFeedback {
+  id                    String      @id @default(uuid())
+  incidentId            String      @unique
+  incident              Incident    @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  providerId            String
+  provider              Provider    @relation(fields: [providerId], references: [id])
+
+  // Prediction vs. Reality
+  predictedDistribution Json        // Original probability distribution
+  predictedServiceType  ServiceType
+  predictedConfidence   Float
+  actualServiceType     ServiceType
+  wasMatch              Boolean     // Did predicted == actual?
+
+  // Performance metrics
+  resolutionTimeMinutes Float
+  reDispatches          Int         @default(0)  // How many re-dispatches before resolution
+  userRating            Float?      // 1-5 stars
+  providerNotes         String?
+
+  createdAt             DateTime    @default(now())
+
+  @@index([actualServiceType])
+  @@index([wasMatch])
+  @@index([createdAt])
+  @@map("resolution_feedbacks")
+}
+
+// ── Bayesian Prior ─────────────────────────────────────
+// Learned probability distributions per symptom combination
+
+model BayesianPrior {
+  id                  String      @id @default(uuid())
+
+  // Symptom combination key (hashed string of questionnaire responses)
+  symptomKey          String      @unique
+
+  // Learned probability distribution (JSON)
+  probabilities       Json        // { BATTERY_JUMP: 0.52, ... }
+
+  // Learning metadata
+  observationCount    Int         @default(0)
+  currentLearningRate Float       @default(0.1)
+
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  @@map("bayesian_priors")
+}

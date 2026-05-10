@@ -1,0 +1,13 @@
+{
+  "incidentId": "7d7e85f0-72f5-42c5-adb7-bedc94207fde",
+  "responses": {
+    "visibleDamage": "NONE",
+    "canStartEngine": "NO",
+    "engineSound": "RAPID_CLICKING",
+    "dashboardLamps": ["BATTERY"],
+    "fluidLeaking": "NO",
+    "problemOnset": "JUST_NOW",
+    "unusualSmells": "NONE",
+    "recentWarnings": ["FLICKERING_LIGHTS"]
+  }
+}
