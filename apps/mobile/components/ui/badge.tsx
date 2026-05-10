@@ -7,9 +7,11 @@ type Props = {
   label: string;
   tone?: Tone;
   withDot?: boolean;
+  /** Defaults to uppercase labels; set false for sentence case (e.g. “Good”). */
+  uppercase?: boolean;
 };
 
-export function Badge({ label, tone = "neutral", withDot }: Props) {
+export function Badge({ label, tone = "neutral", withDot, uppercase = true }: Props) {
   const colors = colorsFor(tone);
   return (
     <View
@@ -33,8 +35,15 @@ export function Badge({ label, tone = "neutral", withDot }: Props) {
           }}
         />
       ) : null}
-      <Text style={{ color: colors.fg, ...typography.micro, fontWeight: "600" }}>
-        {label.toUpperCase()}
+      <Text
+        style={{
+          color: colors.fg,
+          ...typography.micro,
+          fontWeight: "600",
+          textTransform: uppercase ? "uppercase" : "none",
+        }}
+      >
+        {uppercase ? label.toUpperCase() : label}
       </Text>
     </View>
   );

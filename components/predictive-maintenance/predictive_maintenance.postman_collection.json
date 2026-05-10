@@ -1,0 +1,326 @@
+{
+  "info": {
+    "name": "Predictive Vehicle Maintenance API",
+    "description": "Complete test collection for the Predictive Vehicle Maintenance System.\n\nBase URL is stored in the {{base_url}} variable (default: http://localhost:5000).\nVehicle IDs in the database: VEH-001 to VEH-005.\n\nRun order for a full flow test:\n1. Health Check\n2. Process Trip (ingest raw sensor data)\n3. Vehicles Summary\n4. Vehicle RUL\n5. Vehicle Health\n6. Predict (RF / GB / Best)\n7. Model Metrics",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "vehicle_id",
+      "value": "VEH-001",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Returns server status, list of loaded ML models, and the best algorithm selected per component. Use this first to confirm the server is running and all 8 models are loaded."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Ingest",
+      "item": [
+        {
+          "name": "Process Trip",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trip_id\": \"POSTMAN-TRIP-001\",\n  \"vehicle_id\": \"VEH-001\",\n  \"driver_id\": \"DRV-001\",\n  \"start_timestamp\": \"2024-06-01T08:00:00+00:00\",\n  \"obd_readings\": [\n    {\n      \"timestamp_offset_sec\": 0,\n      \"rpm\": 1850,\n      \"speed_kmh\": 0,\n      \"coolant_temp_c\": 72,\n      \"battery_voltage_v\": 14.1,\n      \"ltft_percent\": -1.2,\n      \"throttle_percent\": 8,\n      \"engine_load_percent\": 22,\n      \"intake_air_temp_c\": 28\n    },\n    {\n      \"timestamp_offset_sec\": 300,\n      \"rpm\": 2100,\n      \"speed_kmh\": 52,\n      \"coolant_temp_c\": 88,\n      \"battery_voltage_v\": 13.9,\n      \"ltft_percent\": 0.8,\n      \"throttle_percent\": 32,\n      \"engine_load_percent\": 41,\n      \"intake_air_temp_c\": 30\n    },\n    {\n      \"timestamp_offset_sec\": 600,\n      \"rpm\": 2350,\n      \"speed_kmh\": 67,\n      \"coolant_temp_c\": 92,\n      \"battery_voltage_v\": 13.7,\n      \"ltft_percent\": 1.5,\n      \"throttle_percent\": 45,\n      \"engine_load_percent\": 55,\n      \"intake_air_temp_c\": 31\n    },\n    {\n      \"timestamp_offset_sec\": 900,\n      \"rpm\": 1950,\n      \"speed_kmh\": 48,\n      \"coolant_temp_c\": 91,\n      \"battery_voltage_v\": 13.8,\n      \"ltft_percent\": -0.5,\n      \"throttle_percent\": 28,\n      \"engine_load_percent\": 36,\n      \"intake_air_temp_c\": 31\n    },\n    {\n      \"timestamp_offset_sec\": 1200,\n      \"rpm\": 2600,\n      \"speed_kmh\": 78,\n      \"coolant_temp_c\": 94,\n      \"battery_voltage_v\": 13.5,\n      \"ltft_percent\": 2.1,\n      \"throttle_percent\": 58,\n      \"engine_load_percent\": 64,\n      \"intake_air_temp_c\": 32\n    },\n    {\n      \"timestamp_offset_sec\": 1500,\n      \"rpm\": 2200,\n      \"speed_kmh\": 61,\n      \"coolant_temp_c\": 93,\n      \"battery_voltage_v\": 13.6,\n      \"ltft_percent\": 0.3,\n      \"throttle_percent\": 38,\n      \"engine_load_percent\": 47,\n      \"intake_air_temp_c\": 33\n    },\n    {\n      \"timestamp_offset_sec\": 1800,\n      \"rpm\": 1750,\n      \"speed_kmh\": 38,\n      \"coolant_temp_c\": 90,\n      \"battery_voltage_v\": 13.9,\n      \"ltft_percent\": -1.8,\n      \"throttle_percent\": 20,\n      \"engine_load_percent\": 29,\n      \"intake_air_temp_c\": 32\n    },\n    {\n      \"timestamp_offset_sec\": 2100,\n      \"rpm\": 2450,\n      \"speed_kmh\": 72,\n      \"coolant_temp_c\": 95,\n      \"battery_voltage_v\": 13.5,\n      \"ltft_percent\": 1.9,\n      \"throttle_percent\": 52,\n      \"engine_load_percent\": 60,\n      \"intake_air_temp_c\": 33\n    },\n    {\n      \"timestamp_offset_sec\": 2400,\n      \"rpm\": 1900,\n      \"speed_kmh\": 44,\n      \"coolant_temp_c\": 92,\n      \"battery_voltage_v\": 13.8,\n      \"ltft_percent\": 0.6,\n      \"throttle_percent\": 26,\n      \"engine_load_percent\": 34,\n      \"intake_air_temp_c\": 31\n    },\n    {\n      \"timestamp_offset_sec\": 2700,\n      \"rpm\": 800,\n      \"speed_kmh\": 0,\n      \"coolant_temp_c\": 89,\n      \"battery_voltage_v\": 14.0,\n      \"ltft_percent\": -0.2,\n      \"throttle_percent\": 5,\n      \"engine_load_percent\": 18,\n      \"intake_air_temp_c\": 30\n    }\n  ],\n  \"imu_readings\": [\n    { \"timestamp_offset_sec\": 0,    \"accel_x\": 0.12,  \"accel_y\": 0.08,  \"accel_z\": -0.21, \"gyro_x\": 0.01, \"gyro_y\": -0.01, \"gyro_z\": 0.02  },\n    { \"timestamp_offset_sec\": 120,  \"accel_x\": 0.45,  \"accel_y\": 0.31,  \"accel_z\": -0.18, \"gyro_x\": 0.03, \"gyro_y\":  0.02, \"gyro_z\": 0.11  },\n    { \"timestamp_offset_sec\": 240,  \"accel_x\": -0.22, \"accel_y\": 0.19,  \"accel_z\": -0.25, \"gyro_x\": 0.02, \"gyro_y\": -0.01, \"gyro_z\": -0.08 },\n    { \"timestamp_offset_sec\": 360,  \"accel_x\": 0.08,  \"accel_y\": -3.92, \"accel_z\": -0.30, \"gyro_x\": 0.01, \"gyro_y\":  0.04, \"gyro_z\": 0.05  },\n    { \"timestamp_offset_sec\": 480,  \"accel_x\": 0.31,  \"accel_y\": 0.14,  \"accel_z\": -0.22, \"gyro_x\": 0.00, \"gyro_y\": -0.02, \"gyro_z\": 0.03  },\n    { \"timestamp_offset_sec\": 600,  \"accel_x\": -0.15, \"accel_y\": 0.27,  \"accel_z\": -0.19, \"gyro_x\": 0.02, \"gyro_y\":  0.01, \"gyro_z\": 0.72  },\n    { \"timestamp_offset_sec\": 720,  \"accel_x\": 0.28,  \"accel_y\": 0.09,  \"accel_z\": -0.24, \"gyro_x\": 0.01, \"gyro_y\": -0.01, \"gyro_z\": 0.04  },\n    { \"timestamp_offset_sec\": 840,  \"accel_x\": 0.11,  \"accel_y\": -0.18, \"accel_z\": -0.28, \"gyro_x\": 0.03, \"gyro_y\":  0.02, \"gyro_z\": -0.06 },\n    { \"timestamp_offset_sec\": 960,  \"accel_x\": -0.33, \"accel_y\": 0.22,  \"accel_z\": -0.20, \"gyro_x\": 0.01, \"gyro_y\": -0.03, \"gyro_z\": 0.09  },\n    { \"timestamp_offset_sec\": 1080, \"accel_x\": 0.19,  \"accel_y\": 0.15,  \"accel_z\": -4.25, \"gyro_x\": 0.02, \"gyro_y\":  0.01, \"gyro_z\": 0.03  },\n    { \"timestamp_offset_sec\": 1200, \"accel_x\": 0.07,  \"accel_y\": -0.12, \"accel_z\": -0.23, \"gyro_x\": 0.00, \"gyro_y\": -0.02, \"gyro_z\": -0.05 },\n    { \"timestamp_offset_sec\": 1320, \"accel_x\": 0.38,  \"accel_y\": 0.24,  \"accel_z\": -0.17, \"gyro_x\": 0.03, \"gyro_y\":  0.02, \"gyro_z\": 0.68  },\n    { \"timestamp_offset_sec\": 1440, \"accel_x\": -0.14, \"accel_y\": 0.10,  \"accel_z\": -0.26, \"gyro_x\": 0.01, \"gyro_y\": -0.01, \"gyro_z\": 0.07  },\n    { \"timestamp_offset_sec\": 1560, \"accel_x\": 0.22,  \"accel_y\": -0.31, \"accel_z\": -0.21, \"gyro_x\": 0.02, \"gyro_y\":  0.03, \"gyro_z\": -0.04 },\n    { \"timestamp_offset_sec\": 1680, \"accel_x\": 0.09,  \"accel_y\": 0.17,  \"accel_z\": -0.29, \"gyro_x\": 0.01, \"gyro_y\": -0.02, \"gyro_z\": 0.06  },\n    { \"timestamp_offset_sec\": 1800, \"accel_x\": -0.26, \"accel_y\": 0.13,  \"accel_z\": -3.78, \"gyro_x\": 0.02, \"gyro_y\":  0.01, \"gyro_z\": 0.02  },\n    { \"timestamp_offset_sec\": 1920, \"accel_x\": 0.16,  \"accel_y\": -0.09, \"accel_z\": -0.22, \"gyro_x\": 0.00, \"gyro_y\": -0.01, \"gyro_z\": -0.07 },\n    { \"timestamp_offset_sec\": 2040, \"accel_x\": 0.34,  \"accel_y\": 0.28,  \"accel_z\": -0.18, \"gyro_x\": 0.03, \"gyro_y\":  0.02, \"gyro_z\": 0.81  },\n    { \"timestamp_offset_sec\": 2160, \"accel_x\": -0.11, \"accel_y\": 0.16,  \"accel_z\": -0.24, \"gyro_x\": 0.01, \"gyro_y\": -0.02, \"gyro_z\": 0.04  },\n    { \"timestamp_offset_sec\": 2280, \"accel_x\": 0.23,  \"accel_y\": -0.14, \"accel_z\": -0.27, \"gyro_x\": 0.02, \"gyro_y\":  0.01, \"gyro_z\": -0.03 },\n    { \"timestamp_offset_sec\": 2400, \"accel_x\": 0.10,  \"accel_y\": 0.21,  \"accel_z\": -0.20, \"gyro_x\": 0.01, \"gyro_y\": -0.03, \"gyro_z\": 0.08  },\n    { \"timestamp_offset_sec\": 2520, \"accel_x\": -0.18, \"accel_y\": 0.07,  \"accel_z\": -0.31, \"gyro_x\": 0.00, \"gyro_y\":  0.02, \"gyro_z\": 0.05  },\n    { \"timestamp_offset_sec\": 2640, \"accel_x\": 0.29,  \"accel_y\": -0.22, \"accel_z\": -0.19, \"gyro_x\": 0.03, \"gyro_y\": -0.01, \"gyro_z\": -0.06 },\n    { \"timestamp_offset_sec\": 2760, \"accel_x\": 0.13,  \"accel_y\": 0.18,  \"accel_z\": -0.25, \"gyro_x\": 0.01, \"gyro_y\":  0.01, \"gyro_z\": 0.03  },\n    { \"timestamp_offset_sec\": 2700, \"accel_x\": 0.06,  \"accel_y\": -0.05, \"accel_z\": -0.15, \"gyro_x\": 0.00, \"gyro_y\": -0.01, \"gyro_z\": 0.01  }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/process-trip",
+              "host": ["{{base_url}}"],
+              "path": ["process-trip"]
+            },
+            "description": "Ingests a raw trip batch containing OBD-II readings (every 5 min / 300 s) and mobile IMU readings (every 2 min / 120 s).\n\nThe backend extracts features, detects harsh braking (accel_z < -3.0) and cornering (|gyro_z| > 0.6) events, and persists the metrics to SQLite.\n\nReturns 201 on success, 409 if the trip_id already exists.\n\nNote: Change trip_id to a new value to re-run without a 409 conflict."
+          },
+          "response": []
+        },
+        {
+          "name": "Process Trip — Duplicate (expect 409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trip_id\": \"POSTMAN-TRIP-001\",\n  \"vehicle_id\": \"VEH-001\",\n  \"driver_id\": \"DRV-001\",\n  \"start_timestamp\": \"2024-06-01T08:00:00+00:00\",\n  \"obd_readings\": [\n    {\n      \"timestamp_offset_sec\": 0,\n      \"rpm\": 1850, \"speed_kmh\": 0, \"coolant_temp_c\": 72,\n      \"battery_voltage_v\": 14.1, \"ltft_percent\": -1.2,\n      \"throttle_percent\": 8, \"engine_load_percent\": 22, \"intake_air_temp_c\": 28\n    },\n    {\n      \"timestamp_offset_sec\": 300,\n      \"rpm\": 2100, \"speed_kmh\": 52, \"coolant_temp_c\": 88,\n      \"battery_voltage_v\": 13.9, \"ltft_percent\": 0.8,\n      \"throttle_percent\": 32, \"engine_load_percent\": 41, \"intake_air_temp_c\": 30\n    }\n  ],\n  \"imu_readings\": [\n    { \"timestamp_offset_sec\": 0,   \"accel_x\": 0.12, \"accel_y\": 0.08, \"accel_z\": -0.21, \"gyro_x\": 0.01, \"gyro_y\": -0.01, \"gyro_z\": 0.02 },\n    { \"timestamp_offset_sec\": 120, \"accel_x\": 0.45, \"accel_y\": 0.31, \"accel_z\": -0.18, \"gyro_x\": 0.03, \"gyro_y\":  0.02, \"gyro_z\": 0.11 },\n    { \"timestamp_offset_sec\": 240, \"accel_x\": -0.22,\"accel_y\": 0.19, \"accel_z\": -0.25, \"gyro_x\": 0.02, \"gyro_y\": -0.01, \"gyro_z\": -0.08},\n    { \"timestamp_offset_sec\": 360, \"accel_x\": 0.08, \"accel_y\": -3.92,\"accel_z\": -0.30, \"gyro_x\": 0.01, \"gyro_y\":  0.04, \"gyro_z\": 0.05 },\n    { \"timestamp_offset_sec\": 480, \"accel_x\": 0.31, \"accel_y\": 0.14, \"accel_z\": -0.22, \"gyro_x\": 0.00, \"gyro_y\": -0.02, \"gyro_z\": 0.03 }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/process-trip",
+              "host": ["{{base_url}}"],
+              "path": ["process-trip"]
+            },
+            "description": "Sends the same trip_id as the previous request. Expects a 409 Conflict response demonstrating the duplicate trip guard."
+          },
+          "response": []
+        },
+        {
+          "name": "Vehicles Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vehicles/summary",
+              "host": ["{{base_url}}"],
+              "path": ["vehicles/summary"]
+            },
+            "description": "Returns one summary entry per vehicle, including vehicle-level aggregates (total distance, duration, braking/cornering events) and a chronological list of individual trip summaries."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Vehicle",
+      "item": [
+        {
+          "name": "Vehicle RUL",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vehicle/{{vehicle_id}}/rul",
+              "host": ["{{base_url}}"],
+              "path": ["vehicle", "{{vehicle_id}}", "rul"]
+            },
+            "description": "Aggregates all stored trip metrics for the given vehicle using distance-weighted averages, then predicts Remaining Useful Life (km) for Engine, Brake Pads, Tires, and Battery using the best algorithm per component.\n\ntotal_mileage_km = cumulative sum of all trip distances (odometer proxy).\n\nTry vehicle IDs: VEH-001, VEH-002, VEH-003, VEH-004, VEH-005"
+          },
+          "response": []
+        },
+        {
+          "name": "Vehicle Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vehicle/{{vehicle_id}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["vehicle", "{{vehicle_id}}", "health"]
+            },
+            "description": "Converts RUL predictions into a health percentage per component:\n\n  health_pct = (predicted_rul_km / max_lifespan_km) × 100\n\nMax lifespans used:\n  Engine  : 150,000 km\n  Brake   :  40,000 km\n  Tire    :  50,000 km\n  Battery :  80,000 km\n\nStatus thresholds:\n  Good     >= 75%\n  Fair     >= 50%\n  Poor     >= 25%\n  Critical  < 25%\n\nOverall health = average of the four component health scores."
+          },
+          "response": []
+        },
+        {
+          "name": "Vehicle Not Found (expect 404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vehicle/VEH-999/health",
+              "host": ["{{base_url}}"],
+              "path": ["vehicle", "VEH-999", "health"]
+            },
+            "description": "Requests health for a vehicle that does not exist in the database. Expects a 404 Not Found response."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Predict",
+      "item": [
+        {
+          "name": "Predict — Random Forest",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicle_id\": \"VEH-001\",\n  \"avg_rpm\": 2200,\n  \"max_coolant_temp_c\": 95.0,\n  \"ltft_std\": 2.1,\n  \"braking_frequency\": 0.22,\n  \"avg_deceleration_intensity\": 2.9,\n  \"cornering_frequency\": 0.19,\n  \"avg_speed_kmh\": 57.3,\n  \"total_mileage_km\": 62400,\n  \"voltage_std\": 0.14,\n  \"min_battery_voltage_v\": 13.05,\n  \"avg_iat_c\": 31.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/predict/rf",
+              "host": ["{{base_url}}"],
+              "path": ["predict", "rf"]
+            },
+            "description": "Predicts RUL for all four components using Random Forest models only.\n\nFeatures used per component:\n  Engine  : avg_rpm, max_coolant_temp_c, ltft_std\n  Brake   : braking_frequency, avg_deceleration_intensity\n  Tire    : cornering_frequency, avg_speed_kmh, total_mileage_km\n  Battery : voltage_std, min_battery_voltage_v, avg_iat_c"
+          },
+          "response": []
+        },
+        {
+          "name": "Predict — Gradient Boosting",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicle_id\": \"VEH-001\",\n  \"avg_rpm\": 2200,\n  \"max_coolant_temp_c\": 95.0,\n  \"ltft_std\": 2.1,\n  \"braking_frequency\": 0.22,\n  \"avg_deceleration_intensity\": 2.9,\n  \"cornering_frequency\": 0.19,\n  \"avg_speed_kmh\": 57.3,\n  \"total_mileage_km\": 62400,\n  \"voltage_std\": 0.14,\n  \"min_battery_voltage_v\": 13.05,\n  \"avg_iat_c\": 31.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/predict/gb",
+              "host": ["{{base_url}}"],
+              "path": ["predict", "gb"]
+            },
+            "description": "Predicts RUL for all four components using Gradient Boosting (XGBoost) models only.\n\nCompare this response with /predict/rf using the same input body to see how the two algorithms differ per component."
+          },
+          "response": []
+        },
+        {
+          "name": "Predict — Best Per Component",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicle_id\": \"VEH-001\",\n  \"avg_rpm\": 2200,\n  \"max_coolant_temp_c\": 95.0,\n  \"ltft_std\": 2.1,\n  \"braking_frequency\": 0.22,\n  \"avg_deceleration_intensity\": 2.9,\n  \"cornering_frequency\": 0.19,\n  \"avg_speed_kmh\": 57.3,\n  \"total_mileage_km\": 62400,\n  \"voltage_std\": 0.14,\n  \"min_battery_voltage_v\": 13.05,\n  \"avg_iat_c\": 31.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/predict/best",
+              "host": ["{{base_url}}"],
+              "path": ["predict", "best"]
+            },
+            "description": "Predicts RUL using the best-performing algorithm per component, determined automatically during training by comparing R² scores on the held-out test set.\n\nCurrent winners (from models/best_models.json):\n  Engine  → Random Forest   (R²=0.8935)\n  Brake   → Random Forest   (R²=0.7292)\n  Tire    → Gradient Boost  (R²=0.7088)\n  Battery → Random Forest   (R²=0.9201)\n\nThe confidence_note field in each prediction shows which algorithm was used and its R²."
+          },
+          "response": []
+        },
+        {
+          "name": "Predict — Aggressive Driver Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicle_id\": \"VEH-AGGRESSIVE\",\n  \"avg_rpm\": 3100,\n  \"max_coolant_temp_c\": 118.0,\n  \"ltft_std\": 7.5,\n  \"braking_frequency\": 0.62,\n  \"avg_deceleration_intensity\": 5.1,\n  \"cornering_frequency\": 0.55,\n  \"avg_speed_kmh\": 88.0,\n  \"total_mileage_km\": 95000,\n  \"voltage_std\": 0.58,\n  \"min_battery_voltage_v\": 12.1,\n  \"avg_iat_c\": 42.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/predict/best",
+              "host": ["{{base_url}}"],
+              "path": ["predict", "best"]
+            },
+            "description": "Simulates an aggressive driver: high RPM, high coolant temp, high braking frequency, voltage instability. Expect significantly shorter RUL predictions compared to the moderate driver profile."
+          },
+          "response": []
+        },
+        {
+          "name": "Predict — Gentle Driver Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicle_id\": \"VEH-GENTLE\",\n  \"avg_rpm\": 1550,\n  \"max_coolant_temp_c\": 83.0,\n  \"ltft_std\": 1.1,\n  \"braking_frequency\": 0.08,\n  \"avg_deceleration_intensity\": 2.1,\n  \"cornering_frequency\": 0.09,\n  \"avg_speed_kmh\": 42.0,\n  \"total_mileage_km\": 28000,\n  \"voltage_std\": 0.07,\n  \"min_battery_voltage_v\": 13.4,\n  \"avg_iat_c\": 27.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/predict/best",
+              "host": ["{{base_url}}"],
+              "path": ["predict", "best"]
+            },
+            "description": "Simulates a gentle driver: low RPM, low coolant temp, rare braking events, stable voltage. Expect significantly longer RUL predictions. Use this alongside the aggressive profile to demonstrate how driving style impacts component life — a key thesis finding."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Models",
+      "item": [
+        {
+          "name": "Model Accuracy Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/models/metrics",
+              "host": ["{{base_url}}"],
+              "path": ["models", "metrics"]
+            },
+            "description": "Returns accuracy metrics for all 8 trained models (RF + GB for each of the 4 components), computed on a held-out 20% test set during training.\n\nMetric guide:\n  R²   — Proportion of variance explained (1.0 = perfect, 0.0 = no better than mean)\n  RMSE — Root Mean Squared Error in km (penalises large errors more)\n  MAE  — Mean Absolute Error in km (average prediction error)\n\nis_best = true marks the winning algorithm for that component."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

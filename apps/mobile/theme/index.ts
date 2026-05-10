@@ -2,6 +2,10 @@ export const palette = {
   brand: "#F97316",
   brandPressed: "#EA6A0F",
   brandSoft: "#FFEDD5",
+  /** Driver home / light chrome (neutral gray canvas) */
+  homeBackground: "#F5F5F5",
+  /** Primary roadside CTA (coral) */
+  supportCoral: "#FF5252",
   background: "#FFF7E6",
   surface: "#FFFFFF",
   surfaceMuted: "#FAF1DC",

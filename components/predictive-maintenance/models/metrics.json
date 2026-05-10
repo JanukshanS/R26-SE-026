@@ -1,0 +1,85 @@
+{
+  "engine": {
+    "features": [
+      "avg_rpm",
+      "max_coolant_temp_c",
+      "ltft_std"
+    ],
+    "train_rows": 39644,
+    "test_rows": 9912,
+    "random_forest": {
+      "r2": 0.8935,
+      "rmse": 15054.2,
+      "mae": 11791.3,
+      "is_best": true
+    },
+    "gradient_boosting": {
+      "r2": 0.893,
+      "rmse": 15086.9,
+      "mae": 11795.7,
+      "is_best": false
+    }
+  },
+  "brake": {
+    "features": [
+      "braking_frequency",
+      "avg_deceleration_intensity"
+    ],
+    "train_rows": 39644,
+    "test_rows": 9912,
+    "random_forest": {
+      "r2": 0.7292,
+      "rmse": 6971.1,
+      "mae": 4754.6,
+      "is_best": true
+    },
+    "gradient_boosting": {
+      "r2": 0.685,
+      "rmse": 7519.0,
+      "mae": 5344.2,
+      "is_best": false
+    }
+  },
+  "tire": {
+    "features": [
+      "cornering_frequency",
+      "avg_speed_kmh",
+      "total_mileage_km"
+    ],
+    "train_rows": 39644,
+    "test_rows": 9912,
+    "random_forest": {
+      "r2": 0.6588,
+      "rmse": 8772.7,
+      "mae": 6533.3,
+      "is_best": false
+    },
+    "gradient_boosting": {
+      "r2": 0.7088,
+      "rmse": 8105.2,
+      "mae": 5939.7,
+      "is_best": true
+    }
+  },
+  "battery": {
+    "features": [
+      "voltage_std",
+      "min_battery_voltage_v",
+      "avg_iat_c"
+    ],
+    "train_rows": 39644,
+    "test_rows": 9912,
+    "random_forest": {
+      "r2": 0.9201,
+      "rmse": 7226.7,
+      "mae": 5212.9,
+      "is_best": true
+    },
+    "gradient_boosting": {
+      "r2": 0.9194,
+      "rmse": 7261.1,
+      "mae": 5219.1,
+      "is_best": false
+    }
+  }
+}

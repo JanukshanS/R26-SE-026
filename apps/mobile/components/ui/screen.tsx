@@ -6,7 +6,7 @@ type Props = {
   children: React.ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
   scrollable?: boolean;
-  background?: "default" | "surface";
+  background?: "default" | "surface" | "home";
   footer?: React.ReactNode;
   padded?: boolean;
   edges?: ("top" | "bottom")[];
@@ -22,7 +22,12 @@ export function Screen({
   edges = ["top", "bottom"],
 }: Props) {
   const insets = useSafeAreaInsets();
-  const bg = background === "surface" ? palette.surface : palette.background;
+  const bg =
+    background === "surface"
+      ? palette.surface
+      : background === "home"
+        ? palette.homeBackground
+        : palette.background;
 
   const paddingTop = edges.includes("top") ? insets.top : 0;
   const paddingBottom = edges.includes("bottom") ? insets.bottom : 0;
