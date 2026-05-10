@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
 import { HeaderBar } from "@components/ui/header-bar";
+import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { TextField } from "@components/ui/text-input";
 import { palette, radii, spacing, typography } from "@theme/index";
@@ -56,7 +57,7 @@ export default function AddInsurerScreen() {
           onPress={() => setProvider("Allianz Insurance Lanka Limited")}
         >
           <Text style={{ color: palette.text, ...typography.body }}>{provider}</Text>
-          <Text style={{ color: palette.textMuted }}>▾</Text>
+          <Icon name="ChevronDown" size={18} color={palette.textMuted} />
         </Pressable>
       </View>
 

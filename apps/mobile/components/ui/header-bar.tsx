@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
-import { Image } from "expo-image";
+import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 
 type Props = {
@@ -16,7 +16,6 @@ export function HeaderBar({ title, showBack = true, right }: Props) {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingTop: spacing.sm,
         paddingBottom: spacing.md,
       }}
     >
@@ -28,7 +27,7 @@ export function HeaderBar({ title, showBack = true, right }: Props) {
               opacity: pressed ? 0.7 : 1,
               flexDirection: "row",
               alignItems: "center",
-              gap: spacing.xs,
+              gap: 4,
               paddingVertical: 6,
               paddingHorizontal: spacing.md,
               borderRadius: radii.pill,
@@ -37,10 +36,7 @@ export function HeaderBar({ title, showBack = true, right }: Props) {
               borderColor: palette.border,
             })}
           >
-            <Image
-              source={"sf:chevron.left"}
-              style={{ width: 14, height: 14, tintColor: palette.text }}
-            />
+            <Icon name="ChevronLeft" size={14} color={palette.text} />
             <Text style={{ color: palette.text, ...typography.caption, fontWeight: "600" }}>
               back
             </Text>

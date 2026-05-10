@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
 import { HeaderBar } from "@components/ui/header-bar";
+import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 
@@ -10,11 +11,17 @@ export default function DiagnosisResultScreen() {
   return (
     <Screen
       footer={
-        <Button
-          title="Back to Home screen"
-          variant="secondary"
-          onPress={() => router.replace("/(driver)/home")}
-        />
+        <>
+          <Button
+            title="See Connected Mechanic"
+            onPress={() => router.push("/(emergency)/connected")}
+          />
+          <Button
+            title="Back to Home screen"
+            variant="secondary"
+            onPress={() => router.replace("/(driver)/home")}
+          />
+        </>
       }
     >
       <HeaderBar />
@@ -38,7 +45,7 @@ export default function DiagnosisResultScreen() {
               justifyContent: "center",
             }}
           >
-            <Text style={{ fontSize: 16 }}>🤖</Text>
+            <Icon name="Bot" size={16} color={palette.brand} />
           </View>
           <Text style={{ ...typography.bodyStrong, color: palette.text }}>
             Service Assistant says
@@ -57,7 +64,10 @@ export default function DiagnosisResultScreen() {
         </View>
       </Card>
 
-      <Card variant="muted" style={{ alignItems: "center", paddingVertical: spacing.xxl, gap: spacing.lg }}>
+      <Card
+        variant="muted"
+        style={{ alignItems: "center", paddingVertical: spacing.xxl, gap: spacing.lg }}
+      >
         <View
           style={{
             width: 80,
@@ -69,7 +79,7 @@ export default function DiagnosisResultScreen() {
             justifyContent: "center",
           }}
         >
-          <Text style={{ fontSize: 40 }}>🔧</Text>
+          <Icon name="Wrench" size={36} color={palette.brand} />
         </View>
         <Text style={{ ...typography.h3, color: palette.text }}>
           Fetching a Service Provider
@@ -84,11 +94,6 @@ export default function DiagnosisResultScreen() {
           You will be connected to a Mobile Mechanic
         </Text>
       </Card>
-
-      <Button
-        title="See Connected Mechanic"
-        onPress={() => router.push("/(emergency)/connected")}
-      />
     </Screen>
   );
 }

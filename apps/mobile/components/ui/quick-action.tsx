@@ -1,8 +1,9 @@
 import { Pressable, Text, View } from "react-native";
+import { Icon, type IconName } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 
 type Props = {
-  icon: string;
+  icon: IconName;
   label: string;
   onPress?: () => void;
 };
@@ -29,7 +30,7 @@ export function QuickAction({ icon, label, onPress }: Props) {
           justifyContent: "center",
         }}
       >
-        <Text style={{ fontSize: 28 }}>{icon}</Text>
+        <Icon name={icon} size={26} color={palette.brand} />
       </View>
       <Text style={{ ...typography.caption, color: palette.text, fontWeight: "500" }}>
         {label}

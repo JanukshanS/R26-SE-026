@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Badge } from "@components/ui/badge";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
+import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { palette, spacing, typography } from "@theme/index";
 
@@ -18,21 +20,24 @@ const SERVICES = [
 
 export default function ProviderAvailableScreen() {
   const [online, setOnline] = useState(true);
+  const insets = useSafeAreaInsets();
 
   return (
-    <Screen padded={false}>
+    <View style={{ flex: 1, backgroundColor: palette.background }}>
       <View
         style={{
           backgroundColor: palette.surface,
+          paddingTop: insets.top + spacing.md,
           paddingHorizontal: spacing.xl,
-          paddingTop: spacing.xl,
           paddingBottom: spacing.lg,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
         }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+        <View
+          style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}
+        >
           <View
             style={{
               width: 44,
@@ -43,17 +48,25 @@ export default function ProviderAvailableScreen() {
               justifyContent: "center",
             }}
           >
-            <Text style={{ fontSize: 22 }}>👤</Text>
+            <Icon name="UserRound" size={22} color={palette.textMuted} />
           </View>
           <View style={{ gap: 2 }}>
-            <Text style={{ ...typography.bodyStrong, color: palette.text }}>Priyantha</Text>
-            <Text style={{ ...typography.caption, color: palette.textMuted }}>Mobile Mechanic</Text>
+            <Text style={{ ...typography.bodyStrong, color: palette.text }}>
+              Priyantha
+            </Text>
+            <Text style={{ ...typography.caption, color: palette.textMuted }}>
+              Mobile Mechanic
+            </Text>
           </View>
         </View>
-        <Badge label={online ? "Online" : "Offline"} tone={online ? "success" : "neutral"} withDot />
+        <Badge
+          label={online ? "Online" : "Offline"}
+          tone={online ? "success" : "neutral"}
+          withDot
+        />
       </View>
 
-      <View style={{ padding: spacing.xl, gap: spacing.lg }}>
+      <Screen edges={["bottom"]}>
         <Card>
           <Text style={{ ...typography.bodyStrong, color: palette.text }}>
             {online ? "Available" : "Offline"}
@@ -61,7 +74,13 @@ export default function ProviderAvailableScreen() {
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
             Since 07:30 AM
           </Text>
-          <View style={{ flexDirection: "row", gap: spacing.md, marginTop: spacing.sm }}>
+          <View
+            style={{
+              flexDirection: "row",
+              gap: spacing.md,
+              marginTop: spacing.sm,
+            }}
+          >
             <Button
               title={online ? "GO OFFLINE" : "GO ONLINE"}
               variant="secondary"
@@ -72,8 +91,15 @@ export default function ProviderAvailableScreen() {
           </View>
         </Card>
 
-        <Card variant="muted" style={{ alignItems: "center", paddingVertical: spacing.xxl }}>
-          <Text style={{ fontSize: 40 }}>📭</Text>
+        <Card
+          variant="muted"
+          style={{
+            alignItems: "center",
+            paddingVertical: spacing.xxl,
+            gap: spacing.md,
+          }}
+        >
+          <Icon name="Inbox" size={40} color={palette.textMuted} />
           <Text style={{ ...typography.bodyStrong, color: palette.text }}>
             No pending jobs in your area
           </Text>
@@ -97,14 +123,22 @@ export default function ProviderAvailableScreen() {
             }}
           >
             <Text style={{ ...typography.h3, color: palette.text }}>My Services</Text>
-            <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "600" }}>
+            <Text
+              style={{
+                ...typography.caption,
+                color: palette.brand,
+                fontWeight: "600",
+              }}
+            >
               Edit Services
             </Text>
           </View>
           <Card>
             {SERVICES.map((service, idx) => (
               <View key={service}>
-                <Text style={{ ...typography.body, color: palette.text }}>{service}</Text>
+                <Text style={{ ...typography.body, color: palette.text }}>
+                  {service}
+                </Text>
                 {idx < SERVICES.length - 1 ? (
                   <View
                     style={{
@@ -124,7 +158,7 @@ export default function ProviderAvailableScreen() {
           variant="secondary"
           onPress={() => router.push("/(provider)/active-job")}
         />
-      </View>
-    </Screen>
+      </Screen>
+    </View>
   );
 }

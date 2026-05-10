@@ -4,6 +4,7 @@ import { Badge } from "@components/ui/badge";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
 import { HeaderBar } from "@components/ui/header-bar";
+import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 
@@ -30,10 +31,12 @@ export default function ActiveJobScreen() {
             justifyContent: "center",
           }}
         >
-          <Text style={{ fontSize: 20 }}>👤</Text>
+          <Icon name="UserRound" size={22} color={palette.textMuted} />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={{ ...typography.bodyStrong, color: palette.text }}>Priyantha</Text>
+          <Text style={{ ...typography.bodyStrong, color: palette.text }}>
+            Priyantha
+          </Text>
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
             6.4 km · Galle Road, Colombo 03
           </Text>
@@ -42,12 +45,14 @@ export default function ActiveJobScreen() {
       </Card>
 
       <Card>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-          <Text style={{ fontSize: 22 }}>⚠️</Text>
+        <View
+          style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}
+        >
+          <Icon name="TriangleAlert" size={22} color={palette.danger} />
           <Text style={{ ...typography.h3, color: palette.danger }}>Battery Dead</Text>
         </View>
         <Text style={{ ...typography.caption, color: palette.textMuted }}>
-          ▼ 1.6 km away · Galle Road, Colombo 03
+          1.6 km away · Galle Road, Colombo 03
         </Text>
       </Card>
 
@@ -59,9 +64,10 @@ export default function ActiveJobScreen() {
           backgroundColor: palette.surfaceMuted,
           alignItems: "center",
           justifyContent: "center",
+          gap: spacing.sm,
         }}
       >
-        <Text style={{ fontSize: 36 }}>🗺️</Text>
+        <Icon name="Map" size={36} color={palette.textMuted} />
         <Text style={{ ...typography.caption, color: palette.textMuted }}>
           Route preview
         </Text>

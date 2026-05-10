@@ -3,19 +3,20 @@ import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@components/ui/button";
 import { HeaderBar } from "@components/ui/header-bar";
+import { Icon, type IconName } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 
-const LIGHTS = [
-  { id: "engine", icon: "⚙️", label: "Engine" },
-  { id: "oil", icon: "🛢️", label: "Oil" },
-  { id: "battery", icon: "🔋", label: "Battery" },
-  { id: "brake", icon: "🛑", label: "Brake" },
-  { id: "abs", icon: "🅰️", label: "ABS" },
-  { id: "fuel", icon: "⛽", label: "Fuel" },
-  { id: "tyre", icon: "🛞", label: "Tyre" },
-  { id: "temp", icon: "🌡️", label: "Temp" },
-  { id: "other", icon: "❗", label: "Other" },
+const LIGHTS: { id: string; icon: IconName; label: string }[] = [
+  { id: "engine", icon: "Cog", label: "Engine" },
+  { id: "oil", icon: "Droplet", label: "Oil" },
+  { id: "battery", icon: "BatteryWarning", label: "Battery" },
+  { id: "brake", icon: "OctagonAlert", label: "Brake" },
+  { id: "abs", icon: "CircleSlash2", label: "ABS" },
+  { id: "fuel", icon: "Fuel", label: "Fuel" },
+  { id: "tyre", icon: "CircleDot", label: "Tyre" },
+  { id: "temp", icon: "Thermometer", label: "Temp" },
+  { id: "other", icon: "TriangleAlert", label: "Other" },
 ];
 
 export default function DiagnosisLightsScreen() {
@@ -72,10 +73,14 @@ export default function DiagnosisLightsScreen() {
                 borderColor: active ? palette.text : palette.border,
                 alignItems: "center",
                 justifyContent: "center",
-                gap: spacing.xs,
+                gap: 6,
               })}
             >
-              <Text style={{ fontSize: 28 }}>{light.icon}</Text>
+              <Icon
+                name={light.icon}
+                size={28}
+                color={active ? palette.warning : palette.textMuted}
+              />
               <Text
                 style={{
                   ...typography.caption,

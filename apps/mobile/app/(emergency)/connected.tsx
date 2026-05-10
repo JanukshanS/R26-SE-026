@@ -1,8 +1,9 @@
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
 import { HeaderBar } from "@components/ui/header-bar";
+import { Icon, type IconName } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 
@@ -27,7 +28,12 @@ export default function ConnectedScreen() {
             }}
           >
             <View
-              style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: palette.success }}
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: palette.success,
+              }}
             />
             <Text style={{ ...typography.caption, color: palette.text, fontWeight: "600" }}>
               Connected
@@ -48,16 +54,19 @@ export default function ConnectedScreen() {
             justifyContent: "center",
           }}
         >
-          <Text style={{ fontSize: 24 }}>👨‍🔧</Text>
+          <Icon name="UserRound" size={26} color={palette.textMuted} />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={{ ...typography.bodyStrong, color: palette.text }}>Richardson P</Text>
-          <Text style={{ ...typography.caption, color: palette.textMuted }}>
-            Mobile Mechanic · 4.9 ★
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Icon name="Star" size={12} color={palette.warning} />
+            <Text style={{ ...typography.caption, color: palette.textMuted }}>
+              Mobile Mechanic · 4.9
+            </Text>
+          </View>
         </View>
-        <ActionPill icon="💬" />
-        <ActionPill icon="📞" tone="brand" />
+        <ActionPill icon="MessageCircle" />
+        <ActionPill icon="Phone" tone="brand" />
       </Card>
 
       <View
@@ -69,9 +78,10 @@ export default function ConnectedScreen() {
           alignItems: "center",
           justifyContent: "center",
           overflow: "hidden",
+          gap: spacing.sm,
         }}
       >
-        <Text style={{ fontSize: 48 }}>🗺️</Text>
+        <Icon name="Map" size={48} color={palette.textMuted} />
         <Text style={{ ...typography.caption, color: palette.textMuted }}>
           Live route preview
         </Text>
@@ -103,19 +113,24 @@ export default function ConnectedScreen() {
   );
 }
 
-function ActionPill({ icon, tone }: { icon: string; tone?: "brand" }) {
+function ActionPill({ icon, tone }: { icon: IconName; tone?: "brand" }) {
   return (
-    <View
-      style={{
+    <Pressable
+      style={({ pressed }) => ({
+        opacity: pressed ? 0.7 : 1,
         width: 36,
         height: 36,
         borderRadius: 18,
         backgroundColor: tone === "brand" ? palette.brand : palette.surfaceMuted,
         alignItems: "center",
         justifyContent: "center",
-      }}
+      })}
     >
-      <Text style={{ fontSize: 16 }}>{icon}</Text>
-    </View>
+      <Icon
+        name={icon}
+        size={16}
+        color={tone === "brand" ? palette.textOnBrand : palette.text}
+      />
+    </Pressable>
   );
 }

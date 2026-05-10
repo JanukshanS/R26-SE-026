@@ -1,34 +1,39 @@
 import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Badge } from "@components/ui/badge";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
+import { Icon, type IconName } from "@components/ui/icon";
 import { QuickAction } from "@components/ui/quick-action";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 
+const TABS: { name: string; icon: IconName; active?: boolean }[] = [
+  { name: "Home", icon: "House", active: true },
+  { name: "Profile", icon: "User" },
+  { name: "Map", icon: "MapPin" },
+  { name: "Chat", icon: "MessageCircle" },
+];
+
 export default function DriverHomeScreen() {
+  const insets = useSafeAreaInsets();
+
   return (
-    <Screen padded={false}>
-      <View style={{ padding: spacing.xl, gap: spacing.lg }}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Text style={{ ...typography.body, color: palette.textMuted }}>
-            Hi, <Text style={{ color: palette.text, fontWeight: "600" }}>Janukshan!</Text>
-          </Text>
-        </View>
+    <View style={{ flex: 1, backgroundColor: palette.background }}>
+      <Screen
+        edges={["top"]}
+        contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
+      >
+        <Text style={{ ...typography.body, color: palette.textMuted }}>
+          Hi, <Text style={{ color: palette.text, fontWeight: "600" }}>Janukshan!</Text>
+        </Text>
 
         <View
           style={{
             flexDirection: "row",
             alignItems: "center",
             gap: spacing.md,
-            paddingVertical: spacing.sm,
           }}
         >
           <Text style={{ ...typography.h1, color: palette.text }}>Toyota Aqua</Text>
@@ -46,7 +51,7 @@ export default function DriverHomeScreen() {
             <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "600" }}>
               2010-2012
             </Text>
-            <Text style={{ color: palette.brand }}>▾</Text>
+            <Icon name="ChevronDown" size={14} color={palette.brand} />
           </Pressable>
         </View>
 
@@ -96,28 +101,29 @@ export default function DriverHomeScreen() {
               marginTop: spacing.xs,
             }}
           >
-            <Indicator label="Breaks Due" value="in 4 weeks" tone="warning" />
-            <Indicator label="Breaks D..." value="" tone="warning" />
+            <Indicator label="Brakes Due" value="in 4 weeks" />
+            <Indicator label="Service Due" value="in 2 weeks" />
           </View>
         </Card>
 
         <View style={{ gap: spacing.md }}>
           <Text style={{ ...typography.h3, color: palette.text }}>Quick Actions</Text>
           <View style={{ flexDirection: "row", gap: spacing.md }}>
-            <QuickAction icon="🛞" label="Tyre" />
-            <QuickAction icon="⛽" label="Fuel" />
-            <QuickAction icon="🔑" label="Locksmith" />
+            <QuickAction icon="CircleDot" label="Tyre" />
+            <QuickAction icon="Fuel" label="Fuel" />
+            <QuickAction icon="Key" label="Locksmith" />
           </View>
           <View style={{ flexDirection: "row", gap: spacing.md }}>
-            <QuickAction icon="🛠️" label="Service" />
-            <QuickAction icon="📦" label="Order parts" />
-            <QuickAction icon="🛡️" label="Insurance" />
+            <QuickAction icon="Wrench" label="Service" />
+            <QuickAction icon="Package" label="Order parts" />
+            <QuickAction icon="ShieldCheck" label="Insurance" />
           </View>
         </View>
 
         <Button
           title="1990 - Emergency Ambulance"
           variant="danger"
+          leftIcon={<Icon name="Siren" size={18} color={palette.textOnBrand} />}
           onPress={() => {}}
         />
 
@@ -125,28 +131,17 @@ export default function DriverHomeScreen() {
           title="Get the Support"
           onPress={() => router.push("/(emergency)/safety-check")}
         />
-      </View>
+      </Screen>
 
       <BottomTabs />
-    </Screen>
+    </View>
   );
 }
 
-function Indicator({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "warning" | "danger";
-}) {
-  const color = tone === "warning" ? palette.warning : palette.danger;
+function Indicator({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
-      <View
-        style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }}
-      />
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: palette.warning }} />
       <Text style={{ ...typography.caption, color: palette.text }}>
         {label} <Text style={{ color: palette.textMuted }}>{value}</Text>
       </Text>
@@ -155,45 +150,71 @@ function Indicator({
 }
 
 function BottomTabs() {
+  const insets = useSafeAreaInsets();
   return (
     <View
       style={{
-        flexDirection: "row",
-        justifyContent: "space-around",
-        alignItems: "center",
-        paddingVertical: spacing.md,
-        paddingHorizontal: spacing.xl,
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        paddingBottom: insets.bottom,
         backgroundColor: palette.surface,
         borderTopWidth: 1,
         borderTopColor: palette.border,
       }}
     >
-      <TabIcon icon="🏠" active />
-      <TabIcon icon="👤" />
       <View
         style={{
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: palette.brand,
+          flexDirection: "row",
           alignItems: "center",
-          justifyContent: "center",
-          marginTop: -28,
-          boxShadow: "0 4px 12px rgba(249, 115, 22, 0.3)",
+          justifyContent: "space-around",
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.md,
         }}
       >
-        <Text style={{ fontSize: 24 }}>🚨</Text>
+        <TabItem item={TABS[0]} />
+        <TabItem item={TABS[1]} />
+        <Pressable
+          style={({ pressed }) => ({
+            opacity: pressed ? 0.85 : 1,
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: palette.brand,
+            alignItems: "center",
+            justifyContent: "center",
+            marginTop: -28,
+            boxShadow: "0 6px 14px rgba(249, 115, 22, 0.35)",
+          })}
+        >
+          <Icon name="Siren" size={26} color={palette.textOnBrand} />
+        </Pressable>
+        <TabItem item={TABS[2]} />
+        <TabItem item={TABS[3]} />
       </View>
-      <TabIcon icon="📍" />
-      <TabIcon icon="💬" />
     </View>
   );
 }
 
-function TabIcon({ icon, active }: { icon: string; active?: boolean }) {
+function TabItem({ item }: { item: (typeof TABS)[number] }) {
   return (
-    <View style={{ alignItems: "center", padding: spacing.sm }}>
-      <Text style={{ fontSize: 22, opacity: active ? 1 : 0.4 }}>{icon}</Text>
+    <View style={{ alignItems: "center", padding: spacing.sm, gap: 2 }}>
+      <Icon
+        name={item.icon}
+        size={22}
+        color={item.active ? palette.brand : palette.textMuted}
+      />
+      <Text
+        style={{
+          ...typography.micro,
+          color: item.active ? palette.brand : palette.textMuted,
+          fontWeight: "600",
+          fontSize: 10,
+        }}
+      >
+        {item.name}
+      </Text>
     </View>
   );
 }

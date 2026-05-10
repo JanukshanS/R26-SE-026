@@ -84,14 +84,13 @@ EAS Build config lives in `eas.json`. You'll need an Expo account once the team 
 
 ## Conventions
 
-Follow `docs/contributing.md` at the repo root. Plus mobile-specific:
+**See `docs/conventions.md` for the full ruleset.** Hard rules:
 
-- **kebab-case file names** (e.g. `incident-card.tsx`, not `IncidentCard.tsx`)
-- **Inline styles**, not StyleSheet — Tailwind/NativeWind not used in this project
-- **`<ScrollView contentInsetAdjustmentBehavior="automatic" />`** as the first child of every Stack screen for safe-area handling
-- **`expo-image`** with `source="sf:name"` for SF Symbols (iOS), not `expo-symbols` directly
-- **`react-native-safe-area-context`**, not the deprecated `SafeAreaView` from react-native
-- **`process.env.EXPO_OS`**, not `Platform.OS`
+- **Icons:** `lucide-react-native` via `<Icon name="..." />` — never emoji as icons, never platform-only SF Symbols (we target both iOS and Android)
+- **Safe areas:** every screen wrapped in `<Screen>` from `components/ui/screen.tsx`
+- **Styling:** inline styles reading from `@theme/index` tokens; no NativeWind, no StyleSheet.create
+- **File names:** kebab-case (`incident-card.tsx`, not `IncidentCard.tsx`)
+- **Path aliases:** prefer `@components/*`, `@theme/*`, etc. over relative imports
 - **Routes only in `app/`** — never co-locate components, types, or utilities there
 
 ## Migration notes

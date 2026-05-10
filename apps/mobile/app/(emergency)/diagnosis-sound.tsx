@@ -3,6 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@components/ui/button";
 import { HeaderBar } from "@components/ui/header-bar";
+import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 
@@ -32,7 +33,7 @@ export default function DiagnosisSoundScreen() {
         What sound does your vehicle make?
       </Text>
       <Text style={{ ...typography.caption, color: palette.textMuted }}>
-        Tap ▶ to hear a sample, then select the one that matches.
+        Tap the play button to hear a sample, then select the one that matches.
       </Text>
 
       {SOUNDS.map((sound) => (
@@ -83,7 +84,7 @@ function SoundOption({
           justifyContent: "center",
         }}
       >
-        <Text style={{ color: palette.brand }}>▶</Text>
+        <Icon name="Play" size={16} color={palette.brand} />
       </View>
     </Pressable>
   );
