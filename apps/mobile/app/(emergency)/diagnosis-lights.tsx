@@ -1,42 +1,78 @@
-import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@components/ui/button";
 import { HeaderBar } from "@components/ui/header-bar";
 import { Icon, type IconName } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
+import { useEmergency, DEMO_VEHICLE } from "@lib/emergencyContext";
+import { createIncident, DispatchApiError } from "@lib/dispatchApi";
+import { getCurrentDriverLocation } from "@lib/driverLocation";
 
 const LIGHTS: { id: string; icon: IconName; label: string }[] = [
-  { id: "engine", icon: "Cog", label: "Engine" },
-  { id: "oil", icon: "Droplet", label: "Oil" },
-  { id: "battery", icon: "BatteryWarning", label: "Battery" },
-  { id: "brake", icon: "OctagonAlert", label: "Brake" },
-  { id: "abs", icon: "CircleSlash2", label: "ABS" },
-  { id: "fuel", icon: "Fuel", label: "Fuel" },
-  { id: "tyre", icon: "CircleDot", label: "Tyre" },
-  { id: "temp", icon: "Thermometer", label: "Temp" },
-  { id: "other", icon: "TriangleAlert", label: "Other" },
+  { id: "engine",  icon: "Cog",           label: "Engine" },
+  { id: "oil",     icon: "Droplet",       label: "Oil" },
+  { id: "battery", icon: "BatteryWarning",label: "Battery" },
+  { id: "brake",   icon: "OctagonAlert",  label: "Brake" },
+  { id: "abs",     icon: "CircleSlash2",  label: "ABS" },
+  { id: "fuel",    icon: "Fuel",          label: "Fuel" },
+  { id: "tyre",    icon: "CircleDot",     label: "Tyre" },
+  { id: "temp",    icon: "Thermometer",   label: "Temp" },
+  { id: "other",   icon: "TriangleAlert", label: "Other" },
 ];
 
 export default function DiagnosisLightsScreen() {
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const {
+    mobileLights, toggleLight,
+    setLoading, setError, setIncidentId,
+    loading,
+  } = useEmergency();
 
-  const toggle = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  /**
+   * After Q5 lights we hand off to the always-asked tail (smells → recent →
+   * SL context). The full POST /triage/submit (with OBD) happens at the
+   * END of the form on the SL-context screen — the last questionnaire page
+   * before /diagnosis-result.
+   *
+   * We create the incident HERE (so we have an incident.id ready) — that
+   * lets the dispatch backend track the in-progress request even before
+   * the final submit, and unlocks the OBD bridge in elm327 (which keys its
+   * "current vehicle condition" off the incident id).
+   */
+  async function handleNext() {
+    setLoading(true);
+    setError(null);
+    try {
+      const driver = await getCurrentDriverLocation();
+      const incident = await createIncident({
+        location:    { latitude: driver.latitude, longitude: driver.longitude },
+        vehicleInfo: DEMO_VEHICLE,
+        description: "Roadside assistance requested via mobile app",
+      });
+      setIncidentId(incident.id);
+      router.push("/(emergency)/smells");
+    } catch (err) {
+      const msg = err instanceof DispatchApiError
+        ? `${err.message} (HTTP ${err.status})`
+        : (err as Error).message;
+      setError(msg);
+      Alert.alert(
+        "Couldn't create incident",
+        `${msg}\n\nMake sure the dispatch service is running on port 3001 ` +
+        `(npm run dev in components/dispatch).`
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <Screen
       footer={
         <Button
-          title="Next Step"
-          onPress={() => router.push("/(emergency)/diagnosis-result")}
+          title={loading ? "Preparing..." : "Next Step"}
+          onPress={handleNext}
+          disabled={loading}
         />
       }
     >
@@ -49,19 +85,13 @@ export default function DiagnosisLightsScreen() {
         Tap all warning lights you see on your dashboard.
       </Text>
 
-      <View
-        style={{
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: spacing.md,
-        }}
-      >
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
         {LIGHTS.map((light) => {
-          const active = selected.has(light.id);
+          const active = mobileLights.has(light.id);
           return (
             <Pressable
               key={light.id}
-              onPress={() => toggle(light.id)}
+              onPress={() => toggleLight(light.id)}
               style={({ pressed }) => ({
                 opacity: pressed ? 0.85 : 1,
                 width: "30%",
@@ -94,6 +124,15 @@ export default function DiagnosisLightsScreen() {
           );
         })}
       </View>
+
+      {loading && (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md }}>
+          <ActivityIndicator size="small" color={palette.brand} />
+          <Text style={{ ...typography.caption, color: palette.textMuted }}>
+            Submitting triage...
+          </Text>
+        </View>
+      )}
     </Screen>
   );
 }

@@ -15,6 +15,7 @@ import {
   rulToLabel,
   type VehicleHealthResponse,
 } from "@lib/maintenanceApi";
+import { isElm327Paired, pairElm327, unpairElm327 } from "@lib/elm327";
 import { useVehicle } from "@lib/vehicleContext";
 
 const BOTTOM_SCROLL_PADDING = 112;
@@ -36,14 +37,17 @@ export default function DriverHomeScreen() {
 
   const { user, selectedVehicle, vehicles, selectVehicle } = useVehicle();
   const [health, setHealth] = useState<VehicleHealthResponse>(FALLBACK_HEALTH);
-  const [loadingHealth, setLoadingHealth] = useState(false);
-  const [showObd, setShowObd] = useState(true);
+
+  const { user, selectedVehicle, vehicles, selectVehicle } = useVehicle();
+  const [health, setHealth] = useState<VehicleHealthResponse>(FALLBACK_HEALTH);
+  const [loadingHealth, setLoadingHealth] = useState(true);
+  const [showObd, setShowObd] = useState(() => !isElm327Paired());
   const [showVehiclePicker, setShowVehiclePicker] = useState(false);
 
   const vehicleId = selectedVehicle?.plateNumber ?? "CBD-3742";
   const vehicleLabel = selectedVehicle
-    ? (selectedVehicle.nickname || `${selectedVehicle.make} ${selectedVehicle.model}`)
-    : "Toyota Aqua";
+  ? (selectedVehicle.nickname || `${selectedVehicle.make} ${selectedVehicle.model}`)
+  : "Toyota Aqua";
 
   useEffect(() => {
     setLoadingHealth(true);
@@ -64,11 +68,48 @@ export default function DriverHomeScreen() {
         edges={["top"]}
         contentContainerStyle={{ paddingBottom: bottomReserve, gap: spacing.lg }}
       >
-        <View style={{ gap: spacing.xs }}>
-          <Text style={{ ...typography.caption, color: palette.textMuted }}>Malabe, Srilanka</Text>
-          <Text style={{ ...typography.body, color: palette.text }}>
-            Hi <Text style={{ fontWeight: "700" }}>Janukshan!</Text>
-          </Text>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+          }}
+        >
+          <View style={{ gap: spacing.xs }}>
+            <Text style={{ ...typography.caption, color: palette.textMuted }}>Malabe, Srilanka</Text>
+            <Text style={{ ...typography.body, color: palette.text }}>
+              Hi <Text style={{ fontWeight: "700" }}>Janukshan!</Text>
+            </Text>
+          </View>
+
+          {/* Log out — unpairs the ELM327 + drops the user back at the
+              welcome screen. When JWT lands this is where we'd clear the
+              stored token + cancel any Socket.IO subscriptions. */}
+          <Pressable
+            onPress={() => {
+              unpairElm327();
+              router.replace("/");
+            }}
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.7 : 1,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm,
+              borderRadius: radii.pill,
+              borderWidth: 1,
+              borderColor: palette.border,
+              backgroundColor: palette.surface,
+            })}
+            accessibilityRole="button"
+            accessibilityLabel="Log out"
+          >
+            <Icon name="LogOut" size={14} color={palette.textMuted} />
+            <Text style={{ ...typography.caption, color: palette.textMuted, fontWeight: "600" }}>
+              Log out
+            </Text>
+          </Pressable>
         </View>
 
         <Pressable
@@ -178,9 +219,34 @@ export default function DriverHomeScreen() {
         <View style={{ gap: spacing.md }}>
           <Text style={{ ...typography.h3, color: palette.text }}>Quick Actions</Text>
           <View style={{ flexDirection: "row", gap: spacing.md }}>
-            <QuickAction icon="Disc" label="Tyre" onPress={() => router.push({ pathname: "/(driver)/component-detail", params: { component: "tire" } })} />
-            <QuickAction icon="Fuel" label="Fuel" />
-            <QuickAction icon="KeyRound" label="Locksmith" />
+            {/* Quick actions = fast-path dispatch to the nearest provider of
+                the relevant type. No diagnostic questions; we know what's
+                needed. Routes through (emergency)/quick-dispatch which runs
+                the full incident -> triage -> dispatch pipeline. */}
+            <QuickAction
+              icon="Disc"
+              label="Tyre"
+              onPress={() => router.push({
+                pathname: "/(emergency)/quick-dispatch",
+                params:   { intent: "FLAT_TIRE", label: "Flat tire" },
+              })}
+            />
+            <QuickAction
+              icon="Fuel"
+              label="Fuel"
+              onPress={() => router.push({
+                pathname: "/(emergency)/quick-dispatch",
+                params:   { intent: "FUEL_EMPTY", label: "Fuel delivery" },
+              })}
+            />
+            <QuickAction
+              icon="KeyRound"
+              label="Locksmith"
+              onPress={() => router.push({
+                pathname: "/(emergency)/quick-dispatch",
+                params:   { intent: "LOCKOUT", label: "Locksmith" },
+              })}
+            />
           </View>
           <View style={{ flexDirection: "row", gap: spacing.md }}>
             <QuickAction icon="Truck" label="Service" />
@@ -379,7 +445,11 @@ export default function DriverHomeScreen() {
 
             <View style={{ flexDirection: "row", gap: spacing.md, width: "100%" }}>
               <Pressable
-                onPress={() => setShowObd(false)}
+                onPress={() => {
+                  // User chose not to connect a sensor — vehicle is "manual",
+                  // triage will run at Tier-1 (questionnaire only).
+                  setShowObd(false);
+                }}
                 style={({ pressed }) => ({
                   flex: 1,
                   borderRadius: radii.lg,
@@ -394,7 +464,13 @@ export default function DriverHomeScreen() {
               </Pressable>
 
               <Pressable
-                onPress={() => setShowObd(false)}
+                onPress={() => {
+                  // Simulate Bluetooth ELM327 pairing. Persists for the session
+                  // so subsequent triage submissions read live OBD telemetry
+                  // and run at Tier-2 (OBD-enhanced) on the dispatch backend.
+                  pairElm327(VEHICLE_ID);
+                  setShowObd(false);
+                }}
                 style={({ pressed }) => ({
                   flex: 1,
                   borderRadius: radii.lg,
