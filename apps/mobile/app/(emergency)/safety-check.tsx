@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@components/ui/button";
@@ -6,8 +6,9 @@ import { HeaderBar } from "@components/ui/header-bar";
 import { OptionCard } from "@components/ui/option-card";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
-import { useEmergency, DEMO_LOCATION, DEMO_VEHICLE } from "@lib/emergencyContext";
+import { useEmergency, DEMO_VEHICLE } from "@lib/emergencyContext";
 import { createIncident, submitTriage, runDispatch, DispatchApiError } from "@lib/dispatchApi";
+import { getCurrentDriverLocation } from "@lib/driverLocation";
 
 type Choice = "CRASH" | "MINOR" | "NONE" | null;
 
@@ -24,6 +25,16 @@ export default function SafetyCheckScreen() {
   } = useEmergency();
 
   /**
+   * Prefetch the driver's GPS coords while they read the Safety Check
+   * options. The first call goes through permission prompt + GPS lock;
+   * subsequent calls (in diagnosis-lights / quick-dispatch / connected)
+   * hit the in-memory cache and return immediately.
+   */
+  useEffect(() => {
+    getCurrentDriverLocation().catch(() => {});
+  }, []);
+
+  /**
    * MAJOR_CRASH is a fast-path intent. We do the full create-incident +
    * triage-submit + dispatch-optimize round-trip here, then jump straight
    * to the connected screen — skipping the sound + lights questions.
@@ -32,8 +43,9 @@ export default function SafetyCheckScreen() {
     setCtxLoading(true);
     setError(null);
     try {
+      const driver = await getCurrentDriverLocation();
       const incident = await createIncident({
-        location:    DEMO_LOCATION,
+        location:    { latitude: driver.latitude, longitude: driver.longitude },
         vehicleInfo: DEMO_VEHICLE,
         description: "Major accident reported via mobile app",
       });
@@ -88,10 +100,10 @@ export default function SafetyCheckScreen() {
     if (choice === "CRASH") {
       handleFastPathCrash();
     } else {
-      // Engine-state is the real branching point of the adaptive form —
-      // the answer there decides whether we even need to ask about the
-      // engine sound (only relevant when the engine cranks but won't fire).
-      router.push("/(emergency)/engine-state");
+      // Intent picker is the top-level branch of the adaptive form. From
+      // there the user enters either the ENGINE subtree (engine-state →
+      // sound / electrical / running-issue) or the BRAKE / GEAR subtrees.
+      router.push("/(emergency)/intent");
     }
   }
 

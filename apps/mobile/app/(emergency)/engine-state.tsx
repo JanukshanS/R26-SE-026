@@ -19,19 +19,20 @@ export default function EngineStateScreen() {
 
   /**
    * Adaptive routing based on what the engine is doing:
-   *   - CRANKS_NO_START → ask about the sound (Q3) — most diagnostic
-   *     screen for distinguishing fuel/starter/ignition issues
-   *   - everything else  → skip sound, go straight to dashboard lights
-   *
-   * (Deeper conditional branches like Q3b electrical for NO_CRANK, or
-   *  Q2b running-issue for STARTS_*, are queued for next session.)
+   *   - STARTS_NORMAL / STARTS_BUT_ISSUE → Q2b running-issue (which itself
+   *     branches into overheat / noise / smoke deep-dives)
+   *   - CRANKS_NO_START → Q3 sound (best signal for fuel / starter / ignition)
+   *   - NO_CRANK        → Q3b electrical (battery / starter / wiring)
    */
   function handleNext() {
     if (!engineState) return;
     if (engineState === "CRANKS_NO_START") {
       router.push("/(emergency)/diagnosis-sound");
+    } else if (engineState === "NO_CRANK") {
+      router.push("/(emergency)/electrical");
     } else {
-      router.push("/(emergency)/diagnosis-lights");
+      // STARTS_NORMAL or STARTS_BUT_ISSUE
+      router.push("/(emergency)/running-issue");
     }
   }
 

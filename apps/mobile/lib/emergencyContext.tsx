@@ -56,6 +56,48 @@ export type RecentSign =
   | "HARD_START" | "LIGHTS_FLICKER" | "LOSS_OF_POWER"
   | "OVERHEATING_BEFORE" | "UNUSUAL_NOISE" | "SMELL_BEFORE" | "NO_SIGNS";
 
+/**
+ * Top-level problem cohort selected on the intent picker (the screen right
+ * after safety-check). Drives which deep-dive branch the adaptive form
+ * takes — engine paths vs brake paths vs gear paths.
+ */
+export type IntentCohort = "ENGINE" | "BRAKE" | "GEAR" | null;
+
+/** Backend Q2b_running_issue enum values (asked when engine starts but runs poorly). */
+export type RunningIssueChoice =
+  | "OVERHEATING" | "NOISE" | "NO_POWER" | "SMOKE" | "STALLING"
+  | null;
+
+/** Backend Q7_overheat_detail enum values (asked when running-issue = OVERHEATING). */
+export type OverheatChoice =
+  | "TRAFFIC_ONLY" | "ALWAYS" | "HILL_CLIMB" | "WITH_AC"
+  | null;
+
+/** Backend Q4_noise_detail enum values (asked when running-issue = NOISE). */
+export type NoiseChoice =
+  | "SQUEAL" | "KNOCK" | "GRIND" | "WHINE" | "CLUNK"
+  | null;
+
+/** Backend Q8_smoke_color enum values (asked when running-issue = SMOKE). */
+export type SmokeColorChoice =
+  | "WHITE" | "BLUE_GREY" | "BLACK" | "ELECTRICAL_BURNING"
+  | null;
+
+/** Backend Q3b_electrical enum values (asked when engine-state = NO_CRANK). */
+export type ElectricalChoice =
+  | "ALL_DEAD_NO_LIGHTS" | "DIM_LIGHTS" | "SOME_LIGHTS_ON"
+  | null;
+
+/** Backend Q_brake_detail enum values (asked when intent = BRAKE). */
+export type BrakeDetailChoice =
+  | "SQUEALING" | "GRINDING" | "PULL_ONE_SIDE" | "SOFT_PEDAL"
+  | null;
+
+/** Backend Q_gear_detail enum values (asked when intent = GEAR). */
+export type GearDetailChoice =
+  | "SLIPPING" | "WONT_ENGAGE" | "GRINDING" | "CLUTCH_SOFT"
+  | null;
+
 /** Sri Lankan context features (5 short questions). */
 export interface SLContext {
   location_type:      "COASTAL" | "HILL" | "URBAN" | "RURAL";
@@ -83,11 +125,19 @@ export interface EmergencyState {
   sound:        MobileSoundId | null;
   mobileLights: Set<string>;           // mobile-side ids (engine, oil, ...)
 
-  // Newly added pages
-  engineState:  EngineStateChoice;
-  smells:       SmellChoice;
-  recentSigns:  Set<RecentSign>;
-  slContext:    SLContext;
+  // Adaptive form selections
+  intent:        IntentCohort;          // top-level branch (Engine/Brake/Gear)
+  engineState:   EngineStateChoice;     // Q2
+  runningIssue:  RunningIssueChoice;    // Q2b (when STARTS_*)
+  overheatDetail:OverheatChoice;        // Q7 (when running = OVERHEATING)
+  noiseDetail:   NoiseChoice;           // Q4 (when running = NOISE)
+  smokeColor:    SmokeColorChoice;      // Q8 (when running = SMOKE)
+  electrical:    ElectricalChoice;      // Q3b (when engine = NO_CRANK)
+  brakeDetail:   BrakeDetailChoice;     // Q_brake (when intent = BRAKE)
+  gearDetail:    GearDetailChoice;      // Q_gear (when intent = GEAR)
+  smells:        SmellChoice;           // Q6 (tail)
+  recentSigns:   Set<RecentSign>;       // Q9 (tail)
+  slContext:     SLContext;             // SL context (tail)
 
   // API results
   incidentId:     string | null;
@@ -100,13 +150,21 @@ export interface EmergencyState {
 }
 
 interface EmergencyContextValue extends EmergencyState {
-  setDamage:        (d: DamageChoice) => void;
-  setSound:         (s: MobileSoundId | null) => void;
-  toggleLight:      (id: string) => void;
-  setEngineState:   (s: EngineStateChoice) => void;
-  setSmells:        (s: SmellChoice) => void;
-  toggleRecentSign: (s: RecentSign) => void;
-  setSLContext:     (patch: Partial<SLContext>) => void;
+  setDamage:         (d: DamageChoice) => void;
+  setSound:          (s: MobileSoundId | null) => void;
+  toggleLight:       (id: string) => void;
+  setIntent:         (i: IntentCohort) => void;
+  setEngineState:    (s: EngineStateChoice) => void;
+  setRunningIssue:   (s: RunningIssueChoice) => void;
+  setOverheatDetail: (s: OverheatChoice) => void;
+  setNoiseDetail:    (s: NoiseChoice) => void;
+  setSmokeColor:     (s: SmokeColorChoice) => void;
+  setElectrical:     (s: ElectricalChoice) => void;
+  setBrakeDetail:    (s: BrakeDetailChoice) => void;
+  setGearDetail:     (s: GearDetailChoice) => void;
+  setSmells:         (s: SmellChoice) => void;
+  toggleRecentSign:  (s: RecentSign) => void;
+  setSLContext:      (patch: Partial<SLContext>) => void;
   setLoading:       (b: boolean) => void;
   setError:         (e: string | null) => void;
   setIncidentId:    (id: string | null) => void;
@@ -147,19 +205,32 @@ const EmergencyContext = createContext<EmergencyContextValue | null>(null);
  *   - Q6_smells / Q9_recent get safe defaults (NO_SMELL / [NO_SIGNS]).
  */
 function buildResponsesFrom(state: EmergencyState): TriageResponses {
-  // Q1 intent — damage drives the fast-path bucket; otherwise we pick
-  // ENGINE_PROBLEM (engine state was reported) or WONT_START (electrical).
-  const Q1_intent =
-    state.damage === "CRASH"  ? "MAJOR_CRASH" :
-    state.damage === "MINOR"  ? "ENGINE_PROBLEM" :
-                                "WONT_START";
+  // ── Q1 intent ────────────────────────────────────────────────────────
+  // The intent picker drives the top-level cohort; damage refines it.
+  //   - damage = CRASH         → MAJOR_CRASH (fast-path)
+  //   - intent = BRAKE         → BRAKE_ISSUE
+  //   - intent = GEAR          → GEAR_ISSUE
+  //   - intent = ENGINE + damage MINOR → ENGINE_PROBLEM
+  //   - intent = ENGINE + damage NONE  → WONT_START
+  let Q1_intent: string = "WONT_START";
+  if (state.damage === "CRASH") {
+    Q1_intent = "MAJOR_CRASH";
+  } else if (state.intent === "BRAKE") {
+    Q1_intent = "BRAKE_ISSUE";
+  } else if (state.intent === "GEAR") {
+    Q1_intent = "GEAR_ISSUE";
+  } else if (state.damage === "MINOR") {
+    Q1_intent = "ENGINE_PROBLEM";
+  }
 
-  // Prefer the explicit Q2 answer (new screen) over inferring from sound.
+  // ── Q2 engine start ──────────────────────────────────────────────────
+  // Prefer the explicit Q2 screen answer; otherwise infer from sound; else
+  // NOT_ASKED (e.g. on the BRAKE / GEAR paths where engine isn't asked).
   const Q2_engine_start =
     state.engineState ??
     (state.sound === "NORMAL_CRANKING" ? "CRANKS_NO_START" :
-     state.sound === null              ? "NOT_ASKED" :
-                                         "NO_CRANK");
+     state.sound                       ? "NO_CRANK" :
+                                         "NOT_ASKED");
 
   const Q3_sound = state.sound ?? "NOT_ASKED";
 
@@ -174,15 +245,15 @@ function buildResponsesFrom(state: EmergencyState): TriageResponses {
   return {
     Q1_intent,
     Q2_engine_start,
-    Q2b_running_issue: "NOT_ASKED",
+    Q2b_running_issue: state.runningIssue   ?? "NOT_ASKED",
     Q3_sound,
-    Q3b_electrical:    "NOT_ASKED",
-    Q4_noise_detail:   "NOT_ASKED",
-    Q7_overheat_detail:"NOT_ASKED",
-    Q8_smoke_color:    "NOT_ASKED",
-    Q_brake_detail:    "NOT_ASKED",
-    Q_gear_detail:     "NOT_ASKED",
-    Q6_smells:         state.smells ?? "NO_SMELL",
+    Q3b_electrical:    state.electrical     ?? "NOT_ASKED",
+    Q4_noise_detail:   state.noiseDetail    ?? "NOT_ASKED",
+    Q7_overheat_detail:state.overheatDetail ?? "NOT_ASKED",
+    Q8_smoke_color:    state.smokeColor     ?? "NOT_ASKED",
+    Q_brake_detail:    state.brakeDetail    ?? "NOT_ASKED",
+    Q_gear_detail:     state.gearDetail     ?? "NOT_ASKED",
+    Q6_smells:         state.smells         ?? "NO_SMELL",
     Q5_lights:         Q5_lights.length ? Q5_lights : ["NONE"],
     Q9_recent,
     location_type:     state.slContext.location_type,
@@ -209,7 +280,15 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
   const [damage, setDamage] = useState<DamageChoice>(null);
   const [sound, setSound] = useState<MobileSoundId | null>(null);
   const [mobileLights, setMobileLights] = useState<Set<string>>(new Set());
+  const [intent, setIntent] = useState<IntentCohort>(null);
   const [engineState, setEngineState] = useState<EngineStateChoice>(null);
+  const [runningIssue, setRunningIssue] = useState<RunningIssueChoice>(null);
+  const [overheatDetail, setOverheatDetail] = useState<OverheatChoice>(null);
+  const [noiseDetail, setNoiseDetail] = useState<NoiseChoice>(null);
+  const [smokeColor, setSmokeColor] = useState<SmokeColorChoice>(null);
+  const [electrical, setElectrical] = useState<ElectricalChoice>(null);
+  const [brakeDetail, setBrakeDetail] = useState<BrakeDetailChoice>(null);
+  const [gearDetail, setGearDetail] = useState<GearDetailChoice>(null);
   const [smells, setSmells] = useState<SmellChoice>(null);
   const [recentSigns, setRecentSigns] = useState<Set<RecentSign>>(new Set());
   const [slContext, setSLContextState] = useState<SLContext>(DEFAULT_SL_CONTEXT);
@@ -250,7 +329,15 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
     setDamage(null);
     setSound(null);
     setMobileLights(new Set());
+    setIntent(null);
     setEngineState(null);
+    setRunningIssue(null);
+    setOverheatDetail(null);
+    setNoiseDetail(null);
+    setSmokeColor(null);
+    setElectrical(null);
+    setBrakeDetail(null);
+    setGearDetail(null);
     setSmells(null);
     setRecentSigns(new Set());
     setSLContextState(DEFAULT_SL_CONTEXT);
@@ -263,26 +350,38 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
 
   const buildTriageResponses = useCallback(
     () => buildResponsesFrom({
-      damage, sound, mobileLights, engineState, smells, recentSigns, slContext,
+      damage, sound, mobileLights,
+      intent, engineState, runningIssue, overheatDetail, noiseDetail,
+      smokeColor, electrical, brakeDetail, gearDetail,
+      smells, recentSigns, slContext,
       incidentId, triageResult, dispatchResult, loading, error,
     }),
-    [damage, sound, mobileLights, engineState, smells, recentSigns, slContext,
+    [damage, sound, mobileLights, intent, engineState, runningIssue,
+     overheatDetail, noiseDetail, smokeColor, electrical, brakeDetail,
+     gearDetail, smells, recentSigns, slContext,
      incidentId, triageResult, dispatchResult, loading, error]
   );
 
   const value = useMemo<EmergencyContextValue>(
     () => ({
-      damage, sound, mobileLights, engineState, smells, recentSigns, slContext,
+      damage, sound, mobileLights,
+      intent, engineState, runningIssue, overheatDetail, noiseDetail,
+      smokeColor, electrical, brakeDetail, gearDetail,
+      smells, recentSigns, slContext,
       incidentId, triageResult, dispatchResult,
       loading, error,
       setDamage, setSound, toggleLight,
-      setEngineState, setSmells, toggleRecentSign, setSLContext,
+      setIntent, setEngineState, setRunningIssue, setOverheatDetail,
+      setNoiseDetail, setSmokeColor, setElectrical, setBrakeDetail, setGearDetail,
+      setSmells, toggleRecentSign, setSLContext,
       setLoading, setError,
       setIncidentId, setTriageResult, setDispatchResult,
       buildTriageResponses, reset,
     }),
     [
-      damage, sound, mobileLights, engineState, smells, recentSigns, slContext,
+      damage, sound, mobileLights, intent, engineState, runningIssue,
+      overheatDetail, noiseDetail, smokeColor, electrical, brakeDetail,
+      gearDetail, smells, recentSigns, slContext,
       incidentId, triageResult, dispatchResult,
       loading, error, toggleLight, toggleRecentSign, setSLContext,
       buildTriageResponses, reset,
@@ -323,10 +422,17 @@ export const DEMO_VEHICLE = {
 };
 
 /**
- * Demo location: Colombo (matches where most seeded providers cluster).
- * Replace with expo-location lookup once GPS permission flow is added.
+ * Demo / fallback location — Malabe (matches the home screen caption).
+ *
+ * Deliberately NOT placed at any seeded provider's coordinate, so distance
+ * and ETA come out non-zero even when GPS is unavailable.
+ *
+ * Real GPS, when granted, is fetched via lib/driverLocation.ts —
+ * `getCurrentDriverLocation()`. This export remains for code that hasn't
+ * been migrated to the async GPS helper yet, plus as the authoritative
+ * fallback when permission is denied or geolocation fails.
  */
 export const DEMO_LOCATION = {
-  latitude:  6.9271,
-  longitude: 79.8612,
+  latitude:  6.9147,
+  longitude: 79.9724,
 };

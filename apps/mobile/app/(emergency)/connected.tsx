@@ -8,13 +8,14 @@ import { Icon, type IconName } from "@components/ui/icon";
 import { MapPreview } from "@components/ui/map-preview";
 import { Screen } from "@components/ui/screen";
 import { palette, spacing, typography } from "@theme/index";
-import { useEmergency, DEMO_LOCATION } from "@lib/emergencyContext";
+import { useEmergency } from "@lib/emergencyContext";
 import {
   getProvider,
   haversineKm,
   providerTypeLabel,
   type ProviderRecord,
 } from "@lib/dispatchApi";
+import { getCurrentDriverLocation, FALLBACK_LOCATION } from "@lib/driverLocation";
 
 /** Display ETA in whole minutes from the backend's computed travel time. */
 function formatEta(min?: number): string {
@@ -30,16 +31,25 @@ export default function ConnectedScreen() {
   // for the map view and distance display.
   const [provider, setProvider] = useState<ProviderRecord | null>(null);
 
+  // Driver location — same coordinates used at incident creation, pulled
+  // from the cache (set by safety-check / quick-dispatch on entry). Cached
+  // in lib/driverLocation.ts so this resolves synchronously after the
+  // first call earlier in the flow.
+  const [driverLoc, setDriverLoc] = useState(FALLBACK_LOCATION);
+  useEffect(() => {
+    getCurrentDriverLocation().then(setDriverLoc).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!sp?.id) return;
     getProvider(sp.id).then(setProvider).catch(() => setProvider(null));
   }, [sp?.id]);
 
   const distanceKm = provider
-    ? haversineKm(DEMO_LOCATION, {
-        latitude:  provider.latitude,
-        longitude: provider.longitude,
-      })
+    ? haversineKm(
+        { latitude: driverLoc.latitude, longitude: driverLoc.longitude },
+        { latitude: provider.latitude, longitude: provider.longitude },
+      )
     : null;
 
   const etaText      = sp?.estimatedTravelTimeMin
@@ -106,9 +116,11 @@ export default function ConnectedScreen() {
       </Card>
 
       {/* Live map with driver + provider pins, dashed route, and an ETA /
-          distance overlay at the bottom. */}
+          distance overlay at the bottom. Driver coord comes from real GPS
+          when permitted (lib/driverLocation.ts), otherwise the Malabe
+          fallback. */}
       <MapPreview
-        driverLocation={DEMO_LOCATION}
+        driverLocation={{ latitude: driverLoc.latitude, longitude: driverLoc.longitude }}
         provider={provider}
         etaText={etaText}
         distanceText={distanceText}

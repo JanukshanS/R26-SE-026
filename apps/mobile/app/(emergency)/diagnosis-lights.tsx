@@ -5,8 +5,9 @@ import { HeaderBar } from "@components/ui/header-bar";
 import { Icon, type IconName } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
-import { useEmergency, DEMO_LOCATION, DEMO_VEHICLE } from "@lib/emergencyContext";
+import { useEmergency, DEMO_VEHICLE } from "@lib/emergencyContext";
 import { createIncident, DispatchApiError } from "@lib/dispatchApi";
+import { getCurrentDriverLocation } from "@lib/driverLocation";
 
 const LIGHTS: { id: string; icon: IconName; label: string }[] = [
   { id: "engine",  icon: "Cog",           label: "Engine" },
@@ -42,8 +43,9 @@ export default function DiagnosisLightsScreen() {
     setLoading(true);
     setError(null);
     try {
+      const driver = await getCurrentDriverLocation();
       const incident = await createIncident({
-        location:    DEMO_LOCATION,
+        location:    { latitude: driver.latitude, longitude: driver.longitude },
         vehicleInfo: DEMO_VEHICLE,
         description: "Roadside assistance requested via mobile app",
       });

@@ -191,16 +191,34 @@ class DispatchApiError extends Error {
 
 export { DispatchApiError };
 
+/**
+ * Hermes (RN's default JS engine on Android) doesn't ship `AbortSignal.timeout`,
+ * so we polyfill via AbortController + setTimeout. Works identically on iOS,
+ * Android, and the web bundle.
+ */
+function timeoutSignal(ms: number): { signal: AbortSignal; cancel: () => void } {
+  const controller = new AbortController();
+  const handle = setTimeout(() => controller.abort(), ms);
+  return { signal: controller.signal, cancel: () => clearTimeout(handle) };
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${DISPATCH_BASE_URL}${path}`;
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-    signal: AbortSignal.timeout(10_000),
-  });
+  const { signal, cancel } = timeoutSignal(10_000);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+      signal,
+    });
+  } finally {
+    cancel();
+  }
 
   let body: ApiEnvelope<T> | undefined;
   try {

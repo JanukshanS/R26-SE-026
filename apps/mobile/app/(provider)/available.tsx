@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Badge } from "@components/ui/badge";
@@ -7,7 +7,7 @@ import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
 import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
-import { palette, spacing, typography } from "@theme/index";
+import { palette, radii, spacing, typography } from "@theme/index";
 import {
   listProviders,
   serviceTypeLabel,
@@ -61,6 +61,22 @@ export default function ProviderAvailableScreen() {
     }
   }
 
+  /**
+   * Log out — flips the provider OFFLINE first (so they don't keep getting
+   * dispatched while away) and then routes back to the welcome screen.
+   * When JWT auth lands this is where we'd also clear the stored token.
+   */
+  async function handleLogout() {
+    if (provider && provider.status !== "OFFLINE") {
+      try {
+        await updateProviderStatus(provider.id, "OFFLINE");
+      } catch {
+        /* best-effort — don't block logout if the backend is unreachable */
+      }
+    }
+    router.replace("/");
+  }
+
   const online = provider?.status === "AVAILABLE";
   const displayName = provider?.name.split(" - ")[1] ?? provider?.name ?? "Provider";
 
@@ -94,11 +110,35 @@ export default function ProviderAvailableScreen() {
             </Text>
           </View>
         </View>
-        <Badge
-          label={online ? "Online" : provider ? "Offline" : "—"}
-          tone={online ? "success" : "neutral"}
-          withDot
-        />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+          <Badge
+            label={online ? "Online" : provider ? "Offline" : "—"}
+            tone={online ? "success" : "neutral"}
+            withDot
+          />
+          <Pressable
+            onPress={handleLogout}
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.7 : 1,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm,
+              borderRadius: radii.pill,
+              borderWidth: 1,
+              borderColor: palette.border,
+              backgroundColor: palette.surface,
+            })}
+            accessibilityRole="button"
+            accessibilityLabel="Log out"
+          >
+            <Icon name="LogOut" size={14} color={palette.textMuted} />
+            <Text style={{ ...typography.caption, color: palette.textMuted, fontWeight: "600" }}>
+              Log out
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <Screen edges={["bottom"]}>

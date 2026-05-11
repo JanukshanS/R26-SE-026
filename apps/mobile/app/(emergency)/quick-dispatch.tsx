@@ -18,10 +18,11 @@ import { HeaderBar } from "@components/ui/header-bar";
 import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
-import { useEmergency, DEMO_LOCATION, DEMO_VEHICLE } from "@lib/emergencyContext";
+import { useEmergency, DEMO_VEHICLE } from "@lib/emergencyContext";
 import {
   createIncident, submitTriage, runDispatch, DispatchApiError,
 } from "@lib/dispatchApi";
+import { getCurrentDriverLocation } from "@lib/driverLocation";
 
 function buildFastPathDefaults() {
   return {
@@ -59,8 +60,9 @@ export default function QuickDispatchScreen() {
 
     (async () => {
       try {
+        const driver = await getCurrentDriverLocation();
         const incident = await createIncident({
-          location:    DEMO_LOCATION,
+          location:    { latitude: driver.latitude, longitude: driver.longitude },
           vehicleInfo: DEMO_VEHICLE,
           description: `Quick-dispatch from home: ${label ?? intent}`,
         });
