@@ -37,9 +37,6 @@ export default function DriverHomeScreen() {
 
   const { user, selectedVehicle, vehicles, selectVehicle } = useVehicle();
   const [health, setHealth] = useState<VehicleHealthResponse>(FALLBACK_HEALTH);
-
-  const { user, selectedVehicle, vehicles, selectVehicle } = useVehicle();
-  const [health, setHealth] = useState<VehicleHealthResponse>(FALLBACK_HEALTH);
   const [loadingHealth, setLoadingHealth] = useState(true);
   const [showObd, setShowObd] = useState(() => !isElm327Paired());
   const [showVehiclePicker, setShowVehiclePicker] = useState(false);
@@ -468,7 +465,7 @@ export default function DriverHomeScreen() {
                   // Simulate Bluetooth ELM327 pairing. Persists for the session
                   // so subsequent triage submissions read live OBD telemetry
                   // and run at Tier-2 (OBD-enhanced) on the dispatch backend.
-                  pairElm327(VEHICLE_ID);
+                  pairElm327(vehicleId);
                   setShowObd(false);
                 }}
                 style={({ pressed }) => ({
