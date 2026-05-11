@@ -16,8 +16,8 @@ import {
   type VehicleHealthResponse,
 } from "@lib/maintenanceApi";
 import { isElm327Paired, pairElm327, unpairElm327 } from "@lib/elm327";
+import { useVehicle } from "@lib/vehicleContext";
 
-const VEHICLE_ID = "CBD-3742";
 const BOTTOM_SCROLL_PADDING = 112;
 
 type TabDef = { key: string; label: string; icon: IconName };
@@ -35,18 +35,27 @@ export default function DriverHomeScreen() {
   const insets = useSafeAreaInsets();
   const bottomReserve = BOTTOM_SCROLL_PADDING + insets.bottom;
 
+  const { user, selectedVehicle, vehicles, selectVehicle } = useVehicle();
+  const [health, setHealth] = useState<VehicleHealthResponse>(FALLBACK_HEALTH);
+
+  const { user, selectedVehicle, vehicles, selectVehicle } = useVehicle();
   const [health, setHealth] = useState<VehicleHealthResponse>(FALLBACK_HEALTH);
   const [loadingHealth, setLoadingHealth] = useState(true);
-  // Show the OBD-pair modal only the first time per session AND only if we
-  // haven't already paired (avoid nagging users who paired earlier).
   const [showObd, setShowObd] = useState(() => !isElm327Paired());
+  const [showVehiclePicker, setShowVehiclePicker] = useState(false);
+
+  const vehicleId = selectedVehicle?.plateNumber ?? "CBD-3742";
+  const vehicleLabel = selectedVehicle
+  ? (selectedVehicle.nickname || `${selectedVehicle.make} ${selectedVehicle.model}`)
+  : "Toyota Aqua";
 
   useEffect(() => {
-    getVehicleHealth(VEHICLE_ID)
+    setLoadingHealth(true);
+    getVehicleHealth(vehicleId)
       .then(setHealth)
       .catch(() => setHealth(FALLBACK_HEALTH))
       .finally(() => setLoadingHealth(false));
-  }, []);
+  }, [vehicleId]);
 
   const alertComponents = (["brake", "engine", "tire", "battery"] as const).filter(
     (k) => health.components[k].status !== "Good"
@@ -104,11 +113,7 @@ export default function DriverHomeScreen() {
         </View>
 
         <Pressable
-          onPress={() => {
-            if (process.env.EXPO_OS === "ios") {
-              Haptics.selectionAsync().catch(() => {});
-            }
-          }}
+          onPress={() => setShowVehiclePicker(true)}
           style={({ pressed }) => ({
             flexDirection: "row",
             alignItems: "center",
@@ -117,7 +122,7 @@ export default function DriverHomeScreen() {
           })}
         >
           <Text style={{ flex: 1, ...typography.display, color: palette.text, fontSize: 28 }}>
-            Toyota Aqua
+            {vehicleLabel}
           </Text>
           <View
             style={{
@@ -131,7 +136,7 @@ export default function DriverHomeScreen() {
             }}
           >
             <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "700" }}>
-              {VEHICLE_ID}
+              {selectedVehicle?.plateNumber ?? vehicleId}
             </Text>
             <Icon name="ChevronDown" size={16} color={palette.brand} />
           </View>
@@ -283,6 +288,108 @@ export default function DriverHomeScreen() {
       </Screen>
 
       <BottomNavBar />
+
+      {/* Vehicle picker modal */}
+      <Modal visible={showVehiclePicker} transparent animationType="slide">
+        <Pressable
+          style={{ flex: 1, backgroundColor: palette.overlay, justifyContent: "flex-end" }}
+          onPress={() => setShowVehiclePicker(false)}
+        >
+          <Pressable
+            style={{
+              backgroundColor: palette.surface,
+              borderTopLeftRadius: radii.xl,
+              borderTopRightRadius: radii.xl,
+              paddingTop: spacing.lg,
+              paddingHorizontal: spacing.lg,
+              paddingBottom: insets.bottom + spacing.lg,
+              gap: spacing.md,
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>
+                {user ? "Switch Vehicle" : "Your Vehicles"}
+              </Text>
+              <Pressable onPress={() => setShowVehiclePicker(false)} hitSlop={12}>
+                <Icon name="X" size={20} color={palette.textMuted} />
+              </Pressable>
+            </View>
+
+            {!user ? (
+              <View style={{ gap: spacing.md, paddingVertical: spacing.md }}>
+                <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
+                  Sign in to manage multiple vehicles and sync your health data.
+                </Text>
+                <Pressable
+                  onPress={() => { setShowVehiclePicker(false); router.push("/(driver)/auth"); }}
+                  style={({ pressed }) => ({
+                    backgroundColor: pressed ? palette.brandPressed : palette.brand,
+                    borderRadius: radii.lg,
+                    paddingVertical: spacing.md + 2,
+                    alignItems: "center",
+                  })}
+                >
+                  <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
+                    Sign In / Register
+                  </Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={{ gap: spacing.sm }}>
+                {vehicles.map((v) => (
+                  <Pressable
+                    key={v._id}
+                    onPress={() => { selectVehicle(v); setShowVehiclePicker(false); }}
+                    style={({ pressed }) => ({
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: spacing.md,
+                      padding: spacing.md,
+                      borderRadius: radii.lg,
+                      backgroundColor: pressed ? palette.homeBackground : palette.surface,
+                      borderWidth: 1.5,
+                      borderColor: selectedVehicle?._id === v._id ? palette.brand : palette.border,
+                    })}
+                  >
+                    <Icon name="Car" size={20} color={selectedVehicle?._id === v._id ? palette.brand : palette.textMuted} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ ...typography.bodyStrong, color: palette.text }}>
+                        {v.nickname || `${v.make} ${v.model}`}
+                      </Text>
+                      <Text style={{ ...typography.caption, color: palette.textMuted }}>
+                        {v.plateNumber} · {v.fuelType}
+                      </Text>
+                    </View>
+                    {selectedVehicle?._id === v._id && (
+                      <Icon name="CheckCircle" size={18} color={palette.brand} />
+                    )}
+                  </Pressable>
+                ))}
+
+                <Pressable
+                  onPress={() => { setShowVehiclePicker(false); router.push("/(driver)/manage-vehicles"); }}
+                  style={({ pressed }) => ({
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: spacing.sm,
+                    paddingVertical: spacing.md,
+                    borderRadius: radii.lg,
+                    borderWidth: 1.5,
+                    borderColor: palette.brand,
+                    backgroundColor: pressed ? palette.brandSoft : "transparent",
+                  })}
+                >
+                  <Icon name="Settings" size={16} color={palette.brand} />
+                  <Text style={{ ...typography.bodyStrong, color: palette.brand }}>
+                    Manage Vehicles
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* OBD-II connect modal */}
       <Modal visible={showObd} transparent animationType="fade">
@@ -475,11 +582,20 @@ function EmergencyCenterButton() {
 }
 
 function TabItem({ tab, active }: { tab: TabDef; active: boolean }) {
+  const { user } = useVehicle();
+  const initials = user?.name
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
   return (
     <Pressable
       onPress={() => {
         if (process.env.EXPO_OS === "ios") Haptics.selectionAsync().catch(() => {});
         if (tab.key === "maintenance") router.push("/(driver)/health");
+        if (tab.key === "profile") router.push("/(driver)/profile");
       }}
       style={({ pressed }) => ({
         alignItems: "center",
@@ -491,7 +607,24 @@ function TabItem({ tab, active }: { tab: TabDef; active: boolean }) {
         opacity: pressed ? 0.85 : 1,
       })}
     >
-      <Icon name={tab.icon} size={22} color={active ? palette.brand : palette.textMuted} />
+      {tab.key === "profile" && user ? (
+        <View
+          style={{
+            width: 24,
+            height: 24,
+            borderRadius: 12,
+            backgroundColor: palette.brand,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ fontSize: 9, fontWeight: "700", color: palette.textOnBrand }}>
+            {initials}
+          </Text>
+        </View>
+      ) : (
+        <Icon name={tab.icon} size={22} color={active ? palette.brand : palette.textMuted} />
+      )}
       <Text
         style={{
           ...typography.micro,

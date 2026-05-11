@@ -128,7 +128,29 @@ def vehicle_health(
     """
     trips = db.query(TripMetrics).filter(TripMetrics.vehicle_id == vehicle_id).all()
     if not trips:
-        raise HTTPException(status_code=404, detail=f"No trips found for vehicle '{vehicle_id}'.")
+        # No trip data yet — return a neutral "no data" health response
+        no_data_component = ComponentHealth(
+            component="",
+            health_pct=0.0,
+            status="No data",
+            predicted_rul_km=0.0,
+            max_lifespan_km=0,
+            confidence_note="No trips recorded yet",
+        )
+        return VehicleHealthResponse(
+            vehicle_id=vehicle_id,
+            overall_health_pct=0.0,
+            overall_status="No data",
+            trip_count=0,
+            total_mileage_km=0.0,
+            components=[
+                ComponentHealth(component="Engine",     health_pct=0, status="No data", predicted_rul_km=0, max_lifespan_km=150000, confidence_note="No trips recorded yet"),
+                ComponentHealth(component="Brake Pads", health_pct=0, status="No data", predicted_rul_km=0, max_lifespan_km=40000,  confidence_note="No trips recorded yet"),
+                ComponentHealth(component="Tires",      health_pct=0, status="No data", predicted_rul_km=0, max_lifespan_km=50000,  confidence_note="No trips recorded yet"),
+                ComponentHealth(component="Battery",    health_pct=0, status="No data", predicted_rul_km=0, max_lifespan_km=80000,  confidence_note="No trips recorded yet"),
+            ],
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
 
     models = _get_models(request)
     if not models:

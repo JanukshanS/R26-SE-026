@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 
 import joblib
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
 from app.routers.ingest import router as ingest_router
@@ -77,6 +78,13 @@ app = FastAPI(
     ),
     version="1.0.0",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(ingest_router, tags=["Ingest"])
