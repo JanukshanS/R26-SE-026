@@ -6,7 +6,7 @@ import { Icon, type IconName } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useEmergency, DEMO_LOCATION, DEMO_VEHICLE } from "@lib/emergencyContext";
-import { createIncident, submitTriage, DispatchApiError } from "@lib/dispatchApi";
+import { createIncident, DispatchApiError } from "@lib/dispatchApi";
 
 const LIGHTS: { id: string; icon: IconName; label: string }[] = [
   { id: "engine",  icon: "Cog",           label: "Engine" },
@@ -23,15 +23,22 @@ const LIGHTS: { id: string; icon: IconName; label: string }[] = [
 export default function DiagnosisLightsScreen() {
   const {
     mobileLights, toggleLight,
-    setLoading, setError, setIncidentId, setTriageResult,
-    buildTriageResponses, loading,
+    setLoading, setError, setIncidentId,
+    loading,
   } = useEmergency();
 
   /**
-   * Final step of the questionnaire branch — POST /incidents + /triage/submit,
-   * then jump to the result screen (which kicks off /dispatch/optimize).
+   * After Q5 lights we hand off to the always-asked tail (smells → recent →
+   * SL context). The full POST /triage/submit (with OBD) happens at the
+   * END of the form on the SL-context screen — the last questionnaire page
+   * before /diagnosis-result.
+   *
+   * We create the incident HERE (so we have an incident.id ready) — that
+   * lets the dispatch backend track the in-progress request even before
+   * the final submit, and unlocks the OBD bridge in elm327 (which keys its
+   * "current vehicle condition" off the incident id).
    */
-  async function handleSubmit() {
+  async function handleNext() {
     setLoading(true);
     setError(null);
     try {
@@ -41,21 +48,14 @@ export default function DiagnosisLightsScreen() {
         description: "Roadside assistance requested via mobile app",
       });
       setIncidentId(incident.id);
-
-      const triage = await submitTriage({
-        incidentId: incident.id,
-        responses:  buildTriageResponses(),
-      });
-      setTriageResult(triage.result);
-
-      router.push("/(emergency)/diagnosis-result");
+      router.push("/(emergency)/smells");
     } catch (err) {
       const msg = err instanceof DispatchApiError
         ? `${err.message} (HTTP ${err.status})`
         : (err as Error).message;
       setError(msg);
       Alert.alert(
-        "Triage failed",
+        "Couldn't create incident",
         `${msg}\n\nMake sure the dispatch service is running on port 3001 ` +
         `(npm run dev in components/dispatch).`
       );
@@ -68,8 +68,8 @@ export default function DiagnosisLightsScreen() {
     <Screen
       footer={
         <Button
-          title={loading ? "Submitting..." : "Next Step"}
-          onPress={handleSubmit}
+          title={loading ? "Preparing..." : "Next Step"}
+          onPress={handleNext}
           disabled={loading}
         />
       }

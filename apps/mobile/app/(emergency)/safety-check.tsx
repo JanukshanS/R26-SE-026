@@ -88,7 +88,10 @@ export default function SafetyCheckScreen() {
     if (choice === "CRASH") {
       handleFastPathCrash();
     } else {
-      router.push("/(emergency)/diagnosis-sound");
+      // Engine-state is the real branching point of the adaptive form —
+      // the answer there decides whether we even need to ask about the
+      // engine sound (only relevant when the engine cranks but won't fire).
+      router.push("/(emergency)/engine-state");
     }
   }
 

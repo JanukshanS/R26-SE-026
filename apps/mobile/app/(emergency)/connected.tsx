@@ -1,13 +1,20 @@
+import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
 import { HeaderBar } from "@components/ui/header-bar";
 import { Icon, type IconName } from "@components/ui/icon";
+import { MapPreview } from "@components/ui/map-preview";
 import { Screen } from "@components/ui/screen";
-import { palette, radii, spacing, typography } from "@theme/index";
+import { palette, spacing, typography } from "@theme/index";
 import { useEmergency, DEMO_LOCATION } from "@lib/emergencyContext";
-import { haversineKm, providerTypeLabel } from "@lib/dispatchApi";
+import {
+  getProvider,
+  haversineKm,
+  providerTypeLabel,
+  type ProviderRecord,
+} from "@lib/dispatchApi";
 
 /** Display ETA in whole minutes from the backend's computed travel time. */
 function formatEta(min?: number): string {
@@ -19,11 +26,26 @@ export default function ConnectedScreen() {
   const { dispatchResult, reset } = useEmergency();
   const sp = dispatchResult?.selectedProvider;
 
-  // Compute distance from the incident location to the provider for display.
-  // We don't have the provider's coords in the dispatch response, so we fall
-  // back to "computed by ECM" if unavailable. (A future iteration will add
-  // provider.location to the response or call getProvider() to fetch.)
-  const distanceKm = sp ? null : haversineKm(DEMO_LOCATION, DEMO_LOCATION);
+  // After dispatch we fetch the provider's full record so we have lat/lng
+  // for the map view and distance display.
+  const [provider, setProvider] = useState<ProviderRecord | null>(null);
+
+  useEffect(() => {
+    if (!sp?.id) return;
+    getProvider(sp.id).then(setProvider).catch(() => setProvider(null));
+  }, [sp?.id]);
+
+  const distanceKm = provider
+    ? haversineKm(DEMO_LOCATION, {
+        latitude:  provider.latitude,
+        longitude: provider.longitude,
+      })
+    : null;
+
+  const etaText      = sp?.estimatedTravelTimeMin
+    ? `${Math.max(1, Math.round(sp.estimatedTravelTimeMin))} min ETA`
+    : null;
+  const distanceText = distanceKm !== null ? `${distanceKm.toFixed(1)} km away` : null;
 
   return (
     <Screen
@@ -75,8 +97,7 @@ export default function ConnectedScreen() {
             <Icon name="Star" size={12} color={palette.warning} />
             <Text style={{ ...typography.caption, color: palette.textMuted }}>
               {sp ? providerTypeLabel(sp.type) : "—"}
-              {sp ? " · Mismatch risk " : ""}
-              {sp ? `${(sp.mismatchRisk * 100).toFixed(0)}%` : ""}
+              {provider ? ` · Trust ${(provider.trustScore * 100).toFixed(0)}%` : ""}
             </Text>
           </View>
         </View>
@@ -84,26 +105,14 @@ export default function ConnectedScreen() {
         <ActionPill icon="Phone" tone="brand" />
       </Card>
 
-      {/* Map placeholder — wire to Google Maps later (Phase 4 of roadmap) */}
-      <View
-        style={{
-          height: 220, borderRadius: radii.lg, borderCurve: "continuous",
-          backgroundColor: palette.surfaceMuted,
-          alignItems: "center", justifyContent: "center", overflow: "hidden",
-          gap: spacing.sm,
-        }}
-      >
-        <Icon name="Map" size={48} color={palette.textMuted} />
-        <Text style={{ ...typography.caption, color: palette.textMuted }}>
-          Live route preview
-        </Text>
-        {sp && (
-          <Text style={{ ...typography.micro, color: palette.textMuted }}>
-            Computation: {dispatchResult?.metadata.computationTimeMs.toFixed(2)} ms
-            · {dispatchResult?.metadata.providersEvaluated} providers evaluated
-          </Text>
-        )}
-      </View>
+      {/* Live map with driver + provider pins, dashed route, and an ETA /
+          distance overlay at the bottom. */}
+      <MapPreview
+        driverLocation={DEMO_LOCATION}
+        provider={provider}
+        etaText={etaText}
+        distanceText={distanceText}
+      />
 
       <Card>
         <View
@@ -123,17 +132,17 @@ export default function ConnectedScreen() {
           </View>
           <View style={{ alignItems: "flex-end", gap: 2 }}>
             <Text style={{ ...typography.caption, color: palette.textMuted }}>
-              Expected Cost
+              Distance
             </Text>
             <Text style={{ ...typography.h2, color: palette.text }}>
-              {sp ? `${sp.expectedCost.toFixed(1)} min` : "—"}
+              {distanceKm !== null ? `${distanceKm.toFixed(1)} km` : "—"}
             </Text>
           </View>
         </View>
       </Card>
 
-      {/* Debug card — top-3 from the ranked providers list. Useful for the viva
-          to show the ECM is actually ranking, not just picking nearest. */}
+      {/* Debug card — top-3 from the ranked providers list. Useful in viva
+          to show ECM is actually ranking, not just picking nearest. */}
       {dispatchResult && (
         <Card variant="muted">
           <Text style={{ ...typography.micro, color: palette.textMuted }}>
@@ -155,6 +164,10 @@ export default function ConnectedScreen() {
               </Text>
             </View>
           ))}
+          <Text style={{ ...typography.micro, color: palette.textMuted, marginTop: 4 }}>
+            ECM computed in {dispatchResult.metadata.computationTimeMs.toFixed(2)}ms over{" "}
+            {dispatchResult.metadata.providersEvaluated} providers
+          </Text>
         </Card>
       )}
     </Screen>

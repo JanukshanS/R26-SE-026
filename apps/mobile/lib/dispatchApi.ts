@@ -240,7 +240,14 @@ export async function createIncident(input: CreateIncidentInput): Promise<Incide
 export interface SubmitTriageInput {
   incidentId: string;
   responses: TriageResponses;
-  obdData?: Record<string, number | boolean | string[]> & { available: boolean };
+  /**
+   * OBD telemetry — the dispatch backend's `obdDataSchema` accepts any of
+   * the documented fields plus a required `available: boolean`. We type
+   * loosely here so callers can pass synthesized payloads from various
+   * sources (Bluetooth ELM327, Herath's maintenance API, dev mocks).
+   * See lib/elm327.ts for the standard shape (`TriageOBDData`).
+   */
+  obdData?: { available: boolean; [field: string]: unknown };
 }
 
 export async function submitTriage(

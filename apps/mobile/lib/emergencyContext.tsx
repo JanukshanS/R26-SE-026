@@ -40,6 +40,31 @@ export type DamageChoice = "CRASH" | "MINOR" | "NONE" | null;
 /** Mobile sound option ids → backend Q3_sound enum values. */
 export type MobileSoundId = "RAPID_CLICKING" | "NORMAL_CRANKING" | "GRINDING" | "NOTHING";
 
+/** Backend Q2_engine_start enum values. */
+export type EngineStateChoice =
+  | "STARTS_NORMAL" | "STARTS_BUT_ISSUE" | "CRANKS_NO_START" | "NO_CRANK"
+  | null;
+
+/** Backend Q6_smells enum values. */
+export type SmellChoice =
+  | "BURNING_ELECTRICAL" | "BURNING_OIL" | "FUEL_SMELL"
+  | "ROTTEN_EGGS" | "SWEET" | "NO_SMELL"
+  | null;
+
+/** Backend Q9_recent — multi-select of warning signs. */
+export type RecentSign =
+  | "HARD_START" | "LIGHTS_FLICKER" | "LOSS_OF_POWER"
+  | "OVERHEATING_BEFORE" | "UNUSUAL_NOISE" | "SMELL_BEFORE" | "NO_SIGNS";
+
+/** Sri Lankan context features (5 short questions). */
+export interface SLContext {
+  location_type:      "COASTAL" | "HILL" | "URBAN" | "RURAL";
+  recent_rain:        "NONE" | "YESTERDAY" | "WITHIN_3_DAYS" | "MONSOON";
+  parked_overnight:   "INDOOR" | "OUTDOOR";
+  vehicle_age_bucket: "UNDER_3" | "3_7" | "8_15" | "OVER_15";
+  last_fueled:        "TODAY_NEW_STATION" | "TODAY_USUAL" | "WITHIN_WEEK" | "OVER_WEEK";
+}
+
 /** Mobile dashboard-lamp ids → backend Q5_lights enum values. */
 export const LIGHT_ID_TO_BACKEND: Record<string, string> = {
   engine:  "CHECK_ENGINE",
@@ -58,6 +83,12 @@ export interface EmergencyState {
   sound:        MobileSoundId | null;
   mobileLights: Set<string>;           // mobile-side ids (engine, oil, ...)
 
+  // Newly added pages
+  engineState:  EngineStateChoice;
+  smells:       SmellChoice;
+  recentSigns:  Set<RecentSign>;
+  slContext:    SLContext;
+
   // API results
   incidentId:     string | null;
   triageResult:   TriageResult | null;
@@ -69,16 +100,20 @@ export interface EmergencyState {
 }
 
 interface EmergencyContextValue extends EmergencyState {
-  setDamage:    (d: DamageChoice) => void;
-  setSound:     (s: MobileSoundId | null) => void;
-  toggleLight:  (id: string) => void;
-  setLoading:   (b: boolean) => void;
-  setError:     (e: string | null) => void;
-  setIncidentId:     (id: string | null) => void;
-  setTriageResult:   (r: TriageResult | null) => void;
-  setDispatchResult: (r: DispatchResultData | null) => void;
+  setDamage:        (d: DamageChoice) => void;
+  setSound:         (s: MobileSoundId | null) => void;
+  toggleLight:      (id: string) => void;
+  setEngineState:   (s: EngineStateChoice) => void;
+  setSmells:        (s: SmellChoice) => void;
+  toggleRecentSign: (s: RecentSign) => void;
+  setSLContext:     (patch: Partial<SLContext>) => void;
+  setLoading:       (b: boolean) => void;
+  setError:         (e: string | null) => void;
+  setIncidentId:    (id: string | null) => void;
+  setTriageResult:  (r: TriageResult | null) => void;
+  setDispatchResult:(r: DispatchResultData | null) => void;
   buildTriageResponses: () => TriageResponses;
-  reset:        () => void;
+  reset:            () => void;
 }
 
 const EmergencyContext = createContext<EmergencyContextValue | null>(null);
@@ -112,21 +147,29 @@ const EmergencyContext = createContext<EmergencyContextValue | null>(null);
  *   - Q6_smells / Q9_recent get safe defaults (NO_SMELL / [NO_SIGNS]).
  */
 function buildResponsesFrom(state: EmergencyState): TriageResponses {
+  // Q1 intent — damage drives the fast-path bucket; otherwise we pick
+  // ENGINE_PROBLEM (engine state was reported) or WONT_START (electrical).
   const Q1_intent =
     state.damage === "CRASH"  ? "MAJOR_CRASH" :
     state.damage === "MINOR"  ? "ENGINE_PROBLEM" :
                                 "WONT_START";
 
+  // Prefer the explicit Q2 answer (new screen) over inferring from sound.
   const Q2_engine_start =
-    state.sound === "NORMAL_CRANKING" ? "CRANKS_NO_START" :
-    state.sound === null              ? "NOT_ASKED" :
-                                        "NO_CRANK";
+    state.engineState ??
+    (state.sound === "NORMAL_CRANKING" ? "CRANKS_NO_START" :
+     state.sound === null              ? "NOT_ASKED" :
+                                         "NO_CRANK");
 
   const Q3_sound = state.sound ?? "NOT_ASKED";
 
   const Q5_lights = Array.from(state.mobileLights)
     .map((id) => LIGHT_ID_TO_BACKEND[id])
     .filter((v): v is string => Boolean(v));
+
+  const Q9_recent = state.recentSigns.size
+    ? Array.from(state.recentSigns)
+    : ["NO_SIGNS"];
 
   return {
     Q1_intent,
@@ -139,14 +182,14 @@ function buildResponsesFrom(state: EmergencyState): TriageResponses {
     Q8_smoke_color:    "NOT_ASKED",
     Q_brake_detail:    "NOT_ASKED",
     Q_gear_detail:     "NOT_ASKED",
-    Q6_smells:         "NO_SMELL",
+    Q6_smells:         state.smells ?? "NO_SMELL",
     Q5_lights:         Q5_lights.length ? Q5_lights : ["NONE"],
-    Q9_recent:         ["NO_SIGNS"],
-    location_type:     "URBAN",
-    recent_rain:       "NONE",
-    parked_overnight:  "OUTDOOR",
-    vehicle_age_bucket:"8_15",
-    last_fueled:       "WITHIN_WEEK",
+    Q9_recent,
+    location_type:     state.slContext.location_type,
+    recent_rain:       state.slContext.recent_rain,
+    parked_overnight:  state.slContext.parked_overnight,
+    vehicle_age_bucket:state.slContext.vehicle_age_bucket,
+    last_fueled:       state.slContext.last_fueled,
   };
 }
 
@@ -154,10 +197,22 @@ function buildResponsesFrom(state: EmergencyState): TriageResponses {
 // Provider component + hook
 // ─────────────────────────────────────────────────────────────────────────
 
+const DEFAULT_SL_CONTEXT: SLContext = {
+  location_type:      "URBAN",
+  recent_rain:        "NONE",
+  parked_overnight:   "OUTDOOR",
+  vehicle_age_bucket: "8_15",
+  last_fueled:        "WITHIN_WEEK",
+};
+
 export function EmergencyProvider({ children }: { children: ReactNode }) {
   const [damage, setDamage] = useState<DamageChoice>(null);
   const [sound, setSound] = useState<MobileSoundId | null>(null);
   const [mobileLights, setMobileLights] = useState<Set<string>>(new Set());
+  const [engineState, setEngineState] = useState<EngineStateChoice>(null);
+  const [smells, setSmells] = useState<SmellChoice>(null);
+  const [recentSigns, setRecentSigns] = useState<Set<RecentSign>>(new Set());
+  const [slContext, setSLContextState] = useState<SLContext>(DEFAULT_SL_CONTEXT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [incidentId, setIncidentId] = useState<string | null>(null);
@@ -173,10 +228,32 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const toggleRecentSign = useCallback((s: RecentSign) => {
+    setRecentSigns((prev) => {
+      const next = new Set(prev);
+      // "NO_SIGNS" is exclusive — picking it clears the rest, picking another clears NO_SIGNS.
+      if (s === "NO_SIGNS") {
+        return next.has("NO_SIGNS") ? new Set() : new Set(["NO_SIGNS"]);
+      }
+      next.delete("NO_SIGNS");
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  }, []);
+
+  const setSLContext = useCallback((patch: Partial<SLContext>) => {
+    setSLContextState((prev) => ({ ...prev, ...patch }));
+  }, []);
+
   const reset = useCallback(() => {
     setDamage(null);
     setSound(null);
     setMobileLights(new Set());
+    setEngineState(null);
+    setSmells(null);
+    setRecentSigns(new Set());
+    setSLContextState(DEFAULT_SL_CONTEXT);
     setLoading(false);
     setError(null);
     setIncidentId(null);
@@ -186,26 +263,29 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
 
   const buildTriageResponses = useCallback(
     () => buildResponsesFrom({
-      damage, sound, mobileLights,
+      damage, sound, mobileLights, engineState, smells, recentSigns, slContext,
       incidentId, triageResult, dispatchResult, loading, error,
     }),
-    [damage, sound, mobileLights, incidentId, triageResult, dispatchResult, loading, error]
+    [damage, sound, mobileLights, engineState, smells, recentSigns, slContext,
+     incidentId, triageResult, dispatchResult, loading, error]
   );
 
   const value = useMemo<EmergencyContextValue>(
     () => ({
-      damage, sound, mobileLights,
+      damage, sound, mobileLights, engineState, smells, recentSigns, slContext,
       incidentId, triageResult, dispatchResult,
       loading, error,
       setDamage, setSound, toggleLight,
+      setEngineState, setSmells, toggleRecentSign, setSLContext,
       setLoading, setError,
       setIncidentId, setTriageResult, setDispatchResult,
       buildTriageResponses, reset,
     }),
     [
-      damage, sound, mobileLights,
+      damage, sound, mobileLights, engineState, smells, recentSigns, slContext,
       incidentId, triageResult, dispatchResult,
-      loading, error, toggleLight, buildTriageResponses, reset,
+      loading, error, toggleLight, toggleRecentSign, setSLContext,
+      buildTriageResponses, reset,
     ]
   );
 

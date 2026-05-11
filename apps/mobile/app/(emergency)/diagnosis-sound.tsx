@@ -27,6 +27,9 @@ export default function DiagnosisSoundScreen() {
         <Button
           title="Next Step"
           disabled={!sound}
+          // Only reached when engine-state = CRANKS_NO_START (the engine
+          // turns over but won't fire). After capturing the sound we
+          // proceed to dashboard lights.
           onPress={() => router.push("/(emergency)/diagnosis-lights")}
         />
       }
