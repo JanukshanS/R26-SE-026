@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@components/ui/button";
@@ -6,23 +5,28 @@ import { HeaderBar } from "@components/ui/header-bar";
 import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
+import { useEmergency, MobileSoundId } from "@lib/emergencyContext";
 
-const SOUNDS = [
-  "Rapid Clicking",
-  "Normal Cranking",
-  "Grinding Noise",
-  "Nothing at All",
-] as const;
+/**
+ * The 4 sound options shown in the UI. Each carries the backend's Q3_sound
+ * enum value as its `id` so we map straight through when submitting triage.
+ */
+const SOUNDS: { id: MobileSoundId; label: string }[] = [
+  { id: "RAPID_CLICKING",  label: "Rapid Clicking" },
+  { id: "NORMAL_CRANKING", label: "Normal Cranking" },
+  { id: "GRINDING",        label: "Grinding Noise" },
+  { id: "NOTHING",         label: "Nothing at All" },
+];
 
 export default function DiagnosisSoundScreen() {
-  const [picked, setPicked] = useState<string | null>(null);
+  const { sound, setSound } = useEmergency();
 
   return (
     <Screen
       footer={
         <Button
           title="Next Step"
-          disabled={!picked}
+          disabled={!sound}
           onPress={() => router.push("/(emergency)/diagnosis-lights")}
         />
       }
@@ -36,12 +40,12 @@ export default function DiagnosisSoundScreen() {
         Tap the play button to hear a sample, then select the one that matches.
       </Text>
 
-      {SOUNDS.map((sound) => (
+      {SOUNDS.map((s) => (
         <SoundOption
-          key={sound}
-          label={sound}
-          selected={picked === sound}
-          onPress={() => setPicked(sound)}
+          key={s.id}
+          label={s.label}
+          selected={sound === s.id}
+          onPress={() => setSound(s.id)}
         />
       ))}
     </Screen>
