@@ -1,0 +1,359 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Kaduna.lk \u00e2\u20ac\u201d Geo-Intelligence Service",
+        "description": "Traffic-impact intelligence for Sri Lankan roads. Scores incidents on a 1\u00e2\u20ac\u201c10 priority scale; serves precomputed hotspot clusters for the Colombo metropolitan area.",
+        "contact": {
+            "name": "Asath M M",
+            "email": "it22633422@my.sliit.lk"
+        },
+        "version": "0.1.0"
+    },
+    "paths": {
+        "/v1/health": {
+            "get": {
+                "tags": [
+                    "meta"
+                ],
+                "summary": "Health",
+                "operationId": "health_v1_health_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HealthResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/score": {
+            "post": {
+                "tags": [
+                    "scoring"
+                ],
+                "summary": "Score",
+                "operationId": "score_v1_score_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ScoreRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ScoreResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/hotspots": {
+            "get": {
+                "tags": [
+                    "spatial"
+                ],
+                "summary": "Hotspots",
+                "operationId": "hotspots_v1_hotspots_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/HotspotCluster"
+                                    },
+                                    "type": "array",
+                                    "title": "Response Hotspots V1 Hotspots Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/stats": {
+            "get": {
+                "tags": [
+                    "meta"
+                ],
+                "summary": "Stats",
+                "operationId": "stats_v1_stats_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": true,
+                                    "type": "object",
+                                    "title": "Response Stats V1 Stats Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "HealthResponse": {
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    },
+                    "service": {
+                        "type": "string",
+                        "title": "Service"
+                    },
+                    "version": {
+                        "type": "string",
+                        "title": "Version"
+                    },
+                    "weights": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Weights"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "status",
+                    "service",
+                    "version",
+                    "weights"
+                ],
+                "title": "HealthResponse"
+            },
+            "HotspotCluster": {
+                "properties": {
+                    "cluster_id": {
+                        "type": "integer",
+                        "title": "Cluster Id"
+                    },
+                    "centroid_lat": {
+                        "type": "number",
+                        "title": "Centroid Lat"
+                    },
+                    "centroid_lon": {
+                        "type": "number",
+                        "title": "Centroid Lon"
+                    },
+                    "incident_count": {
+                        "type": "integer",
+                        "title": "Incident Count"
+                    },
+                    "avg_score": {
+                        "type": "number",
+                        "title": "Avg Score"
+                    },
+                    "composite_risk": {
+                        "type": "number",
+                        "title": "Composite Risk"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "cluster_id",
+                    "centroid_lat",
+                    "centroid_lon",
+                    "incident_count",
+                    "avg_score",
+                    "composite_risk"
+                ],
+                "title": "HotspotCluster"
+            },
+            "ScoreRequest": {
+                "properties": {
+                    "latitude": {
+                        "type": "number",
+                        "title": "Latitude",
+                        "example": 6.9271
+                    },
+                    "longitude": {
+                        "type": "number",
+                        "title": "Longitude",
+                        "example": 79.8612
+                    },
+                    "road_type": {
+                        "type": "string",
+                        "title": "Road Type",
+                        "description": "One of: motorway, trunk, primary, secondary, tertiary, residential",
+                        "example": "primary"
+                    },
+                    "total_lanes": {
+                        "type": "integer",
+                        "maximum": 8.0,
+                        "minimum": 1.0,
+                        "title": "Total Lanes",
+                        "example": 2
+                    },
+                    "lanes_blocked": {
+                        "type": "integer",
+                        "maximum": 8.0,
+                        "minimum": 0.0,
+                        "title": "Lanes Blocked",
+                        "example": 1
+                    },
+                    "incident_type": {
+                        "type": "string",
+                        "title": "Incident Type",
+                        "description": "One of: major_accident, minor_accident, engine_failure, flat_tire, fuel_empty, battery_dead, lockout, other",
+                        "example": "engine_failure"
+                    },
+                    "hour": {
+                        "type": "integer",
+                        "maximum": 23.0,
+                        "minimum": 0.0,
+                        "title": "Hour",
+                        "example": 8
+                    },
+                    "day_of_week": {
+                        "type": "integer",
+                        "maximum": 6.0,
+                        "minimum": 0.0,
+                        "title": "Day Of Week",
+                        "description": "0=Monday, 6=Sunday",
+                        "example": 0
+                    },
+                    "speed_limit_kmh": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Speed Limit Kmh",
+                        "example": 60.0
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "latitude",
+                    "longitude",
+                    "road_type",
+                    "total_lanes",
+                    "lanes_blocked",
+                    "incident_type",
+                    "hour",
+                    "day_of_week"
+                ],
+                "title": "ScoreRequest"
+            },
+            "ScoreResponse": {
+                "properties": {
+                    "score": {
+                        "type": "number",
+                        "title": "Score",
+                        "description": "Impact score on a 1\u00e2\u20ac\u201c10 scale"
+                    },
+                    "priority": {
+                        "type": "string",
+                        "title": "Priority",
+                        "description": "CRITICAL | HIGH | MEDIUM | LOW"
+                    },
+                    "factors": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Factors"
+                    },
+                    "prediction": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Prediction"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "score",
+                    "priority",
+                    "factors",
+                    "prediction"
+                ],
+                "title": "ScoreResponse"
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    },
+                    "input": {
+                        "title": "Input"
+                    },
+                    "ctx": {
+                        "type": "object",
+                        "title": "Context"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            }
+        }
+    }
+}

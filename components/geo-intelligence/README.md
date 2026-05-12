@@ -73,9 +73,21 @@ Returns:
 
 ## Source of truth
 
-- Scoring logic: `src/impact_scoring.py` (a clean copy of `RP/src/impact_scoring.py`)
-- Refined weights (CLF=0.500, LF=0.220, ISF=0.180, TVF=0.050, TF=0.050) come from SLSQP optimisation against SUMO ground truth — see `RP/docs/slsqp-weight-refinement.md`
-- Hotspot dataset (`data/hotspots.json`) is precomputed by `RP/scripts/run_hotspot_analysis.py`. In production this would be a recurring job; for the prototype it ships as a static file the API serves
+- **Scoring logic:** `src/impact_scoring.py` — refined weights baked in (`WEIGHTS` constant). Original `INITIAL_WEIGHTS` preserved for the before/after comparison.
+- **Hotspot logic:** `src/hotspot_analysis.py` — KDE + DBSCAN (haversine, eps=0.5 km, min_samples=4). Produces the 9 clusters in `data/hotspot_results.csv` and `data/hotspots.json`.
+- **SUMO validation:** `src/sumo_simulation.py` + `scripts/refine_model.py` — 90 scenarios; SLSQP optimisation lifted r from 0.552 → 0.904. Raw results in `data/sumo_results.csv`, refined weights in `data/refined_weights.csv`.
+- **Refined weights** (CLF=0.500, LF=0.220, ISF=0.180, TVF=0.050, TF=0.050) come from the SLSQP optimisation against SUMO ground truth. The dashboard's `apps/dashboard-web/public/data/model.json` declares `weightsProvenance` to make this audit-able from the UI side.
+- **API contract:** `contracts/geo-intelligence.openapi.{json,yaml}` — exported from this FastAPI service. Use this as the integration contract for the Dispatch component.
+
+## PP1 documentation
+
+See `docs/` for the panel-facing artifacts (all dated 2026-05-12):
+
+- `pp1-functional-requirements.md` — FR-01..10 mapped to role + implementation + demo evidence.
+- `pp1-risk-register.md` — rubric-aligned risk table (8 active risks + 4 closed).
+- `pp1-panel-feedback-closure.md` — response to PF-1 / PF-2 / PF-3 from March proposal panel.
+- `pp1-study-guide.md` — long-form deep dive for viva preparation.
+- `pp1-pocket-reference.md` — stand-alone reference (carry into the room).
 
 ## Roadmap
 
