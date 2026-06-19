@@ -18,6 +18,7 @@ export default function RootLayout() {
         <Stack.Screen name="(driver)" />
         <Stack.Screen name="(emergency)" />
         <Stack.Screen name="(provider)" />
+        <Stack.Screen name="(insurance)" />
       </Stack>
       <StatusBar style="dark" />
     </SafeAreaProvider>

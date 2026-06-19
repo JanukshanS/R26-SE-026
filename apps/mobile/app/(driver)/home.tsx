@@ -248,7 +248,7 @@ export default function DriverHomeScreen() {
           <View style={{ flexDirection: "row", gap: spacing.md }}>
             <QuickAction icon="Truck" label="Service" />
             <QuickAction icon="Package" label="Order parts" onPress={() => router.push({ pathname: "/(driver)/order-parts", params: { component: "brake" } })} />
-            <QuickAction icon="ShieldCheck" label="Insurance" />
+            <QuickAction icon="ShieldCheck" label="Insurance" onPress={() => router.push('/(insurance)')} />
           </View>
         </View>
 
