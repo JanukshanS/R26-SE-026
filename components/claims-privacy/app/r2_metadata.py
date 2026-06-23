@@ -1,5 +1,6 @@
 """S3/R2 user-defined object metadata (ASCII-only values per AWS rules)."""
 
+import re
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -7,6 +8,17 @@ from typing import Any, Dict, Optional
 _PLACEHOLDER_CLAIMANT_NAME = "Dilnuk De Silva"
 _PLACEHOLDER_CLAIMANT_NIC = "200221301732"
 _PLACEHOLDER_CLAIMANT_LICENCE = "B4818153"
+_PLACEHOLDER_VEHICLE_MODEL = "Toyota Raize"
+_PLACEHOLDER_POLICY_NUMBER = "AL-VIP-00001"
+
+
+def build_parent_folder_name(name: Optional[str], nic: Optional[str]) -> str:
+    """Return the R2 parent folder, e.g. 'Dilnuk De Silva - 200221301732'."""
+    resolved_name = name.strip() if name else _PLACEHOLDER_CLAIMANT_NAME
+    resolved_nic = nic.strip() if nic else _PLACEHOLDER_CLAIMANT_NIC
+    safe_name = re.sub(r"[/\\]", "-", resolved_name)
+    safe_nic = re.sub(r"[/\\]", "-", resolved_nic)
+    return f"{safe_name} - {safe_nic}"
 
 
 def _ascii_meta_value(value: Optional[str], max_len: int = 900) -> str:

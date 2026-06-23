@@ -8,7 +8,7 @@ from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, UploadFil
 
 from app.config import Settings, get_settings
 from app.repository import ASSET_KIND_ENHANCED, ASSET_KIND_ORIGINAL, CaptureRepository
-from app.r2_metadata import build_photo_object_metadata
+from app.r2_metadata import build_parent_folder_name, build_photo_object_metadata
 from app.schemas import (
     CaptureResponse,
     CaptureStatusResponse,
@@ -148,6 +148,7 @@ async def upload_capture_photo(
     capture_id: str,
     photo_index: int = Form(..., ge=0),
     asset_kind: str = Form("original"),
+    photo_slot: str = Form("walkaround"),
     photo: UploadFile = File(...),
     gps_lat: Optional[float] = Form(None),
     gps_lng: Optional[float] = Form(None),
@@ -183,10 +184,19 @@ async def upload_capture_photo(
         raise HTTPException(status_code=400, detail="Uploaded photo is empty.")
 
     extension = _infer_upload_extension(photo.filename, photo.content_type)
-    folder = "original" if kind == ASSET_KIND_ORIGINAL else "enhanced"
-    key = "captures/{capture_id}/{folder}/{index:03d}-{token}{ext}".format(
-        capture_id=capture_id,
-        folder=folder,
+    parent = build_parent_folder_name(
+        capture.get("claimant_name"),  # type: ignore[arg-type]
+        capture.get("claimant_nic"),   # type: ignore[arg-type]
+    )
+    if photo_slot == "fraud-validation":
+        subfolder = "step-2-fraud-validation"
+    else:
+        subfolder = "step-1-photos-uploaded"
+    if kind == ASSET_KIND_ENHANCED:
+        subfolder += "/enhanced"
+    key = "{parent}/{subfolder}/{index:03d}-{token}{ext}".format(
+        parent=parent,
+        subfolder=subfolder,
         index=photo_index,
         token=uuid4().hex,
         ext=extension,
