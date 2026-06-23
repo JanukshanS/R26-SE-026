@@ -9,7 +9,12 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Camera access is needed to capture accident photos and videos for insurance claims.",
+        "NSMicrophoneUsageDescription": "Microphone access is needed to record scene video with sound.",
+        "NSLocationWhenInUseUsageDescription": "Your location is saved with the time when you call your insurer so your claim record is complete."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +24,14 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "output": "static",
@@ -27,6 +39,19 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Camera access is needed to capture accident photos and videos for insurance claims."
+        }
+      ],
+      "expo-video",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Your location is saved with the time when you call your insurer so your claim record is complete."
+        }
+      ],
       [
         "expo-splash-screen",
         {

@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 # Temporary: claimant columns on `captures` may be empty; remove when the app always sends them.
 _PLACEHOLDER_CLAIMANT_NAME = "Dilnuk De Silva"
 _PLACEHOLDER_CLAIMANT_NIC = "200221301732"
-_PLACEHOLDER_CLAIMANT_LICENCE = "AS81223153"
+_PLACEHOLDER_CLAIMANT_LICENCE = "B4818153"
 
 
 def _ascii_meta_value(value: Optional[str], max_len: int = 900) -> str:
