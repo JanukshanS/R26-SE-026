@@ -148,6 +148,7 @@ async function postOriginalMedia(
   captureId: string,
   photoIndex: number,
   slot: FraudMediaSlot,
+  photoSlot: 'walkaround' | 'fraud-validation',
   signal?: AbortSignal
 ): Promise<void> {
   const { uri, drunkTestVideo } = slot;
@@ -155,6 +156,7 @@ async function postOriginalMedia(
   const formData = new FormData();
   formData.append('photo_index', String(photoIndex));
   formData.append('asset_kind', 'original');
+  formData.append('photo_slot', photoSlot);
   formData.append('photo', { uri, name, type } as unknown as Blob);
 
   const upRes = await fetch(`${base}/captures/${captureId}/photos`, {
@@ -238,7 +240,7 @@ export async function uploadFullClaimBundleToBackend(options: {
   const guidedTotal = guidedUris.length;
   for (let i = 0; i < guidedTotal; i++) {
     const uri = guidedUris[i]!;
-    await postOriginalMedia(base, captureId, i, { uri }, options.signal);
+    await postOriginalMedia(base, captureId, i, { uri }, 'walkaround', options.signal);
     const pct = 5 + Math.round(((i + 1) / guidedTotal) * 95);
     options.onGuidedProgress(pct);
   }
@@ -253,7 +255,7 @@ export async function uploadFullClaimBundleToBackend(options: {
   } else {
     for (let j = 0; j < fraudTotal; j++) {
       const slot = fraudMediaSlots[j]!;
-      await postOriginalMedia(base, captureId, startIndex + j, slot, options.signal);
+      await postOriginalMedia(base, captureId, startIndex + j, slot, 'fraud-validation', options.signal);
       options.onFraudProgress(Math.round(((j + 1) / fraudTotal) * 100));
     }
     options.onFraudProgress(100);
