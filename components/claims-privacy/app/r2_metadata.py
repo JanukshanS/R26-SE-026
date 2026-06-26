@@ -60,6 +60,8 @@ def build_photo_object_metadata(
         "claimant-name": _ascii_meta_value(_PLACEHOLDER_CLAIMANT_NAME),
         "claimant-nic": _ascii_meta_value(_PLACEHOLDER_CLAIMANT_NIC),
         "claimant-licence": _ascii_meta_value(_PLACEHOLDER_CLAIMANT_LICENCE),
+        "vehicle-model": _ascii_meta_value(_PLACEHOLDER_VEHICLE_MODEL),
+        "policy-number": _ascii_meta_value(_PLACEHOLDER_POLICY_NUMBER),
         "report-timestamp": _ascii_meta_value(ts or None),
         "report-timestamp-local": _ascii_meta_value(capture.get("report_captured_at_display_local")),
         "report-gps-lat": _num_str(capture.get("report_gps_lat")),

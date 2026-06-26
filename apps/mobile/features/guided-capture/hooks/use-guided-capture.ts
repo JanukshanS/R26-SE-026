@@ -602,13 +602,17 @@ export function useGuidedCapture(
       setCapturedAngles((prev) => [...prev, angle]);
       verticalReferencePitchRef.current = angle.pitch;
       if (photo?.uri) {
-        const uriForStore = await prepareImageForZeroDce(photo.uri);
-        let storedUri = uriForStore;
+        // Persist the full-resolution original for upload to R2.
+        // prepareImageForZeroDce produces a tiny (≤512px) version only for the
+        // Zero-DCE model — it must NOT be the version stored or uploaded.
+        let storedUri = photo.uri;
         try {
-          storedUri = await persistCapturedPhoto(uriForStore);
+          storedUri = await persistCapturedPhoto(photo.uri);
         } catch {
           storedUri = photo.uri;
         }
+        // Pre-compute the Zero-DCE input in the background (unused until enhancement runs).
+        void prepareImageForZeroDce(photo.uri);
         setCapturedPhotoUris((prev) => [...prev, storedUri]);
         setLibraryPhotoUris((prev) => appendUniqueUri(prev, storedUri));
       }

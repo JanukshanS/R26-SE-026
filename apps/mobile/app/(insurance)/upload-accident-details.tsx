@@ -205,6 +205,18 @@ export default function UploadAccidentDetailsScreen() {
         if (cancelled || !uploadKey) {
           return;
         }
+
+        // Block upload if GPS location was not obtained.
+        // lat is null when permission was denied or reading failed.
+        if (lat === null) {
+          Alert.alert(
+            'Location required',
+            'We could not get your GPS location. Please enable location access and try again.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+
         const persistedSuccessKey = await getPersistedSuccessfulClaimUploadKey();
         if (!cancelled && persistedSuccessKey === uploadKey) {
           photosUploadedForKeyRef.current = uploadKey;
