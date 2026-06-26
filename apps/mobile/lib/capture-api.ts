@@ -113,15 +113,30 @@ export async function collectAncillaryClaimPhotoUris(): Promise<string[]> {
   return [...own, ...other].slice(0, 6);
 }
 
-/** Licence + third-party images (max 6), then drunk-test video when present and on disk. */
-async function collectFraudValidationMediaSlots(): Promise<FraudMediaSlot[]> {
-  const images = await collectAncillaryClaimPhotoUris();
+/** Driving licence photos (front, back, selfie) + drunk-test video → user-verification subfolder. */
+async function collectUserVerificationSlots(): Promise<FraudMediaSlot[]> {
+  const licence = await loadDrivingLicenceState();
   const drunk = await loadDrunkTestState();
-  const slots: FraudMediaSlot[] = images.map((uri) => ({ uri }));
+  const own = await takeUpToThreeSlots(
+    [licence.frontUri, licence.backUri, licence.selfieUri],
+    licence.libraryUris
+  );
+  const slots: FraudMediaSlot[] = own.map((uri) => ({ uri }));
   if (drunk.videoUri && (await uriFileExists(drunk.videoUri))) {
     slots.push({ uri: drunk.videoUri, drunkTestVideo: true });
   }
   return slots;
+}
+
+/** Third-party photos (driver licence front, back, revenue licence) → third-party subfolder. */
+async function collectThirdPartySlots(): Promise<FraudMediaSlot[]> {
+  const third = await loadThirdPartyState();
+  if (third.notApplicable) return [];
+  const other = await takeUpToThreeSlots(
+    [third.driverLicenceFrontUri, third.driverLicenceBackUri, third.revenueLicenceUri],
+    third.libraryUris
+  );
+  return other.map((uri) => ({ uri }));
 }
 
 export type ClaimantPayload = {
@@ -148,7 +163,7 @@ async function postOriginalMedia(
   captureId: string,
   photoIndex: number,
   slot: FraudMediaSlot,
-  photoSlot: 'walkaround' | 'fraud-validation',
+  photoSlot: 'walkaround' | 'user-verification' | 'third-party',
   signal?: AbortSignal
 ): Promise<void> {
   const { uri, drunkTestVideo } = slot;
@@ -205,7 +220,8 @@ export async function uploadFullClaimBundleToBackend(options: {
     throw new Error('No guided capture photos found. Complete the walkaround capture first.');
   }
 
-  const fraudMediaSlots = await collectFraudValidationMediaSlots();
+  const userVerificationSlots = await collectUserVerificationSlots();
+  const thirdPartySlots = await collectThirdPartySlots();
 
   options.onGuidedProgress(2);
 
@@ -248,15 +264,19 @@ export async function uploadFullClaimBundleToBackend(options: {
   options.onGuidedWalkaroundUploadsComplete?.();
 
   options.onFraudProgress(0);
-  const startIndex = guidedTotal;
-  const fraudTotal = fraudMediaSlots.length;
+  const fraudTotal = userVerificationSlots.length + thirdPartySlots.length;
   if (fraudTotal === 0) {
     options.onFraudProgress(100);
   } else {
-    for (let j = 0; j < fraudTotal; j++) {
-      const slot = fraudMediaSlots[j]!;
-      await postOriginalMedia(base, captureId, startIndex + j, slot, 'fraud-validation', options.signal);
-      options.onFraudProgress(Math.round(((j + 1) / fraudTotal) * 100));
+    let idx = guidedTotal;
+    let done = 0;
+    for (const slot of userVerificationSlots) {
+      await postOriginalMedia(base, captureId, idx++, slot, 'user-verification', options.signal);
+      options.onFraudProgress(Math.round((++done / fraudTotal) * 100));
+    }
+    for (const slot of thirdPartySlots) {
+      await postOriginalMedia(base, captureId, idx++, slot, 'third-party', options.signal);
+      options.onFraudProgress(Math.round((++done / fraudTotal) * 100));
     }
     options.onFraudProgress(100);
   }

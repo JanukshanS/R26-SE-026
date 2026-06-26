@@ -188,8 +188,10 @@ async def upload_capture_photo(
         capture.get("claimant_name"),  # type: ignore[arg-type]
         capture.get("claimant_nic"),   # type: ignore[arg-type]
     )
-    if photo_slot == "fraud-validation":
-        subfolder = "step-2-fraud-validation"
+    if photo_slot == "user-verification":
+        subfolder = "step-2-fraud-validation/user-verification"
+    elif photo_slot == "third-party":
+        subfolder = "step-2-fraud-validation/third-party"
     else:
         subfolder = "step-1-photos-uploaded"
     if kind == ASSET_KIND_ENHANCED:
