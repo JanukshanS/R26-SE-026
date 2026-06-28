@@ -1,0 +1,77 @@
+// ============================================================================
+// Auth Service — Prisma Database Schema
+// ============================================================================
+//
+// PostgreSQL schema for authentication + user/vehicle persistence.
+// Runs against its own database (kaduna_auth) so migrations never collide
+// with the dispatch service (dispatch_db).
+//
+//   Tables:
+//     - User           Account + bcrypt password hash + role
+//     - RefreshToken   Rotating opaque refresh tokens (revocable)
+//     - Vehicle        Per-user vehicle records (ported from vehicle-service)
+//
+// Bearer-JWT model only. Access tokens are stateless (HS256); refresh tokens
+// are stored here so they can be rotated and revoked.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  phone        String?
+  passwordHash String
+  role         String   @default("driver")
+  providerId   String?
+
+  vehicles      Vehicle[]
+  refreshTokens RefreshToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Vehicle {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nickname       String?
+  make           String
+  model          String
+  year           Int?
+  plateNumber    String
+  color          String?
+  currentMileage Int      @default(0)
+  fuelType       String   @default("petrol")
+  isDefault      Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("vehicles")
+}
