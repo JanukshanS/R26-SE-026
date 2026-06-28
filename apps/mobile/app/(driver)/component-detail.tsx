@@ -137,6 +137,7 @@ export default function ComponentDetailScreen() {
 
   const health = componentHealth ?? FALLBACK_HEALTH.components[key];
   const banner = rulToBanner(health);
+  const noData = health.status === "No data";
   const isUrgent = health.predicted_rul_km < 2000;
   const isHealthy = health.status === "Good";
 
@@ -178,7 +179,24 @@ export default function ComponentDetailScreen() {
         <View style={{ gap: spacing.sm }}>
           <Text style={{ ...typography.h1, color: palette.text }}>{meta.label}</Text>
 
-          {!isHealthy && (
+          {noData ? (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: spacing.sm,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+                borderRadius: radii.md,
+                backgroundColor: palette.surfaceMuted,
+              }}
+            >
+              <Icon name="Info" size={16} color={palette.textMuted} />
+              <Text style={{ ...typography.caption, color: palette.textMuted, fontWeight: "600" }}>
+                {banner}
+              </Text>
+            </View>
+          ) : !isHealthy ? (
             <View
               style={{
                 flexDirection: "row",
@@ -205,7 +223,7 @@ export default function ComponentDetailScreen() {
                 {banner}
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
 
         {/* Health bar */}
@@ -222,11 +240,11 @@ export default function ComponentDetailScreen() {
             <Text
               style={{
                 ...typography.h2,
-                color: healthColor(health.health_pct),
+                color: noData ? palette.textMuted : healthColor(health.health_pct),
                 fontWeight: "700",
               }}
             >
-              {Math.round(health.health_pct)}%
+              {noData ? "—" : `${Math.round(health.health_pct)}%`}
             </Text>
           </View>
           <View
@@ -247,7 +265,9 @@ export default function ComponentDetailScreen() {
             />
           </View>
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
-            {Math.round(health.predicted_rul_km).toLocaleString()} km remaining life estimated
+            {noData
+              ? "Not enough trip data yet to estimate remaining life"
+              : `${Math.round(health.predicted_rul_km).toLocaleString()} km remaining life estimated`}
           </Text>
         </View>
 
@@ -261,10 +281,17 @@ export default function ComponentDetailScreen() {
           }}
         >
           <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-            Why do we think this
+            {noData ? "How we assess this" : "Why do we think this"}
           </Text>
           <View style={{ gap: spacing.sm }}>
-            {meta.whyReasons(health).map((reason, i) => (
+            {(noData
+              ? [
+                  "No trips recorded yet, so there's nothing to analyse.",
+                  "Pair an OBD-II adapter and drive — we read live sensor data each trip.",
+                  "A health score appears once we have enough readings.",
+                ]
+              : meta.whyReasons(health)
+            ).map((reason, i) => (
               <View
                 key={i}
                 style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.sm }}
@@ -287,7 +314,7 @@ export default function ComponentDetailScreen() {
         </View>
 
         {/* Recommended next steps */}
-        {!isHealthy && (
+        {!isHealthy && !noData && (
           <View style={{ gap: spacing.sm }}>
             <Text style={{ ...typography.bodyStrong, color: palette.text }}>
               Recommend Next Steps
@@ -345,7 +372,7 @@ export default function ComponentDetailScreen() {
       </ScrollView>
 
       {/* Bottom action buttons */}
-      {!isHealthy && (
+      {!isHealthy && !noData && (
         <View
           style={{
             position: "absolute",
