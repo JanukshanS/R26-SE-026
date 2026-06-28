@@ -114,11 +114,15 @@ export default function HealthScreen() {
             style={{
               fontSize: 52,
               fontWeight: "700",
-              color: healthColor(health.overall_health_pct),
+              color: health.overall_status === "No data"
+                ? palette.textMuted
+                : healthColor(health.overall_health_pct),
               lineHeight: 56,
             }}
           >
-            {Math.round(health.overall_health_pct)}%
+            {health.overall_status === "No data"
+              ? "—"
+              : `${Math.round(health.overall_health_pct)}%`}
           </Text>
 
           {/* Alert pills */}
@@ -127,14 +131,20 @@ export default function HealthScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: spacing.sm }}
           >
-            {COMPONENT_ORDER.filter(
-              (k) => health.components[k].status !== "Good"
-            ).map((k) => (
-              <AlertPill
-                key={k}
-                text={`${COMPONENT_META[k].label}: ${rulToLabel(health.components[k])}`}
-              />
-            ))}
+            {health.overall_status === "No data" ? (
+              <NeutralPill text="No trips recorded yet — drive to assess" />
+            ) : (
+              COMPONENT_ORDER.filter(
+                (k) =>
+                  health.components[k].status !== "Good" &&
+                  health.components[k].status !== "No data"
+              ).map((k) => (
+                <AlertPill
+                  key={k}
+                  text={`${COMPONENT_META[k].label}: ${rulToLabel(health.components[k])}`}
+                />
+              ))
+            )}
           </ScrollView>
         </View>
 
@@ -175,7 +185,10 @@ function ComponentRow({
   icon: any;
   isLast: boolean;
 }) {
-  const color = healthColor(component.health_pct);
+  const color =
+    component.status === "No data"
+      ? palette.textMuted
+      : healthColor(component.health_pct);
   const rul = rulToLabel(component);
 
   return (
@@ -243,8 +256,9 @@ function StatusBadge({ status }: { status: string }) {
     Fair: { bg: palette.warningSoft, text: palette.warning },
     Poor: { bg: palette.dangerSoft, text: palette.danger },
     Critical: { bg: palette.dangerSoft, text: palette.danger },
+    "No data": { bg: palette.surfaceMuted, text: palette.textMuted },
   };
-  const colors = map[status] ?? map.Good;
+  const colors = map[status] ?? { bg: palette.surfaceMuted, text: palette.textMuted };
   return (
     <View
       style={{
@@ -278,6 +292,25 @@ function AlertPill({ text }: { text: string }) {
     >
       <Icon name="AlertTriangle" size={13} color={palette.danger} />
       <Text style={{ ...typography.caption, color: palette.danger, fontWeight: "500" }}>{text}</Text>
+    </View>
+  );
+}
+
+function NeutralPill({ text }: { text: string }) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: spacing.xs,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: radii.pill,
+        backgroundColor: palette.surfaceMuted,
+      }}
+    >
+      <Icon name="Info" size={13} color={palette.textMuted} />
+      <Text style={{ ...typography.caption, color: palette.textMuted, fontWeight: "500" }}>{text}</Text>
     </View>
   );
 }

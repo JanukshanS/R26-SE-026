@@ -56,8 +56,14 @@ export default function DriverHomeScreen() {
   }, [vehicleId]);
 
   const alertComponents = (["brake", "engine", "tire", "battery"] as const).filter(
-    (k) => health.components[k].status !== "Good"
+    (k) => {
+      const s = health.components[k]?.status;
+      // Only flag genuine wear (Fair/Poor/Critical). "No data" (no trips yet)
+      // and a missing component are not alerts.
+      return s != null && s !== "Good" && s !== "No data";
+    }
   );
+  const noData = health.overall_status === "No data";
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
@@ -176,6 +182,8 @@ export default function DriverHomeScreen() {
                       ? "success"
                       : health.overall_status === "Fair"
                       ? "warning"
+                      : health.overall_status === "No data"
+                      ? "neutral"
                       : "danger"
                   }
                   uppercase={false}
@@ -188,8 +196,9 @@ export default function DriverHomeScreen() {
                 style={{
                   fontSize: 52,
                   fontWeight: "700",
-                  color:
-                    health.overall_health_pct >= 75
+                  color: noData
+                    ? palette.textMuted
+                    : health.overall_health_pct >= 75
                       ? palette.success
                       : health.overall_health_pct >= 50
                       ? palette.warning
@@ -197,7 +206,7 @@ export default function DriverHomeScreen() {
                   lineHeight: 52,
                 }}
               >
-                {Math.round(health.overall_health_pct)}%
+                {noData ? "—" : `${Math.round(health.overall_health_pct)}%`}
               </Text>
             </View>
 
@@ -206,7 +215,9 @@ export default function DriverHomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: spacing.sm, paddingVertical: spacing.xs * 0.9 }}
             >
-              {alertComponents.length > 0 ? (
+              {noData ? (
+                <HealthAlertPill text="No trips recorded yet — drive to assess" danger={false} />
+              ) : alertComponents.length > 0 ? (
                 alertComponents.map((k) => (
                   <HealthAlertPill
                     key={k}
