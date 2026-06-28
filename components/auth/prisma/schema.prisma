@@ -31,7 +31,7 @@ model User {
   phone        String?
   passwordHash String
   role         String   @default("driver")
-  providerId   String?
+  providerId   String?  @unique
 
   vehicles      Vehicle[]
   refreshTokens RefreshToken[]

@@ -102,9 +102,27 @@ authRouter.patch("/me", requireAuth, async (req: Request, res: Response) => {
     const { providerId, name, phone } = req.body ?? {};
 
     const data: { providerId?: string | null; name?: string; phone?: string | null } = {};
-    if (providerId !== undefined) data.providerId = providerId;
     if (typeof name === "string" && name.trim()) data.name = name.trim();
     if (phone !== undefined) data.phone = phone;
+
+    // providerId links this account to a dispatch provider record, so it is an
+    // authorization-bearing field — not freely self-assignable. Only provider
+    // accounts may link, and a provider profile may belong to at most one account.
+    if (providerId !== undefined) {
+      if (req.user!.role !== "provider") {
+        return fail(res, 403, "Only provider accounts can link a provider profile");
+      }
+      if (providerId !== null) {
+        const claimed = await prisma.user.findFirst({
+          where: { providerId, NOT: { id: req.user!.id } },
+          select: { id: true },
+        });
+        if (claimed) {
+          return fail(res, 409, "That provider profile is already linked to another account");
+        }
+      }
+      data.providerId = providerId;
+    }
 
     if (Object.keys(data).length === 0) {
       return fail(res, 400, "No updatable fields provided");
@@ -115,7 +133,11 @@ authRouter.patch("/me", requireAuth, async (req: Request, res: Response) => {
       data,
     });
     return ok(res, { user: safeUser(user) });
-  } catch (err) {
+  } catch (err: any) {
+    // Unique constraint race on providerId -> 409 rather than a 500.
+    if (err?.code === "P2002") {
+      return fail(res, 409, "That provider profile is already linked to another account");
+    }
     return fail(res, 500, (err as Error).message);
   }
 });
