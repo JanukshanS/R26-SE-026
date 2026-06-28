@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from "react-native";
+import { haptics } from "@lib/haptics";
 import { palette, radii, spacing, typography } from "@theme/index";
 
 type Tone = "danger" | "warning" | "success" | "neutral";
@@ -22,7 +23,10 @@ export function OptionCard({
 }: Props) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        haptics.select();
+        onPress?.();
+      }}
       style={({ pressed }) => ({
         opacity: pressed ? 0.85 : 1,
         backgroundColor: palette.surface,

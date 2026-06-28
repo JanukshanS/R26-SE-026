@@ -7,20 +7,25 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import * as api from "@lib/vehicleApi";
+import * as vehicleApi from "@lib/vehicleApi";
+import * as authApi from "@lib/authApi";
+import { AuthApiError, type AuthUser } from "@lib/authApi";
 import { tokenStore } from "@lib/tokenStore";
 import type { User, Vehicle } from "@lib/vehicleApi";
 
 interface VehicleContextValue {
   // auth
   user: User | null;
+  isAuthenticated: boolean;
   token: string | null;
   authLoading: boolean;
   authError: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, phone?: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
+  register: (name: string, email: string, password: string, phone?: string, role?: string) => Promise<User>;
   updateProfile: (data: { name?: string; phone?: string; location?: string }) => Promise<void>;
-  logout: () => void;
+  updateMe: (data: authApi.UpdateMeInput) => Promise<User>;
+  refreshUser: () => Promise<void>;
+  logout: () => Promise<void>;
   clearAuthError: () => void;
   // vehicles
   vehicles: Vehicle[];
@@ -29,17 +34,47 @@ interface VehicleContextValue {
   selectedVehicle: Vehicle | null;
   selectVehicle: (vehicle: Vehicle) => void;
   refreshVehicles: () => Promise<void>;
-  addVehicle: (data: Partial<api.VehicleInput>) => Promise<Vehicle>;
-  editVehicle: (id: string, data: Partial<api.VehicleInput>) => Promise<void>;
+  addVehicle: (data: Partial<vehicleApi.VehicleInput>) => Promise<Vehicle>;
+  editVehicle: (id: string, data: Partial<vehicleApi.VehicleInput>) => Promise<void>;
   removeVehicle: (id: string) => Promise<void>;
   setDefault: (id: string) => Promise<void>;
 }
 
 const VehicleContext = createContext<VehicleContextValue | null>(null);
 
+/** Map the auth backend's user shape onto the mobile `User` (`id` → `_id`). */
+function toMobileUser(u: AuthUser): User {
+  return {
+    _id: u.id,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    phone: u.phone ?? undefined,
+    providerId: u.providerId ?? null,
+  };
+}
+
+/**
+ * Run an authenticated call, and if it fails with a 401, rotate the refresh
+ * token once and retry. Any other failure (or a failed refresh) propagates.
+ * A guest with no refresh token gets the original error untouched.
+ */
+async function withRefreshRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (!(err instanceof AuthApiError) || err.status !== 401) throw err;
+    const refreshToken = tokenStore.getRefreshToken();
+    if (!refreshToken) throw err;
+    const tokens = await authApi.refresh(refreshToken);
+    await tokenStore.setTokens(tokens);
+    return fn();
+  }
+}
+
 export function VehicleProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setTokenState] = useState<string | null>(tokenStore.get());
+  const [token, setTokenState] = useState<string | null>(tokenStore.getAccessToken());
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -48,33 +83,38 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
   const [vehicleError, setVehicleError] = useState<string | null>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
 
-  // keep tokenStore in sync whenever token state changes
-  const setToken = useCallback((t: string | null) => {
-    tokenStore.set(t);
-    setTokenState(t);
-  }, []);
-
-  // restore token & user on mount if tokenStore already has one
+  // Hydrate persisted tokens on mount, then restore the session via /me.
+  // Guests (no token, or an expired/invalid one) simply end up with user=null,
+  // which is a fully valid state — nothing here blocks rendering.
   const bootstrapped = useRef(false);
   useEffect(() => {
     if (bootstrapped.current) return;
     bootstrapped.current = true;
-    const stored = tokenStore.get();
-    if (stored) {
-      setTokenState(stored);
-      api.getMe(stored)
-        .then(setUser)
-        .catch(() => tokenStore.set(null)); // token expired
-    }
+    (async () => {
+      await tokenStore.hydrate();
+      setTokenState(tokenStore.getAccessToken());
+      const access = tokenStore.getAccessToken();
+      if (!access) return;
+      try {
+        const { user: u } = await withRefreshRetry(() =>
+          authApi.me(tokenStore.getAccessToken() as string)
+        );
+        setUser(toMobileUser(u));
+        setTokenState(tokenStore.getAccessToken());
+      } catch {
+        await tokenStore.clear();
+        setTokenState(null);
+        setUser(null);
+      }
+    })();
   }, []);
 
   const refreshVehicles = useCallback(async () => {
-    const t = tokenStore.get();
-    if (!t) return;
+    if (!tokenStore.getAccessToken()) return;
     setVehiclesLoading(true);
     setVehicleError(null);
     try {
-      const list = await api.getVehicles(t);
+      const list = await withRefreshRetry(() => vehicleApi.getVehicles());
       setVehicles(list);
       setSelectedVehicle((prev) => {
         if (prev) {
@@ -83,8 +123,8 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
         }
         return list.find((v) => v.isDefault) ?? list[0] ?? null;
       });
-    } catch (err: any) {
-      setVehicleError(err.message ?? "Could not load vehicles");
+    } catch (err) {
+      setVehicleError((err as Error).message ?? "Could not load vehicles");
     } finally {
       setVehiclesLoading(false);
     }
@@ -102,41 +142,92 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
     setAuthError(null);
     try {
-      const res = await api.login(email, password);
-      setToken(res.token);
-      setUser(res.user);
-    } catch (err: any) {
-      setAuthError(err.message ?? "Login failed");
+      const res = await authApi.login(email, password);
+      await tokenStore.setTokens({
+        accessToken: res.accessToken,
+        refreshToken: res.refreshToken,
+      });
+      const mapped = toMobileUser(res.user);
+      setUser(mapped);
+      setTokenState(res.accessToken);
+      return mapped;
+    } catch (err) {
+      setAuthError((err as Error).message ?? "Login failed");
       throw err;
     } finally {
       setAuthLoading(false);
     }
   };
 
-  const register = async (name: string, email: string, password: string, phone?: string) => {
+  const register = async (
+    name: string,
+    email: string,
+    password: string,
+    phone?: string,
+    role?: string
+  ) => {
     setAuthLoading(true);
     setAuthError(null);
     try {
-      const res = await api.register(name, email, password, phone);
-      setToken(res.token);
-      setUser(res.user);
-    } catch (err: any) {
-      setAuthError(err.message ?? "Registration failed");
+      const res = await authApi.register({ name, email, password, phone, role });
+      await tokenStore.setTokens({
+        accessToken: res.accessToken,
+        refreshToken: res.refreshToken,
+      });
+      const mapped = toMobileUser(res.user);
+      setUser(mapped);
+      setTokenState(res.accessToken);
+      return mapped;
+    } catch (err) {
+      setAuthError((err as Error).message ?? "Registration failed");
       throw err;
     } finally {
       setAuthLoading(false);
     }
   };
 
+  // The auth backend exposes no profile-update endpoint, so this updates the
+  // locally cached user only (keeps the profile screen functional).
   const updateProfile = async (data: { name?: string; phone?: string; location?: string }) => {
-    const t = tokenStore.get();
-    if (!t) throw new Error("Not authenticated");
-    const updated = await api.updateProfile(t, data);
-    setUser(updated);
+    setUser((prev) => (prev ? { ...prev, ...data } : prev));
   };
 
-  const logout = () => {
-    setToken(null);
+  // Persist user fields the backend DOES own (notably `providerId`, which
+  // links a provider account to its dispatch record). Server-side, so the
+  // link survives across devices — any device that re-runs /me sees it.
+  const updateMe = async (data: authApi.UpdateMeInput) => {
+    const token = tokenStore.getAccessToken();
+    if (!token) throw new Error("Not authenticated");
+    const { user: updated } = await withRefreshRetry(() =>
+      authApi.updateMe(data, tokenStore.getAccessToken() as string)
+    );
+    const mapped = toMobileUser(updated);
+    setUser(mapped);
+    return mapped;
+  };
+
+  // Re-fetch the current user from /me and refresh the cached copy. Used to
+  // pick up server-side changes (e.g. a providerId linked on another device).
+  const refreshUser = async () => {
+    if (!tokenStore.getAccessToken()) return;
+    const { user: u } = await withRefreshRetry(() =>
+      authApi.me(tokenStore.getAccessToken() as string)
+    );
+    setUser(toMobileUser(u));
+  };
+
+  const logout = async () => {
+    const access = tokenStore.getAccessToken();
+    const refreshToken = tokenStore.getRefreshToken();
+    if (access && refreshToken) {
+      try {
+        await authApi.logout(access, refreshToken);
+      } catch {
+        // Revocation is best-effort; we clear local state regardless.
+      }
+    }
+    await tokenStore.clear();
+    setTokenState(null);
     setUser(null);
     setVehicles([]);
     setSelectedVehicle(null);
@@ -144,43 +235,52 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
     setVehicleError(null);
   };
 
-  const addVehicle = async (data: Partial<api.VehicleInput>) => {
-    const t = tokenStore.get();
-    if (!t) throw new Error("Not authenticated");
-    const vehicle = await api.createVehicle(t, data);
+  const addVehicle = async (data: Partial<vehicleApi.VehicleInput>) => {
+    const vehicle = await withRefreshRetry(() => vehicleApi.createVehicle(data));
     await refreshVehicles();
     return vehicle;
   };
 
-  const editVehicle = async (id: string, data: Partial<api.VehicleInput>) => {
-    const t = tokenStore.get();
-    if (!t) throw new Error("Not authenticated");
-    await api.updateVehicle(t, id, data);
+  const editVehicle = async (id: string, data: Partial<vehicleApi.VehicleInput>) => {
+    await withRefreshRetry(() => vehicleApi.updateVehicle(id, data));
     await refreshVehicles();
   };
 
   const removeVehicle = async (id: string) => {
-    const t = tokenStore.get();
-    if (!t) throw new Error("Not authenticated");
-    await api.deleteVehicle(t, id);
+    await withRefreshRetry(() => vehicleApi.deleteVehicle(id));
     await refreshVehicles();
   };
 
   const setDefault = async (id: string) => {
-    const t = tokenStore.get();
-    if (!t) throw new Error("Not authenticated");
-    await api.setDefaultVehicle(t, id);
+    await withRefreshRetry(() => vehicleApi.setDefaultVehicle(id));
     await refreshVehicles();
   };
 
   return (
     <VehicleContext.Provider
       value={{
-        user, token, authLoading, authError, login, register, updateProfile, logout,
+        user,
+        isAuthenticated: user !== null,
+        token,
+        authLoading,
+        authError,
+        login,
+        register,
+        updateProfile,
+        updateMe,
+        refreshUser,
+        logout,
         clearAuthError: () => setAuthError(null),
-        vehicles, vehiclesLoading, vehicleError, selectedVehicle,
+        vehicles,
+        vehiclesLoading,
+        vehicleError,
+        selectedVehicle,
         selectVehicle: setSelectedVehicle,
-        refreshVehicles, addVehicle, editVehicle, removeVehicle, setDefault,
+        refreshVehicles,
+        addVehicle,
+        editVehicle,
+        removeVehicle,
+        setDefault,
       }}
     >
       {children}

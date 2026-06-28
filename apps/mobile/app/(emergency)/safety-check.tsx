@@ -1,16 +1,32 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { Button } from "@components/ui/button";
+import { ErrorState } from "@components/ui/error-state";
 import { HeaderBar } from "@components/ui/header-bar";
 import { OptionCard } from "@components/ui/option-card";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useEmergency, DEMO_VEHICLE } from "@lib/emergencyContext";
+import { haptics } from "@lib/haptics";
 import { createIncident, submitTriage, runDispatch, DispatchApiError } from "@lib/dispatchApi";
 import { getCurrentDriverLocation } from "@lib/driverLocation";
 
 type Choice = "CRASH" | "MINOR" | "NONE" | null;
+
+type DamageOption = {
+  value: Exclude<Choice, null>;
+  badge: string;
+  badgeTone: "danger" | "warning" | "success";
+  title: string;
+};
+
+const DAMAGE_OPTIONS: DamageOption[] = [
+  { value: "CRASH", badge: "Yes", badgeTone: "danger", title: "Major (Accident/Crash)" },
+  { value: "MINOR", badge: "Yes", badgeTone: "warning", title: "Minor (Dent/Scratch)" },
+  { value: "NONE", badge: "No", badgeTone: "success", title: "No Visible Damage" },
+];
 
 export default function SafetyCheckScreen() {
   const [choice, setChoice] = useState<Choice>(null);
@@ -22,6 +38,7 @@ export default function SafetyCheckScreen() {
     setTriageResult,
     setDispatchResult,
     loading: ctxLoading,
+    error,
   } = useEmergency();
 
   /**
@@ -37,9 +54,10 @@ export default function SafetyCheckScreen() {
   /**
    * MAJOR_CRASH is a fast-path intent. We do the full create-incident +
    * triage-submit + dispatch-optimize round-trip here, then jump straight
-   * to the connected screen — skipping the sound + lights questions.
+   * to the connected screen — skipping the sound + lights questions. Lifted
+   * into a callback so the inline error state can re-invoke it on retry.
    */
-  async function handleFastPathCrash() {
+  const runDispatchFlow = useCallback(async () => {
     setCtxLoading(true);
     setError(null);
     try {
@@ -77,8 +95,8 @@ export default function SafetyCheckScreen() {
       setTriageResult(triage.result);
 
       const dispatch = await runDispatch({
-        incidentId:         incident.id,
-        trafficImpactScore: 9,  // major crash gets high traffic-impact weight
+        incidentId: incident.id,
+        // trafficImpactScore omitted — dispatch sources it live from geo-intelligence
       });
       setDispatchResult(dispatch);
 
@@ -87,18 +105,18 @@ export default function SafetyCheckScreen() {
       const msg = err instanceof DispatchApiError
         ? `${err.message} (${err.status})`
         : (err as Error).message;
+      haptics.error();
       setError(msg);
-      Alert.alert("Dispatch failed", msg);
     } finally {
       setCtxLoading(false);
     }
-  }
+  }, [setCtxLoading, setError, setIncidentId, setTriageResult, setDispatchResult]);
 
   function handleNext() {
     if (!choice) return;
     setDamage(choice);
     if (choice === "CRASH") {
-      handleFastPathCrash();
+      runDispatchFlow();
     } else {
       // Intent picker is the top-level branch of the adaptive form. From
       // there the user enters either the ENGINE subtree (engine-state →
@@ -129,27 +147,25 @@ export default function SafetyCheckScreen() {
         Is there visible damage to your vehicle?
       </Text>
 
-      <OptionCard
-        badge="Yes"
-        badgeTone="danger"
-        title="Major (Accident/Crash)"
-        selected={choice === "CRASH"}
-        onPress={() => setChoice("CRASH")}
-      />
-      <OptionCard
-        badge="Yes"
-        badgeTone="warning"
-        title="Minor (Dent/Scratch)"
-        selected={choice === "MINOR"}
-        onPress={() => setChoice("MINOR")}
-      />
-      <OptionCard
-        badge="No"
-        badgeTone="success"
-        title="No Visible Damage"
-        selected={choice === "NONE"}
-        onPress={() => setChoice("NONE")}
-      />
+      {DAMAGE_OPTIONS.map((opt, i) => (
+        <Animated.View key={opt.value} entering={FadeInDown.delay(i * 60).springify()}>
+          <OptionCard
+            badge={opt.badge}
+            badgeTone={opt.badgeTone}
+            title={opt.title}
+            selected={choice === opt.value}
+            onPress={() => setChoice(opt.value)}
+          />
+        </Animated.View>
+      ))}
+
+      {error && (
+        <ErrorState
+          title="Dispatch failed"
+          message={error}
+          onRetry={runDispatchFlow}
+        />
+      )}
 
       {/* "1990 — Emergency Ambulance" tap-to-call directly, matches reference UI */}
       <Pressable

@@ -1,13 +1,16 @@
-import { useEffect, useRef } from "react";
-import { ActivityIndicator, Alert, Text, View } from "react-native";
+import { useCallback, useEffect } from "react";
+import { Text, View } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
+import { DispatchProgress } from "@components/ui/dispatch-progress";
+import { ErrorState } from "@components/ui/error-state";
 import { HeaderBar } from "@components/ui/header-bar";
 import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
-import { palette, radii, spacing, typography } from "@theme/index";
+import { palette, spacing, typography } from "@theme/index";
 import { useEmergency } from "@lib/emergencyContext";
+import { haptics } from "@lib/haptics";
 import {
   runDispatch,
   serviceTypeLabel,
@@ -19,35 +22,37 @@ import {
 export default function DiagnosisResultScreen() {
   const {
     incidentId, triageResult, dispatchResult,
-    setDispatchResult, setError, setLoading, loading,
+    setDispatchResult, setError, setLoading, loading, error,
   } = useEmergency();
 
   // Kick off /dispatch/optimize automatically once we land here (matches the
-  // "Fetching a Service Provider" loading state in the reference UI).
-  const dispatchStarted = useRef(false);
-  useEffect(() => {
-    if (!incidentId || dispatchStarted.current || dispatchResult) return;
-    dispatchStarted.current = true;
+  // "Fetching a Service Provider" loading state in the reference UI). Lifted
+  // into a callback so the inline error state can re-invoke it on retry.
+  const runDispatchFlow = useCallback(async () => {
+    if (!incidentId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await runDispatch({
+        incidentId,
+        // trafficImpactScore omitted — dispatch sources it live from geo-intelligence
+      });
+      setDispatchResult(res);
+    } catch (err) {
+      const msg = err instanceof DispatchApiError
+        ? `${err.message} (HTTP ${err.status})`
+        : (err as Error).message;
+      haptics.error();
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [incidentId, setDispatchResult, setError, setLoading]);
 
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await runDispatch({
-          incidentId,
-          trafficImpactScore: 5,  // default urban traffic weight
-        });
-        setDispatchResult(res);
-      } catch (err) {
-        const msg = err instanceof DispatchApiError
-          ? `${err.message} (HTTP ${err.status})`
-          : (err as Error).message;
-        setError(msg);
-        Alert.alert("Dispatch failed", msg);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [incidentId, dispatchResult, setDispatchResult, setError, setLoading]);
+  useEffect(() => {
+    if (dispatchResult) return;
+    runDispatchFlow();
+  }, [dispatchResult, runDispatchFlow]);
 
   const predicted = triageResult?.predictedServiceType ?? "BATTERY_JUMP";
   const confidence = triageResult?.confidence ?? 0;
@@ -122,30 +127,26 @@ export default function DiagnosisResultScreen() {
       </Card>
 
       {/* Loading / connected card — matches the reference UI's "Fetching..." state */}
-      <Card
-        variant="muted"
-        style={{ alignItems: "center", paddingVertical: spacing.xxl, gap: spacing.lg }}
-      >
-        <View
-          style={{
-            width: 80, height: 80, borderRadius: radii.lg,
-            borderCurve: "continuous",
-            backgroundColor: palette.surface,
-            alignItems: "center", justifyContent: "center",
-          }}
+      {error ? (
+        <ErrorState
+          title="Dispatch failed"
+          message={error}
+          onRetry={runDispatchFlow}
+        />
+      ) : (
+        <Card
+          variant="muted"
+          style={{ alignItems: "center", paddingVertical: spacing.xxl, gap: spacing.lg }}
         >
+          <DispatchProgress done={!!dispatchResult} doneLabel="Provider Selected" />
           {dispatchResult ? (
-            <Icon name="CheckCircle" size={36} color={palette.success} />
+            <Text
+              style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}
+            >
+              {providerName}
+              {providerType ? ` (${providerTypeLabel(providerType)})` : null}
+            </Text>
           ) : (
-            <Icon name="Wrench" size={36} color={palette.brand} />
-          )}
-        </View>
-        <Text style={{ ...typography.h3, color: palette.text }}>
-          {dispatchResult ? "Provider Selected" : "Fetching a Service Provider"}
-        </Text>
-        {!dispatchResult ? (
-          <>
-            <ActivityIndicator size="small" color={palette.brand} />
             <Text
               style={{
                 ...typography.caption, color: palette.textMuted, textAlign: "center",
@@ -153,16 +154,9 @@ export default function DiagnosisResultScreen() {
             >
               You will be connected to a {providerTypeLabel("MOBILE_MECHANIC")}
             </Text>
-          </>
-        ) : (
-          <Text
-            style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}
-          >
-            {providerName}
-            {providerType ? ` (${providerTypeLabel(providerType)})` : null}
-          </Text>
-        )}
-      </Card>
+          )}
+        </Card>
+      )}
     </Screen>
   );
 }

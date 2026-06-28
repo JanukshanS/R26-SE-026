@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
+import { ErrorState } from "@components/ui/error-state";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
 
@@ -26,8 +27,7 @@ export default function AuthScreen() {
         if (!name.trim()) { setError("Name is required"); return; }
         await register(name.trim(), email.trim(), password, phone.trim() || undefined);
       }
-      // Go to manage-vehicles so the user can add their first vehicle
-      router.replace("/(driver)/manage-vehicles");
+      router.replace("/(driver)/home");
     } catch (err: any) {
       setError(err.message ?? "Something went wrong");
     }
@@ -106,19 +106,10 @@ export default function AuthScreen() {
           )}
 
           {error ? (
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: spacing.sm,
-                padding: spacing.md,
-                borderRadius: radii.md,
-                backgroundColor: palette.dangerSoft,
-              }}
-            >
-              <Icon name="AlertCircle" size={16} color={palette.danger} />
-              <Text style={{ ...typography.caption, color: palette.danger, flex: 1 }}>{error}</Text>
-            </View>
+            <ErrorState
+              title={mode === "login" ? "Sign in failed" : "Registration failed"}
+              message={error}
+            />
           ) : null}
 
           <Pressable

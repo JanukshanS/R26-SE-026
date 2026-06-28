@@ -17,6 +17,7 @@
  */
 
 import { Platform } from "react-native";
+import { tokenStore } from "@lib/tokenStore";
 
 const DEFAULT_BASE_URL =
   process.env.EXPO_PUBLIC_DISPATCH_URL ??
@@ -142,6 +143,7 @@ export interface DispatchResultData {
   metadata: {
     computationTimeMs: number;
     trafficImpactScore: number;
+    trafficImpactSource?: "client" | "geo-intelligence" | "default";
     lambda: number;
     providersEvaluated: number;
     triageTier: string;
@@ -206,12 +208,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${DISPATCH_BASE_URL}${path}`;
   const { signal, cancel } = timeoutSignal(10_000);
 
+  const authToken = tokenStore.getAccessToken();
+
   let res: Response;
   try {
     res = await fetch(url, {
       ...init,
       headers: {
         "Content-Type": "application/json",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         ...(init?.headers ?? {}),
       },
       signal,
@@ -325,6 +330,36 @@ export async function updateProviderStatus(
   });
 }
 
+export interface CreateProviderInput {
+  name: string;
+  type: ProviderType;
+  location: { latitude: number; longitude: number };
+  phone?: string;
+  vehiclePlate?: string;
+}
+
+/**
+ * Register a new dispatchable provider record. Capabilities are auto-derived
+ * from `type` by the dispatch backend; the created record (incl. `id`) is
+ * returned so the caller can link it to the auth user via `authApi.updateMe`.
+ */
+export async function createProvider(input: CreateProviderInput): Promise<ProviderRecord> {
+  return request<ProviderRecord>("/api/v1/providers", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateProviderLocation(
+  providerId: string,
+  location: { latitude: number; longitude: number }
+): Promise<ProviderRecord> {
+  return request(`/api/v1/providers/${providerId}/location`, {
+    method: "PATCH",
+    body: JSON.stringify(location),
+  });
+}
+
 export interface ResolveIncidentInput {
   incidentId: string;
   providerId: string;
@@ -416,6 +451,15 @@ export function serviceTypeAction(st: ServiceType): string {
   };
   return actions[st] ?? "Service dispatch";
 }
+
+/** All provider types, in the order shown in the onboarding picker. */
+export const PROVIDER_TYPES: ProviderType[] = [
+  "MOBILE_MECHANIC",
+  "FUEL_DELIVERY",
+  "LOCKSMITH",
+  "TOW_LIGHT",
+  "TOW_HEAVY",
+];
 
 export function providerTypeLabel(pt: ProviderType): string {
   const labels: Record<ProviderType, string> = {

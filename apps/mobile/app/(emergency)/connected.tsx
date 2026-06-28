@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
 import { HeaderBar } from "@components/ui/header-bar";
@@ -9,6 +10,7 @@ import { MapPreview } from "@components/ui/map-preview";
 import { Screen } from "@components/ui/screen";
 import { palette, spacing, typography } from "@theme/index";
 import { useEmergency } from "@lib/emergencyContext";
+import { haptics } from "@lib/haptics";
 import {
   getProvider,
   haversineKm,
@@ -45,6 +47,15 @@ export default function ConnectedScreen() {
     getProvider(sp.id).then(setProvider).catch(() => setProvider(null));
   }, [sp?.id]);
 
+  // Success haptic — fire once when the dispatch result first lands on this screen.
+  const successFired = useRef(false);
+  useEffect(() => {
+    if (dispatchResult && !successFired.current) {
+      successFired.current = true;
+      haptics.success();
+    }
+  }, [dispatchResult]);
+
   const distanceKm = provider
     ? haversineKm(
         { latitude: driverLoc.latitude, longitude: driverLoc.longitude },
@@ -56,6 +67,21 @@ export default function ConnectedScreen() {
     ? `${Math.max(1, Math.round(sp.estimatedTravelTimeMin))} min ETA`
     : null;
   const distanceText = distanceKm !== null ? `${distanceKm.toFixed(1)} km away` : null;
+
+  // Traffic-impact score from geo-intelligence — the signal that drives dispatch
+  // prioritisation. Priority bands + colours mirror the geo model's thresholds.
+  const impactScore = dispatchResult?.metadata.trafficImpactScore ?? null;
+  const impactSource = dispatchResult?.metadata.trafficImpactSource;
+  const impactPriority =
+    impactScore === null ? "" :
+    impactScore >= 8 ? "CRITICAL" :
+    impactScore >= 5 ? "HIGH" :
+    impactScore >= 3 ? "MEDIUM" : "LOW";
+  const impactColor =
+    impactScore === null ? palette.textMuted :
+    impactScore >= 8 ? palette.danger :
+    impactScore >= 5 ? palette.brand :
+    impactScore >= 3 ? palette.warning : palette.success;
 
   return (
     <Screen
@@ -89,98 +115,132 @@ export default function ConnectedScreen() {
         Connected to {sp ? providerTypeLabel(sp.type) : "Mechanic"}
       </Text>
 
-      <Card style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
-        <View
-          style={{
-            width: 56, height: 56, borderRadius: 28,
-            backgroundColor: palette.surfaceMuted,
-            alignItems: "center", justifyContent: "center",
-          }}
-        >
-          <Icon name="UserRound" size={26} color={palette.textMuted} />
-        </View>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-            {sp?.name ?? "Fetching provider..."}
-          </Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Icon name="Star" size={12} color={palette.warning} />
-            <Text style={{ ...typography.caption, color: palette.textMuted }}>
-              {sp ? providerTypeLabel(sp.type) : "—"}
-              {provider ? ` · Trust ${(provider.trustScore * 100).toFixed(0)}%` : ""}
-            </Text>
+      <Animated.View entering={FadeInDown.delay(0).springify()}>
+        <Card style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+          <View
+            style={{
+              width: 56, height: 56, borderRadius: 28,
+              backgroundColor: palette.surfaceMuted,
+              alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <Icon name="UserRound" size={26} color={palette.textMuted} />
           </View>
-        </View>
-        <ActionPill icon="MessageCircle" />
-        <ActionPill icon="Phone" tone="brand" />
-      </Card>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ ...typography.bodyStrong, color: palette.text }}>
+              {sp?.name ?? "Fetching provider..."}
+            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <Icon name="Star" size={12} color={palette.warning} />
+              <Text style={{ ...typography.caption, color: palette.textMuted }}>
+                {sp ? providerTypeLabel(sp.type) : "—"}
+                {provider ? ` · Trust ${(provider.trustScore * 100).toFixed(0)}%` : ""}
+              </Text>
+            </View>
+          </View>
+          <ActionPill icon="MessageCircle" />
+          <ActionPill icon="Phone" tone="brand" />
+        </Card>
+      </Animated.View>
 
       {/* Live map with driver + provider pins, dashed route, and an ETA /
           distance overlay at the bottom. Driver coord comes from real GPS
           when permitted (lib/driverLocation.ts), otherwise the Malabe
           fallback. */}
-      <MapPreview
-        driverLocation={{ latitude: driverLoc.latitude, longitude: driverLoc.longitude }}
-        provider={provider}
-        etaText={etaText}
-        distanceText={distanceText}
-      />
+      <Animated.View entering={FadeInDown.delay(60).springify()}>
+        <MapPreview
+          driverLocation={{ latitude: driverLoc.latitude, longitude: driverLoc.longitude }}
+          provider={provider}
+          etaText={etaText}
+          distanceText={distanceText}
+        />
+      </Animated.View>
 
-      <Card>
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <View style={{ gap: 2 }}>
-            <Text style={{ ...typography.caption, color: palette.textMuted }}>
-              Estimated Arrival
-            </Text>
-            <Text style={{ ...typography.h2, color: palette.text }}>
-              {formatEta(sp?.estimatedTravelTimeMin)}
-            </Text>
+      <Animated.View entering={FadeInDown.delay(120).springify()}>
+        <Card>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <View style={{ gap: 2 }}>
+              <Text style={{ ...typography.caption, color: palette.textMuted }}>
+                Estimated Arrival
+              </Text>
+              <Text style={{ ...typography.h2, color: palette.text }}>
+                {formatEta(sp?.estimatedTravelTimeMin)}
+              </Text>
+            </View>
+            <View style={{ alignItems: "flex-end", gap: 2 }}>
+              <Text style={{ ...typography.caption, color: palette.textMuted }}>
+                Distance
+              </Text>
+              <Text style={{ ...typography.h2, color: palette.text }}>
+                {distanceKm !== null ? `${distanceKm.toFixed(1)} km` : "—"}
+              </Text>
+            </View>
           </View>
-          <View style={{ alignItems: "flex-end", gap: 2 }}>
-            <Text style={{ ...typography.caption, color: palette.textMuted }}>
-              Distance
-            </Text>
-            <Text style={{ ...typography.h2, color: palette.text }}>
-              {distanceKm !== null ? `${distanceKm.toFixed(1)} km` : "—"}
-            </Text>
-          </View>
-        </View>
-      </Card>
+        </Card>
+      </Animated.View>
+
+      {/* Traffic-impact score from geo-intelligence — the signal that drives
+          dispatch prioritisation: a higher score pushes the optimizer toward a
+          faster, higher-trust provider. */}
+      {impactScore !== null && (
+        <Animated.View entering={FadeInDown.delay(180).springify()}>
+          <Card>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, flex: 1 }}>
+                <Icon name="Gauge" size={24} color={impactColor} />
+                <View style={{ gap: 2, flex: 1 }}>
+                  <Text style={{ ...typography.caption, color: palette.textMuted }}>
+                    Traffic Impact · Geo-Intelligence
+                  </Text>
+                  <Text style={{ ...typography.bodyStrong, color: impactColor }}>
+                    {impactPriority} priority{impactSource === "geo-intelligence" ? " · live" : ""}
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ ...typography.display, color: impactColor }}>
+                {impactScore.toFixed(1)}
+              </Text>
+            </View>
+          </Card>
+        </Animated.View>
+      )}
 
       {/* Debug card — top-3 from the ranked providers list. Useful in viva
           to show ECM is actually ranking, not just picking nearest. */}
       {dispatchResult && (
-        <Card variant="muted">
-          <Text style={{ ...typography.micro, color: palette.textMuted }}>
-            DISPATCH RANKING (top 3)
-          </Text>
-          {dispatchResult.allRankedProviders.slice(0, 3).map((p) => (
-            <View
-              key={p.providerId}
-              style={{
-                flexDirection: "row", justifyContent: "space-between",
-                paddingVertical: 4,
-              }}
-            >
-              <Text style={{ ...typography.caption, color: palette.text }}>
-                #{p.rank} {p.name}
-              </Text>
-              <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                {p.expectedCost.toFixed(1)} min
-              </Text>
-            </View>
-          ))}
-          <Text style={{ ...typography.micro, color: palette.textMuted, marginTop: 4 }}>
-            ECM computed in {dispatchResult.metadata.computationTimeMs.toFixed(2)}ms over{" "}
-            {dispatchResult.metadata.providersEvaluated} providers
-          </Text>
-        </Card>
+        <Animated.View entering={FadeInDown.delay(240).springify()}>
+          <Card variant="muted">
+            <Text style={{ ...typography.micro, color: palette.textMuted }}>
+              DISPATCH RANKING (top 3)
+            </Text>
+            {dispatchResult.allRankedProviders.slice(0, 3).map((p) => (
+              <View
+                key={p.providerId}
+                style={{
+                  flexDirection: "row", justifyContent: "space-between",
+                  paddingVertical: 4,
+                }}
+              >
+                <Text style={{ ...typography.caption, color: palette.text }}>
+                  #{p.rank} {p.name}
+                </Text>
+                <Text style={{ ...typography.caption, color: palette.textMuted }}>
+                  {p.expectedCost.toFixed(1)} min
+                </Text>
+              </View>
+            ))}
+            <Text style={{ ...typography.micro, color: palette.textMuted, marginTop: 4 }}>
+              ECM computed in {dispatchResult.metadata.computationTimeMs.toFixed(2)}ms over{" "}
+              {dispatchResult.metadata.providersEvaluated} providers
+            </Text>
+          </Card>
+        </Animated.View>
       )}
     </Screen>
   );

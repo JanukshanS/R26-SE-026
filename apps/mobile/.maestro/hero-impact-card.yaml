@@ -1,0 +1,9 @@
+appId: lk.kaduna.mobile
+---
+- launchApp: { clearState: false }
+- assertVisible: "Quick Actions"
+- tapOn: "Tyre"
+- assertVisible: { text: "Connected to .*", timeout: 30000 }
+- assertVisible: "Traffic Impact · Geo-Intelligence"
+- assertVisible: { text: ".* priority · live" }
+- assertVisible: { text: "\\d+\\.\\d" }

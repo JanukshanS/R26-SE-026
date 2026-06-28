@@ -27,12 +27,12 @@ export default function WelcomeScreen() {
       }
     >
       {/*
-        Service provider entry — top-right pill button. For the demo this
-        routes straight to the provider dashboard with no auth; when JWT
-        lands (Phase 3) it'll be a real login form with role=PROVIDER.
+        Service provider entry — top-right pill button. Routes to the provider
+        onboarding flow (register or sign in); the provider record is created
+        there and linked to the auth account via providerId.
       */}
       <Pressable
-        onPress={() => router.replace("/(provider)/available")}
+        onPress={() => router.push("/(provider)/onboarding")}
         style={({ pressed }) => ({
           position: "absolute",
           top: insets.top + spacing.md,

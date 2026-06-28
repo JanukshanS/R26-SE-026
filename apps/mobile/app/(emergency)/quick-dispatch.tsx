@@ -9,16 +9,17 @@
  *   label       — Human-readable label for the loading screen ("Flat tire")
  */
 
-import { useEffect, useRef } from "react";
-import { ActivityIndicator, Alert, Text, View } from "react-native";
+import { useCallback, useEffect } from "react";
+import { Text } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
+import { DispatchProgress } from "@components/ui/dispatch-progress";
+import { ErrorState } from "@components/ui/error-state";
 import { HeaderBar } from "@components/ui/header-bar";
-import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
-import { palette, radii, spacing, typography } from "@theme/index";
+import { palette, spacing, typography } from "@theme/index";
 import { useEmergency, DEMO_VEHICLE } from "@lib/emergencyContext";
+import { haptics } from "@lib/haptics";
 import {
   createIncident, submitTriage, runDispatch, DispatchApiError,
 } from "@lib/dispatchApi";
@@ -52,98 +53,69 @@ export default function QuickDispatchScreen() {
     setIncidentId, setTriageResult, setDispatchResult, setError,
     dispatchResult, error,
   } = useEmergency();
-  const started = useRef(false);
 
-  useEffect(() => {
-    if (started.current || !intent) return;
-    started.current = true;
+  const runDispatchFlow = useCallback(async () => {
+    if (!intent) return;
+    setError(null);
+    try {
+      const driver = await getCurrentDriverLocation();
+      const incident = await createIncident({
+        location:    { latitude: driver.latitude, longitude: driver.longitude },
+        vehicleInfo: DEMO_VEHICLE,
+        description: `Quick-dispatch from home: ${label ?? intent}`,
+      });
+      setIncidentId(incident.id);
 
-    (async () => {
-      try {
-        const driver = await getCurrentDriverLocation();
-        const incident = await createIncident({
-          location:    { latitude: driver.latitude, longitude: driver.longitude },
-          vehicleInfo: DEMO_VEHICLE,
-          description: `Quick-dispatch from home: ${label ?? intent}`,
-        });
-        setIncidentId(incident.id);
+      const triage = await submitTriage({
+        incidentId: incident.id,
+        responses: {
+          Q1_intent: intent,
+          ...buildFastPathDefaults(),
+        },
+      });
+      setTriageResult(triage.result);
 
-        const triage = await submitTriage({
-          incidentId: incident.id,
-          responses: {
-            Q1_intent: intent,
-            ...buildFastPathDefaults(),
-          },
-        });
-        setTriageResult(triage.result);
+      const dispatch = await runDispatch({
+        incidentId: incident.id,
+        // trafficImpactScore omitted — dispatch sources it live from geo-intelligence
+      });
+      setDispatchResult(dispatch);
 
-        const dispatch = await runDispatch({
-          incidentId:         incident.id,
-          trafficImpactScore: 5,
-        });
-        setDispatchResult(dispatch);
-
-        router.replace("/(emergency)/connected");
-      } catch (err) {
-        const msg = err instanceof DispatchApiError
-          ? `${err.message} (HTTP ${err.status})`
-          : (err as Error).message;
-        setError(msg);
-      }
-    })();
+      router.replace("/(emergency)/connected");
+    } catch (err) {
+      const msg = err instanceof DispatchApiError
+        ? `${err.message} (HTTP ${err.status})`
+        : (err as Error).message;
+      haptics.error();
+      setError(msg);
+    }
   }, [intent, label, setIncidentId, setTriageResult, setDispatchResult, setError]);
 
+  useEffect(() => {
+    runDispatchFlow();
+  }, [runDispatchFlow]);
+
   return (
-    <Screen
-      footer={
-        error ? (
-          <Button title="Go Back" variant="secondary" onPress={() => router.back()} />
-        ) : undefined
-      }
-    >
+    <Screen>
       <HeaderBar />
       <Text style={{ ...typography.h1, color: palette.text }}>
         {label ? `Getting ${label.toLowerCase()}...` : "Dispatching..."}
       </Text>
 
-      <Card
-        variant="muted"
-        style={{ alignItems: "center", paddingVertical: spacing.xxl, gap: spacing.lg }}
-      >
-        <View
-          style={{
-            width: 80, height: 80, borderRadius: radii.lg,
-            borderCurve: "continuous", backgroundColor: palette.surface,
-            alignItems: "center", justifyContent: "center",
-          }}
+      {error ? (
+        <ErrorState
+          title="Couldn't dispatch"
+          message={error}
+          onRetry={runDispatchFlow}
+        />
+      ) : (
+        <Card
+          variant="muted"
+          style={{ alignItems: "center", paddingVertical: spacing.xxl, gap: spacing.lg }}
         >
-          {error ? (
-            <Icon name="AlertTriangle" size={36} color={palette.danger} />
-          ) : dispatchResult ? (
-            <Icon name="CheckCircle" size={36} color={palette.success} />
-          ) : (
-            <Icon name="Wrench" size={36} color={palette.brand} />
-          )}
-        </View>
-        <Text style={{ ...typography.h3, color: palette.text }}>
-          {error ? "Couldn't dispatch" :
-           dispatchResult ? "Provider Found" :
-           "Finding the nearest provider"}
-        </Text>
-        {!error && !dispatchResult && (
-          <>
-            <ActivityIndicator size="small" color={palette.brand} />
-            <Text style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}>
-              Running ECM optimization across available providers
-            </Text>
-          </>
-        )}
-        {error && (
-          <Text style={{ ...typography.caption, color: palette.danger, textAlign: "center" }}>
-            {error}
-          </Text>
-        )}
-      </Card>
+          <DispatchProgress done={!!dispatchResult} />
+        </Card>
+      )}
     </Screen>
   );
 }

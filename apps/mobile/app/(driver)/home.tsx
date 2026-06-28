@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
-import * as Haptics from "expo-haptics";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Badge } from "@components/ui/badge";
 import { Card } from "@components/ui/card";
@@ -16,6 +16,7 @@ import {
   type VehicleHealthResponse,
 } from "@lib/maintenanceApi";
 import { isElm327Paired, pairElm327, unpairElm327 } from "@lib/elm327";
+import { haptics } from "@lib/haptics";
 import { useVehicle } from "@lib/vehicleContext";
 
 const BOTTOM_SCROLL_PADDING = 112;
@@ -220,35 +221,47 @@ export default function DriverHomeScreen() {
                 the relevant type. No diagnostic questions; we know what's
                 needed. Routes through (emergency)/quick-dispatch which runs
                 the full incident -> triage -> dispatch pipeline. */}
-            <QuickAction
-              icon="Disc"
-              label="Tyre"
-              onPress={() => router.push({
-                pathname: "/(emergency)/quick-dispatch",
-                params:   { intent: "FLAT_TIRE", label: "Flat tire" },
-              })}
-            />
-            <QuickAction
-              icon="Fuel"
-              label="Fuel"
-              onPress={() => router.push({
-                pathname: "/(emergency)/quick-dispatch",
-                params:   { intent: "FUEL_EMPTY", label: "Fuel delivery" },
-              })}
-            />
-            <QuickAction
-              icon="KeyRound"
-              label="Locksmith"
-              onPress={() => router.push({
-                pathname: "/(emergency)/quick-dispatch",
-                params:   { intent: "LOCKOUT", label: "Locksmith" },
-              })}
-            />
+            <Animated.View entering={FadeInDown.delay(0).springify()} style={{ flex: 1 }}>
+              <QuickAction
+                icon="Disc"
+                label="Tyre"
+                onPress={() => router.push({
+                  pathname: "/(emergency)/quick-dispatch",
+                  params:   { intent: "FLAT_TIRE", label: "Flat tire" },
+                })}
+              />
+            </Animated.View>
+            <Animated.View entering={FadeInDown.delay(60).springify()} style={{ flex: 1 }}>
+              <QuickAction
+                icon="Fuel"
+                label="Fuel"
+                onPress={() => router.push({
+                  pathname: "/(emergency)/quick-dispatch",
+                  params:   { intent: "FUEL_EMPTY", label: "Fuel delivery" },
+                })}
+              />
+            </Animated.View>
+            <Animated.View entering={FadeInDown.delay(120).springify()} style={{ flex: 1 }}>
+              <QuickAction
+                icon="KeyRound"
+                label="Locksmith"
+                onPress={() => router.push({
+                  pathname: "/(emergency)/quick-dispatch",
+                  params:   { intent: "LOCKOUT", label: "Locksmith" },
+                })}
+              />
+            </Animated.View>
           </View>
           <View style={{ flexDirection: "row", gap: spacing.md }}>
-            <QuickAction icon="Truck" label="Service" />
-            <QuickAction icon="Package" label="Order parts" onPress={() => router.push({ pathname: "/(driver)/order-parts", params: { component: "brake" } })} />
-            <QuickAction icon="ShieldCheck" label="Insurance" />
+            <Animated.View entering={FadeInDown.delay(180).springify()} style={{ flex: 1 }}>
+              <QuickAction icon="Truck" label="Service" />
+            </Animated.View>
+            <Animated.View entering={FadeInDown.delay(240).springify()} style={{ flex: 1 }}>
+              <QuickAction icon="Package" label="Order parts" onPress={() => router.push({ pathname: "/(driver)/order-parts", params: { component: "brake" } })} />
+            </Animated.View>
+            <Animated.View entering={FadeInDown.delay(300).springify()} style={{ flex: 1 }}>
+              <QuickAction icon="ShieldCheck" label="Insurance" />
+            </Animated.View>
           </View>
         </View>
 
@@ -553,9 +566,7 @@ function EmergencyCenterButton() {
   return (
     <Pressable
       onPress={() => {
-        if (process.env.EXPO_OS === "ios") {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-        }
+        haptics.press();
         router.push("/(emergency)/safety-check");
       }}
       style={({ pressed }) => ({
@@ -590,7 +601,7 @@ function TabItem({ tab, active }: { tab: TabDef; active: boolean }) {
   return (
     <Pressable
       onPress={() => {
-        if (process.env.EXPO_OS === "ios") Haptics.selectionAsync().catch(() => {});
+        haptics.select();
         if (tab.key === "maintenance") router.push("/(driver)/health");
         if (tab.key === "profile") router.push("/(driver)/profile");
       }}

@@ -1,5 +1,5 @@
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import * as Haptics from "expo-haptics";
+import { haptics } from "@lib/haptics";
 import { palette, radii, spacing, typography } from "@theme/index";
 
 type Variant = "primary" | "secondary" | "danger" | "ghost";
@@ -30,9 +30,7 @@ export function Button({
 }: Props) {
   const handlePress = () => {
     if (disabled) return;
-    if (process.env.EXPO_OS === "ios") {
-      Haptics.selectionAsync().catch(() => {});
-    }
+    haptics.select();
     onPress?.();
   };
 

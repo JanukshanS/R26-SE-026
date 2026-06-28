@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,44 +8,51 @@ import { Card } from "@components/ui/card";
 import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
+import { useVehicle } from "@lib/vehicleContext";
 import {
-  listProviders,
+  getProvider,
+  providerTypeLabel,
   serviceTypeLabel,
+  updateProviderLocation,
   updateProviderStatus,
   type ProviderRecord,
 } from "@lib/dispatchApi";
-
-/**
- * Demo provider profile — for the viva we pick the first seeded MOBILE_MECHANIC
- * to embody. In production this comes from the provider's auth session.
- */
-const DEMO_PROVIDER_NAME_PREFIX = "Colombo Mobile Mechanic";
+import { getCurrentDriverLocation } from "@lib/driverLocation";
 
 export default function ProviderAvailableScreen() {
   const insets = useSafeAreaInsets();
+  const { user, logout } = useVehicle();
+  const providerId = user?.providerId ?? null;
+
   const [provider, setProvider] = useState<ProviderRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusBusy, setStatusBusy] = useState(false);
+  const [locationBusy, setLocationBusy] = useState(false);
+
+  const loadProvider = useCallback(async () => {
+    if (!providerId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const me = await getProvider(providerId);
+      setProvider(me);
+    } catch (err) {
+      setError(
+        (err as Error).message +
+          " (is the dispatch service running on port 3001?)"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [providerId]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const list = await listProviders({ type: "MOBILE_MECHANIC" });
-        const me = list.providers.find((p) =>
-          p.name.startsWith(DEMO_PROVIDER_NAME_PREFIX)
-        ) ?? list.providers[0];
-        setProvider(me ?? null);
-      } catch (err) {
-        setError(
-          (err as Error).message +
-          " (is the dispatch service running on port 3001?)"
-        );
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+    loadProvider();
+  }, [loadProvider]);
 
   async function toggleStatus() {
     if (!provider) return;
@@ -61,10 +68,33 @@ export default function ProviderAvailableScreen() {
     }
   }
 
+  async function handleUpdateLocation() {
+    if (!provider) return;
+    setLocationBusy(true);
+    try {
+      const loc = await getCurrentDriverLocation({ forceFresh: true });
+      const updated = await updateProviderLocation(provider.id, {
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+      });
+      setProvider(updated);
+      Alert.alert(
+        "Location updated",
+        loc.isReal
+          ? "Your position on the map has been refreshed from GPS."
+          : "GPS was unavailable, so we used your last known area."
+      );
+    } catch (err) {
+      Alert.alert("Failed to update location", (err as Error).message);
+    } finally {
+      setLocationBusy(false);
+    }
+  }
+
   /**
    * Log out — flips the provider OFFLINE first (so they don't keep getting
-   * dispatched while away) and then routes back to the welcome screen.
-   * When JWT auth lands this is where we'd also clear the stored token.
+   * dispatched while away), then clears the auth session and returns to the
+   * welcome screen.
    */
   async function handleLogout() {
     if (provider && provider.status !== "OFFLINE") {
@@ -74,11 +104,51 @@ export default function ProviderAvailableScreen() {
         /* best-effort — don't block logout if the backend is unreachable */
       }
     }
+    try {
+      await logout();
+    } catch {
+      /* logout already clears local state best-effort */
+    }
     router.replace("/");
+  }
+
+  // Not onboarded yet (no linked provider record) — invite them to set up.
+  if (!loading && !providerId) {
+    return (
+      <Screen
+        footer={
+          <Button
+            title="Set up your provider profile"
+            onPress={() => router.replace("/(provider)/onboarding")}
+          />
+        }
+      >
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: spacing.lg }}>
+          <Icon name="Wrench" size={44} color={palette.brand} />
+          <View style={{ alignItems: "center", gap: spacing.sm }}>
+            <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
+              No provider profile yet
+            </Text>
+            <Text
+              style={{
+                ...typography.body,
+                color: palette.textMuted,
+                textAlign: "center",
+                maxWidth: 280,
+              }}
+            >
+              Create your provider profile to appear on the dispatch map and
+              start receiving roadside jobs near you.
+            </Text>
+          </View>
+        </View>
+      </Screen>
+    );
   }
 
   const online = provider?.status === "AVAILABLE";
   const displayName = provider?.name.split(" - ")[1] ?? provider?.name ?? "Provider";
+  const typeLabel = provider ? providerTypeLabel(provider.type) : "Provider";
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.background }}>
@@ -106,7 +176,7 @@ export default function ProviderAvailableScreen() {
               {loading ? "Loading..." : displayName}
             </Text>
             <Text style={{ ...typography.caption, color: palette.textMuted }}>
-              Mobile Mechanic
+              {typeLabel}
             </Text>
           </View>
         </View>
@@ -150,6 +220,7 @@ export default function ProviderAvailableScreen() {
             <Text style={{ ...typography.caption, color: palette.textMuted }}>
               {error}
             </Text>
+            <Button title="Try again" variant="secondary" size="md" onPress={loadProvider} />
           </Card>
         )}
 
@@ -172,7 +243,12 @@ export default function ProviderAvailableScreen() {
               onPress={toggleStatus}
               disabled={!provider || statusBusy}
             />
-            <Button title="UPDATE LOCATION" size="md" onPress={() => {}} />
+            <Button
+              title={locationBusy ? "UPDATING…" : "UPDATE LOCATION"}
+              size="md"
+              onPress={handleUpdateLocation}
+              disabled={!provider || locationBusy}
+            />
           </View>
         </Card>
 
