@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, Text } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Button } from "@components/ui/button";
 import { ErrorState } from "@components/ui/error-state";
 import { HeaderBar } from "@components/ui/header-bar";
@@ -11,7 +11,10 @@ import * as authApi from "@lib/authApi";
 import { tokenStore } from "@lib/tokenStore";
 
 export default function AddAccountScreen() {
-  const [mode, setMode] = useState<"register" | "login">("register");
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const [mode, setMode] = useState<"register" | "login">(
+    params.mode === "login" ? "login" : "register"
+  );
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -44,7 +47,9 @@ export default function AddAccountScreen() {
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,
       });
-      router.replace("/(driver)/home");
+      router.replace(
+        mode === "register" ? "/(onboarding)/add-vehicle" : "/(driver)/home"
+      );
     } catch (err) {
       setError((err as Error).message ?? "Something went wrong");
     } finally {

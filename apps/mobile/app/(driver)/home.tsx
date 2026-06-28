@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -76,7 +76,13 @@ export default function DriverHomeScreen() {
           <View style={{ gap: spacing.xs }}>
             <Text style={{ ...typography.caption, color: palette.textMuted }}>Malabe, Srilanka</Text>
             <Text style={{ ...typography.body, color: palette.text }}>
-              Hi <Text style={{ fontWeight: "700" }}>Janukshan!</Text>
+              {user ? (
+                <>
+                  Hi <Text style={{ fontWeight: "700" }}>{user.name.split(" ")[0]}!</Text>
+                </>
+              ) : (
+                "Welcome"
+              )}
             </Text>
           </View>
 
@@ -254,13 +260,19 @@ export default function DriverHomeScreen() {
           </View>
           <View style={{ flexDirection: "row", gap: spacing.md }}>
             <Animated.View entering={FadeInDown.delay(180).springify()} style={{ flex: 1 }}>
-              <QuickAction icon="Truck" label="Service" />
+              <QuickAction icon="Truck" label="Service" onPress={() => router.push("/(driver)/health")} />
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(240).springify()} style={{ flex: 1 }}>
               <QuickAction icon="Package" label="Order parts" onPress={() => router.push({ pathname: "/(driver)/order-parts", params: { component: "brake" } })} />
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(300).springify()} style={{ flex: 1 }}>
-              <QuickAction icon="ShieldCheck" label="Insurance" />
+              <QuickAction
+                icon="ShieldCheck"
+                label="Insurance"
+                onPress={() =>
+                  Alert.alert("Insurance", "Insurance services are coming soon.")
+                }
+              />
             </Animated.View>
           </View>
         </View>
@@ -320,7 +332,7 @@ export default function DriverHomeScreen() {
               <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>
                 {user ? "Switch Vehicle" : "Your Vehicles"}
               </Text>
-              <Pressable onPress={() => setShowVehiclePicker(false)} hitSlop={12}>
+              <Pressable onPress={() => setShowVehiclePicker(false)} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
                 <Icon name="X" size={20} color={palette.textMuted} />
               </Pressable>
             </View>

@@ -41,7 +41,7 @@ export default function ProfileScreen() {
             gap: spacing.md,
           }}
         >
-          <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
             <Icon name="ChevronLeft" size={24} color={palette.text} />
           </Pressable>
           <Text style={{ ...typography.h3, color: palette.text }}>Profile</Text>
@@ -109,10 +109,9 @@ export default function ProfileScreen() {
 
   function handleEditToggle() {
     if (editing) {
-      // cancel — reset fields
-      setName(user.name);
-      setPhone(user.phone ?? "");
-      setLocation(user.location ?? "");
+      setName(user?.name ?? "");
+      setPhone(user?.phone ?? "");
+      setLocation(user?.location ?? "");
       setError("");
     }
     setEditing(!editing);
@@ -134,7 +133,7 @@ export default function ProfileScreen() {
           gap: spacing.md,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
           <Icon name="ChevronLeft" size={24} color={palette.text} />
         </Pressable>
         <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>Profile</Text>
@@ -315,8 +314,8 @@ export default function ProfileScreen() {
             borderColor: palette.border,
           }}
         >
-          <MenuRow icon="Shield" label="Privacy Policy" onPress={() => {}} />
-          <MenuRow icon="HelpCircle" label="Help & Support" onPress={() => {}} divider={false} />
+          <MenuRow icon="Shield" label="Privacy Policy" />
+          <MenuRow icon="HelpCircle" label="Help & Support" divider={false} />
         </View>
       </ScrollView>
 
@@ -367,23 +366,42 @@ function InfoRow({ icon, label, value }: { icon: string; label: string; value: s
   );
 }
 
-function MenuRow({ icon, label, onPress, divider = true }: { icon: string; label: string; onPress: () => void; divider?: boolean }) {
+function MenuRow({ icon, label, onPress, divider = true }: { icon: string; label: string; onPress?: () => void; divider?: boolean }) {
   return (
     <Pressable
       onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !onPress }}
       style={({ pressed }) => ({
         flexDirection: "row",
         alignItems: "center",
         gap: spacing.md,
         padding: spacing.lg,
-        backgroundColor: pressed ? palette.homeBackground : palette.surface,
+        backgroundColor: pressed && onPress ? palette.homeBackground : palette.surface,
         borderBottomWidth: divider ? 1 : 0,
         borderBottomColor: palette.border,
       })}
     >
       <Icon name={icon as any} size={18} color={palette.textMuted} />
       <Text style={{ ...typography.body, color: palette.text, flex: 1 }}>{label}</Text>
-      <Icon name="ChevronRight" size={16} color={palette.textMuted} />
+      {onPress ? (
+        <Icon name="ChevronRight" size={16} color={palette.textMuted} />
+      ) : (
+        <View
+          style={{
+            paddingHorizontal: spacing.sm,
+            paddingVertical: 2,
+            borderRadius: radii.pill,
+            backgroundColor: palette.homeBackground,
+          }}
+        >
+          <Text style={{ ...typography.micro, color: palette.textMuted, fontWeight: "600" }}>
+            Soon
+          </Text>
+        </View>
+      )}
     </Pressable>
   );
 }

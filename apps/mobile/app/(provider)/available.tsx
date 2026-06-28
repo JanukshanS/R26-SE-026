@@ -310,8 +310,9 @@ export default function ProviderAvailableScreen() {
         </View>
 
         <Button
-          title="Preview an Active Job"
+          title="Preview an Active Job (demo)"
           variant="secondary"
+          leftIcon={<Icon name="Eye" size={16} color={palette.text} />}
           onPress={() => router.push("/(provider)/active-job")}
         />
       </Screen>

@@ -40,7 +40,7 @@ export default function DiagnosisSoundScreen() {
         What sound does your vehicle make?
       </Text>
       <Text style={{ ...typography.caption, color: palette.textMuted }}>
-        Tap the play button to hear a sample, then select the one that matches.
+        Select the sound that best matches when you turn the key.
       </Text>
 
       {SOUNDS.map((s) => (
@@ -67,6 +67,9 @@ function SoundOption({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      accessibilityLabel={label}
       style={({ pressed }) => ({
         opacity: pressed ? 0.85 : 1,
         backgroundColor: palette.surface,
@@ -86,12 +89,12 @@ function SoundOption({
           width: 36,
           height: 36,
           borderRadius: 18,
-          backgroundColor: palette.brandSoft,
+          backgroundColor: selected ? palette.brand : palette.brandSoft,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <Icon name="Play" size={16} color={palette.brand} />
+        {selected ? <Icon name="Check" size={16} color={palette.textOnBrand} /> : null}
       </View>
     </Pressable>
   );

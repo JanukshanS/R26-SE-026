@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
@@ -22,7 +22,7 @@ const SUGGESTIONS_BY_COMPONENT: Record<ComponentKey, Suggestion[]> = {
     {
       id: "1",
       type: "part",
-      name: "Break Pads",
+      name: "Brake Pads",
       subtitle: "2026 · Toyota AquaPlus",
       detail1: "15,000 Km",
       detail2: "3 days ago",
@@ -115,12 +115,25 @@ const ASSISTANT_TEXT: Record<ComponentKey, string> = {
     "Battery is in good health. No immediate action needed, but a free test can confirm. Estimated test cost: LKR 500.",
 };
 
+/** Next upcoming Saturday, formatted "Sat, 4 Jul 2026". */
+function nextSaturdayLabel(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7 || 7));
+  return d.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export default function AutoScheduleScreen() {
   const insets = useSafeAreaInsets();
   const { component } = useLocalSearchParams<{ component: ComponentKey }>();
   const key: ComponentKey = (component as ComponentKey) ?? "brake";
   const suggestions = SUGGESTIONS_BY_COMPONENT[key];
   const assistantText = ASSISTANT_TEXT[key];
+  const scheduleDate = nextSaturdayLabel();
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
@@ -138,7 +151,7 @@ export default function AutoScheduleScreen() {
           gap: spacing.md,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
           <Icon name="ChevronLeft" size={24} color={palette.text} />
         </Pressable>
         <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>Auto Schedule</Text>
@@ -208,7 +221,7 @@ export default function AutoScheduleScreen() {
           >
             <Icon name="CalendarCheck" size={14} color={palette.brand} />
             <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "600" }}>
-              Next available: Sat, 17 May 2026
+              Next available: {scheduleDate}
             </Text>
           </View>
         </View>
@@ -231,7 +244,16 @@ export default function AutoScheduleScreen() {
         }}
       >
         <Pressable
-          onPress={() => router.back()}
+          onPress={() =>
+            Alert.alert(
+              "Booking & payment",
+              "Booking and online payment are coming soon. Your selected service has been noted for " +
+                scheduleDate +
+                "."
+            )
+          }
+          accessibilityRole="button"
+          accessibilityLabel="Pay and schedule"
           style={({ pressed }) => ({
             backgroundColor: pressed ? palette.brandPressed : palette.brand,
             borderRadius: radii.lg,
@@ -251,6 +273,8 @@ export default function AutoScheduleScreen() {
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           <Pressable
             onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel"
             style={({ pressed }) => ({
               flex: 1,
               borderRadius: radii.lg,
@@ -266,6 +290,11 @@ export default function AutoScheduleScreen() {
           </Pressable>
 
           <Pressable
+            onPress={() =>
+              Alert.alert("Change date", "Choosing a custom date is coming soon.")
+            }
+            accessibilityRole="button"
+            accessibilityLabel="Change date"
             style={({ pressed }) => ({
               flex: 1,
               borderRadius: radii.lg,

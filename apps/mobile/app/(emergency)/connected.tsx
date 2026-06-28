@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Alert, Linking, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Button } from "@components/ui/button";
@@ -67,6 +67,15 @@ export default function ConnectedScreen() {
     ? `${Math.max(1, Math.round(sp.estimatedTravelTimeMin))} min ETA`
     : null;
   const distanceText = distanceKm !== null ? `${distanceKm.toFixed(1)} km away` : null;
+
+  // Call / message the assigned provider. The phone number is part of the
+  // provider record fetched above; until it resolves (or if the provider has
+  // none on file) the pills are disabled rather than silently doing nothing.
+  const providerPhone = provider?.phone ?? null;
+  const openLink = (url: string) =>
+    Linking.openURL(url).catch(() =>
+      Alert.alert("Unavailable", "Couldn't open this on your device."),
+    );
 
   // Traffic-impact score from geo-intelligence — the signal that drives dispatch
   // prioritisation. Priority bands + colours mirror the geo model's thresholds.
@@ -138,8 +147,19 @@ export default function ConnectedScreen() {
               </Text>
             </View>
           </View>
-          <ActionPill icon="MessageCircle" />
-          <ActionPill icon="Phone" tone="brand" />
+          <ActionPill
+            icon="MessageCircle"
+            accessibilityLabel={sp ? `Message ${sp.name}` : "Message provider"}
+            disabled={!providerPhone}
+            onPress={() => providerPhone && openLink(`sms:${providerPhone}`)}
+          />
+          <ActionPill
+            icon="Phone"
+            tone="brand"
+            accessibilityLabel={sp ? `Call ${sp.name}` : "Call provider"}
+            disabled={!providerPhone}
+            onPress={() => providerPhone && openLink(`tel:${providerPhone}`)}
+          />
         </Card>
       </Animated.View>
 
@@ -246,11 +266,24 @@ export default function ConnectedScreen() {
   );
 }
 
-function ActionPill({ icon, tone }: { icon: IconName; tone?: "brand" }) {
+function ActionPill({
+  icon, tone, onPress, accessibilityLabel, disabled,
+}: {
+  icon: IconName;
+  tone?: "brand";
+  onPress?: () => void;
+  accessibilityLabel?: string;
+  disabled?: boolean;
+}) {
   return (
     <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled: !!disabled }}
       style={({ pressed }) => ({
-        opacity: pressed ? 0.7 : 1,
+        opacity: disabled ? 0.4 : pressed ? 0.7 : 1,
         width: 36, height: 36, borderRadius: 18,
         backgroundColor: tone === "brand" ? palette.brand : palette.surfaceMuted,
         alignItems: "center", justifyContent: "center",

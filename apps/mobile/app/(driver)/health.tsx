@@ -12,8 +12,7 @@ import {
   type ComponentKey,
   type VehicleHealthResponse,
 } from "@lib/maintenanceApi";
-
-const VEHICLE_ID = "CBD-3742";
+import { useVehicle } from "@lib/vehicleContext";
 
 const COMPONENT_META: Record<ComponentKey, { label: string; icon: string }> = {
   engine: { label: "Engine Oil", icon: "Gauge" },
@@ -26,15 +25,22 @@ const COMPONENT_ORDER: ComponentKey[] = ["brake", "engine", "tire", "battery"];
 
 export default function HealthScreen() {
   const insets = useSafeAreaInsets();
+  const { selectedVehicle } = useVehicle();
   const [data, setData] = useState<VehicleHealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const vehicleId = selectedVehicle?.plateNumber ?? "CBD-3742";
+  const vehicleLabel = selectedVehicle
+    ? selectedVehicle.nickname || `${selectedVehicle.make} ${selectedVehicle.model}`
+    : "Toyota Aqua";
+
   useEffect(() => {
-    getVehicleHealth(VEHICLE_ID)
+    setLoading(true);
+    getVehicleHealth(vehicleId)
       .then(setData)
       .catch(() => setData(FALLBACK_HEALTH))
       .finally(() => setLoading(false));
-  }, []);
+  }, [vehicleId]);
 
   const health = data ?? FALLBACK_HEALTH;
 
@@ -54,7 +60,7 @@ export default function HealthScreen() {
           gap: spacing.md,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
           <Icon name="ChevronLeft" size={24} color={palette.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
@@ -72,7 +78,7 @@ export default function HealthScreen() {
           }}
         >
           <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "700" }}>
-            Toyota Aqua
+            {vehicleLabel}
           </Text>
         </View>
       </View>

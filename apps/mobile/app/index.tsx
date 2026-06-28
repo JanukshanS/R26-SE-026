@@ -16,12 +16,12 @@ export default function WelcomeScreen() {
         <>
           <Button
             title="Create an Account"
-            onPress={() => router.push("/(onboarding)/add-vehicle")}
+            onPress={() => router.push("/(onboarding)/add-account?mode=register")}
           />
           <Button
             title="Login"
             variant="secondary"
-            onPress={() => router.push("/(onboarding)/add-account")}
+            onPress={() => router.push("/(onboarding)/add-account?mode=login")}
           />
         </>
       }

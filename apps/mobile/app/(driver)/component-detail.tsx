@@ -11,8 +11,7 @@ import {
   type ComponentHealth,
   type ComponentKey,
 } from "@lib/maintenanceApi";
-
-const VEHICLE_ID = "CBD-3742";
+import { useVehicle } from "@lib/vehicleContext";
 
 interface ComponentMeta {
   label: string;
@@ -32,7 +31,7 @@ const META: Record<ComponentKey, ComponentMeta> = {
     ],
     nextSteps: [
       {
-        title: "Order Break Pads",
+        title: "Order Brake Pads",
         price: "LKR 8,400.00",
         icon: "ShoppingBag",
         description: "4 verified parts options · Delivery 3-5 days",
@@ -118,19 +117,23 @@ const META: Record<ComponentKey, ComponentMeta> = {
 
 export default function ComponentDetailScreen() {
   const insets = useSafeAreaInsets();
+  const { selectedVehicle } = useVehicle();
   const { component } = useLocalSearchParams<{ component: ComponentKey }>();
   const key: ComponentKey = (component as ComponentKey) ?? "brake";
   const meta = META[key];
+
+  const vehicleId = selectedVehicle?.plateNumber ?? "CBD-3742";
 
   const [componentHealth, setComponentHealth] = useState<ComponentHealth | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getVehicleHealth(VEHICLE_ID)
+    setLoading(true);
+    getVehicleHealth(vehicleId)
       .then((d) => setComponentHealth(d.components[key]))
       .catch(() => setComponentHealth(FALLBACK_HEALTH.components[key]))
       .finally(() => setLoading(false));
-  }, [key]);
+  }, [key, vehicleId]);
 
   const health = componentHealth ?? FALLBACK_HEALTH.components[key];
   const banner = rulToBanner(health);
@@ -153,7 +156,7 @@ export default function ComponentDetailScreen() {
           gap: spacing.md,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
           <Icon name="ChevronLeft" size={24} color={palette.text} />
         </Pressable>
         <Text style={{ ...typography.caption, color: palette.textMuted }}>Health</Text>
@@ -293,13 +296,14 @@ export default function ComponentDetailScreen() {
               <Pressable
                 key={i}
                 onPress={() =>
-                  i === 0
-                    ? router.push({
-                        pathname: "/(driver)/order-parts",
-                        params: { component: key },
-                      })
-                    : undefined
+                  router.push(
+                    i === 0
+                      ? { pathname: "/(driver)/order-parts", params: { component: key } }
+                      : { pathname: "/(driver)/auto-schedule", params: { component: key } }
+                  )
                 }
+                accessibilityRole="button"
+                accessibilityLabel={step.title}
                 style={({ pressed }) => ({
                   backgroundColor: pressed ? palette.homeBackground : palette.surface,
                   borderRadius: radii.lg,
@@ -382,6 +386,14 @@ export default function ComponentDetailScreen() {
 
           <View style={{ flexDirection: "row", gap: spacing.sm }}>
             <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: "/(driver)/order-parts",
+                  params: { component: key },
+                })
+              }
+              accessibilityRole="button"
+              accessibilityLabel="Select a part and schedule"
               style={({ pressed }) => ({
                 flex: 1,
                 borderRadius: radii.lg,
@@ -399,6 +411,9 @@ export default function ComponentDetailScreen() {
             </Pressable>
 
             <Pressable
+              onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss"
               style={({ pressed }) => ({
                 flex: 1,
                 borderRadius: radii.lg,
@@ -409,7 +424,7 @@ export default function ComponentDetailScreen() {
               })}
             >
               <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>
-                Snooze for one week
+                Not now
               </Text>
             </Pressable>
           </View>

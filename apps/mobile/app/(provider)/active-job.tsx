@@ -8,17 +8,47 @@ import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 
+/**
+ * Active-job PREVIEW — a static, illustrative layout of what an assigned job
+ * will look like once real-time dispatch lands (Phase 3: Socket.IO + provider
+ * acceptance). There is no provider-side "my assigned incidents" feed yet, so
+ * this screen intentionally shows example data and does NOT accept real work.
+ * It is reached only from the explicit "Preview an Active Job" button on the
+ * available screen.
+ */
 export default function ActiveJobScreen() {
   return (
     <Screen
       footer={
-        <Button
-          title="ACCEPT JOB"
-          onPress={() => router.replace("/(provider)/available")}
-        />
+        <>
+          <Button
+            title="Close preview"
+            variant="secondary"
+            onPress={() => (router.canGoBack() ? router.back() : router.replace("/(provider)/available"))}
+          />
+          <Text
+            style={{
+              ...typography.micro,
+              color: palette.textMuted,
+              textAlign: "center",
+            }}
+          >
+            Job acceptance activates with real-time dispatch (Phase 3).
+          </Text>
+        </>
       }
     >
-      <HeaderBar />
+      <HeaderBar
+        right={<Badge label="Preview" tone="warning" />}
+      />
+
+      <Card variant="muted" style={{ flexDirection: "row", gap: spacing.sm }}>
+        <Icon name="Eye" size={18} color={palette.textMuted} />
+        <Text style={{ ...typography.caption, color: palette.textMuted, flex: 1 }}>
+          Example job — sample data shown to illustrate the assignment screen.
+          You aren&apos;t accepting a real request here.
+        </Text>
+      </Card>
 
       <Card style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
         <View
@@ -35,7 +65,7 @@ export default function ActiveJobScreen() {
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-            Priyantha
+            Sample driver
           </Text>
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
             6.4 km · Galle Road, Colombo 03

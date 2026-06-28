@@ -18,10 +18,10 @@ interface Part {
 
 const PARTS_BY_COMPONENT: Record<ComponentKey, Part[]> = {
   brake: [
-    { id: "1", name: "Break Pads", year: 2026, mileage: "10,000 Km", age: "1 year ago", model: "Toyota AquaPlus", price: "LKR 12,000" },
-    { id: "2", name: "Break Pads", year: 2025, mileage: "15,000 Km", age: "3 days ago", model: "Toyota AquaPlus", price: "LKR 12,800" },
-    { id: "3", name: "Break Pads", year: 2026, mileage: "10,000 Km", age: "45 days ago", model: "Toyota AquaPlus", price: "LKR 12,000" },
-    { id: "4", name: "Break Pads", year: 2024, mileage: "12,000 Km", age: "2 months ago", model: "Toyota AquaPlus", price: "LKR 11,500" },
+    { id: "1", name: "Brake Pads", year: 2026, mileage: "10,000 Km", age: "1 year ago", model: "Toyota AquaPlus", price: "LKR 12,000" },
+    { id: "2", name: "Brake Pads", year: 2025, mileage: "15,000 Km", age: "3 days ago", model: "Toyota AquaPlus", price: "LKR 12,800" },
+    { id: "3", name: "Brake Pads", year: 2026, mileage: "10,000 Km", age: "45 days ago", model: "Toyota AquaPlus", price: "LKR 12,000" },
+    { id: "4", name: "Brake Pads", year: 2024, mileage: "12,000 Km", age: "2 months ago", model: "Toyota AquaPlus", price: "LKR 11,500" },
   ],
   engine: [
     { id: "1", name: "Engine Oil 5W-30", year: 2026, mileage: "5,000 Km", age: "1 week ago", model: "Toyota AquaPlus", price: "LKR 4,500" },
@@ -44,7 +44,7 @@ const PARTS_BY_COMPONENT: Record<ComponentKey, Part[]> = {
 };
 
 const TITLES: Record<ComponentKey, string> = {
-  brake: "Order Breakpads",
+  brake: "Order Brake Pads",
   engine: "Order Engine Oil",
   tire: "Order Tyres",
   battery: "Order Battery",
@@ -72,7 +72,7 @@ export default function OrderPartsScreen() {
           gap: spacing.md,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
           <Icon name="ChevronLeft" size={24} color={palette.text} />
         </Pressable>
         <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>
@@ -91,7 +91,16 @@ export default function OrderPartsScreen() {
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
           {parts.map((part) => (
-            <PartCard key={part.id} part={part} />
+            <PartCard
+              key={part.id}
+              part={part}
+              onPress={() =>
+                router.push({
+                  pathname: "/(driver)/auto-schedule",
+                  params: { component: key },
+                })
+              }
+            />
           ))}
         </View>
       </ScrollView>
@@ -130,9 +139,12 @@ export default function OrderPartsScreen() {
   );
 }
 
-function PartCard({ part }: { part: Part }) {
+function PartCard({ part, onPress }: { part: Part; onPress: () => void }) {
   return (
     <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${part.name}, ${part.price}`}
       style={({ pressed }) => ({
         width: "47%",
         backgroundColor: pressed ? palette.homeBackground : palette.surface,
