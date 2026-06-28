@@ -36,7 +36,7 @@ export default function DriverHomeScreen() {
   const insets = useSafeAreaInsets();
   const bottomReserve = BOTTOM_SCROLL_PADDING + insets.bottom;
 
-  const { user, selectedVehicle, vehicles, selectVehicle } = useVehicle();
+  const { user, logout, selectedVehicle, vehicles, selectVehicle } = useVehicle();
   const [health, setHealth] = useState<VehicleHealthResponse>(FALLBACK_HEALTH);
   const [loadingHealth, setLoadingHealth] = useState(true);
   const [showObd, setShowObd] = useState(() => !isElm327Paired());
@@ -92,34 +92,60 @@ export default function DriverHomeScreen() {
             </Text>
           </View>
 
-          {/* Log out — unpairs the ELM327 + drops the user back at the
-              welcome screen. When JWT lands this is where we'd clear the
-              stored token + cancel any Socket.IO subscriptions. */}
-          <Pressable
-            onPress={() => {
-              unpairElm327();
-              router.replace("/");
-            }}
-            style={({ pressed }) => ({
-              opacity: pressed ? 0.7 : 1,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 4,
-              paddingHorizontal: spacing.md,
-              paddingVertical: spacing.sm,
-              borderRadius: radii.pill,
-              borderWidth: 1,
-              borderColor: palette.border,
-              backgroundColor: palette.surface,
-            })}
-            accessibilityRole="button"
-            accessibilityLabel="Log out"
-          >
-            <Icon name="LogOut" size={14} color={palette.textMuted} />
-            <Text style={{ ...typography.caption, color: palette.textMuted, fontWeight: "600" }}>
-              Log out
-            </Text>
-          </Pressable>
+          {/* Authenticated users get a real Log out (clears the session +
+              unpairs the ELM327); guests get a Sign in shortcut instead — the
+              same corner never shows "Log out" to someone who isn't signed in. */}
+          {user ? (
+            <Pressable
+              onPress={async () => {
+                unpairElm327();
+                await logout();
+                router.replace("/");
+              }}
+              style={({ pressed }) => ({
+                opacity: pressed ? 0.7 : 1,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+                borderRadius: radii.pill,
+                borderWidth: 1,
+                borderColor: palette.border,
+                backgroundColor: palette.surface,
+              })}
+              accessibilityRole="button"
+              accessibilityLabel="Log out"
+            >
+              <Icon name="LogOut" size={14} color={palette.textMuted} />
+              <Text style={{ ...typography.caption, color: palette.textMuted, fontWeight: "600" }}>
+                Log out
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => router.push("/(driver)/auth")}
+              style={({ pressed }) => ({
+                opacity: pressed ? 0.7 : 1,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+                borderRadius: radii.pill,
+                borderWidth: 1,
+                borderColor: palette.brand,
+                backgroundColor: palette.brandSoft,
+              })}
+              accessibilityRole="button"
+              accessibilityLabel="Sign in"
+            >
+              <Icon name="LogIn" size={14} color={palette.brand} />
+              <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "600" }}>
+                Sign in
+              </Text>
+            </Pressable>
+          )}
         </View>
 
         <Pressable
@@ -471,8 +497,8 @@ export default function DriverHomeScreen() {
                   lineHeight: 22,
                 }}
               >
-                To allow app to monitor your vehicle state you need to connect the OBD-II data
-                with this app.
+                Pair an OBD-II adapter to let the app read live data from your vehicle and
+                track its real health.
               </Text>
             </View>
 
@@ -626,6 +652,7 @@ function TabItem({ tab, active }: { tab: TabDef; active: boolean }) {
       onPress={() => {
         haptics.select();
         if (tab.key === "maintenance") router.push("/(driver)/health");
+        if (tab.key === "store") router.push("/(driver)/order-parts");
         if (tab.key === "profile") router.push("/(driver)/profile");
       }}
       style={({ pressed }) => ({

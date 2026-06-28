@@ -106,7 +106,7 @@ const SUGGESTIONS_BY_COMPONENT: Record<ComponentKey, Suggestion[]> = {
 
 const ASSISTANT_TEXT: Record<ComponentKey, string> = {
   brake:
-    "And you can use current brakes for about 4 weeks. But better I replace within 3 months. May I schedule on next 3rd Saturday at estimated price is LKR 8,400 (brake pads) + LKR 2,500 (service) with total of LKR 10,900.",
+    "Your brakes have about 4 weeks of pad life left — but it's best to replace them within 3 months. Shall I book the next available Saturday? Estimated total: LKR 10,900 — LKR 8,400 (brake pads) + LKR 2,500 (service).",
   engine:
     "Your engine oil is showing signs of degradation. I recommend scheduling an oil change within 1 week. Estimated price is LKR 4,500 (oil) + LKR 14,800 (service) with total of LKR 19,300.",
   tire:

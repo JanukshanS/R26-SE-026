@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Icon } from "@components/ui/icon";
+import { Icon, type IconName } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import type { ComponentKey } from "@lib/maintenanceApi";
 
@@ -50,10 +50,24 @@ const TITLES: Record<ComponentKey, string> = {
   battery: "Order Battery",
 };
 
+const STORE_CATEGORIES: { key: ComponentKey; label: string; icon: IconName; blurb: string }[] = [
+  { key: "brake", label: "Brakes", icon: "Disc", blurb: "Pads, discs & kits" },
+  { key: "engine", label: "Engine", icon: "Gauge", blurb: "Oil, filters & service kits" },
+  { key: "tire", label: "Tyres", icon: "Circle", blurb: "Singles & full sets" },
+  { key: "battery", label: "Battery", icon: "Battery", blurb: "12V & HV cells" },
+];
+
 export default function OrderPartsScreen() {
   const insets = useSafeAreaInsets();
   const { component } = useLocalSearchParams<{ component: ComponentKey }>();
-  const key: ComponentKey = (component as ComponentKey) ?? "brake";
+  const key = component as ComponentKey | undefined;
+
+  // Opened from the Store tab (no component) → show the category landing.
+  // Deep-linked from a health alert (?component=brake) → jump to that list.
+  if (!key || !PARTS_BY_COMPONENT[key]) {
+    return <StoreLanding topInset={insets.top} bottomInset={insets.bottom} />;
+  }
+
   const parts = PARTS_BY_COMPONENT[key];
 
   return (
@@ -135,6 +149,75 @@ export default function OrderPartsScreen() {
           <Text style={{ ...typography.bodyStrong, color: palette.brand }}>Go Back</Text>
         </Pressable>
       </View>
+    </View>
+  );
+}
+
+function StoreLanding({ topInset, bottomInset }: { topInset: number; bottomInset: number }) {
+  return (
+    <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
+      <View
+        style={{
+          paddingTop: topInset + spacing.sm,
+          paddingHorizontal: spacing.lg,
+          paddingBottom: spacing.md,
+          backgroundColor: palette.surface,
+          borderBottomWidth: 1,
+          borderBottomColor: palette.border,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing.md,
+        }}
+      >
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+          <Icon name="ChevronLeft" size={24} color={palette.text} />
+        </Pressable>
+        <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>Parts Store</Text>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: bottomInset + 100 }}
+      >
+        <Text style={{ ...typography.body, color: palette.textMuted }}>
+          Genuine parts matched to your vehicle. Pick a category to browse.
+        </Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
+          {STORE_CATEGORIES.map((cat) => (
+            <Pressable
+              key={cat.key}
+              accessibilityRole="button"
+              accessibilityLabel={cat.label}
+              onPress={() =>
+                router.push({ pathname: "/(driver)/order-parts", params: { component: cat.key } })
+              }
+              style={({ pressed }) => ({
+                width: "47%",
+                backgroundColor: pressed ? palette.homeBackground : palette.surface,
+                borderRadius: radii.lg,
+                padding: spacing.lg,
+                gap: spacing.sm,
+                borderWidth: 1,
+                borderColor: palette.border,
+              })}
+            >
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: radii.md,
+                  backgroundColor: palette.brandSoft,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Icon name={cat.icon} size={22} color={palette.brand} />
+              </View>
+              <Text style={{ ...typography.bodyStrong, color: palette.text }}>{cat.label}</Text>
+              <Text style={{ ...typography.micro, color: palette.textMuted }}>{cat.blurb}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </ScrollView>
     </View>
   );
 }
