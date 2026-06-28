@@ -21,7 +21,9 @@ OpenAPI 3.1 specifications and shared schema definitions that components publish
 
 | Component | File | Status |
 |---|---|---|
-| dispatch | _to be added_ | pending |
-| geo-intelligence | _to be added_ | pending |
-| predictive-maintenance | _to be added_ | pending |
+| auth | `auth.openapi.yaml` | published |
+| dispatch | `dispatch.openapi.yaml` | published |
+| geo-intelligence | `geo-intelligence.openapi.yaml` | published |
+| predictive-maintenance | `predictive-maintenance.openapi.yaml` | published |
+| vehicle-service | _superseded by `auth`_ | n/a |
 | claims-privacy | _to be added_ | pending |

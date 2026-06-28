@@ -1,0 +1,655 @@
+openapi: 3.1.0
+info:
+  title: Kaduna.lk — Dispatch Service
+  version: 1.0.0
+  description: >-
+    Uncertainty-Aware Dispatch Optimization (UADO) for Kaduna.lk roadside assistance:
+    incident intake, adaptive triage, Expected-Cost-Minimization (ECM) provider
+    dispatch, and provider management. Hand-authored contract (Express service, no
+    auto-spec); request shapes are taken from the zod validators in
+    src/utils/validators.ts. No authentication is enforced on these routes today.
+servers:
+  - url: http://localhost:3001
+    description: Local development
+tags:
+  - name: incidents
+    description: Incident CRUD + resolution feedback
+  - name: triage
+    description: Adaptive questionnaire + triage engine
+  - name: dispatch
+    description: ECM dispatch optimization
+  - name: providers
+    description: Service provider management
+  - name: health
+    description: Liveness / readiness
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check (verifies DB connectivity)
+      responses:
+        "200":
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          service: { type: string, example: dispatch-service }
+                          status: { type: string, example: healthy }
+                          version: { type: string, example: "1.0.0" }
+                          uptime: { type: number }
+                          database: { type: string, example: connected }
+                          framework: { type: string, example: UADO (Uncertainty-Aware Dispatch Optimization) }
+        "503":
+          description: Database connection failed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  /api/v1/incidents:
+    post:
+      tags: [incidents]
+      summary: Create a new incident
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateIncident" }
+      responses:
+        "201":
+          description: Incident created (status CREATED); proceed to triage
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Incident" }
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationErrorEnvelope" }
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    get:
+      tags: [incidents]
+      summary: List incidents
+      parameters:
+        - { name: status, in: query, schema: { type: string }, description: Filter by incident status }
+        - { name: limit, in: query, schema: { type: integer, default: 20 } }
+        - { name: offset, in: query, schema: { type: integer, default: 0 } }
+      responses:
+        "200":
+          description: Paged incidents
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          incidents:
+                            type: array
+                            items: { $ref: "#/components/schemas/Incident" }
+                          total: { type: integer }
+                          limit: { type: integer }
+                          offset: { type: integer }
+  /api/v1/incidents/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IncidentId"
+    get:
+      tags: [incidents]
+      summary: Get an incident with all related data
+      responses:
+        "200":
+          description: Incident with triage, dispatch decisions, feedback, assigned provider
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Incident" }
+        "404":
+          description: Incident not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  /api/v1/incidents/{id}/resolve:
+    parameters:
+      - $ref: "#/components/parameters/IncidentId"
+    post:
+      tags: [incidents]
+      summary: Submit resolution report + Bayesian feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResolutionReport" }
+      responses:
+        "200":
+          description: Incident resolved/escalated; feedback recorded
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          incident: { $ref: "#/components/schemas/Incident" }
+                          wasMatch: { type: boolean }
+                          message: { type: string }
+        "400":
+          description: Invalid resolution report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationErrorEnvelope" }
+        "404":
+          description: Incident not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  /api/v1/triage/questions:
+    get:
+      tags: [triage]
+      summary: Get the adaptive questionnaire schema (with branching rules)
+      responses:
+        "200":
+          description: Adaptive form schema
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          version: { type: string, example: "2.0.0" }
+                          adaptive: { type: boolean, example: true }
+                          questions:
+                            type: array
+                            items: { type: object, description: Question with id, type, options, and showWhen/nextQuestion branching. }
+                          mlIntents: { type: array, items: { type: string } }
+                          fastIntents: { type: array, items: { type: string } }
+  /api/v1/triage/submit:
+    post:
+      tags: [triage]
+      summary: Run the triage engine on submitted answers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitTriage" }
+      responses:
+        "200":
+          description: Triage result; incident advanced to DISPATCHING
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          incidentId: { type: string, format: uuid }
+                          triageRecordId: { type: string, nullable: true }
+                          result: { type: object, description: Triage engine output (probabilities, predictedServiceType, confidence, tier, entropy, ...). }
+                          message: { type: string }
+        "400":
+          description: Invalid triage submission
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationErrorEnvelope" }
+        "404":
+          description: Incident not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  /api/v1/dispatch/optimize:
+    post:
+      tags: [dispatch]
+      summary: Run ECM optimization to select the optimal provider
+      description: Requires the incident to have completed triage. Traffic impact is fetched from geo-intelligence when not supplied.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DispatchRequest" }
+      responses:
+        "200":
+          description: Optimization result; top provider assigned to the incident
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          incidentId: { type: string, format: uuid }
+                          selectedProvider: { type: object }
+                          allRankedProviders: { type: array, items: { type: object } }
+                          metadata: { type: object }
+                          message: { type: string }
+        "400":
+          description: Invalid dispatch request, or triage not completed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationErrorEnvelope" }
+        "404":
+          description: Incident not found, or no available providers
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  /api/v1/dispatch/respond:
+    post:
+      tags: [dispatch]
+      summary: Provider accepts/declines a dispatch (Phase 5 — not implemented)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProviderResponse" }
+      responses:
+        "501":
+          description: Not implemented (Phase 5)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  /api/v1/providers:
+    post:
+      tags: [providers]
+      summary: Register a new service provider (capabilities auto-derived from type)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateProvider" }
+      responses:
+        "201":
+          description: Provider registered
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Provider" }
+        "400":
+          description: Invalid provider data
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationErrorEnvelope" }
+    get:
+      tags: [providers]
+      summary: List providers (with optional filters)
+      parameters:
+        - { name: type, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, default: 0 } }
+      responses:
+        "200":
+          description: Providers (ordered by trustScore desc)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          providers:
+                            type: array
+                            items: { $ref: "#/components/schemas/Provider" }
+                          total: { type: integer }
+  /api/v1/providers/nearby:
+    get:
+      tags: [providers]
+      summary: Find available providers near a location (Haversine)
+      parameters:
+        - { name: latitude, in: query, required: true, schema: { type: number } }
+        - { name: longitude, in: query, required: true, schema: { type: number } }
+        - { name: radiusKm, in: query, schema: { type: number, default: 25 } }
+        - { name: type, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Nearby available providers, sorted by distance
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          providers:
+                            type: array
+                            items:
+                              allOf:
+                                - $ref: "#/components/schemas/Provider"
+                                - type: object
+                                  properties:
+                                    distanceKm: { type: number }
+                          total: { type: integer }
+                          searchCenter: { $ref: "#/components/schemas/Location" }
+                          radiusKm: { type: number }
+        "400":
+          description: latitude and longitude query parameters are required
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  /api/v1/providers/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ProviderId"
+    get:
+      tags: [providers]
+      summary: Get a provider by ID
+      responses:
+        "200":
+          description: Provider
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Provider" }
+        "404":
+          description: Provider not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  /api/v1/providers/{id}/status:
+    parameters:
+      - $ref: "#/components/parameters/ProviderId"
+    patch:
+      tags: [providers]
+      summary: Update provider availability status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [AVAILABLE, BUSY, OFFLINE] }
+      responses:
+        "200":
+          description: Updated provider
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Provider" }
+        "400":
+          description: Invalid status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  /api/v1/providers/{id}/location:
+    parameters:
+      - $ref: "#/components/parameters/ProviderId"
+    patch:
+      tags: [providers]
+      summary: Update provider GPS location
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Location" }
+      responses:
+        "200":
+          description: Updated provider
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Provider" }
+        "400":
+          description: Invalid location
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationErrorEnvelope" }
+components:
+  parameters:
+    IncidentId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+      description: Incident ID
+    ProviderId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+      description: Provider ID
+  schemas:
+    SuccessEnvelope:
+      type: object
+      required: [success, timestamp]
+      properties:
+        success: { type: boolean, example: true }
+        data: {}
+        message: { type: string }
+        timestamp: { type: string, format: date-time }
+    ErrorEnvelope:
+      type: object
+      required: [success, error, timestamp]
+      properties:
+        success: { type: boolean, example: false }
+        error: { type: string }
+        timestamp: { type: string, format: date-time }
+    ValidationErrorEnvelope:
+      type: object
+      required: [success, error, timestamp]
+      properties:
+        success: { type: boolean, example: false }
+        error: { type: string }
+        details: { type: object, description: zod flatten() output (fieldErrors / formErrors). }
+        timestamp: { type: string, format: date-time }
+    Location:
+      type: object
+      required: [latitude, longitude]
+      properties:
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+    VehicleInfo:
+      type: object
+      properties:
+        make: { type: string }
+        model: { type: string }
+        year: { type: integer, minimum: 1900, maximum: 2030 }
+        fuelType: { type: string, enum: [PETROL, DIESEL, HYBRID, ELECTRIC] }
+        registrationNumber: { type: string }
+        hasOBD: { type: boolean }
+    CreateIncident:
+      type: object
+      required: [location]
+      properties:
+        location: { $ref: "#/components/schemas/Location" }
+        vehicleInfo: { $ref: "#/components/schemas/VehicleInfo" }
+        description: { type: string, maxLength: 500 }
+    SubmitTriage:
+      type: object
+      required: [incidentId, responses]
+      properties:
+        incidentId: { type: string, format: uuid }
+        responses:
+          type: object
+          description: >-
+            Adaptive triage answers. Q1_intent is required; adaptive single-selects
+            accept their enum value or the literal "NOT_ASKED" for unvisited paths.
+            See src/utils/validators.ts (triageResponsesSchema) for the full field set.
+          required: [Q1_intent, Q6_smells, Q5_lights, Q9_recent, location_type, recent_rain, parked_overnight, vehicle_age_bucket, last_fueled]
+          properties:
+            Q1_intent: { type: string }
+            Q5_lights: { type: array, items: { type: string } }
+            Q9_recent: { type: array, items: { type: string } }
+            Q6_smells: { type: string }
+            location_type: { type: string, enum: [COASTAL, HILL, URBAN, RURAL] }
+            recent_rain: { type: string, enum: [NONE, YESTERDAY, WITHIN_3_DAYS, MONSOON] }
+            parked_overnight: { type: string, enum: [INDOOR, OUTDOOR] }
+            vehicle_age_bucket: { type: string, enum: [UNDER_3, "3_7", "8_15", OVER_15] }
+            last_fueled: { type: string, enum: [TODAY_NEW_STATION, TODAY_USUAL, WITHIN_WEEK, OVER_WEEK] }
+        obdData: { $ref: "#/components/schemas/ObdData" }
+    ObdData:
+      type: object
+      description: Optional OBD telemetry snapshot. All numeric fields optional; `available` required.
+      required: [available]
+      properties:
+        battery_voltage_v: { type: number }
+        battery_temp_c: { type: number }
+        battery_charge_percent: { type: number }
+        battery_health_percent: { type: number }
+        alternator_output_v: { type: number }
+        engine_temp_c: { type: number }
+        coolant_temp_c: { type: number }
+        engine_rpm: { type: number }
+        oil_pressure_psi: { type: number }
+        fuel_level_percent: { type: number }
+        engine_load_percent: { type: number }
+        ambient_temp_c: { type: number }
+        brake_fluid_level_psi: { type: number }
+        brake_pad_wear_mm: { type: number }
+        brake_temp_c: { type: number }
+        faultCodes: { type: array, items: { type: string } }
+        predictiveAlerts: { type: array, items: { type: string } }
+        available: { type: boolean }
+    DispatchRequest:
+      type: object
+      required: [incidentId]
+      properties:
+        incidentId: { type: string, format: uuid }
+        trafficImpactScore: { type: number, minimum: 1, maximum: 10 }
+        maxProviders: { type: integer, minimum: 1, maximum: 100 }
+    ProviderResponse:
+      type: object
+      required: [incidentId, providerId, accepted]
+      properties:
+        incidentId: { type: string, format: uuid }
+        providerId: { type: string, format: uuid }
+        accepted: { type: boolean }
+        declineReason: { type: string, maxLength: 200 }
+    ResolutionReport:
+      type: object
+      required: [incidentId, providerId, actualServiceType, resolutionTimeMinutes]
+      properties:
+        incidentId: { type: string, format: uuid }
+        providerId: { type: string, format: uuid }
+        actualServiceType: { $ref: "#/components/schemas/ServiceType" }
+        resolutionTimeMinutes: { type: number, minimum: 0, maximum: 480 }
+        notes: { type: string, maxLength: 1000 }
+        escalationNeeded: { type: boolean }
+    CreateProvider:
+      type: object
+      required: [name, type, location]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        type: { $ref: "#/components/schemas/ProviderType" }
+        location: { $ref: "#/components/schemas/Location" }
+        phone: { type: string }
+        vehiclePlate: { type: string }
+    Incident:
+      type: object
+      description: Incident record (related data included on GET /:id).
+      properties:
+        id: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        vehicleMake: { type: string, nullable: true }
+        vehicleModel: { type: string, nullable: true }
+        vehicleYear: { type: integer, nullable: true }
+        fuelType: { type: string, nullable: true }
+        registrationNo: { type: string, nullable: true }
+        hasOBD: { type: boolean }
+        description: { type: string, nullable: true }
+        status: { type: string, example: CREATED }
+        assignedProviderId: { type: string, nullable: true }
+        resolvedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+    Provider:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        type: { $ref: "#/components/schemas/ProviderType" }
+        latitude: { type: number }
+        longitude: { type: number }
+        capabilities: { type: array, items: { $ref: "#/components/schemas/ServiceType" } }
+        phone: { type: string, nullable: true }
+        vehiclePlate: { type: string, nullable: true }
+        status: { type: string, example: AVAILABLE }
+        trustScore: { type: number, example: 0.75 }
+    ProviderType:
+      type: string
+      enum: [MOBILE_MECHANIC, FUEL_DELIVERY, LOCKSMITH, TOW_LIGHT, TOW_HEAVY]
+    ServiceType:
+      type: string
+      enum:
+        - BATTERY_JUMP
+        - BATTERY_TERMINAL_CLEAN
+        - BATTERY_REPLACE
+        - ALTERNATOR_ISSUE
+        - STARTER_MOTOR
+        - COOLANT_LOW
+        - RADIATOR_FAN_ISSUE
+        - RADIATOR_HOSE_LEAK
+        - ENGINE_OVERHEAT_SEVERE
+        - BELT_BROKEN
+        - FUEL_FILTER_CLOGGED
+        - FUEL_PUMP
+        - IGNITION_SYSTEM
+        - ELECTRICAL_FAULT_RAIN
+        - BRAKE_PAD_WORN
+        - BRAKE_FAILURE
+        - CLUTCH_WORN
+        - TRANSMISSION_ISSUE
+        - SEVERE_MECHANICAL_TOW
+        - LOCKOUT
+        - KEY_LOST
+        - FLAT_TIRE_CHANGE
+        - FUEL_EMPTY
+        - FUEL_WRONG
+        - LIGHT_BULB
+        - BLOWN_FUSE
+        - MAJOR_ACCIDENT
+        - URGENT_TOW
+        - FLOOD_RECOVERY

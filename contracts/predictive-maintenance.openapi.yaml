@@ -1,0 +1,782 @@
+openapi: 3.1.0
+info:
+  title: Predictive Vehicle Maintenance API
+  description: Processes OBD-II and IMU trip data to analyse component degradation and predict Remaining
+    Useful Life (RUL) for Engine, Brake Pads, Tires, and Battery using Random Forest and Gradient Boosting
+    models.
+  version: 1.0.0
+paths:
+  /process-trip:
+    post:
+      tags:
+      - Ingest
+      summary: Process Trip
+      description: 'Ingest a raw trip batch, extract OBD + IMU features, persist to SQLite,
+
+        and return the computed trip metrics.'
+      operationId: process_trip_process_trip_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripBatch'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripMetricsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /vehicles/summary:
+    get:
+      tags:
+      - Ingest
+      summary: Vehicles Summary
+      description: 'Return a trip summary for every vehicle that has at least one recorded trip.
+
+        Each entry includes vehicle-level aggregates and a chronological list of individual trips.'
+      operationId: vehicles_summary_vehicles_summary_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/VehicleTripSummary'
+                type: array
+                title: Response Vehicles Summary Vehicles Summary Get
+  /predict/rf:
+    post:
+      tags:
+      - Predict
+      summary: Predict Random Forest
+      description: Predict RUL for all four components using the Random Forest models.
+      operationId: predict_random_forest_predict_rf_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PredictionRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /predict/gb:
+    post:
+      tags:
+      - Predict
+      summary: Predict Gradient Boosting
+      description: Predict RUL for all four components using the Gradient Boosting (XGBoost) models.
+      operationId: predict_gradient_boosting_predict_gb_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PredictionRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /vehicle/{vehicle_id}/health:
+    get:
+      tags:
+      - Predict
+      summary: Vehicle Health
+      description: "Aggregate all stored trips for a vehicle, predict RUL per component using\nthe best\
+        \ algorithm, then convert each RUL into a health percentage:\n\n    health_pct = (predicted_rul_km\
+        \ / max_lifespan_km) × 100\n\nOverall health is the average of the four component health scores.\n\
+        \nStatus thresholds:\n  Good     >= 75%\n  Fair     >= 50%\n  Poor     >= 25%\n  Critical  < 25%"
+      operationId: vehicle_health_vehicle__vehicle_id__health_get
+      parameters:
+      - name: vehicle_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Vehicle Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehicleHealthResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /models/metrics:
+    get:
+      tags:
+      - Predict
+      summary: Model Metrics
+      description: "Return accuracy metrics (R², RMSE, MAE) for all 8 trained models.\n\nMetrics are computed\
+        \ on a held-out 20% test set during training and saved\nto models/metrics.json.  Re-run train_models.py\
+        \ to refresh them.\n\nMetric guide:\n  R²   — Proportion of variance explained. 1.0 = perfect,\
+        \ 0.0 = no better than mean.\n  RMSE — Root Mean Squared Error in km. Penalises large errors more\
+        \ than MAE.\n  MAE  — Mean Absolute Error in km. Average prediction error you can expect."
+      operationId: model_metrics_models_metrics_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                title: Response Model Metrics Models Metrics Get
+  /vehicle/{vehicle_id}/rul:
+    get:
+      tags:
+      - Predict
+      summary: Vehicle Rul
+      description: 'Aggregate all stored trip metrics for a vehicle, compute feature averages,
+
+        and return RUL predictions using the best algorithm per component.
+
+
+        - All features are weighted by trip distance so longer trips carry more weight.
+
+        - total_mileage_km is the cumulative sum of all trip distances (odometer proxy).'
+      operationId: vehicle_rul_vehicle__vehicle_id__rul_get
+      parameters:
+      - name: vehicle_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Vehicle Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehicleRULResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /predict/best:
+    post:
+      tags:
+      - Predict
+      summary: Predict Best
+      description: 'Predict RUL using the best-performing algorithm per component.
+
+        The winner for each component is determined automatically during training
+
+        (saved in models/best_models.json) based on R² score on the test set.'
+      operationId: predict_best_predict_best_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PredictionRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /health:
+    get:
+      tags:
+      - Health
+      summary: Health Check
+      operationId: health_check_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+components:
+  schemas:
+    ComponentHealth:
+      properties:
+        component:
+          type: string
+          title: Component
+        health_pct:
+          type: number
+          title: Health Pct
+        status:
+          type: string
+          title: Status
+        predicted_rul_km:
+          type: number
+          title: Predicted Rul Km
+        max_lifespan_km:
+          type: integer
+          title: Max Lifespan Km
+        confidence_note:
+          type: string
+          title: Confidence Note
+      type: object
+      required:
+      - component
+      - health_pct
+      - status
+      - predicted_rul_km
+      - max_lifespan_km
+      - confidence_note
+      title: ComponentHealth
+    ComponentRUL:
+      properties:
+        component:
+          type: string
+          title: Component
+        predicted_rul_km:
+          type: number
+          title: Predicted Rul Km
+        confidence_note:
+          type: string
+          title: Confidence Note
+      type: object
+      required:
+      - component
+      - predicted_rul_km
+      - confidence_note
+      title: ComponentRUL
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    IMUReading:
+      properties:
+        timestamp_offset_sec:
+          type: integer
+          title: Timestamp Offset Sec
+          description: Seconds since trip start (every 120 s = 2-min interval)
+        accel_x:
+          type: number
+          title: Accel X
+          description: Lateral acceleration m/s²
+        accel_y:
+          type: number
+          title: Accel Y
+          description: Longitudinal acceleration m/s²
+        accel_z:
+          type: number
+          title: Accel Z
+          description: Vertical / braking proxy m/s²
+        gyro_x:
+          type: number
+          title: Gyro X
+          description: Roll rate rad/s
+        gyro_y:
+          type: number
+          title: Gyro Y
+          description: Pitch rate rad/s
+        gyro_z:
+          type: number
+          title: Gyro Z
+          description: Yaw rate / cornering proxy rad/s
+      type: object
+      required:
+      - timestamp_offset_sec
+      - accel_x
+      - accel_y
+      - accel_z
+      - gyro_x
+      - gyro_y
+      - gyro_z
+      title: IMUReading
+    OBDReading:
+      properties:
+        timestamp_offset_sec:
+          type: integer
+          title: Timestamp Offset Sec
+          description: Seconds since trip start (multiples of 300)
+        rpm:
+          type: number
+          maximum: 8000.0
+          minimum: 0.0
+          title: Rpm
+        speed_kmh:
+          type: number
+          maximum: 300.0
+          minimum: 0.0
+          title: Speed Kmh
+        coolant_temp_c:
+          type: number
+          maximum: 150.0
+          minimum: 0.0
+          title: Coolant Temp C
+        battery_voltage_v:
+          type: number
+          maximum: 20.0
+          minimum: 0.0
+          title: Battery Voltage V
+        ltft_percent:
+          type: number
+          maximum: 30.0
+          minimum: -30.0
+          title: Ltft Percent
+          description: Long-Term Fuel Trim %
+        throttle_percent:
+          type: number
+          maximum: 100.0
+          minimum: 0.0
+          title: Throttle Percent
+        engine_load_percent:
+          type: number
+          maximum: 100.0
+          minimum: 0.0
+          title: Engine Load Percent
+        intake_air_temp_c:
+          type: number
+          maximum: 100.0
+          minimum: -20.0
+          title: Intake Air Temp C
+      type: object
+      required:
+      - timestamp_offset_sec
+      - rpm
+      - speed_kmh
+      - coolant_temp_c
+      - battery_voltage_v
+      - ltft_percent
+      - throttle_percent
+      - engine_load_percent
+      - intake_air_temp_c
+      title: OBDReading
+    PredictionRequest:
+      properties:
+        vehicle_id:
+          type: string
+          title: Vehicle Id
+          default: unknown
+        avg_rpm:
+          type: number
+          title: Avg Rpm
+        max_coolant_temp_c:
+          type: number
+          title: Max Coolant Temp C
+        ltft_std:
+          type: number
+          title: Ltft Std
+        braking_frequency:
+          type: number
+          title: Braking Frequency
+        avg_deceleration_intensity:
+          type: number
+          title: Avg Deceleration Intensity
+        cornering_frequency:
+          type: number
+          title: Cornering Frequency
+        avg_speed_kmh:
+          type: number
+          title: Avg Speed Kmh
+        total_mileage_km:
+          type: number
+          title: Total Mileage Km
+        voltage_std:
+          type: number
+          title: Voltage Std
+        min_battery_voltage_v:
+          type: number
+          title: Min Battery Voltage V
+        avg_iat_c:
+          type: number
+          title: Avg Iat C
+      type: object
+      required:
+      - avg_rpm
+      - max_coolant_temp_c
+      - ltft_std
+      - braking_frequency
+      - avg_deceleration_intensity
+      - cornering_frequency
+      - avg_speed_kmh
+      - total_mileage_km
+      - voltage_std
+      - min_battery_voltage_v
+      - avg_iat_c
+      title: PredictionRequest
+    PredictionResponse:
+      properties:
+        vehicle_id:
+          type: string
+          title: Vehicle Id
+        algorithm:
+          type: string
+          title: Algorithm
+        predictions:
+          items:
+            $ref: '#/components/schemas/ComponentRUL'
+          type: array
+          title: Predictions
+        timestamp:
+          type: string
+          title: Timestamp
+      type: object
+      required:
+      - vehicle_id
+      - algorithm
+      - predictions
+      - timestamp
+      title: PredictionResponse
+    TripBatch:
+      properties:
+        trip_id:
+          type: string
+          title: Trip Id
+          description: UUID string uniquely identifying the trip
+        vehicle_id:
+          type: string
+          title: Vehicle Id
+        driver_id:
+          type: string
+          title: Driver Id
+        start_timestamp:
+          type: string
+          title: Start Timestamp
+          description: ISO-8601 datetime string
+        obd_readings:
+          items:
+            $ref: '#/components/schemas/OBDReading'
+          type: array
+          minItems: 2
+          title: Obd Readings
+        imu_readings:
+          items:
+            $ref: '#/components/schemas/IMUReading'
+          type: array
+          minItems: 5
+          title: Imu Readings
+          description: Mobile phone sensor at 2-min intervals. min 5 readings = 10-min trip.
+      type: object
+      required:
+      - trip_id
+      - vehicle_id
+      - driver_id
+      - start_timestamp
+      - obd_readings
+      - imu_readings
+      title: TripBatch
+    TripMetricsResponse:
+      properties:
+        trip_id:
+          type: string
+          title: Trip Id
+        vehicle_id:
+          type: string
+          title: Vehicle Id
+        driver_id:
+          type: string
+          title: Driver Id
+        start_timestamp:
+          type: string
+          title: Start Timestamp
+        stored_at:
+          type: string
+          title: Stored At
+        duration_minutes:
+          type: number
+          title: Duration Minutes
+        distance_km:
+          type: number
+          title: Distance Km
+        avg_rpm:
+          type: number
+          title: Avg Rpm
+        max_rpm:
+          type: number
+          title: Max Rpm
+        avg_engine_load:
+          type: number
+          title: Avg Engine Load
+        max_coolant_temp_c:
+          type: number
+          title: Max Coolant Temp C
+        ltft_std:
+          type: number
+          title: Ltft Std
+        braking_events:
+          type: integer
+          title: Braking Events
+        braking_frequency:
+          type: number
+          title: Braking Frequency
+        avg_deceleration_intensity:
+          type: number
+          title: Avg Deceleration Intensity
+        cornering_events:
+          type: integer
+          title: Cornering Events
+        cornering_frequency:
+          type: number
+          title: Cornering Frequency
+        avg_speed_kmh:
+          type: number
+          title: Avg Speed Kmh
+        total_mileage_km:
+          type: number
+          title: Total Mileage Km
+        avg_battery_voltage_v:
+          type: number
+          title: Avg Battery Voltage V
+        min_battery_voltage_v:
+          type: number
+          title: Min Battery Voltage V
+        voltage_std:
+          type: number
+          title: Voltage Std
+        avg_iat_c:
+          type: number
+          title: Avg Iat C
+      type: object
+      required:
+      - trip_id
+      - vehicle_id
+      - driver_id
+      - start_timestamp
+      - stored_at
+      - duration_minutes
+      - distance_km
+      - avg_rpm
+      - max_rpm
+      - avg_engine_load
+      - max_coolant_temp_c
+      - ltft_std
+      - braking_events
+      - braking_frequency
+      - avg_deceleration_intensity
+      - cornering_events
+      - cornering_frequency
+      - avg_speed_kmh
+      - total_mileage_km
+      - avg_battery_voltage_v
+      - min_battery_voltage_v
+      - voltage_std
+      - avg_iat_c
+      title: TripMetricsResponse
+    TripSummary:
+      properties:
+        trip_id:
+          type: string
+          title: Trip Id
+        driver_id:
+          type: string
+          title: Driver Id
+        start_timestamp:
+          type: string
+          title: Start Timestamp
+        duration_minutes:
+          type: number
+          title: Duration Minutes
+        distance_km:
+          type: number
+          title: Distance Km
+        avg_speed_kmh:
+          type: number
+          title: Avg Speed Kmh
+        avg_rpm:
+          type: number
+          title: Avg Rpm
+        max_coolant_temp_c:
+          type: number
+          title: Max Coolant Temp C
+        braking_events:
+          type: integer
+          title: Braking Events
+        cornering_events:
+          type: integer
+          title: Cornering Events
+        avg_battery_voltage_v:
+          type: number
+          title: Avg Battery Voltage V
+      type: object
+      required:
+      - trip_id
+      - driver_id
+      - start_timestamp
+      - duration_minutes
+      - distance_km
+      - avg_speed_kmh
+      - avg_rpm
+      - max_coolant_temp_c
+      - braking_events
+      - cornering_events
+      - avg_battery_voltage_v
+      title: TripSummary
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    VehicleHealthResponse:
+      properties:
+        vehicle_id:
+          type: string
+          title: Vehicle Id
+        overall_health_pct:
+          type: number
+          title: Overall Health Pct
+        overall_status:
+          type: string
+          title: Overall Status
+        trip_count:
+          type: integer
+          title: Trip Count
+        total_mileage_km:
+          type: number
+          title: Total Mileage Km
+        components:
+          items:
+            $ref: '#/components/schemas/ComponentHealth'
+          type: array
+          title: Components
+        timestamp:
+          type: string
+          title: Timestamp
+      type: object
+      required:
+      - vehicle_id
+      - overall_health_pct
+      - overall_status
+      - trip_count
+      - total_mileage_km
+      - components
+      - timestamp
+      title: VehicleHealthResponse
+    VehicleRULResponse:
+      properties:
+        vehicle_id:
+          type: string
+          title: Vehicle Id
+        trip_count:
+          type: integer
+          title: Trip Count
+        total_mileage_km:
+          type: number
+          title: Total Mileage Km
+        algorithm:
+          type: string
+          title: Algorithm
+        predictions:
+          items:
+            $ref: '#/components/schemas/ComponentRUL'
+          type: array
+          title: Predictions
+        timestamp:
+          type: string
+          title: Timestamp
+      type: object
+      required:
+      - vehicle_id
+      - trip_count
+      - total_mileage_km
+      - algorithm
+      - predictions
+      - timestamp
+      title: VehicleRULResponse
+    VehicleTripSummary:
+      properties:
+        vehicle_id:
+          type: string
+          title: Vehicle Id
+        trip_count:
+          type: integer
+          title: Trip Count
+        total_distance_km:
+          type: number
+          title: Total Distance Km
+        total_duration_minutes:
+          type: number
+          title: Total Duration Minutes
+        avg_speed_kmh:
+          type: number
+          title: Avg Speed Kmh
+        avg_rpm:
+          type: number
+          title: Avg Rpm
+        total_braking_events:
+          type: integer
+          title: Total Braking Events
+        total_cornering_events:
+          type: integer
+          title: Total Cornering Events
+        latest_trip:
+          type: string
+          title: Latest Trip
+        trips:
+          items:
+            $ref: '#/components/schemas/TripSummary'
+          type: array
+          title: Trips
+      type: object
+      required:
+      - vehicle_id
+      - trip_count
+      - total_distance_km
+      - total_duration_minutes
+      - avg_speed_kmh
+      - avg_rpm
+      - total_braking_events
+      - total_cornering_events
+      - latest_trip
+      - trips
+      title: VehicleTripSummary
