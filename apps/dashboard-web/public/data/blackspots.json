@@ -1,0 +1,128 @@
+[
+  {
+    "name": "Nugegoda",
+    "lat": 6.872,
+    "lng": 79.889,
+    "roadType": "primary",
+    "notes": "NTC 2024 most accident-prone division island-wide; High Level Rd / Stanley Thilakaratne Mw junction"
+  },
+  {
+    "name": "Kollupitiya",
+    "lat": 6.911,
+    "lng": 79.849,
+    "roadType": "primary",
+    "notes": "Galle Rd corridor; dense CBD-adjacent arterial"
+  },
+  {
+    "name": "Dehiwala",
+    "lat": 6.851,
+    "lng": 79.865,
+    "roadType": "primary",
+    "notes": "Galle Rd; rail-gate + junction congestion"
+  },
+  {
+    "name": "Borella",
+    "lat": 6.915,
+    "lng": 79.877,
+    "roadType": "primary",
+    "notes": "Baseline Rd / Cotta Rd junction; major arterial crossing"
+  },
+  {
+    "name": "Maradana",
+    "lat": 6.929,
+    "lng": 79.866,
+    "roadType": "secondary",
+    "notes": "Rail-station gateway; mixed arterial/local"
+  },
+  {
+    "name": "Pettah",
+    "lat": 6.936,
+    "lng": 79.85,
+    "roadType": "secondary",
+    "notes": "Dense market district; chronic congestion"
+  },
+  {
+    "name": "Maharagama",
+    "lat": 6.848,
+    "lng": 79.928,
+    "roadType": "primary",
+    "notes": "High Level Rd outer-suburb arterial"
+  },
+  {
+    "name": "Kelaniya Baseline",
+    "lat": 6.95,
+    "lng": 79.9,
+    "roadType": "trunk",
+    "notes": "A1 / Kandy Rd approach; baseline reference point"
+  },
+  {
+    "name": "Bambalapitiya",
+    "lat": 6.894,
+    "lng": 79.857,
+    "roadType": "primary",
+    "notes": "Galle Rd; Marine Dr alternative nearby"
+  },
+  {
+    "name": "Wellawatte",
+    "lat": 6.875,
+    "lng": 79.861,
+    "roadType": "primary",
+    "notes": "Galle Rd southern CBD corridor"
+  },
+  {
+    "name": "Rajagiriya",
+    "lat": 6.909,
+    "lng": 79.892,
+    "roadType": "primary",
+    "notes": "Sri Jayawardenepura Mw; flyover-area congestion"
+  },
+  {
+    "name": "Kohuwala",
+    "lat": 6.866,
+    "lng": 79.879,
+    "roadType": "secondary",
+    "notes": "Dutugemunu St / Nugegoda-Dehiwala link"
+  },
+  {
+    "name": "Kirulapone",
+    "lat": 6.882,
+    "lng": 79.88,
+    "roadType": "secondary",
+    "notes": "High Level Rd / canal-side arterial"
+  },
+  {
+    "name": "Town Hall",
+    "lat": 6.917,
+    "lng": 79.863,
+    "roadType": "primary",
+    "notes": "Colombo 07; Viharamahadevi Park rotary area"
+  },
+  {
+    "name": "Fort",
+    "lat": 6.934,
+    "lng": 79.842,
+    "roadType": "secondary",
+    "notes": "Colombo 01 CBD; government/port district grid"
+  },
+  {
+    "name": "Slave Island",
+    "lat": 6.924,
+    "lng": 79.851,
+    "roadType": "secondary",
+    "notes": "Colombo 02; Beira Lake-adjacent dense grid"
+  },
+  {
+    "name": "Kaduwela",
+    "lat": 6.933,
+    "lng": 79.983,
+    "roadType": "trunk",
+    "notes": "A1 Low Level Rd eastern gateway; expressway interchange"
+  },
+  {
+    "name": "Battaramulla",
+    "lat": 6.899,
+    "lng": 79.918,
+    "roadType": "primary",
+    "notes": "Parliament Rd / Pannipitiya Rd administrative-zone arterial"
+  }
+]

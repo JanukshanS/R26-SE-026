@@ -1,25 +1,30 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
-import type { Incident, HotspotCluster, Stats, ModelConfig } from "@/lib/types";
+import type { Incident, HotspotCluster, Blackspot, Stats, ModelConfig } from "@/lib/types";
 import StatsPanel from "@/components/StatsPanel";
 import IncidentPanel from "@/components/IncidentPanel";
 import WhatIfSimulator from "@/components/WhatIfSimulator";
+import DispatchPanel from "@/components/DispatchPanel";
+import { fetchLiveIncidents } from "@/lib/liveData";
 
 const Map = dynamic(() => import("@/components/Map"), { ssr: false });
 
-type Tab = "stats" | "whatif";
+type Tab = "stats" | "whatif" | "dispatch";
 
 export default function Home() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [hotspots, setHotspots] = useState<HotspotCluster[]>([]);
+  const [blackspots, setBlackspots] = useState<Blackspot[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [model, setModel] = useState<ModelConfig | null>(null);
   const [selected, setSelected] = useState<Incident | null>(null);
   const [tab, setTab] = useState<Tab>("stats");
   const [filters, setFilters] = useState({ priority: [] as string[], roadType: "all" });
-  const [layers, setLayers] = useState({ incidents: true, hotspots: true, heatmap: true });
+  const [layers, setLayers] = useState({ incidents: true, hotspots: true, heatmap: true, blackspots: true });
+  const [live, setLive] = useState<Incident[]>([]);
+  const [liveOn, setLiveOn] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -27,13 +32,44 @@ export default function Home() {
       fetch("/data/hotspots.json").then((r) => r.json()),
       fetch("/data/stats.json").then((r) => r.json()),
       fetch("/data/model.json").then((r) => r.json()),
-    ]).then(([inc, hot, st, mod]) => {
+      fetch("/data/blackspots.json")
+        .then((r) => r.json())
+        .catch(() => [] as Blackspot[]),
+    ]).then(([inc, hot, st, mod, bs]) => {
       setIncidents(inc);
       setHotspots(hot);
       setStats(st);
       setModel(mod);
+      setBlackspots(bs);
     });
   }, []);
+
+  // Live overlay: poll the dispatch service for freshly-reported incidents, each
+  // scored by geo. Only updates state when the set actually changes (so the
+  // 500-marker base layer doesn't re-render every tick). Falls back to an empty
+  // overlay if the backends are down — the static dataset still shows.
+  useEffect(() => {
+    let active = true;
+    const poll = async () => {
+      const l = await fetchLiveIncidents();
+      if (!active) return;
+      setLiveOn(l.length > 0);
+      setLive((prev) => {
+        const same =
+          prev.length === l.length &&
+          prev.every((p, i) => p.id === l[i].id && p.impactScore === l[i].impactScore);
+        return same ? prev : l;
+      });
+    };
+    poll();
+    const h = setInterval(poll, 5000);
+    return () => {
+      active = false;
+      clearInterval(h);
+    };
+  }, []);
+
+  const allIncidents = useMemo(() => [...incidents, ...live], [incidents, live]);
 
   const handleSelectIncident = useCallback((inc: Incident) => setSelected(inc), []);
 
@@ -74,6 +110,17 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-2">
+          <span
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
+              liveOn
+                ? "border-green-500/50 bg-green-500/10 text-green-600"
+                : "border-[var(--border)] text-[var(--text-muted)]"
+            }`}
+            title={liveOn ? "Receiving live incidents from the dispatch service" : "No live backend — showing the static dataset"}
+          >
+            <span className={`w-2 h-2 rounded-full ${liveOn ? "bg-green-500 animate-pulse" : "bg-[var(--text-muted)]"}`} />
+            {liveOn ? `Live ${live.length}` : "Demo"}
+          </span>
           {(["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const).map((p) => {
             const active = filters.priority.length === 0 || filters.priority.includes(p);
             const colors: Record<string, string> = {
@@ -116,25 +163,27 @@ export default function Home() {
         {/* Sidebar */}
         <aside className="w-80 bg-[var(--surface)] border-r border-[var(--border)] flex flex-col overflow-hidden">
           <div className="flex border-b border-[var(--border)]">
-            {(["stats", "whatif"] as const).map((t) => (
+            {(["stats", "whatif", "dispatch"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
                 className={`flex-1 py-2 text-xs font-medium uppercase tracking-wider transition-colors ${
                   tab === t
                     ? "text-orange-500 border-b-2 border-orange-500"
-                    : "text-[var(--text-muted)] hover:text-white"
+                    : "text-[var(--text-muted)] hover:text-[var(--text)]"
                 }`}
               >
-                {t === "stats" ? "Statistics" : "What-If"}
+                {t === "stats" ? "Statistics" : t === "whatif" ? "What-If" : "Dispatch"}
               </button>
             ))}
           </div>
           <div className="flex-1 overflow-y-auto p-3">
             {tab === "stats" ? (
               <StatsPanel stats={stats} />
-            ) : (
+            ) : tab === "whatif" ? (
               <WhatIfSimulator model={model} />
+            ) : (
+              <DispatchPanel />
             )}
           </div>
         </aside>
@@ -142,8 +191,9 @@ export default function Home() {
         {/* Map */}
         <main className="flex-1 relative">
           <Map
-            incidents={incidents}
+            incidents={allIncidents}
             hotspots={hotspots}
+            blackspots={blackspots}
             onSelectIncident={handleSelectIncident}
             filters={filters}
             layers={layers}
@@ -152,7 +202,7 @@ export default function Home() {
 
           {/* Layer toggles */}
           <div className="absolute bottom-4 left-4 z-[1000] bg-[var(--surface)] border border-[var(--border)] rounded-lg p-2 flex gap-2">
-            {(["incidents", "hotspots", "heatmap"] as const).map((layer) => (
+            {(["incidents", "hotspots", "heatmap", "blackspots"] as const).map((layer) => (
               <button
                 key={layer}
                 onClick={() => setLayers((prev) => ({ ...prev, [layer]: !prev[layer] }))}
@@ -185,6 +235,10 @@ export default function Home() {
               <div className="flex items-center gap-1.5 mt-1 pt-1 border-t border-[var(--border)]">
                 <span className="w-2.5 h-2.5 rounded-full border-2 border-dashed border-red-500" />
                 <span className="text-[10px]">Hotspot zone</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rotate-45 bg-[#7f1d1d] border border-[var(--bg)]" />
+                <span className="text-[10px]">Real blackspot</span>
               </div>
             </div>
           </div>

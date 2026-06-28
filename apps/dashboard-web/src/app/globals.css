@@ -47,3 +47,45 @@ body {
 .priority-high { color: var(--high); }
 .priority-medium { color: var(--medium); }
 .priority-low { color: var(--low); }
+
+.blackspot-marker {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.blackspot-marker .bs-diamond {
+  width: 14px;
+  height: 14px;
+  transform: rotate(45deg);
+  background: #7f1d1d;
+  border: 2px solid #fff7e6;
+  box-shadow: 0 0 0 1.5px #7f1d1d, 0 1px 4px rgba(15, 15, 15, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.blackspot-marker .bs-cross {
+  width: 7px;
+  height: 7px;
+  background:
+    linear-gradient(#fff7e6, #fff7e6) center / 100% 1.5px no-repeat,
+    linear-gradient(#fff7e6, #fff7e6) center / 1.5px 100% no-repeat;
+}
+
+.blackspot-marker .bs-label {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #7f1d1d;
+  background: rgba(255, 247, 230, 0.85);
+  padding: 0 3px;
+  border-radius: 3px;
+  pointer-events: none;
+}

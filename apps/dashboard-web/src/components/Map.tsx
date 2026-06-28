@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Incident, HotspotCluster } from "@/lib/types";
+import type { Incident, HotspotCluster, Blackspot } from "@/lib/types";
 
 const PRIORITY_COLORS: Record<string, string> = {
   CRITICAL: "#ef4444",
@@ -13,12 +13,13 @@ const PRIORITY_COLORS: Record<string, string> = {
 interface MapProps {
   incidents: Incident[];
   hotspots: HotspotCluster[];
+  blackspots: Blackspot[];
   onSelectIncident: (incident: Incident) => void;
   filters: { priority: string[]; roadType: string };
-  layers: { incidents: boolean; hotspots: boolean; heatmap: boolean };
+  layers: { incidents: boolean; hotspots: boolean; heatmap: boolean; blackspots: boolean };
 }
 
-export default function Map({ incidents, hotspots, onSelectIncident, filters, layers }: MapProps) {
+export default function Map({ incidents, hotspots, blackspots, onSelectIncident, filters, layers }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMap = useRef<any>(null);
   const layersRef = useRef<any>({});
@@ -61,6 +62,7 @@ export default function Map({ incidents, hotspots, onSelectIncident, filters, la
       layersRef.current = {
         heatmap: L.layerGroup().addTo(map),
         hotspots: L.layerGroup().addTo(map),
+        blackspots: L.layerGroup().addTo(map),
         incidents: L.layerGroup().addTo(map),
       };
 
@@ -90,6 +92,7 @@ export default function Map({ incidents, hotspots, onSelectIncident, filters, la
 
       layersRef.current.incidents.clearLayers();
       layersRef.current.hotspots.clearLayers();
+      layersRef.current.blackspots.clearLayers();
       layersRef.current.heatmap.clearLayers();
 
       const filtered = incidents.filter((inc) => {
@@ -100,19 +103,22 @@ export default function Map({ incidents, hotspots, onSelectIncident, filters, la
 
       if (layers.incidents) filtered.forEach((inc) => {
         const marker = L.circleMarker([inc.lat, inc.lng], {
-          radius: 4 + inc.impactScore * 0.5,
+          radius: (inc.live ? 7 : 4) + inc.impactScore * 0.5,
           fillColor: PRIORITY_COLORS[inc.priority] || "#888",
-          color: "rgba(255,255,255,0.3)",
-          weight: 1,
-          fillOpacity: 0.8,
+          color: inc.live ? "#111827" : "rgba(255,255,255,0.3)",
+          weight: inc.live ? 3 : 1,
+          fillOpacity: inc.live ? 0.95 : 0.8,
         });
 
         marker.bindPopup(
           `<div style="font-family:system-ui;font-size:12px;">
+            ${inc.live ? '<strong style="color:#F97316">● LIVE REPORT</strong><br/>' : ""}
             <strong>${inc.id}</strong> — <span style="color:${PRIORITY_COLORS[inc.priority]}">${inc.priority}</span><br/>
             Score: <strong>${inc.impactScore}/10</strong><br/>
             ${inc.incidentType.replace(/_/g, " ")} on ${inc.roadType}<br/>
-            Queue: ${inc.queueKm}km | VHL: ${inc.vhl}
+            ${inc.live && inc.providerName
+              ? `Dispatched: <strong>${inc.providerName}</strong>`
+              : `Queue: ${inc.queueKm}km | VHL: ${inc.vhl}`}
           </div>`,
           { className: "dark-popup" }
         );
@@ -143,6 +149,31 @@ export default function Map({ incidents, hotspots, onSelectIncident, filters, la
         circle.addTo(layersRef.current.hotspots);
       });
 
+      // Real accident blackspots (NTC 2024 / data.gov.lk). Rendered as a dark
+      // diamond + crosshair divIcon with a label so they read as "ground-truth
+      // known blackspot" — visually distinct from the model's priority dots and
+      // hotspot rings. Drawn under the incidents layer to keep incidents clickable.
+      if (layers.blackspots) blackspots.forEach((b) => {
+        const icon = L.divIcon({
+          className: "blackspot-marker",
+          html: `<div class="bs-diamond"><span class="bs-cross"></span></div><div class="bs-label">${b.name}</div>`,
+          iconSize: [18, 18],
+          iconAnchor: [9, 9],
+        });
+        const marker = L.marker([b.lat, b.lng], { icon, keyboard: false });
+
+        marker.bindPopup(
+          `<div style="font-family:system-ui;font-size:12px;">
+            <strong>${b.name}</strong><br/>
+            <span style="color:#6B7280">${b.roadType}</span><br/>
+            ${b.notes}<br/>
+            <span style="color:#7f1d1d;font-weight:600">Real accident blackspot — NTC 2024 / data.gov.lk</span>
+          </div>`,
+          { className: "dark-popup" }
+        );
+        marker.addTo(layersRef.current.blackspots);
+      });
+
       try {
         if (!layers.heatmap) throw new Error("skip");
         await import("leaflet.heat");
@@ -163,7 +194,7 @@ export default function Map({ incidents, hotspots, onSelectIncident, filters, la
     };
 
     renderLayers();
-  }, [ready, incidents, hotspots, filters, layers, onSelectIncident]);
+  }, [ready, incidents, hotspots, blackspots, filters, layers, onSelectIncident]);
 
   return (
     <div ref={mapRef} className="w-full h-full rounded-xl" />

@@ -139,6 +139,15 @@ export default function StatsPanel({ stats }: { stats: Stats }) {
           <span className="inline-block w-2 h-2 bg-orange-500 rounded-sm mr-1" />Peak hours highlighted
         </p>
       </div>
+
+      <div className="rounded-lg bg-[var(--surface-2)] border border-[var(--border)] p-3">
+        <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">Real-Data Sources</p>
+        <p className="text-[10px] text-[var(--text-muted)] leading-relaxed">
+          Synthetic incidents are anchored to real accident geography: 18 known Colombo
+          blackspots (NTC 2024) and regional severity stats from data.gov.lk 2012, where
+          the Colombo district accounted for ~26.9% of national road accidents.
+        </p>
+      </div>
     </div>
   );
 }
