@@ -10,6 +10,7 @@ import { logger } from '../utils/logger';
 import { dispatchRequestSchema } from '../utils/validators';
 import { runDispatchOptimizer, ECMProvider } from '../services/dispatch-optimizer';
 import { ServiceTypeProbabilities, ServiceType } from '../types';
+import { fetchTrafficImpactScore } from '../services/geo-client';
 
 export const dispatchRouter = Router();
 
@@ -29,7 +30,7 @@ dispatchRouter.post('/optimize', async (req, res) => {
       return;
     }
 
-    const { incidentId, trafficImpactScore = 5, maxProviders } = parsed.data;
+    const { incidentId, maxProviders } = parsed.data;
 
     // Get incident with triage data
     const incident = await prisma.incident.findUnique({
@@ -49,6 +50,26 @@ dispatchRouter.post('/optimize', async (req, res) => {
         timestamp: new Date().toISOString(),
       });
       return;
+    }
+
+    // Traffic impact: use the client's value if supplied, otherwise fetch it live
+    // from geo-intelligence. Falls back to a neutral 5 if geo is unreachable so
+    // dispatch never hard-depends on it.
+    let trafficImpactScore = parsed.data.trafficImpactScore;
+    let trafficImpactSource: 'client' | 'geo-intelligence' | 'default' =
+      trafficImpactScore !== undefined ? 'client' : 'default';
+    if (trafficImpactScore === undefined) {
+      const geoScore = await fetchTrafficImpactScore({
+        latitude: incident.latitude,
+        longitude: incident.longitude,
+        probabilities: incident.triageResponse.probabilities as unknown as ServiceTypeProbabilities,
+      });
+      if (geoScore !== null) {
+        trafficImpactScore = geoScore;
+        trafficImpactSource = 'geo-intelligence';
+      } else {
+        trafficImpactScore = 5;
+      }
     }
 
     // Get available providers
@@ -145,6 +166,7 @@ dispatchRouter.post('/optimize', async (req, res) => {
         metadata: {
           computationTimeMs: result.computationTimeMs,
           trafficImpactScore,
+          trafficImpactSource,
           lambda: result.lambda,
           providersEvaluated: result.rankedProviders.length,
           triageTier: incident.triageResponse.tier,
