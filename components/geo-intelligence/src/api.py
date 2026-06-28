@@ -49,6 +49,29 @@ app.add_middleware(
 
 model = ImpactScoringModel()
 
+# Public API vocabulary documents `major_accident`/`minor_accident`; the scoring
+# model's severity table uses the canonical research keys `accident_major`/
+# `accident_minor`. Alias so a documented accident type resolves to the right
+# severity instead of the default. Unlisted types pass through unchanged.
+INCIDENT_TYPE_ALIASES = {
+    "major_accident": "accident_major",
+    "minor_accident": "accident_minor",
+}
+
+
+def _to_incident(req: ScoreRequest) -> IncidentInput:
+    return IncidentInput(
+        latitude=req.latitude,
+        longitude=req.longitude,
+        road_type=req.road_type,
+        total_lanes=req.total_lanes,
+        lanes_blocked=req.lanes_blocked,
+        incident_type=INCIDENT_TYPE_ALIASES.get(req.incident_type, req.incident_type),
+        hour=req.hour,
+        day_of_week=req.day_of_week,
+        speed_limit_kmh=req.speed_limit_kmh,
+    )
+
 
 class ScoreRequest(BaseModel):
     latitude: float = Field(..., example=6.9271)
@@ -112,17 +135,7 @@ def score(req: ScoreRequest) -> ScoreResponse:
             status_code=400,
             detail="lanes_blocked cannot exceed total_lanes",
         )
-    incident = IncidentInput(
-        latitude=req.latitude,
-        longitude=req.longitude,
-        road_type=req.road_type,
-        total_lanes=req.total_lanes,
-        lanes_blocked=req.lanes_blocked,
-        incident_type=req.incident_type,
-        hour=req.hour,
-        day_of_week=req.day_of_week,
-        speed_limit_kmh=req.speed_limit_kmh,
-    )
+    incident = _to_incident(req)
     result = model.score(incident)
     priority = (
         result.priority.value
@@ -145,6 +158,38 @@ def score(req: ScoreRequest) -> ScoreResponse:
             "recovery_min": _round_or_none(result.predicted_recovery_min),
         },
     )
+
+
+class UncertaintyResponse(BaseModel):
+    score_mean: float
+    score_p05: float
+    score_p95: float
+    score_std: float
+
+
+@app.post("/v1/score/uncertainty", response_model=UncertaintyResponse, tags=["scoring"])
+def score_uncertainty(req: ScoreRequest) -> UncertaintyResponse:
+    """90% confidence band on the impact score via Monte-Carlo over the two
+    genuinely uncertain inputs (incident duration, reported lanes-blocked)."""
+    if req.lanes_blocked > req.total_lanes:
+        raise HTTPException(status_code=400, detail="lanes_blocked cannot exceed total_lanes")
+    return UncertaintyResponse(**model.score_with_uncertainty(_to_incident(req)))
+
+
+class TimelineRequest(ScoreRequest):
+    horizon_min: int = Field(120, ge=1, le=600, description="Minutes since the incident to project")
+    step_min: int = Field(10, ge=1, le=60, description="Sampling interval in minutes")
+
+
+@app.post("/v1/score/timeline", tags=["scoring"])
+def score_timeline(req: TimelineRequest) -> dict:
+    """Relative congestion-impact curve over time since the incident: the queue
+    builds while the incident is active, then drains — a rise-then-decay profile."""
+    if req.lanes_blocked > req.total_lanes:
+        raise HTTPException(status_code=400, detail="lanes_blocked cannot exceed total_lanes")
+    grid = list(range(0, req.horizon_min + 1, req.step_min))
+    curve = model.impact_over_time(_to_incident(req), grid)
+    return {"minutes": grid, "impact": [round(float(v), 3) for v in curve]}
 
 
 @app.get("/v1/hotspots", response_model=List[HotspotCluster], tags=["spatial"])

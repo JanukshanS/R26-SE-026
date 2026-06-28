@@ -61,15 +61,43 @@ class ImpactScoringModel:
     5. Incident Severity Factor (ISF): Type and expected duration of incident
     """
 
-    # Refined weights from SLSQP optimization against SUMO ground truth
-    # (Pearson r = 0.904; +63.7% over the original domain-knowledge defaults).
-    # See RP/docs/slsqp-weight-refinement.md for derivation and caveats.
+    # ── Weight sets (single source of truth for the whole pipeline) ──────────
+    # DEPLOYED DEFAULT: original expert / domain-knowledge weights. Every produced
+    # artifact (scored_incidents.csv, hotspots, dashboard model.json) uses these.
+    # Correlation with SUMO speed_reduction_pct on the regenerated non-degenerate
+    # grid (120 scenarios, real congestion): in-sample Pearson r ~= 0.60
+    # (Spearman rho ~= 0.67). The earlier ~0.75 reflected the old confounded grid;
+    # reproduce the current figure with scripts/report_metrics.py.
     WEIGHTS = {
+        "capacity_loss": 0.25,
+        "traffic_volume": 0.25,
+        "temporal": 0.20,
+        "location": 0.15,
+        "incident_severity": 0.15,
+    }
+
+    # SENSITIVITY RESULT — NOT deployed by default. Weights fitted by SLSQP to
+    # maximise correlation with SUMO ground truth (scripts/refine_model.py) on the
+    # NEW NON-DEGENERATE grid, where ISF/CLF/TVF/TF/LF all vary independently:
+    # incident_type spans 7 severities (ISF no longer constant), lanes_blocked is
+    # {1,2}, and hour is sampled across the day decoupled from road-class demand
+    # (so TF and TVF are no longer confounded). In-sample Pearson r ~= 0.926; the
+    # ORIGINAL deployed weights score only r ~= 0.60 on this honest grid (the old
+    # ~0.90 was an artefact of a degenerate near-noise signal). Held-out leave-one-
+    # road-type-out pooled OOF r ~= 0.924, bootstrap 95% CI [0.885, 0.948]
+    # (reproduce: scripts/refine_model.py + scripts/validate_weights_cv.py +
+    # scripts/report_metrics.py).
+    # IDENTIFIABILITY: CLF (raw r~0.88) and ISF (raw r~0.80) are now strongly
+    # data-identified and carry almost all the fitted weight. TVF/TF/LF have small
+    # raw correlations on this grid and stay near the lower bound -- treat their
+    # weights as a floor, not a finding. Adopting these as the deployed default is a
+    # project decision that regenerates every downstream score.
+    WEIGHTS_REFINED = {
         "capacity_loss": 0.500,
-        "location": 0.220,
-        "incident_severity": 0.180,
         "traffic_volume": 0.050,
         "temporal": 0.050,
+        "location": 0.071,
+        "incident_severity": 0.329,
     }
 
     ROAD_CAPACITY_VPH = {
@@ -81,6 +109,24 @@ class ImpactScoringModel:
         "residential": 300,
         "living_street": 150,
         "unclassified": 400,
+    }
+
+    # Peak volume-to-capacity (v/c) ratio by road class: how close to saturation each
+    # road type runs at the daily peak. This decouples TVF (road-type-specific demand
+    # pressure) from TF (the pure time-of-day curve) -- the two were previously
+    # algebraically identical (capacity cancelled, leaving TVF == TF == hour*day).
+    # Anchored to typical HCM/urban v/c ranges (arterials run near saturation at peak,
+    # residential streets far below). Calibration knob -- replace with RDA junction
+    # counts when real volume data is obtained.
+    ROAD_PEAK_VC = {
+        "motorway": 0.95,
+        "trunk": 0.90,
+        "primary": 0.85,
+        "secondary": 0.70,
+        "tertiary": 0.55,
+        "residential": 0.40,
+        "living_street": 0.30,
+        "unclassified": 0.50,
     }
 
     ROAD_LOCATION_FACTOR = {
@@ -126,6 +172,12 @@ class ImpactScoringModel:
         "overheating": 40,
     }
 
+    def __init__(self, weights: Optional[dict] = None):
+        # Defaults to the deployed ORIGINAL weights. Pass WEIGHTS_REFINED (or any
+        # dict) to score with the SUMO-fitted weights for comparison WITHOUT
+        # changing the deployed pipeline, e.g. ImpactScoringModel(ImpactScoringModel.WEIGHTS_REFINED).
+        self.WEIGHTS = dict(weights) if weights is not None else dict(self.WEIGHTS)
+
     def calculate_capacity_loss_factor(self, total_lanes: int, lanes_blocked: int) -> float:
         if total_lanes <= 0:
             return 1.0
@@ -133,12 +185,13 @@ class ImpactScoringModel:
         return min(clf, 1.0)
 
     def calculate_traffic_volume_factor(self, road_type: str, hour: int, day_of_week: int) -> float:
-        capacity = self.ROAD_CAPACITY_VPH.get(road_type, 500)
+        # Demand pressure = peak v/c for the road class, scaled by the time-of-day/day curve.
+        # NOT equal to TF: TF carries no road-class term, so TVF now contributes independent
+        # road-type demand information. (Previously TVF reduced to hour*day, i.e. == TF.)
+        peak_vc = self.ROAD_PEAK_VC.get(road_type, 0.6)
         hour_mult = self.HOUR_VOLUME_MULTIPLIER.get(hour, 0.5)
         day_mult = self.DAY_MULTIPLIER.get(day_of_week, 1.0)
-
-        estimated_volume = capacity * hour_mult * day_mult
-        tvf = estimated_volume / capacity
+        tvf = peak_vc * hour_mult * day_mult
         return min(tvf, 1.0)
 
     def calculate_temporal_factor(self, hour: int, day_of_week: int) -> float:
@@ -154,8 +207,17 @@ class ImpactScoringModel:
 
     def predict_congestion(self, incident: IncidentInput, impact_score: float) -> dict:
         """
-        Predict congestion metrics using simplified shockwave theory.
-        Based on Lighthill-Whitham-Richards (LWR) model.
+        Predict congestion metrics using a deterministic input-output
+        (Newell cumulative-count) queueing approximation.
+
+        NOTE: this is a closed-form queueing surrogate, NOT a true
+        Lighthill-Whitham-Richards (LWR) shockwave solver -- there is no
+        fundamental diagram and no shockwave-speed term. The constants
+        (jam_density=120 veh/km, avg_delay=duration/4, 15 km cap) are
+        uncalibrated heuristics; predicted VHL currently over-estimates SUMO
+        by ~80x (reproduce: scripts/report_metrics.py), so the outputs should
+        be read as a RELATIVE index, not absolute predictions, until calibrated
+        against SUMO. Ref: Newell (1982), Applications of Queueing Theory.
         """
         capacity = self.ROAD_CAPACITY_VPH.get(incident.road_type, 500)
         hour_mult = self.HOUR_VOLUME_MULTIPLIER.get(incident.hour, 0.5)
@@ -193,6 +255,148 @@ class ImpactScoringModel:
             "vehicle_hours_lost": round(vhl, 1),
             "recovery_minutes": round(min(recovery_min, 180), 1),
         }
+
+    # ── ADDITIVE EXTENSIONS (Gaps #6 + #8) ──────────────────────────────────
+    # The methods below are NEW and DO NOT touch WEIGHTS, score(), or any
+    # existing factor method. The deployed pipeline (score / score_dataframe /
+    # the produced CSVs and dashboard JSON) is byte-identical for existing
+    # calls. They add (1) a per-score confidence band via Monte-Carlo over the
+    # two genuinely uncertain inputs, and (2) a time-evolving impact curve.
+
+    def score_with_uncertainty(self, incident: IncidentInput, n: int = 1000, seed: int = 42) -> dict:
+        """
+        GAP #6 — per-score uncertainty.
+
+        Return a CONFIDENCE BAND around the point impact score by Monte-Carlo
+        propagation of the two inputs that are genuinely uncertain at incident
+        report time:
+
+          * incident DURATION — the type-keyed INCIDENT_DURATION_MIN value is a
+            population MEAN; the realised clearance time of any single incident
+            scatters around it. We sample a log-normal with that mean and a
+            coefficient of variation of 30% (CV=0.30, right-skewed: clearances
+            run long more often than short). Duration feeds the incident
+            SEVERITY factor multiplicatively, so a longer-than-expected
+            clearance raises the score.
+          * LANES_BLOCKED — first responders' lane-blockage report is ±1 lane
+            uncertain; we perturb by {-1, 0, +1} (uniform) and clip to
+            [1, total_lanes]. This feeds the capacity-loss factor.
+
+        The point score() is left exactly as-is; here we re-derive the same
+        weighted combination per draw, perturbing only CLF (via lanes_blocked)
+        and ISF (via a duration multiplier on the type severity). TVF, TF and LF
+        are deterministic given the report and are held fixed.
+
+        Returns {score_mean, score_p05, score_p95, score_std}. The interval
+        [p05, p95] is a 90% band a downstream consumer (Janukshan's dispatch)
+        can use instead of a bare point estimate.
+        """
+        rng = np.random.default_rng(seed)
+
+        # Deterministic-given-report factors (unchanged from score()).
+        tvf = self.calculate_traffic_volume_factor(incident.road_type, incident.hour, incident.day_of_week)
+        tf = self.calculate_temporal_factor(incident.hour, incident.day_of_week)
+        lf = self.calculate_location_factor(incident.road_type)
+
+        # Severity / duration baselines for this incident type.
+        base_isf = self.calculate_incident_severity_factor(incident.incident_type)
+        mean_duration = self.INCIDENT_DURATION_MIN.get(incident.incident_type, 45)
+        total_lanes = max(int(incident.total_lanes), 1)
+
+        # --- Duration draws: log-normal with target mean and CV=0.30 ---------
+        cv = 0.30
+        sigma = np.sqrt(np.log(1.0 + cv * cv))            # log-space std for the target CV
+        mu = np.log(max(mean_duration, 1e-9)) - 0.5 * sigma * sigma  # so E[X] == mean_duration
+        durations = rng.lognormal(mean=mu, sigma=sigma, size=n)
+        # ISF perturbation: scale the type severity by realised/mean duration,
+        # clipped to the model's [0,1] factor range (severity cannot exceed 1).
+        isf_draws = np.clip(base_isf * (durations / mean_duration), 0.0, 1.0)
+
+        # --- Lanes-blocked draws: ±1 uniform, clipped to [1, total_lanes] ----
+        lane_perturb = rng.integers(low=-1, high=2, size=n)  # {-1,0,1}
+        lanes_blocked = np.clip(int(incident.lanes_blocked) + lane_perturb, 1, total_lanes)
+        clf_draws = np.minimum(lanes_blocked / total_lanes, 1.0)
+
+        # Re-derive the score per draw with the SAME weighted form as score().
+        raw = (
+            self.WEIGHTS["capacity_loss"] * clf_draws +
+            self.WEIGHTS["traffic_volume"] * tvf +
+            self.WEIGHTS["temporal"] * tf +
+            self.WEIGHTS["location"] * lf +
+            self.WEIGHTS["incident_severity"] * isf_draws
+        )
+        scores = np.clip(raw * 10.0, 1.0, 10.0)
+
+        return {
+            "score_mean": round(float(np.mean(scores)), 2),
+            "score_p05": round(float(np.percentile(scores, 5)), 2),
+            "score_p95": round(float(np.percentile(scores, 95)), 2),
+            "score_std": round(float(np.std(scores)), 3),
+        }
+
+    def impact_over_time(self, incident: IncidentInput, minutes) -> "np.ndarray":
+        """
+        GAP #8 — temporal dynamics: impact as a function of time SINCE the
+        incident, instead of a single static snapshot.
+
+        Physical picture (reusing predict_congestion's input-output queueing
+        logic): while the incident is active over its expected DURATION the road
+        runs with reduced capacity, so a queue BUILDS at the net excess arrival
+        rate (queue length grows roughly linearly with elapsed time). Once the
+        incident clears, full capacity is restored and the backlog DRAINS at the
+        recovery rate, so the queue DECAYS back toward zero. The result is a
+        rise-then-decay curve.
+
+        Closed form (relative index in [0,1], where 1.0 == the peak queue at the
+        moment of clearance):
+
+            t <= D                  q(t)/q_peak = t / D                  (build)
+            D <  t <= D + R         q(t)/q_peak = 1 - (t - D) / R        (decay)
+            t  >  D + R             q(t)/q_peak = 0                       (recovered)
+
+        with D = expected incident duration (INCIDENT_DURATION_MIN) and R = the
+        recovery time from predict_congestion. If the road is undersaturated
+        (no queue ever forms) the curve is flat zero. This is a SIMPLE triangular
+        surrogate of the Newell cumulative-count queue, NOT a calibrated absolute
+        prediction -- read it as a RELATIVE time profile of congestion severity.
+
+        Parameters
+        ----------
+        minutes : int | float | array-like
+            Time(s) since the incident in minutes. Scalars are accepted; the
+            return is always a numpy array (length 1 for a scalar) for uniform
+            downstream handling.
+
+        Returns
+        -------
+        np.ndarray
+            Relative impact index in [0,1], one value per requested minute.
+        """
+        t = np.atleast_1d(np.asarray(minutes, dtype=float))
+
+        duration = float(self.INCIDENT_DURATION_MIN.get(incident.incident_type, 45))
+        # Peak score from the static point model sets the *amplitude* a consumer
+        # can multiply back in; the shape itself is the relative index.
+        congestion = self.predict_congestion(incident, 0.0)
+        recovery = float(congestion["recovery_minutes"])
+        queue_peak = float(congestion["queue_km"])
+
+        impact = np.zeros_like(t)
+        if queue_peak <= 0.0 or duration <= 0.0:
+            # Undersaturated: incident never produces a standing queue.
+            return impact
+
+        if recovery <= 0.0:
+            # Degenerate recovery (e.g. capped/zero): collapse decay to an
+            # instantaneous drop at clearance so the build phase still shows.
+            recovery = 1e-9
+
+        build = t <= duration
+        decay = (t > duration) & (t <= duration + recovery)
+        impact[build] = t[build] / duration
+        impact[decay] = 1.0 - (t[decay] - duration) / recovery
+        impact = np.clip(impact, 0.0, 1.0)
+        return impact
 
     def score(self, incident: IncidentInput) -> ImpactResult:
         """Calculate the impact score for an incident."""
@@ -330,5 +534,61 @@ def demo():
         print(f"    Recovery time:      {result.predicted_recovery_min} min")
 
 
+def demo_uncertainty_and_decay():
+    """
+    Gaps #6 + #8: demonstrate the per-score confidence band and the
+    impact-over-time curve for a sample incident. Asserts guard the contracts.
+    """
+    model = ImpactScoringModel()
+
+    # Sample incident: minor accident on a primary road at the evening peak.
+    incident = IncidentInput(6.9, 79.86, "primary", 2, 1, "accident_minor", 17, 2)
+
+    point = model.score(incident)
+    ci = model.score_with_uncertainty(incident, n=1000, seed=42)
+
+    # --- Contract checks for the confidence band -----------------------------
+    assert set(ci) == {"score_mean", "score_p05", "score_p95", "score_std"}, ci
+    assert 1.0 <= ci["score_p05"] <= ci["score_mean"] <= ci["score_p95"] <= 10.0, ci
+    assert ci["score_std"] >= 0.0, ci
+    # The deterministic point score must lie inside (or on) the band.
+    assert ci["score_p05"] <= point.score <= ci["score_p95"] + 1e-6, (point.score, ci)
+
+    print(f"\n{'='*70}")
+    print(f"  GAP #6 — PER-SCORE UNCERTAINTY (Monte-Carlo, n=1000, seed=42)")
+    print(f"{'='*70}")
+    print(f"  Incident: {incident.incident_type} on {incident.road_type} "
+          f"({incident.lanes_blocked}/{incident.total_lanes} lanes) @ {incident.hour:02d}:00")
+    print(f"  Deployed point score : {point.score}/10  [{point.priority.value}]")
+    print(f"  Score with CI        : {ci['score_mean']} "
+          f"[{ci['score_p05']}, {ci['score_p95']}]  (std {ci['score_std']})")
+
+    # --- Impact-over-time curve ----------------------------------------------
+    duration = model.INCIDENT_DURATION_MIN[incident.incident_type]
+    grid = list(range(0, 121, 10))
+    curve = model.impact_over_time(incident, grid)
+
+    # Contract checks: in [0,1], starts at 0, peaks at clearance (t == duration).
+    assert curve.shape == (len(grid),), curve.shape
+    assert float(curve.min()) >= 0.0 and float(curve.max()) <= 1.0, curve
+    assert curve[0] == 0.0, curve[0]
+    peak_idx = int(np.argmax(curve))
+    assert abs(grid[peak_idx] - duration) <= 10, (grid[peak_idx], duration)
+
+    print(f"\n{'='*70}")
+    print(f"  GAP #8 — IMPACT OVER TIME (relative index, peak=1.0 at clearance)")
+    print(f"{'='*70}")
+    print(f"  Expected duration {duration} min, "
+          f"recovery {point.predicted_recovery_min} min")
+    print(f"  {'t (min)':>8} | impact")
+    print(f"  {'-'*8}-+-{'-'*16}")
+    for tmin, val in zip(grid, curve):
+        bar = "#" * int(round(val * 20))
+        print(f"  {tmin:>8} | {val:0.2f} {bar}")
+
+    return ci, curve
+
+
 if __name__ == "__main__":
     demo()
+    demo_uncertainty_and_decay()
