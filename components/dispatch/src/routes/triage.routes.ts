@@ -320,13 +320,13 @@ triageRouter.post('/submit', async (req, res) => {
     // Run the engine (decision tree, fast-path-aware).
     const triageResult = runTriageEngine(responses as any, obdData as any);
 
-    // Persist the triage record to the new adaptive schema.
+    // Persist the triage record to the new adaptive schema. Upsert (not create)
+    // keyed on the unique incidentId: re-submitting triage for the same incident
+    // — e.g. the driver tweaks an answer and taps "Get Diagnosis" again — updates
+    // the existing row instead of violating the unique constraint with a 500.
     let triageRecordId: string | null = null;
     if (PERSIST_TRIAGE_RECORDS) {
-      const triageRecord = await prisma.triageResponse.create({
-        data: {
-          incidentId,
-
+      const triageData = {
           // Q1 intent + adaptive single-selects
           q1Intent:         responses.Q1_intent,
           q2EngineStart:    responses.Q2_engine_start,
@@ -362,7 +362,11 @@ triageRouter.post('/submit', async (req, res) => {
 
           // Optional OBD telemetry snapshot
           obdData: obdData ? (obdData as any) : undefined,
-        },
+      };
+      const triageRecord = await prisma.triageResponse.upsert({
+        where:  { incidentId },
+        create: { incidentId, ...triageData },
+        update: triageData,
       });
       triageRecordId = triageRecord.id;
     }
