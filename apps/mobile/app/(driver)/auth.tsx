@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
@@ -9,7 +9,7 @@ import { useVehicle } from "@lib/vehicleContext";
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
-  const { login, register, authLoading } = useVehicle();
+  const { login, register, loginWithGoogle, authLoading } = useVehicle();
 
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
@@ -30,6 +30,17 @@ export default function AuthScreen() {
       router.replace("/(driver)/home");
     } catch (err: any) {
       setError(err.message ?? "Something went wrong");
+    }
+  }
+
+  async function handleGoogle() {
+    setError("");
+    try {
+      await loginWithGoogle();
+      // Web redirects to Google and back; native returns here signed in.
+      if (Platform.OS !== "web") router.replace("/(driver)/home");
+    } catch (err: any) {
+      setError(err.message ?? "Google sign-in failed");
     }
   }
 
@@ -129,6 +140,27 @@ export default function AuthScreen() {
             {authLoading && <ActivityIndicator size="small" color={palette.textOnBrand} />}
             <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
               {mode === "login" ? "Sign In" : "Create Account"}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleGoogle}
+            disabled={authLoading}
+            style={({ pressed }) => ({
+              backgroundColor: pressed ? palette.homeBackground : palette.surface,
+              borderWidth: 1,
+              borderColor: palette.border,
+              borderRadius: radii.lg,
+              paddingVertical: spacing.md + 2,
+              alignItems: "center",
+              justifyContent: "center",
+              flexDirection: "row",
+              gap: spacing.sm,
+            })}
+          >
+            <Icon name="LogIn" size={18} color={palette.text} />
+            <Text style={{ ...typography.bodyStrong, color: palette.text }}>
+              Continue with Google
             </Text>
           </Pressable>
         </View>

@@ -17,7 +17,6 @@
  */
 
 import { Platform } from "react-native";
-import { tokenStore } from "@lib/tokenStore";
 
 const DEFAULT_BASE_URL =
   process.env.EXPO_PUBLIC_DISPATCH_URL ??
@@ -208,15 +207,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${DISPATCH_BASE_URL}${path}`;
   const { signal, cancel } = timeoutSignal(10_000);
 
-  const authToken = tokenStore.getAccessToken();
-
   let res: Response;
   try {
     res = await fetch(url, {
       ...init,
       headers: {
         "Content-Type": "application/json",
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         ...(init?.headers ?? {}),
       },
       signal,

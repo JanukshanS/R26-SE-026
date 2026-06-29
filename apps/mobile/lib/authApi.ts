@@ -1,96 +1,23 @@
+import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
 import { Platform } from "react-native";
-
-const DEFAULT_BASE_URL =
-  process.env.EXPO_PUBLIC_AUTH_URL ??
-  (Platform.OS === "android" ? "http://10.0.2.2:3002" : "http://localhost:3002");
-
-export const AUTH_BASE_URL = DEFAULT_BASE_URL;
-
-export interface AuthUser {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  phone?: string | null;
-  providerId?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface TokenPair {
-  accessToken: string;
-  refreshToken: string;
-}
-
-export interface AuthResult extends TokenPair {
-  user: AuthUser;
-}
-
-interface ApiEnvelope<T> {
-  success: boolean;
-  data?: T;
-  error?: string | null;
-  details?: unknown;
-  timestamp: string;
-}
-
-export class AuthApiError extends Error {
-  status: number;
-  details?: unknown;
-  constructor(status: number, message: string, details?: unknown) {
-    super(message);
-    this.name = "AuthApiError";
-    this.status = status;
-    this.details = details;
-  }
-}
+import { supabase } from "@lib/supabase";
 
 /**
- * Hermes (RN's default JS engine on Android) doesn't ship `AbortSignal.timeout`,
- * so we polyfill via AbortController + setTimeout — same pattern as dispatchApi.
+ * Auth helpers over Supabase Auth (GoTrue). Standalone functions (the supabase
+ * client is a module singleton) so screens outside <VehicleProvider> — the
+ * onboarding flow — can call them directly. Sessions are persisted + refreshed
+ * by supabase-js, so there's no manual token store anymore.
  */
-function timeoutSignal(ms: number): { signal: AbortSignal; cancel: () => void } {
-  const controller = new AbortController();
-  const handle = setTimeout(() => controller.abort(), ms);
-  return { signal: controller.signal, cancel: () => clearTimeout(handle) };
+
+export class AuthApiError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuthApiError";
+  }
 }
 
-async function request<T>(path: string, init?: RequestInit, token?: string | null): Promise<T> {
-  const url = `${AUTH_BASE_URL}${path}`;
-  const { signal, cancel } = timeoutSignal(10_000);
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...((init?.headers as Record<string, string>) ?? {}),
-  };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  let res: Response;
-  try {
-    res = await fetch(url, { ...init, headers, signal });
-  } finally {
-    cancel();
-  }
-
-  let body: ApiEnvelope<T> | undefined;
-  try {
-    body = (await res.json()) as ApiEnvelope<T>;
-  } catch {
-    // non-JSON response
-  }
-
-  if (!res.ok || !body?.success) {
-    throw new AuthApiError(
-      res.status,
-      body?.error ?? `HTTP ${res.status}`,
-      body?.details
-    );
-  }
-
-  return body.data as T;
-}
-
-export interface RegisterInput {
+export interface SignUpInput {
   name: string;
   email: string;
   password: string;
@@ -98,52 +25,67 @@ export interface RegisterInput {
   role?: string;
 }
 
-export function register(input: RegisterInput): Promise<AuthResult> {
-  return request<AuthResult>("/api/auth/register", {
-    method: "POST",
-    body: JSON.stringify(input),
+/**
+ * Create an account. name/phone/role go into user metadata, which the
+ * `handle_new_user` trigger copies into public.profiles. If the project has
+ * email confirmation enabled, no session is returned yet — surfaced via
+ * `needsConfirmation` so the caller can tell the user to check their inbox.
+ */
+export async function signUpEmail(
+  input: SignUpInput
+): Promise<{ needsConfirmation: boolean }> {
+  const { data, error } = await supabase.auth.signUp({
+    email: input.email,
+    password: input.password,
+    options: {
+      data: {
+        name: input.name,
+        phone: input.phone ?? null,
+        role: input.role ?? "driver",
+      },
+    },
   });
+  if (error) throw new AuthApiError(error.message);
+  return { needsConfirmation: !data.session };
 }
 
-export function login(email: string, password: string): Promise<AuthResult> {
-  return request<AuthResult>("/api/auth/login", {
-    method: "POST",
-    body: JSON.stringify({ email, password }),
+export async function signInEmail(email: string, password: string): Promise<void> {
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw new AuthApiError(error.message);
+}
+
+export async function signOut(): Promise<void> {
+  await supabase.auth.signOut();
+}
+
+/**
+ * Google OAuth (PKCE). On web supabase-js redirects the page and parses the
+ * session back via detectSessionInUrl. On native we open the provider URL in a
+ * system browser, then exchange the returned `?code=` for a session.
+ */
+export async function signInWithGoogle(): Promise<void> {
+  const redirectTo = Linking.createURL("/");
+  if (Platform.OS === "web") {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo },
+    });
+    if (error) throw new AuthApiError(error.message);
+    return; // browser navigates away
+  }
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo, skipBrowserRedirect: true },
   });
-}
+  if (error) throw new AuthApiError(error.message);
 
-export function refresh(refreshToken: string): Promise<TokenPair> {
-  return request<TokenPair>("/api/auth/refresh", {
-    method: "POST",
-    body: JSON.stringify({ refreshToken }),
-  });
-}
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  if (result.type !== "success") return; // user dismissed the browser
 
-export function me(accessToken: string): Promise<{ user: AuthUser }> {
-  return request<{ user: AuthUser }>("/api/auth/me", {}, accessToken);
-}
-
-export interface UpdateMeInput {
-  providerId?: string | null;
-  name?: string;
-  phone?: string;
-}
-
-export function updateMe(
-  input: UpdateMeInput,
-  accessToken: string
-): Promise<{ user: AuthUser }> {
-  return request<{ user: AuthUser }>(
-    "/api/auth/me",
-    { method: "PATCH", body: JSON.stringify(input) },
-    accessToken
-  );
-}
-
-export function logout(accessToken: string, refreshToken: string): Promise<{ revoked: boolean }> {
-  return request<{ revoked: boolean }>(
-    "/api/auth/logout",
-    { method: "POST", body: JSON.stringify({ refreshToken }) },
-    accessToken
-  );
+  const code = new URL(result.url).searchParams.get("code");
+  if (code) {
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    if (exchangeError) throw new AuthApiError(exchangeError.message);
+  }
 }

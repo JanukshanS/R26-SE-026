@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, Text } from "react-native";
+import { Platform, Pressable, Text } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Button } from "@components/ui/button";
 import { ErrorState } from "@components/ui/error-state";
@@ -8,7 +8,6 @@ import { Screen } from "@components/ui/screen";
 import { TextField } from "@components/ui/text-input";
 import { palette, spacing, typography } from "@theme/index";
 import * as authApi from "@lib/authApi";
-import { tokenStore } from "@lib/tokenStore";
 
 export default function AddAccountScreen() {
   const params = useLocalSearchParams<{ mode?: string }>();
@@ -34,24 +33,39 @@ export default function AddAccountScreen() {
     }
     setSubmitting(true);
     try {
-      const res =
-        mode === "register"
-          ? await authApi.register({
-              name: name.trim(),
-              email: email.trim(),
-              password,
-              phone: phone.trim() || undefined,
-            })
-          : await authApi.login(email.trim(), password);
-      await tokenStore.setTokens({
-        accessToken: res.accessToken,
-        refreshToken: res.refreshToken,
-      });
-      router.replace(
-        mode === "register" ? "/(onboarding)/add-vehicle" : "/(driver)/home"
-      );
+      if (mode === "register") {
+        const { needsConfirmation } = await authApi.signUpEmail({
+          name: name.trim(),
+          email: email.trim(),
+          password,
+          phone: phone.trim() || undefined,
+        });
+        if (needsConfirmation) {
+          setMode("login");
+          setError("Account created — check your email to confirm, then sign in.");
+          return;
+        }
+        router.replace("/(onboarding)/add-vehicle");
+      } else {
+        await authApi.signInEmail(email.trim(), password);
+        router.replace("/(driver)/home");
+      }
     } catch (err) {
       setError((err as Error).message ?? "Something went wrong");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleGoogle() {
+    setError("");
+    setSubmitting(true);
+    try {
+      await authApi.signInWithGoogle();
+      // Web navigates away to Google and back; native returns here signed in.
+      if (Platform.OS !== "web") router.replace("/(driver)/home");
+    } catch (err) {
+      setError((err as Error).message ?? "Google sign-in failed");
     } finally {
       setSubmitting(false);
     }
@@ -71,6 +85,12 @@ export default function AddAccountScreen() {
             }
             disabled={submitting}
             onPress={handleSubmit}
+          />
+          <Button
+            title="Continue with Google"
+            variant="secondary"
+            disabled={submitting}
+            onPress={handleGoogle}
           />
           {/* Frictionless: never block entry — continue as a guest. */}
           <Button
