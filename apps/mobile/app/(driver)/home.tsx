@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -18,6 +18,7 @@ import {
 import { isElm327Paired, pairElm327, unpairElm327 } from "@lib/elm327";
 import { haptics } from "@lib/haptics";
 import { useVehicle } from "@lib/vehicleContext";
+import { useHardwareBack } from "@lib/useHardwareBack";
 
 const BOTTOM_SCROLL_PADDING = 112;
 
@@ -37,6 +38,10 @@ export default function DriverHomeScreen() {
   const bottomReserve = BOTTOM_SCROLL_PADDING + insets.bottom;
 
   const { user, logout, selectedVehicle, vehicles, selectVehicle } = useVehicle();
+
+  // Home is the post-auth root: block the Android back button so it can never
+  // pop back to the welcome/login screen. The only way off home is Log out.
+  useHardwareBack(useCallback(() => true, []));
   const [health, setHealth] = useState<VehicleHealthResponse>(FALLBACK_HEALTH);
   const [loadingHealth, setLoadingHealth] = useState(true);
   const [showObd, setShowObd] = useState(() => !isElm327Paired());

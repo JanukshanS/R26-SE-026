@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Linking, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -10,6 +10,7 @@ import { MapPreview } from "@components/ui/map-preview";
 import { Screen } from "@components/ui/screen";
 import { palette, spacing, typography } from "@theme/index";
 import { useEmergency } from "@lib/emergencyContext";
+import { useHardwareBack } from "@lib/useHardwareBack";
 import { haptics } from "@lib/haptics";
 import {
   getProvider,
@@ -28,6 +29,14 @@ function formatEta(min?: number): string {
 export default function ConnectedScreen() {
   const { dispatchResult, reset } = useEmergency();
   const sp = dispatchResult?.selectedProvider;
+
+  // Job is dispatched — back returns home (clearing the emergency state for a
+  // fresh start), never into the now-stale questionnaire.
+  useHardwareBack(useCallback(() => {
+    reset();
+    router.replace("/(driver)/home");
+    return true;
+  }, [reset]));
 
   // After dispatch we fetch the provider's full record so we have lat/lng
   // for the map view and distance display.
@@ -106,6 +115,7 @@ export default function ConnectedScreen() {
       }
     >
       <HeaderBar
+        showBack={false}
         right={
           <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
             <View

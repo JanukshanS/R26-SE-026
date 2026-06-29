@@ -10,6 +10,7 @@ import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { palette, spacing, typography } from "@theme/index";
 import { useEmergency } from "@lib/emergencyContext";
+import { useHardwareBack } from "@lib/useHardwareBack";
 import { haptics } from "@lib/haptics";
 import {
   runDispatch,
@@ -24,6 +25,13 @@ export default function DiagnosisResultScreen() {
     incidentId, triageResult, dispatchResult,
     setDispatchResult, setError, setLoading, loading, error,
   } = useEmergency();
+
+  // The diagnosis is complete — back must not re-enter the questionnaire (which
+  // would re-submit triage for the same incident). Send it home instead.
+  useHardwareBack(useCallback(() => {
+    router.replace("/(driver)/home");
+    return true;
+  }, []));
 
   // Kick off /dispatch/optimize automatically once we land here (matches the
   // "Fetching a Service Provider" loading state in the reference UI). Lifted
@@ -82,7 +90,7 @@ export default function DiagnosisResultScreen() {
         </>
       }
     >
-      <HeaderBar />
+      <HeaderBar showBack={false} />
       <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Result</Text>
 
       <Card>

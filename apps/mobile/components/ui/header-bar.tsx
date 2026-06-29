@@ -6,10 +6,13 @@ import { palette, radii, spacing, typography } from "@theme/index";
 type Props = {
   title?: string;
   showBack?: boolean;
+  /** Show a one-tap "home" shortcut on the right (so multi-step flows don't
+   *  force back-spamming all the way out). Suppressed when `right` is given. */
+  showHome?: boolean;
   right?: React.ReactNode;
 };
 
-export function HeaderBar({ title, showBack = true, right }: Props) {
+export function HeaderBar({ title, showBack = true, showHome = true, right }: Props) {
   return (
     <View
       style={{
@@ -50,7 +53,32 @@ export function HeaderBar({ title, showBack = true, right }: Props) {
           <Text style={{ color: palette.text, ...typography.h3 }}>{title}</Text>
         ) : null}
       </View>
-      <View style={{ flex: 1, alignItems: "flex-end" }}>{right}</View>
+      <View style={{ flex: 1, alignItems: "flex-end" }}>
+        {right ?? (showHome ? (
+          <Pressable
+            onPress={() => router.replace("/(driver)/home")}
+            accessibilityRole="button"
+            accessibilityLabel="Go to home"
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.7 : 1,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+              paddingVertical: 6,
+              paddingHorizontal: spacing.md,
+              borderRadius: radii.pill,
+              backgroundColor: palette.surface,
+              borderWidth: 1,
+              borderColor: palette.border,
+            })}
+          >
+            <Icon name="House" size={14} color={palette.text} />
+            <Text style={{ color: palette.text, ...typography.caption, fontWeight: "600" }}>
+              home
+            </Text>
+          </Pressable>
+        ) : null)}
+      </View>
     </View>
   );
 }
