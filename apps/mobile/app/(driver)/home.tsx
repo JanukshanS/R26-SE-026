@@ -15,7 +15,7 @@ import {
   rulToLabel,
   type VehicleHealthResponse,
 } from "@lib/maintenanceApi";
-import { isElm327Paired, pairElm327, unpairElm327 } from "@lib/elm327";
+import { isElm327Paired, isRealBleSupported, pairElm327Async, unpairElm327 } from "@lib/elm327";
 import { haptics } from "@lib/haptics";
 import { useVehicle } from "@lib/vehicleContext";
 import { useHardwareBack } from "@lib/useHardwareBack";
@@ -46,11 +46,31 @@ export default function DriverHomeScreen() {
   const [loadingHealth, setLoadingHealth] = useState(true);
   const [showObd, setShowObd] = useState(() => !isElm327Paired());
   const [showVehiclePicker, setShowVehiclePicker] = useState(false);
+  // Real BLE pairing is async (scan + connect takes seconds). We show a
+  // "Connecting…" state while it runs. pairElm327Async never rejects — it
+  // falls back to the on-device simulation when no real dongle is reachable
+  // (Expo Go, web, Bluetooth off, or nothing found) — so we don't need an
+  // error branch here; we just close the modal once it settles.
+  const [pairingObd, setPairingObd] = useState(false);
 
   const vehicleId = selectedVehicle?.plateNumber ?? "CBD-3742";
   const vehicleLabel = selectedVehicle
   ? (selectedVehicle.nickname || `${selectedVehicle.make} ${selectedVehicle.model}`)
   : "Toyota Aqua";
+
+  const handlePairObd = useCallback(async () => {
+    setPairingObd(true);
+    try {
+      // Tries a real ELM327 dongle over Bluetooth first; transparently falls
+      // back to the on-device simulation if none is reachable. Persists for
+      // the session so subsequent triage submissions read live OBD telemetry
+      // and run at Tier-2 (OBD-enhanced) on the dispatch backend.
+      await pairElm327Async(vehicleId);
+    } finally {
+      setPairingObd(false);
+      setShowObd(false);
+    }
+  }, [vehicleId]);
 
   useEffect(() => {
     setLoadingHealth(true);
@@ -502,13 +522,24 @@ export default function DriverHomeScreen() {
                   lineHeight: 22,
                 }}
               >
-                Pair an OBD-II adapter to let the app read live data from your vehicle and
-                track its real health.
+                {pairingObd
+                  ? "Scanning for your OBD-II adapter over Bluetooth…"
+                  : "Pair an OBD-II adapter to let the app read live data from your vehicle and track its real health."}
               </Text>
+              {/* In Expo Go / web the native Bluetooth module isn't loaded, so
+                  pairing uses a realistic on-device simulation instead. */}
+              {!isRealBleSupported() && !pairingObd && (
+                <Text
+                  style={{ ...typography.micro, color: palette.textMuted, textAlign: "center" }}
+                >
+                  Bluetooth scanning needs a dev build — simulated telemetry will be used here.
+                </Text>
+              )}
             </View>
 
             <View style={{ flexDirection: "row", gap: spacing.md, width: "100%" }}>
               <Pressable
+                disabled={pairingObd}
                 onPress={() => {
                   // User chose not to connect a sensor — vehicle is "manual",
                   // triage will run at Tier-1 (questionnaire only).
@@ -522,29 +553,30 @@ export default function DriverHomeScreen() {
                   borderWidth: 1.5,
                   borderColor: palette.border,
                   backgroundColor: pressed ? palette.homeBackground : "transparent",
+                  opacity: pairingObd ? 0.5 : 1,
                 })}
               >
                 <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Skip</Text>
               </Pressable>
 
               <Pressable
-                onPress={() => {
-                  // Simulate Bluetooth ELM327 pairing. Persists for the session
-                  // so subsequent triage submissions read live OBD telemetry
-                  // and run at Tier-2 (OBD-enhanced) on the dispatch backend.
-                  pairElm327(vehicleId);
-                  setShowObd(false);
-                }}
+                disabled={pairingObd}
+                onPress={handlePairObd}
                 style={({ pressed }) => ({
                   flex: 1,
                   borderRadius: radii.lg,
                   paddingVertical: spacing.md + 2,
+                  flexDirection: "row",
                   alignItems: "center",
+                  justifyContent: "center",
+                  gap: spacing.sm,
                   backgroundColor: pressed ? palette.brandPressed : palette.brand,
+                  opacity: pairingObd ? 0.85 : 1,
                 })}
               >
+                {pairingObd && <ActivityIndicator size="small" color={palette.textOnBrand} />}
                 <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-                  Pair OBD-II
+                  {pairingObd ? "Connecting…" : "Pair OBD-II"}
                 </Text>
               </Pressable>
             </View>

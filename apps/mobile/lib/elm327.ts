@@ -1,284 +1,198 @@
 /**
  * ============================================================================
- * ELM327 Service — simulated Bluetooth OBD-II reader (mobile-side, no backend)
+ * ELM327 Service — facade over a REAL BLE reader with a SIMULATION fallback
  * ============================================================================
  *
- * Models a Bluetooth ELM327 dongle plugged into the vehicle's OBD-II port.
- * In production this file is the place to swap in real Bluetooth I/O via
- * `react-native-ble-plx` + OBD-II PID parsing. For the demo we generate
- * realistic readings entirely on-device so dispatch is no longer dependent
- * on Herath's predictive-maintenance service being up.
+ * Public entry point for the rest of the app. Callers (`home.tsx`,
+ * `(emergency)/context.tsx`) import everything from here and never need to
+ * know whether the readings came from a physical ELM327 dongle over Bluetooth
+ * or from the on-device simulation.
  *
- * Design properties:
- *   - "Paired" state is module-global (mirrors how a real Bluetooth handle
- *     persists for the app session).
- *   - When pairing happens we lock in a single "vehicle condition" for the
- *     session — subsequent reads return readings consistent with that
- *     condition (with small jitter to simulate live telemetry).
- *   - If no device is paired (driver has a "manual" vehicle), reads return
- *     `null` and the triage engine falls back to Tier-1 (questionnaire only).
+ * Routing rule (decided once, at runtime):
+ *   - If the native `react-native-ble-plx` module is actually present AND the
+ *     scan/connect/handshake succeeds → use the REAL reader (`elm327.ble.ts`).
+ *   - Otherwise — web, Expo Go (native module can't load), no Bluetooth
+ *     adapter, no dongle found, or any connect/read failure → transparently
+ *     use the SIMULATION (`elm327.sim.ts`). Every existing screen keeps
+ *     working unchanged; the demo never breaks.
  *
- * This is the cross-component decoupling the user asked for: dispatch's
- * Tier-2 path now flows from the vehicle's own sensors, not from another
- * student's service.
+ * Why a facade instead of one big file with an `if`: the simulation is the
+ * fallback and stays self-contained; the BLE code is the only place that
+ * `require()`s native and must be loaded defensively. Splitting them keeps
+ * each readable and guarantees the native require can't leak into the
+ * always-evaluated path.
+ *
+ * API COMPATIBILITY
+ * -----------------
+ * The synchronous `pairElm327(vehicleId)` is preserved verbatim (it pairs the
+ * simulation and returns `PairingInfo` immediately — no UI churn). Real BLE
+ * pairing is inherently async (scan+connect takes seconds), so it gets its own
+ * `pairElm327Async(vehicleId)` which `home.tsx` awaits behind a "Connecting…"
+ * state and which falls back to the sim on failure.
  *
  * @author Janukshan Sivakumar - IT22635266
  */
 
-export interface TriageOBDData {
-  battery_voltage_v:      number;
-  battery_temp_c:         number;
-  battery_charge_percent: number;
-  battery_health_percent: number;
-  alternator_output_v:    number;
-  engine_temp_c:          number;
-  coolant_temp_c:         number;
-  engine_rpm:             number;
-  oil_pressure_psi:       number;
-  fuel_level_percent:     number;
-  engine_load_percent:    number;
-  ambient_temp_c:         number;
-  brake_fluid_level_psi:  number;
-  brake_pad_wear_mm:      number;
-  brake_temp_c:           number;
-  available:              true;
-}
+import * as sim from "./elm327.sim";
+import * as ble from "./elm327.ble";
 
-// ─────────────────────────────────────────────────────────────────────────
-// Vehicle-condition presets
-// ─────────────────────────────────────────────────────────────────────────
-//
-// Each preset is a plausible "stranded vehicle" state. At pair time we pick
-// one (weighted by SL real-world frequency from the proposal §1.1) and
-// stick with it for the session. Reads come back with this state's
-// signature + small noise.
+// Re-export the shared types & constants unchanged so callers keep importing
+// them from "@lib/elm327".
+export type { TriageOBDData, VehicleState } from "./elm327.sim";
+export { VEHICLE_STATES } from "./elm327.sim";
 
-export type VehicleState =
-  | "HEALTHY"          // driver paired before any issue
-  | "BATTERY_DRAIN"    // dead/flat battery
-  | "BATTERY_AGED"     // older battery struggling
-  | "STARTER_AGED"     // battery OK, starter weak
-  | "OVERHEATED"       // cooling problem
-  | "FUEL_LOW"         // tank near empty
-  | "BRAKE_WORN";      // brake pads thin
-
-export const VEHICLE_STATES: VehicleState[] = [
-  "HEALTHY",
-  "BATTERY_DRAIN",
-  "BATTERY_AGED",
-  "STARTER_AGED",
-  "OVERHEATED",
-  "FUEL_LOW",
-  "BRAKE_WORN",
-];
-
-const STATE_PRIOR: Record<VehicleState, number> = {
-  HEALTHY:        0.25,  // many pairings happen pre-incident
-  BATTERY_DRAIN:  0.25,
-  BATTERY_AGED:   0.12,
-  STARTER_AGED:   0.10,
-  OVERHEATED:     0.10,
-  FUEL_LOW:       0.08,
-  BRAKE_WORN:     0.10,
-};
-
-function pickState(): VehicleState {
-  const r = Math.random();
-  let cum = 0;
-  for (const [state, p] of Object.entries(STATE_PRIOR)) {
-    cum += p;
-    if (r <= cum) return state as VehicleState;
-  }
-  return "HEALTHY";
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Module-global pairing state (mirrors a Bluetooth connection handle)
-// ─────────────────────────────────────────────────────────────────────────
-
-interface PairingInfo {
-  mac:        string;
-  pairedAt:   number;
-  vehicleId:  string;
-  state:      VehicleState;
-}
-
-let pairing: PairingInfo | null = null;
+import type { PairingInfo, VehicleState } from "./elm327.sim";
+export type { PairingInfo };
 
 /**
- * Tracks the incident id the current `pairing.state` was generated for. When
- * a different incident reads OBD, we re-randomize — so each new emergency
- * gets a fresh "vehicle condition" rather than every dispatch returning the
- * same diagnosis. Multiple reads within ONE incident return consistent
- * values (which is what real Bluetooth would do — telemetry doesn't flip
- * between dispatches).
+ * How the current pairing is backed. "ble" means a live dongle; "sim" means
+ * the on-device fallback. Tracked so the facade routes reads correctly and so
+ * teardown hits the right backend.
  */
-let lastReadIncidentId: string | null = null;
-/** Set true via setForcedState() for demos — overrides the random picker. */
-let forcedState: VehicleState | null = null;
+type Backend = "ble" | "sim" | null;
+let backend: Backend = null;
 
+// ─────────────────────────────────────────────────────────────────────────
+// Pairing state queries
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * True if EITHER a real ELM327 is connected OR the simulation is paired.
+ * `home.tsx` uses this to decide whether to show the "Connect OBD-II" modal,
+ * and `(emergency)/context.tsx` to label the expected triage tier.
+ */
 export function isElm327Paired(): boolean {
-  return pairing !== null;
-}
-
-export function getPairing(): Readonly<PairingInfo> | null {
-  return pairing;
+  return backend === "ble" ? ble.isConnected() : sim.isPaired();
 }
 
 /**
- * Force the next read to use a specific state. Useful for the viva to
- * deterministically demonstrate each diagnosis pathway. Pass `null` to
- * resume random selection.
+ * Pairing metadata. For a real dongle this carries the device's actual MAC
+ * (state is reported as "HEALTHY" since we read real telemetry, not a
+ * synthesized condition). For the simulation it's the synthesized handle.
+ */
+export function getPairing(): Readonly<PairingInfo> | null {
+  // Real-BLE pairing also records a sim-shaped PairingInfo (with the real MAC)
+  // so this getter stays uniform for callers; see pairElm327Async.
+  return sim.getPairing();
+}
+
+/**
+ * Force the next SIMULATED read to a specific vehicle state (viva demos).
+ * No-op effect on a live dongle — real telemetry can't be forced — but kept
+ * callable so the public API is unchanged.
  */
 export function setForcedState(state: VehicleState | null): void {
-  forcedState = state;
-  // Apply immediately to the active pairing so the next read reflects it.
-  if (pairing && state) pairing.state = state;
+  sim.setForcedState(state);
 }
 
 export function getCurrentState(): VehicleState | null {
-  return pairing?.state ?? null;
-}
-
-/** Simulate Bluetooth pairing. Picks a fresh "vehicle state" for the session. */
-export function pairElm327(vehicleId: string): PairingInfo {
-  pairing = {
-    mac:       generateFakeMac(),
-    pairedAt:  Date.now(),
-    vehicleId,
-    state:     forcedState ?? pickState(),
-  };
-  lastReadIncidentId = null;
-  return pairing;
-}
-
-export function unpairElm327(): void {
-  pairing = null;
-  lastReadIncidentId = null;
-}
-
-function generateFakeMac(): string {
-  const hex = "0123456789ABCDEF";
-  const pick = () => hex[Math.floor(Math.random() * 16)] + hex[Math.floor(Math.random() * 16)];
-  return [pick(), pick(), pick(), pick(), pick(), pick()].join(":");
+  return sim.getCurrentState();
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Live OBD read
+// Pairing
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Read live OBD-II PIDs from the paired ELM327.
- *   - Returns null if no device is paired (manual vehicle → Tier-1).
- *   - If `incidentId` differs from the last call, the vehicle's "current
- *     condition" is re-randomized — so different emergencies surface
- *     different diagnoses. Same incident = same readings (matches what
- *     real telemetry would do during a single roadside event).
- *   - Simulates ~250ms Bluetooth latency for the loading UX.
+ * SYNCHRONOUS pairing — pairs the SIMULATION and returns immediately. Kept for
+ * backwards compatibility and as the guaranteed-instant path. `home.tsx` now
+ * prefers `pairElm327Async` (which tries the real dongle first), but anything
+ * that needs a synchronous PairingInfo can still call this.
+ */
+export function pairElm327(vehicleId: string): PairingInfo {
+  const info = sim.pair(vehicleId);
+  backend = "sim";
+  return info;
+}
+
+/**
+ * ASYNC pairing — tries the REAL ELM327 over BLE first; on any failure
+ * (BLE unavailable, no dongle, connect/handshake error) transparently falls
+ * back to the simulation so pairing never hard-fails the user. Returns the
+ * `PairingInfo` either way.
+ *
+ * `home.tsx` awaits this behind a "Connecting…" state. On a successful BLE
+ * connect, `isElm327Paired()` returns true and reads flow from the dongle.
+ *
+ * @throws never — always resolves (real or simulated).
+ */
+export async function pairElm327Async(vehicleId: string): Promise<PairingInfo> {
+  // No native BLE here (web / Expo Go / no adapter) → straight to sim.
+  if (!ble.isBleAvailable()) {
+    return pairElm327(vehicleId);
+  }
+
+  try {
+    const { mac } = await ble.connect();
+    // Record a uniform PairingInfo carrying the REAL device MAC so getPairing()
+    // and the home modal behave identically to the sim path. Reads, however,
+    // are routed to BLE via `backend`.
+    const info = sim.pair(vehicleId);
+    (info as { mac: string }).mac = mac;
+    backend = "ble";
+    return info;
+  } catch {
+    // Scan/connect/handshake failed — fall back to the simulation so the user
+    // still gets a working (simulated) OBD session instead of a dead end.
+    return pairElm327(vehicleId);
+  }
+}
+
+/**
+ * Whether the current runtime can even attempt a real BLE connection
+ * (false on web and in Expo Go). `home.tsx` can use this to tailor copy
+ * ("Pair OBD-II" vs "Pair (simulated)") if desired — optional.
+ */
+export function isRealBleSupported(): boolean {
+  return ble.isBleAvailable();
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Unpair
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Drop the pairing. Tears down a live BLE connection if there is one, and
+ * always clears the simulation handle. Fire-and-forget on the BLE disconnect
+ * so the signature stays synchronous (matches the previous contract; callers
+ * like `home.tsx`'s Log out don't await it).
+ */
+export function unpairElm327(): void {
+  if (backend === "ble") {
+    void ble.disconnect();
+  }
+  sim.unpair();
+  backend = null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Live read
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Read live OBD telemetry. Routes to the real dongle when one is connected,
+ * else to the simulation. Returns `null` when nothing is paired (manual
+ * vehicle → Tier-1 on the dispatch backend).
+ *
+ * If a real BLE read fails mid-session (e.g. the dongle drops), we degrade to
+ * a simulated read rather than returning null — the emergency flow keeps a
+ * Tier-2 payload instead of silently dropping to Tier-1.
  */
 export async function readObdFromElm327(
   incidentId?: string
-): Promise<TriageOBDData | null> {
-  if (!pairing) return null;
-
-  // Fresh incident → fresh vehicle condition (unless caller forced one).
-  if (incidentId && incidentId !== lastReadIncidentId) {
-    if (forcedState) {
-      pairing.state = forcedState;
-    } else {
-      pairing.state = pickState();
+): Promise<sim.TriageOBDData | null> {
+  if (backend === "ble" && ble.isConnected()) {
+    try {
+      const real = await ble.readObd();
+      if (real) return real;
+    } catch {
+      /* fall through to a simulated read below */
     }
-    lastReadIncidentId = incidentId;
+    // BLE returned nothing / threw → make sure the sim has a handle, then read
+    // from it so the caller still receives Tier-2 telemetry this incident.
+    if (!sim.isPaired()) sim.pair(getPairing()?.vehicleId ?? "UNKNOWN");
+    return sim.readObd(incidentId);
   }
 
-  await new Promise((r) => setTimeout(r, 250));
-  return synthesizeReadings(pairing.state);
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Reading synthesizer — converts a VehicleState into plausible OBD-II PIDs
-// ─────────────────────────────────────────────────────────────────────────
-
-function jitter(value: number, percentNoise = 3): number {
-  const delta = value * (percentNoise / 100) * (Math.random() * 2 - 1);
-  return Number((value + delta).toFixed(2));
-}
-
-function synthesizeReadings(state: VehicleState): TriageOBDData {
-  // Baseline = a parked, key-in-ACC 2015 Toyota Aqua in Colombo (28-32°C).
-  // Engine is off so RPM/oil_pressure are 0; battery + brakes still readable.
-  const r = {
-    battery_voltage_v:      12.4,
-    battery_temp_c:         30,
-    battery_charge_percent: 75,
-    battery_health_percent: 85,
-    alternator_output_v:    0,    // engine off — no charging
-    engine_temp_c:          32,
-    coolant_temp_c:         34,
-    engine_rpm:             0,
-    oil_pressure_psi:       0,
-    fuel_level_percent:     55,
-    engine_load_percent:    0,
-    ambient_temp_c:         29,
-    brake_fluid_level_psi:  95,
-    brake_pad_wear_mm:      7.0,
-    brake_temp_c:           30,
-  };
-
-  // State-specific overrides — pull readings into a fault-indicating range
-  // for the chosen condition. Magnitudes calibrated against the dataset that
-  // trained the Tier-2 ML model (synthetic_telemetry_data.csv).
-  switch (state) {
-    case "BATTERY_DRAIN":
-      r.battery_voltage_v      = 10.6;
-      r.battery_charge_percent = 12;
-      r.battery_health_percent = 78;
-      break;
-    case "BATTERY_AGED":
-      r.battery_voltage_v      = 11.3;
-      r.battery_charge_percent = 35;
-      r.battery_health_percent = 55;
-      r.battery_temp_c         = 38;
-      break;
-    case "STARTER_AGED":
-      r.battery_voltage_v      = 11.9;       // battery OK
-      r.battery_charge_percent = 65;
-      r.battery_health_percent = 72;
-      break;
-    case "OVERHEATED":
-      r.engine_temp_c   = 107;
-      r.coolant_temp_c  = 103;
-      r.oil_pressure_psi = 22;
-      break;
-    case "FUEL_LOW":
-      r.fuel_level_percent = 2;
-      break;
-    case "BRAKE_WORN":
-      r.brake_pad_wear_mm    = 2.5;
-      r.brake_fluid_level_psi = 72;
-      r.brake_temp_c          = 48;
-      break;
-    case "HEALTHY":
-      // baseline is already healthy
-      break;
-  }
-
-  return {
-    battery_voltage_v:      jitter(r.battery_voltage_v,      2),
-    battery_temp_c:         jitter(r.battery_temp_c,         4),
-    battery_charge_percent: jitter(r.battery_charge_percent, 5),
-    battery_health_percent: jitter(r.battery_health_percent, 2),
-    alternator_output_v:    r.alternator_output_v,   // 0 stays 0
-    engine_temp_c:          jitter(r.engine_temp_c,          3),
-    coolant_temp_c:         jitter(r.coolant_temp_c,         3),
-    engine_rpm:             r.engine_rpm,            // 0 stays 0
-    oil_pressure_psi:       jitter(r.oil_pressure_psi,       8),
-    fuel_level_percent:     jitter(r.fuel_level_percent,     4),
-    engine_load_percent:    0,
-    ambient_temp_c:         jitter(r.ambient_temp_c,         5),
-    brake_fluid_level_psi:  jitter(r.brake_fluid_level_psi,  2),
-    brake_pad_wear_mm:      jitter(r.brake_pad_wear_mm,      4),
-    brake_temp_c:           jitter(r.brake_temp_c,           7),
-    available:              true,
-  };
+  return sim.readObd(incidentId);
 }
