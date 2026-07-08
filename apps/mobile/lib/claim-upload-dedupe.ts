@@ -7,6 +7,30 @@ import { loadThirdPartyState } from '@/features/third-party/storage/third-party-
 
 const ROOT_DIR = (FileSystem.documentDirectory ?? '') + 'claim-upload/';
 const LAST_SUCCESS_KEY_FILE = ROOT_DIR + 'last-success-bundle-key.txt';
+const LAST_SUCCESS_LOCATION_FILE = ROOT_DIR + 'last-success-location.json';
+
+export type PersistedClaimLocation = {
+  locationLine: string;
+  timestampLine: string;
+};
+
+export async function savePersistedClaimLocation(data: PersistedClaimLocation): Promise<void> {
+  await FileSystem.makeDirectoryAsync(ROOT_DIR, { intermediates: true });
+  await FileSystem.writeAsStringAsync(LAST_SUCCESS_LOCATION_FILE, JSON.stringify(data));
+}
+
+export async function loadPersistedClaimLocation(): Promise<PersistedClaimLocation | null> {
+  try {
+    await FileSystem.makeDirectoryAsync(ROOT_DIR, { intermediates: true });
+    const info = await FileSystem.getInfoAsync(LAST_SUCCESS_LOCATION_FILE);
+    if (!info.exists) return null;
+    const parsed = JSON.parse(await FileSystem.readAsStringAsync(LAST_SUCCESS_LOCATION_FILE)) as Partial<PersistedClaimLocation>;
+    if (typeof parsed.locationLine !== 'string' || typeof parsed.timestampLine !== 'string') return null;
+    return { locationLine: parsed.locationLine, timestampLine: parsed.timestampLine };
+  } catch {
+    return null;
+  }
+}
 
 function djb2Hex(input: string): string {
   let h = 5381 >>> 0;
@@ -57,6 +81,11 @@ export async function isClaimReportSubmittedLocked(): Promise<boolean> {
 export async function clearPersistedClaimUploadSuccess(): Promise<void> {
   try {
     await FileSystem.deleteAsync(LAST_SUCCESS_KEY_FILE, { idempotent: true });
+  } catch {
+    // best-effort
+  }
+  try {
+    await FileSystem.deleteAsync(LAST_SUCCESS_LOCATION_FILE, { idempotent: true });
   } catch {
     // best-effort
   }

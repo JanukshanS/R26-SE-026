@@ -53,6 +53,18 @@ class CaptureRepository:
                     "ALTER TABLE captures ADD COLUMN IF NOT EXISTS report_gps_lng DOUBLE PRECISION NULL",
                     "ALTER TABLE captures ADD COLUMN IF NOT EXISTS report_location_label TEXT NULL",
                     "ALTER TABLE captures ADD COLUMN IF NOT EXISTS report_captured_at_display_local TEXT NULL",
+                    "ALTER TABLE captures ADD COLUMN IF NOT EXISTS insurer_call_at TIMESTAMPTZ NULL",
+                    "ALTER TABLE captures ADD COLUMN IF NOT EXISTS insurer_call_gps_lat DOUBLE PRECISION NULL",
+                    "ALTER TABLE captures ADD COLUMN IF NOT EXISTS insurer_call_gps_lng DOUBLE PRECISION NULL",
+                    "ALTER TABLE captures ADD COLUMN IF NOT EXISTS insurer_call_location_permission TEXT NULL",
+                    "ALTER TABLE captures ADD COLUMN IF NOT EXISTS insurer_call_location_label TEXT NULL",
+                    "ALTER TABLE captures ADD COLUMN IF NOT EXISTS insurer_call_captured_at_display_local TEXT NULL",
+                    "ALTER TABLE captures ADD COLUMN IF NOT EXISTS guided_capture_started_at TIMESTAMPTZ NULL",
+                    "ALTER TABLE captures ADD COLUMN IF NOT EXISTS guided_capture_start_captured_at_display_local TEXT NULL",
+                    "ALTER TABLE captures ADD COLUMN IF NOT EXISTS guided_capture_start_gps_lat DOUBLE PRECISION NULL",
+                    "ALTER TABLE captures ADD COLUMN IF NOT EXISTS guided_capture_start_gps_lng DOUBLE PRECISION NULL",
+                    "ALTER TABLE captures ADD COLUMN IF NOT EXISTS guided_capture_start_location_permission TEXT NULL",
+                    "ALTER TABLE captures ADD COLUMN IF NOT EXISTS guided_capture_start_location_label TEXT NULL",
                 ):
                     cur.execute(ddl)
                 cur.execute(
@@ -120,6 +132,18 @@ class CaptureRepository:
         report_gps_lat: Optional[float] = None,
         report_gps_lng: Optional[float] = None,
         report_location_label: Optional[str] = None,
+        insurer_call_at: Optional[datetime] = None,
+        insurer_call_captured_at_display_local: Optional[str] = None,
+        insurer_call_gps_lat: Optional[float] = None,
+        insurer_call_gps_lng: Optional[float] = None,
+        insurer_call_location_permission: Optional[str] = None,
+        insurer_call_location_label: Optional[str] = None,
+        guided_capture_started_at: Optional[datetime] = None,
+        guided_capture_start_captured_at_display_local: Optional[str] = None,
+        guided_capture_start_gps_lat: Optional[float] = None,
+        guided_capture_start_gps_lng: Optional[float] = None,
+        guided_capture_start_location_permission: Optional[str] = None,
+        guided_capture_start_location_label: Optional[str] = None,
     ) -> Dict[str, object]:
         capture_id = str(uuid4())
         with self._connect() as conn:
@@ -127,34 +151,43 @@ class CaptureRepository:
                 cur.execute(
                     """
                     INSERT INTO captures (
-                        id,
-                        status,
-                        claimant_name,
-                        claimant_nic,
-                        claimant_licence_number,
-                        report_captured_at,
-                        report_captured_at_display_local,
-                        report_gps_lat,
-                        report_gps_lng,
-                        report_location_label
+                        id, status,
+                        claimant_name, claimant_nic, claimant_licence_number,
+                        report_captured_at, report_captured_at_display_local,
+                        report_gps_lat, report_gps_lng, report_location_label,
+                        insurer_call_at, insurer_call_captured_at_display_local,
+                        insurer_call_gps_lat, insurer_call_gps_lng,
+                        insurer_call_location_permission, insurer_call_location_label,
+                        guided_capture_started_at, guided_capture_start_captured_at_display_local,
+                        guided_capture_start_gps_lat,
+                        guided_capture_start_gps_lng, guided_capture_start_location_permission,
+                        guided_capture_start_location_label
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id, status, created_at, completed_at,
                               claimant_name, claimant_nic, claimant_licence_number,
                               report_captured_at, report_captured_at_display_local,
-                              report_gps_lat, report_gps_lng, report_location_label
+                              report_gps_lat, report_gps_lng, report_location_label,
+                              insurer_call_at, insurer_call_captured_at_display_local,
+                              insurer_call_gps_lat, insurer_call_gps_lng,
+                              insurer_call_location_permission, insurer_call_location_label,
+                              guided_capture_started_at, guided_capture_start_captured_at_display_local,
+                              guided_capture_start_gps_lat,
+                              guided_capture_start_gps_lng, guided_capture_start_location_permission,
+                              guided_capture_start_location_label
                     """,
                     (
-                        capture_id,
-                        "uploading",
-                        claimant_name,
-                        claimant_nic,
-                        claimant_licence_number,
-                        report_captured_at,
-                        report_captured_at_display_local,
-                        report_gps_lat,
-                        report_gps_lng,
-                        report_location_label,
+                        capture_id, "uploading",
+                        claimant_name, claimant_nic, claimant_licence_number,
+                        report_captured_at, report_captured_at_display_local,
+                        report_gps_lat, report_gps_lng, report_location_label,
+                        insurer_call_at, insurer_call_captured_at_display_local,
+                        insurer_call_gps_lat, insurer_call_gps_lng,
+                        insurer_call_location_permission, insurer_call_location_label,
+                        guided_capture_started_at, guided_capture_start_captured_at_display_local,
+                        guided_capture_start_gps_lat,
+                        guided_capture_start_gps_lng, guided_capture_start_location_permission,
+                        guided_capture_start_location_label,
                     ),
                 )
                 row = cur.fetchone()
@@ -170,7 +203,14 @@ class CaptureRepository:
                     SELECT id, status, created_at, completed_at,
                            claimant_name, claimant_nic, claimant_licence_number,
                            report_captured_at, report_captured_at_display_local,
-                           report_gps_lat, report_gps_lng, report_location_label
+                           report_gps_lat, report_gps_lng, report_location_label,
+                           insurer_call_at, insurer_call_captured_at_display_local,
+                           insurer_call_gps_lat, insurer_call_gps_lng,
+                           insurer_call_location_permission, insurer_call_location_label,
+                           guided_capture_started_at, guided_capture_start_captured_at_display_local,
+                           guided_capture_start_gps_lat,
+                           guided_capture_start_gps_lng, guided_capture_start_location_permission,
+                           guided_capture_start_location_label
                     FROM captures
                     WHERE id = %s
                     """,

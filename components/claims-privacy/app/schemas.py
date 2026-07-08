@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 
 class CreateCaptureRequest(BaseModel):
-    """Optional claimant + report snapshot (same moment as “Captured and submitted” in the app)."""
+    """Optional claimant + report snapshot (same moment as "Captured and submitted" in the app)."""
 
     claimant_name: Optional[str] = Field(default=None, max_length=200)
     claimant_nic: Optional[str] = Field(default=None, max_length=32)
@@ -19,6 +19,22 @@ class CreateCaptureRequest(BaseModel):
     report_gps_lat: Optional[float] = None
     report_gps_lng: Optional[float] = None
     report_location_label: Optional[str] = Field(default=None, max_length=2000)
+
+    # Location snapshot captured when user tapped "Need to call Allianz Insurance?"
+    insurer_call_at: Optional[datetime] = None
+    insurer_call_gps_lat: Optional[float] = None
+    insurer_call_gps_lng: Optional[float] = None
+    insurer_call_location_permission: Optional[str] = Field(default=None, max_length=20)
+    insurer_call_location_label: Optional[str] = Field(default=None, max_length=2000)
+    insurer_call_captured_at_display_local: Optional[str] = Field(default=None, max_length=240)
+
+    # Location snapshot captured when user tapped "Guided Capture"
+    guided_capture_started_at: Optional[datetime] = None
+    guided_capture_start_captured_at_display_local: Optional[str] = Field(default=None, max_length=240)
+    guided_capture_start_gps_lat: Optional[float] = None
+    guided_capture_start_gps_lng: Optional[float] = None
+    guided_capture_start_location_permission: Optional[str] = Field(default=None, max_length=20)
+    guided_capture_start_location_label: Optional[str] = Field(default=None, max_length=2000)
 
 
 class CaptureResponse(BaseModel):
