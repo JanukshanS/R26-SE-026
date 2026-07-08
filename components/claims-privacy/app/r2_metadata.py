@@ -6,14 +6,14 @@ from typing import Any, Dict, Optional
 
 # Temporary: claimant columns on `captures` may be empty; remove when the app always sends them.
 _PLACEHOLDER_CLAIMANT_NAME = "Dilnuk De Silva"
-_PLACEHOLDER_CLAIMANT_NIC = "200221301732"
-_PLACEHOLDER_CLAIMANT_LICENCE = "B4818153"
-_PLACEHOLDER_VEHICLE_MODEL = "Toyota Raize"
-_PLACEHOLDER_POLICY_NUMBER = "AL-VIP-00001"
+_PLACEHOLDER_CLAIMANT_NIC = "200429981166"
+_PLACEHOLDER_CLAIMANT_LICENCE = "B4915137"
+_PLACEHOLDER_VEHICLE_MODEL = "Honda Vezel"
+_PLACEHOLDER_POLICY_NUMBER = "AL-VIP-00003"
 
 
 def build_parent_folder_name(name: Optional[str], nic: Optional[str]) -> str:
-    """Return the R2 parent folder, e.g. 'Dilnuk De Silva - 200221301732'."""
+    """Return the R2 parent folder, e.g. 'Dilnuk De Silva - 200429981166'."""
     resolved_name = name.strip() if name else _PLACEHOLDER_CLAIMANT_NAME
     resolved_nic = nic.strip() if nic else _PLACEHOLDER_CLAIMANT_NIC
     safe_name = re.sub(r"[/\\]", "-", resolved_name)

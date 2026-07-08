@@ -43,6 +43,9 @@ import {
 import { shortestAngleDeltaDeg } from '@/features/guided-capture/sweep-geometry';
 import { prepareImageForZeroDce } from '@/features/low-light/prepare-image-for-zero-dce';
 import { clearPersistedClaimUploadSuccess } from '@/lib/claim-upload-dedupe';
+import { clearInsurerCallMeta } from '@/features/insurer-call/storage/insurer-call-store';
+import { clearGuidedCaptureEntryMeta } from '@/features/guided-capture/storage/guided-capture-entry-store';
+import { clearReportAccidentEntryMeta } from '@/features/report-accident/storage/report-accident-entry-store';
 import type { CaptureAngle } from '@/features/guided-capture/types';
 
 type UseGuidedCaptureResult = {
@@ -693,6 +696,9 @@ export function useGuidedCapture(
     setStatusMessage('Capture reset. Previous photos cleared.');
     void deleteGuidedCapturePhotos(urisToDelete);
     void clearPersistedClaimUploadSuccess();
+    void clearInsurerCallMeta();
+    void clearGuidedCaptureEntryMeta();
+    void clearReportAccidentEntryMeta();
   };
 
   const onClosePreview = () => {

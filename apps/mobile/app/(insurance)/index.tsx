@@ -14,8 +14,23 @@ import {
 import { isDrunkTestVideoCaptured, loadDrunkTestState } from '@/features/drunk-test/storage/drunk-test-store';
 import { MIN_PHOTOS } from '@/features/guided-capture/constants';
 import { loadGuidedCaptureStoreState } from '@/features/guided-capture/storage/guided-capture-store';
+import {
+  loadGuidedCaptureEntryMeta,
+  saveGuidedCaptureEntryMeta,
+} from '@/features/guided-capture/storage/guided-capture-entry-store';
 import { isThirdPartyStepComplete, loadThirdPartyState } from '@/features/third-party/storage/third-party-store';
+import {
+  type InsurerCallMeta,
+  loadInsurerCallMeta,
+  saveInsurerCallMeta,
+} from '@/features/insurer-call/storage/insurer-call-store';
+import {
+  loadReportAccidentEntryMeta,
+  saveReportAccidentEntryMeta,
+} from '@/features/report-accident/storage/report-accident-entry-store';
 import { computeClaimBundleUploadKey, isClaimReportSubmittedLocked } from '@/lib/claim-upload-dedupe';
+import { formatGeocodedLine } from '@/lib/format-geocoded-line';
+import { formatTimestamp } from '@/lib/format-timestamp';
 
 const COLORS = {
   screen: '#ffffff',
@@ -45,30 +60,22 @@ type FlowTask = {
 /** Insurer hotline — opens in the Phone app when the user taps the Allianz button (number not shown on screen). */
 const INSURER_PHONE_TEL = 'tel:+94112303300';
 
-/** Snapshot when the user opens Report Accident: device time + optional GPS (if permission granted). */
-export type ReportAccidentEntryMeta = {
-  /** ISO 8601 UTC — set when this snapshot is finalized (may be shortly after tap; navigation is not blocked). */
-  capturedAtIso: string;
-  latitude: number | null;
-  longitude: number | null;
-  accuracyMeters: number | null;
-  locationPermission: 'granted' | 'denied' | 'unavailable';
-};
-
-async function captureReportAccidentEntryMeta(): Promise<ReportAccidentEntryMeta> {
-  const base: ReportAccidentEntryMeta = {
-    capturedAtIso: '',
+async function captureReportAccidentEntryMeta(): Promise<InsurerCallMeta> {
+  const capturedAt = new Date();
+  const base: InsurerCallMeta = {
+    capturedAtIso: capturedAt.toISOString(),
+    capturedAtDisplayLocal: formatTimestamp(capturedAt),
     latitude: null,
     longitude: null,
     accuracyMeters: null,
     locationPermission: 'unavailable',
+    locationLabel: null,
   };
 
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
       base.locationPermission = 'denied';
-      base.capturedAtIso = new Date().toISOString();
       return base;
     }
     base.locationPermission = 'granted';
@@ -78,11 +85,21 @@ async function captureReportAccidentEntryMeta(): Promise<ReportAccidentEntryMeta
     base.latitude = pos.coords.latitude;
     base.longitude = pos.coords.longitude;
     base.accuracyMeters = pos.coords.accuracy ?? null;
+    try {
+      const [geo] = await Location.reverseGeocodeAsync({
+        latitude: base.latitude,
+        longitude: base.longitude,
+      });
+      if (geo) {
+        base.locationLabel = formatGeocodedLine(geo);
+      }
+    } catch {
+      // keep null label
+    }
   } catch {
     base.locationPermission = 'unavailable';
   }
 
-  base.capturedAtIso = new Date().toISOString();
   return base;
 }
 
@@ -196,10 +213,30 @@ export default function InsuranceHomeScreen() {
     if (!href) {
       return;
     }
+    if (task.key === 'guided') {
+      void loadGuidedCaptureEntryMeta().then((existing) => {
+        if (existing) return;
+        void captureReportAccidentEntryMeta().then((meta) => {
+          void saveGuidedCaptureEntryMeta(meta);
+          if (__DEV__) {
+            console.log('[Guided Capture entry — time & location at tap]', meta);
+          }
+        });
+      });
+    }
     router.push(href);
   };
 
   const onCallInsurer = async () => {
+    void loadInsurerCallMeta().then((existing) => {
+      if (existing) return;
+      void captureReportAccidentEntryMeta().then((meta) => {
+        void saveInsurerCallMeta(meta);
+        if (__DEV__) {
+          console.log('[Allianz call — time & location at tap]', meta);
+        }
+      });
+    });
     try {
       await Linking.openURL(INSURER_PHONE_TEL);
     } catch {
@@ -212,16 +249,19 @@ export default function InsuranceHomeScreen() {
       return;
     }
     void (async () => {
+      const reportedAtIso = new Date().toISOString();
+      // Fire-and-forget GPS on first tap only; persists until reset.
+      void loadReportAccidentEntryMeta().then((existing) => {
+        if (existing) return;
+        void captureReportAccidentEntryMeta().then((meta) => {
+          void saveReportAccidentEntryMeta(meta);
+        });
+      });
       const uploadKey = await computeClaimBundleUploadKey();
       router.push({
         pathname: '/(insurance)/upload-accident-details',
-        params: { uploadKey },
+        params: { uploadKey, reportedAtIso },
       });
-      const meta = await captureReportAccidentEntryMeta();
-      if (__DEV__) {
-        console.log('[Report Accident — time & location at tap]', meta);
-      }
-      // Hook for backend / analytics: send `meta` to your API here if needed.
     })();
   };
 

@@ -129,6 +129,18 @@ def create_capture(
                 report_gps_lat=req.report_gps_lat,
                 report_gps_lng=req.report_gps_lng,
                 report_location_label=req.report_location_label,
+                insurer_call_at=req.insurer_call_at,
+                insurer_call_captured_at_display_local=req.insurer_call_captured_at_display_local,
+                insurer_call_gps_lat=req.insurer_call_gps_lat,
+                insurer_call_gps_lng=req.insurer_call_gps_lng,
+                insurer_call_location_permission=req.insurer_call_location_permission,
+                insurer_call_location_label=req.insurer_call_location_label,
+                guided_capture_started_at=req.guided_capture_started_at,
+                guided_capture_start_captured_at_display_local=req.guided_capture_start_captured_at_display_local,
+                guided_capture_start_gps_lat=req.guided_capture_start_gps_lat,
+                guided_capture_start_gps_lng=req.guided_capture_start_gps_lng,
+                guided_capture_start_location_permission=req.guided_capture_start_location_permission,
+                guided_capture_start_location_label=req.guided_capture_start_location_label,
             )
         )
     except Exception as exc:
@@ -257,7 +269,10 @@ def complete_capture(
     capture_id: str,
     settings: Settings = Depends(get_settings),
     repository: CaptureRepository = Depends(get_capture_repository),
+    storage: R2Storage = Depends(get_r2_storage),
 ) -> CompleteCaptureResponse:
+    import json as _json
+
     capture = repository.get_capture(capture_id)
     if not capture:
         raise HTTPException(status_code=404, detail="Capture session not found.")
@@ -276,6 +291,60 @@ def complete_capture(
     updated = repository.mark_capture_processing(capture_id)
     if not updated:
         raise HTTPException(status_code=409, detail="Capture session could not be completed.")
+
+    # Write locations/locations.json into the claim folder in R2.
+    try:
+        from app.r2_metadata import build_parent_folder_name
+
+        def _ts(v: object) -> Optional[str]:
+            if v is None:
+                return None
+            return str(v)
+
+        def _num(v: object) -> Optional[float]:
+            if v is None:
+                return None
+            try:
+                return float(v)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                return None
+
+        locations_payload = {
+            "insurer_call": {
+                "captured_at": _ts(capture.get("insurer_call_at")),
+                "captured_at_display_local": _ts(capture.get("insurer_call_captured_at_display_local")),
+                "gps_lat": _num(capture.get("insurer_call_gps_lat")),
+                "gps_lng": _num(capture.get("insurer_call_gps_lng")),
+                "location_permission": _ts(capture.get("insurer_call_location_permission")),
+                "location_label": _ts(capture.get("insurer_call_location_label")),
+            },
+            "guided_capture_started": {
+                "captured_at": _ts(capture.get("guided_capture_started_at")),
+                "captured_at_display_local": _ts(capture.get("guided_capture_start_captured_at_display_local")),
+                "gps_lat": _num(capture.get("guided_capture_start_gps_lat")),
+                "gps_lng": _num(capture.get("guided_capture_start_gps_lng")),
+                "location_permission": _ts(capture.get("guided_capture_start_location_permission")),
+                "location_label": _ts(capture.get("guided_capture_start_location_label")),
+            },
+            "report_submitted": {
+                "captured_at": _ts(capture.get("report_captured_at")),
+                "captured_at_display_local": _ts(capture.get("report_captured_at_display_local")),
+                "gps_lat": _num(capture.get("report_gps_lat")),
+                "gps_lng": _num(capture.get("report_gps_lng")),
+                "location_label": _ts(capture.get("report_location_label")),
+            },
+        }
+        parent = build_parent_folder_name(
+            capture.get("claimant_name"),  # type: ignore[arg-type]
+            capture.get("claimant_nic"),   # type: ignore[arg-type]
+        )
+        storage.upload_bytes(
+            key=f"{parent}/locations/locations.json",
+            body=_json.dumps(locations_payload, indent=2).encode(),
+            content_type="application/json",
+        )
+    except Exception:
+        logger.exception("Failed to write locations.json to R2 — continuing anyway")
 
     enhanced_count = repository.count_photos_by_kind(capture_id, ASSET_KIND_ENHANCED)
 

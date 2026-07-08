@@ -1,5 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
+import { type InsurerCallMeta } from '@/features/insurer-call/storage/insurer-call-store';
+import { type GuidedCaptureEntryMeta } from '@/features/guided-capture/storage/guided-capture-entry-store';
 import { loadDrunkTestState } from '@/features/drunk-test/storage/drunk-test-store';
 import { loadDrivingLicenceState } from '@/features/driving-licence/storage/driving-licence-store';
 import { loadGuidedCaptureStoreState } from '@/features/guided-capture/storage/guided-capture-store';
@@ -193,6 +195,8 @@ async function postOriginalMedia(
 export async function uploadFullClaimBundleToBackend(options: {
   report: ReportPayload;
   claimant: ClaimantPayload;
+  insurerCallMeta?: InsurerCallMeta | null;
+  guidedCaptureEntryMeta?: GuidedCaptureEntryMeta | null;
   onGuidedProgress: (percent: number) => void;
   onFraudProgress: (percent: number) => void;
   /** Fired once walkaround originals are on the server and guided progress is 100% (before fraud-validation uploads). */
@@ -235,6 +239,18 @@ export async function uploadFullClaimBundleToBackend(options: {
     report_gps_lat: options.report.gpsLat,
     report_gps_lng: options.report.gpsLng,
     report_location_label: options.report.locationLabel.trim() || null,
+    insurer_call_at: options.insurerCallMeta?.capturedAtIso ?? null,
+    insurer_call_captured_at_display_local: options.insurerCallMeta?.capturedAtDisplayLocal ?? null,
+    insurer_call_gps_lat: options.insurerCallMeta?.latitude ?? null,
+    insurer_call_gps_lng: options.insurerCallMeta?.longitude ?? null,
+    insurer_call_location_permission: options.insurerCallMeta?.locationPermission ?? null,
+    insurer_call_location_label: options.insurerCallMeta?.locationLabel ?? null,
+    guided_capture_started_at: options.guidedCaptureEntryMeta?.capturedAtIso ?? null,
+    guided_capture_start_captured_at_display_local: options.guidedCaptureEntryMeta?.capturedAtDisplayLocal ?? null,
+    guided_capture_start_gps_lat: options.guidedCaptureEntryMeta?.latitude ?? null,
+    guided_capture_start_gps_lng: options.guidedCaptureEntryMeta?.longitude ?? null,
+    guided_capture_start_location_permission: options.guidedCaptureEntryMeta?.locationPermission ?? null,
+    guided_capture_start_location_label: options.guidedCaptureEntryMeta?.locationLabel ?? null,
   };
 
   const createRes = await fetch(`${base}/captures`, {
