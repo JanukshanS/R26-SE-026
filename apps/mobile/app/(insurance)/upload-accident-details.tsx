@@ -1,9 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
-import * as Location from 'expo-location';
-import type { LocationGeocodedAddress } from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,19 +14,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { InsuranceBottomTabBar, type InsuranceTabId } from '@/components/insurance-bottom-tab-bar';
-import { loadClaimantProfile, saveClaimantProfile } from '@/features/claimant/storage/claimant-profile-store';
-import {
-  getPersistedSuccessfulClaimUploadKey,
-  setPersistedSuccessfulClaimUploadKey,
-  savePersistedClaimLocation,
-  loadPersistedClaimLocation,
-} from '@/lib/claim-upload-dedupe';
-import { uploadFullClaimBundleToBackend } from '@/lib/capture-api';
-import { loadInsurerCallMeta } from '@/features/insurer-call/storage/insurer-call-store';
-import { loadGuidedCaptureEntryMeta } from '@/features/guided-capture/storage/guided-capture-entry-store';
-import { loadReportAccidentEntryMeta } from '@/features/report-accident/storage/report-accident-entry-store';
-
-const INSURER_PHONE_TEL = 'tel:+94112303300';
+import { INSURER_PHONE_TEL } from '@/lib/constants';
+import { loadClaimantProfile } from '@/features/claimant/storage/claimant-profile-store';
+import { useClaimUpload } from '@/features/report-accident/hooks/use-claim-upload';
+import { formatTimestamp } from '@/lib/format-timestamp';
 
 const COLORS = {
   screen: '#ffffff',
@@ -39,38 +27,6 @@ const COLORS = {
   success: '#22c55e',
   cardBorder: '#ff6b35',
 };
-
-function formatGeocodedLine(a: LocationGeocodedAddress): string {
-  const parts: string[] = [];
-  const streetLine = [a.streetNumber, a.street].filter(Boolean).join(' ').trim();
-  if (streetLine) {
-    parts.push(streetLine);
-  }
-  const cityLine = [a.district ?? a.subregion, a.city].filter(Boolean).join(', ');
-  if (cityLine) {
-    parts.push(cityLine);
-  }
-  if (a.region) {
-    parts.push(a.region);
-  }
-  if (a.country) {
-    parts.push(a.country);
-  }
-  const s = parts.join(', ').replace(/,\s*,/g, ',').trim();
-  return s || 'Address unavailable';
-}
-
-function formatTimestamp(d: Date): string {
-  return d.toLocaleString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short',
-  });
-}
 
 function ProgressRow({
   label,
@@ -104,18 +60,7 @@ function ProgressRow({
 export default function UploadAccidentDetailsScreen() {
   const router = useRouter();
   const { uploadKey, reportedAtIso } = useLocalSearchParams<{ uploadKey?: string; reportedAtIso?: string }>();
-  const [locationLine, setLocationLine] = useState<string>('Getting location…');
-  const [timestampLine, setTimestampLine] = useState<string>('');
-  const [locationLoading, setLocationLoading] = useState(true);
-  /** Guided capture → backend upload progress (starts when opening this screen from Report Accident). */
-  const [photosUploadPercent, setPhotosUploadPercent] = useState(0);
-  const [photosUploadComplete, setPhotosUploadComplete] = useState(false);
-  const [fraudValidationPercent, setFraudValidationPercent] = useState(0);
-  const [fraudValidationComplete, setFraudValidationComplete] = useState(false);
-  const photosUploadedForKeyRef = useRef<string | null>(null);
-  /** Used so a failure after walkaround uploads still leaves the Photos row green. */
-  const guidedWalkaroundUploadsDoneRef = useRef(false);
-  const fraudValidationMediaUploadsDoneRef = useRef(false);
+
   const [claimantName, setClaimantName] = useState('');
   const [claimantNic, setClaimantNic] = useState('');
   const [claimantLicence, setClaimantLicence] = useState('');
@@ -133,9 +78,7 @@ export default function UploadAccidentDetailsScreen() {
   useEffect(() => {
     let cancelled = false;
     void loadClaimantProfile().then((p) => {
-      if (cancelled) {
-        return;
-      }
+      if (cancelled) return;
       setClaimantName(p.fullName);
       setClaimantNic(p.nic);
       setClaimantLicence(p.licenceNumber);
@@ -146,223 +89,15 @@ export default function UploadAccidentDetailsScreen() {
     };
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!claimantHydrated) {
-        return () => {};
-      }
-      let cancelled = false;
-      setLocationLoading(true);
-      setLocationLine('Getting location…');
-      setTimestampLine('');
-
-      void (async () => {
-        const recordedAt = reportedAtIso ? new Date(reportedAtIso) : new Date();
-
-        // Skip GPS entirely if this upload key was already completed.
-        if (uploadKey) {
-          const persistedSuccessKey = await getPersistedSuccessfulClaimUploadKey();
-          if (!cancelled && persistedSuccessKey === uploadKey) {
-            photosUploadedForKeyRef.current = uploadKey;
-            setPhotosUploadPercent(100);
-            setPhotosUploadComplete(true);
-            setFraudValidationPercent(100);
-            setFraudValidationComplete(true);
-            const saved = await loadPersistedClaimLocation();
-            if (!cancelled) {
-              if (saved) {
-                setLocationLine(saved.locationLine);
-                setTimestampLine(saved.timestampLine);
-              }
-              setLocationLoading(false);
-            }
-            return;
-          }
-          if (!cancelled && photosUploadedForKeyRef.current === uploadKey) {
-            setPhotosUploadPercent(100);
-            setPhotosUploadComplete(true);
-            setFraudValidationPercent(100);
-            setFraudValidationComplete(true);
-            const saved = await loadPersistedClaimLocation();
-            if (!cancelled) {
-              if (saved) {
-                setLocationLine(saved.locationLine);
-                setTimestampLine(saved.timestampLine);
-              }
-              setLocationLoading(false);
-            }
-            return;
-          }
-        }
-
-        let lat: number | null = null;
-        let lng: number | null = null;
-        let line = 'Getting location…';
-
-        const persistedEntryMeta = await loadReportAccidentEntryMeta();
-        if (!cancelled && persistedEntryMeta?.latitude != null && persistedEntryMeta?.longitude != null) {
-          lat = persistedEntryMeta.latitude;
-          lng = persistedEntryMeta.longitude;
-          line = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-          try {
-            const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-            if (geo && !cancelled) {
-              line = formatGeocodedLine(geo);
-            }
-          } catch {
-            // keep coordinates
-          }
-          if (!cancelled) {
-            setLocationLine(line);
-            setTimestampLine(formatTimestamp(recordedAt));
-            setLocationLoading(false);
-          }
-        } else {
-          try {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (cancelled) {
-              return;
-            }
-            if (status !== 'granted') {
-              line = 'Location permission not granted';
-              if (!cancelled) {
-                setLocationLine(line);
-                setTimestampLine(formatTimestamp(recordedAt));
-              }
-            } else {
-              const pos = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced,
-              });
-              if (cancelled) {
-                return;
-              }
-              lat = pos.coords.latitude;
-              lng = pos.coords.longitude;
-              line = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-              try {
-                const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-                if (geo && !cancelled) {
-                  line = formatGeocodedLine(geo);
-                }
-              } catch {
-                // keep coordinates
-              }
-              if (!cancelled) {
-                setLocationLine(line);
-                setTimestampLine(formatTimestamp(recordedAt));
-              }
-            }
-          } catch {
-            if (!cancelled) {
-              line = 'Could not read location';
-              setLocationLine(line);
-              setTimestampLine(formatTimestamp(recordedAt));
-            }
-          } finally {
-            if (!cancelled) {
-              setLocationLoading(false);
-            }
-          }
-        }
-
-        if (cancelled || !uploadKey) {
-          return;
-        }
-
-        // Block upload if GPS location was not obtained.
-        // lat is null when permission was denied or reading failed.
-        if (lat === null) {
-          Alert.alert(
-            'Location required',
-            'We could not get your GPS location. Please enable location access and try again.',
-            [{ text: 'OK' }]
-          );
-          return;
-        }
-        setPhotosUploadPercent(0);
-        setPhotosUploadComplete(false);
-        setFraudValidationPercent(0);
-        setFraudValidationComplete(false);
-        guidedWalkaroundUploadsDoneRef.current = false;
-        fraudValidationMediaUploadsDoneRef.current = false;
-        try {
-          const [saved, insurerCallMeta, guidedCaptureEntryMeta] = await Promise.all([
-            loadClaimantProfile(),
-            loadInsurerCallMeta(),
-            loadGuidedCaptureEntryMeta(),
-          ]);
-          const claimant = {
-            fullName: (claimantRef.current.fullName || saved.fullName).trim(),
-            nic: (claimantRef.current.nic || saved.nic).trim(),
-            licenceNumber: (claimantRef.current.licenceNumber || saved.licenceNumber).trim(),
-          };
-          await saveClaimantProfile(claimant);
-          await uploadFullClaimBundleToBackend({
-            insurerCallMeta,
-            guidedCaptureEntryMeta,
-            onGuidedProgress: (p) => {
-              if (!cancelled) {
-                setPhotosUploadPercent(p);
-              }
-            },
-            onFraudProgress: (p) => {
-              if (!cancelled) {
-                setFraudValidationPercent(p);
-              }
-            },
-            onGuidedWalkaroundUploadsComplete: () => {
-              if (!cancelled) {
-                guidedWalkaroundUploadsDoneRef.current = true;
-                setPhotosUploadPercent(100);
-                setPhotosUploadComplete(true);
-              }
-            },
-            onFraudValidationMediaUploadsComplete: () => {
-              if (!cancelled) {
-                fraudValidationMediaUploadsDoneRef.current = true;
-                setFraudValidationPercent(100);
-                setFraudValidationComplete(true);
-              }
-            },
-            report: {
-              capturedAtIso: recordedAt.toISOString(),
-              capturedAtDisplayLocal: formatTimestamp(recordedAt),
-              gpsLat: lat,
-              gpsLng: lng,
-              locationLabel: line,
-            },
-            claimant: {
-              fullName: claimant.fullName,
-              nic: claimant.nic,
-              licenceNumber: claimant.licenceNumber,
-            },
-          });
-          if (!cancelled) {
-            photosUploadedForKeyRef.current = uploadKey;
-            await setPersistedSuccessfulClaimUploadKey(uploadKey);
-            await savePersistedClaimLocation({ locationLine: line, timestampLine: formatTimestamp(recordedAt) });
-          }
-        } catch (e) {
-          if (!cancelled) {
-            const message = e instanceof Error ? e.message : 'Upload failed';
-            if (!guidedWalkaroundUploadsDoneRef.current) {
-              setPhotosUploadPercent(0);
-              setPhotosUploadComplete(false);
-            }
-            if (!fraudValidationMediaUploadsDoneRef.current) {
-              setFraudValidationPercent(0);
-              setFraudValidationComplete(false);
-            }
-            Alert.alert('Photos upload failed', message);
-          }
-        }
-      })();
-
-      return () => {
-        cancelled = true;
-      };
-    }, [uploadKey, claimantHydrated])
-  );
+  const {
+    locationLine,
+    timestampLine,
+    locationLoading,
+    photosUploadPercent,
+    photosUploadComplete,
+    fraudValidationPercent,
+    fraudValidationComplete,
+  } = useClaimUpload(uploadKey, reportedAtIso, claimantHydrated, claimantRef);
 
   const onCallInsurer = async () => {
     try {
@@ -399,41 +134,6 @@ export default function UploadAccidentDetailsScreen() {
 
           <Text style={styles.pageTitle}>Upload Accident Details</Text>
 
-          {/* <Text style={styles.sectionTitle}>Your details</Text>
-          <Text style={styles.sectionHint}>Saved on this device and sent with your photos to storage.</Text>
-          <View style={styles.claimantBlock}>
-            <Text style={styles.fieldLabel}>Full name</Text>
-            <TextInput
-              style={styles.textInput}
-              value={claimantName}
-              onChangeText={setClaimantName}
-              placeholder="As on your licence"
-              placeholderTextColor={COLORS.textMuted}
-              autoCapitalize="words"
-              editable={!photosUploadComplete}
-            />
-            <Text style={styles.fieldLabel}>NIC</Text>
-            <TextInput
-              style={styles.textInput}
-              value={claimantNic}
-              onChangeText={setClaimantNic}
-              placeholder="National Identity Card number"
-              placeholderTextColor={COLORS.textMuted}
-              autoCapitalize="characters"
-              editable={!photosUploadComplete}
-            />
-            <Text style={styles.fieldLabel}>Driving licence number</Text>
-            <TextInput
-              style={styles.textInput}
-              value={claimantLicence}
-              onChangeText={setClaimantLicence}
-              placeholder="Licence number"
-              placeholderTextColor={COLORS.textMuted}
-              autoCapitalize="characters"
-              editable={!photosUploadComplete}
-            />
-          </View> */}
-
           <View style={styles.progressBlock}>
             <ProgressRow
               label="Photos Uploaded"
@@ -447,19 +147,11 @@ export default function UploadAccidentDetailsScreen() {
             />
             <ProgressRow label="Low light enhancement" percent={0} complete={false} />
             <ProgressRow label="3D Reconstruction" percent={0} complete={false} />
-
           </View>
 
           <View style={styles.detailCard}>
             <View style={styles.detailCardHeader}>
               <Text style={styles.detailCardHeaderLeft}>Captured and Submitted</Text>
-              {/* <Text
-                style={[
-                  styles.detailCardHeaderPct,
-                  locationCapturedPct < 100 ? styles.detailCardHeaderPctPending : null,
-                ]}>
-                {locationCapturedPct}%
-              </Text> */}
             </View>
             <View style={styles.detailLocationRow}>
               {locationLoading ? (
@@ -536,39 +228,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     gap: 16,
   },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 6,
-  },
-  sectionHint: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: COLORS.textMuted,
-    marginBottom: 14,
-  },
-  claimantBlock: {
-    marginBottom: 20,
-    gap: 10,
-  },
-  fieldLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 2,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: COLORS.text,
-    backgroundColor: '#fafafa',
-    marginBottom: 4,
-  },
   progressRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -618,14 +277,6 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     flex: 1,
     marginRight: 8,
-  },
-  detailCardHeaderPct: {
-    fontSize: 18,
-    fontWeight: '400',
-    color: COLORS.success,
-  },
-  detailCardHeaderPctPending: {
-    color: COLORS.textMuted,
   },
   detailLocationRow: {
     flexDirection: 'row',
