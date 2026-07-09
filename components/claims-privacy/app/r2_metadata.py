@@ -4,16 +4,18 @@ import re
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-# Temporary: claimant columns on `captures` may be empty; remove when the app always sends them.
-_PLACEHOLDER_CLAIMANT_NAME = "Dilnuk De Silva"
-_PLACEHOLDER_CLAIMANT_NIC = "200429981166"
-_PLACEHOLDER_CLAIMANT_LICENCE = "B4915137"
-_PLACEHOLDER_VEHICLE_MODEL = "Honda Vezel"
-_PLACEHOLDER_POLICY_NUMBER = "AL-VIP-00003"
+# Sentinel values used when the mobile app omits claimant/vehicle fields.
+# These must be clearly non-real so they are never mistaken for actual PII.
+# TODO: enforce required fields in CreateCaptureRequest so these are never needed.
+_PLACEHOLDER_CLAIMANT_NAME = "UNKNOWN"
+_PLACEHOLDER_CLAIMANT_NIC = "000000000000"
+_PLACEHOLDER_CLAIMANT_LICENCE = "UNKNOWN"
+_PLACEHOLDER_VEHICLE_MODEL = "UNKNOWN"
+_PLACEHOLDER_POLICY_NUMBER = "UNKNOWN"
 
 
 def build_parent_folder_name(name: Optional[str], nic: Optional[str]) -> str:
-    """Return the R2 parent folder, e.g. 'Dilnuk De Silva - 200429981166'."""
+    """Return the R2 parent folder, e.g. 'Jane Doe - 000000000000'."""
     resolved_name = name.strip() if name else _PLACEHOLDER_CLAIMANT_NAME
     resolved_nic = nic.strip() if nic else _PLACEHOLDER_CLAIMANT_NIC
     safe_name = re.sub(r"[/\\]", "-", resolved_name)
@@ -42,16 +44,19 @@ def build_photo_object_metadata(
     *,
     photo_index: int,
     asset_kind: str,
+    gps_lat: Optional[float] = None,
+    gps_lng: Optional[float] = None,
+    gps_accuracy: Optional[float] = None,
+    captured_at_client: Optional[datetime] = None,
 ) -> Dict[str, str]:
     """
     Keys become x-amz-meta-* in R2/S3. Values must be ASCII-only for broad compatibility.
     """
-    report_at = capture.get("report_captured_at")
-    ts = ""
-    if isinstance(report_at, datetime):
-        ts = report_at.isoformat()
-    elif report_at is not None:
-        ts = _ascii_meta_value(str(report_at))
+    photo_ts = ""
+    if isinstance(captured_at_client, datetime):
+        photo_ts = captured_at_client.isoformat()
+    elif captured_at_client is not None:
+        photo_ts = _ascii_meta_value(str(captured_at_client))
 
     meta: Dict[str, str] = {
         "capture-id": _ascii_meta_value(str(capture.get("id", ""))),
@@ -62,10 +67,9 @@ def build_photo_object_metadata(
         "claimant-licence": _ascii_meta_value(_PLACEHOLDER_CLAIMANT_LICENCE),
         "vehicle-model": _ascii_meta_value(_PLACEHOLDER_VEHICLE_MODEL),
         "policy-number": _ascii_meta_value(_PLACEHOLDER_POLICY_NUMBER),
-        "report-timestamp": _ascii_meta_value(ts or None),
-        "report-timestamp-local": _ascii_meta_value(capture.get("report_captured_at_display_local")),
-        "report-gps-lat": _num_str(capture.get("report_gps_lat")),
-        "report-gps-lng": _num_str(capture.get("report_gps_lng")),
-        "report-location": _ascii_meta_value(capture.get("report_location_label")),
+        "photo-gps-lat": _num_str(gps_lat),
+        "photo-gps-lng": _num_str(gps_lng),
+        "photo-gps-accuracy": _num_str(gps_accuracy),
+        "photo-captured-at": _ascii_meta_value(photo_ts or None),
     }
     return {k: v for k, v in meta.items() if v != ""}

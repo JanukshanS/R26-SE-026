@@ -192,7 +192,8 @@ class CaptureRepository:
                 )
                 row = cur.fetchone()
             conn.commit()
-        assert row is not None
+        if row is None:
+            raise RuntimeError("DB RETURNING clause returned no row after INSERT — unexpected DB state.")
         return cast(Dict[str, Any], _serialize_db_row(row))
 
     def get_capture(self, capture_id: str) -> Optional[Dict[str, object]]:
@@ -302,7 +303,8 @@ class CaptureRepository:
                 )
                 row = cur.fetchone()
             conn.commit()
-        assert row is not None
+        if row is None:
+            raise RuntimeError("DB RETURNING clause returned no row after upsert — unexpected DB state.")
         return cast(Dict[str, Any], _serialize_db_row(row))
 
     def count_photos(self, capture_id: str) -> int:
