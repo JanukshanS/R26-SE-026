@@ -29,7 +29,7 @@ import {
   evaluateGuidedCaptureState,
   type GuidedCaptureInvalidReason,
   type GuidedCaptureState,
-} from '@/features/guided-capture/guided-capture-machine';
+} from '@/features/guided-capture/guided-capture-evaluator';
 import {
   deleteGuidedCapturePhotos,
   loadGuidedCaptureStoreState,
@@ -47,6 +47,8 @@ import { clearInsurerCallMeta } from '@/features/insurer-call/storage/insurer-ca
 import { clearGuidedCaptureEntryMeta } from '@/features/guided-capture/storage/guided-capture-entry-store';
 import { clearReportAccidentEntryMeta } from '@/features/report-accident/storage/report-accident-entry-store';
 import type { CaptureAngle } from '@/features/guided-capture/types';
+import { snapAndSavePhotoGps } from '@/lib/snap-photo-gps';
+import { clearAllPhotoGps } from '@/lib/photo-gps-store';
 
 type UseGuidedCaptureResult = {
   capturedCount: number;
@@ -596,6 +598,7 @@ export function useGuidedCapture(
 
     try {
       setIsCapturing(true);
+      const capturedAt = new Date().toISOString();
       const photo = await cam.takePictureAsync({
         quality: 0.8,
         skipProcessing: false,
@@ -614,6 +617,7 @@ export function useGuidedCapture(
         } catch {
           storedUri = photo.uri;
         }
+        void snapAndSavePhotoGps(storedUri, capturedAt);
         // Pre-compute the Zero-DCE input in the background (unused until enhancement runs).
         void prepareImageForZeroDce(photo.uri);
         setCapturedPhotoUris((prev) => [...prev, storedUri]);
@@ -695,6 +699,7 @@ export function useGuidedCapture(
     verticalReferencePitchRef.current = null;
     setStatusMessage('Capture reset. Previous photos cleared.');
     void deleteGuidedCapturePhotos(urisToDelete);
+    void clearAllPhotoGps();
     void clearPersistedClaimUploadSuccess();
     void clearInsurerCallMeta();
     void clearGuidedCaptureEntryMeta();

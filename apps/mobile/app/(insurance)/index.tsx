@@ -20,7 +20,6 @@ import {
 } from '@/features/guided-capture/storage/guided-capture-entry-store';
 import { isThirdPartyStepComplete, loadThirdPartyState } from '@/features/third-party/storage/third-party-store';
 import {
-  type InsurerCallMeta,
   loadInsurerCallMeta,
   saveInsurerCallMeta,
 } from '@/features/insurer-call/storage/insurer-call-store';
@@ -28,9 +27,11 @@ import {
   loadReportAccidentEntryMeta,
   saveReportAccidentEntryMeta,
 } from '@/features/report-accident/storage/report-accident-entry-store';
+import { INSURER_PHONE_TEL } from '@/lib/constants';
 import { computeClaimBundleUploadKey, isClaimReportSubmittedLocked } from '@/lib/claim-upload-dedupe';
 import { formatGeocodedLine } from '@/lib/format-geocoded-line';
 import { formatTimestamp } from '@/lib/format-timestamp';
+import { type LocationSnapshotMeta } from '@/lib/location-snapshot-store';
 
 const COLORS = {
   screen: '#ffffff',
@@ -57,12 +58,10 @@ type FlowTask = {
   href: Href | null;
 };
 
-/** Insurer hotline — opens in the Phone app when the user taps the Allianz button (number not shown on screen). */
-const INSURER_PHONE_TEL = 'tel:+94112303300';
 
-async function captureReportAccidentEntryMeta(): Promise<InsurerCallMeta> {
+async function captureLocationSnapshot(): Promise<LocationSnapshotMeta> {
   const capturedAt = new Date();
-  const base: InsurerCallMeta = {
+  const base: LocationSnapshotMeta = {
     capturedAtIso: capturedAt.toISOString(),
     capturedAtDisplayLocal: formatTimestamp(capturedAt),
     latitude: null,
@@ -216,7 +215,7 @@ export default function InsuranceHomeScreen() {
     if (task.key === 'guided') {
       void loadGuidedCaptureEntryMeta().then((existing) => {
         if (existing) return;
-        void captureReportAccidentEntryMeta().then((meta) => {
+        void captureLocationSnapshot().then((meta) => {
           void saveGuidedCaptureEntryMeta(meta);
           if (__DEV__) {
             console.log('[Guided Capture entry — time & location at tap]', meta);
@@ -230,7 +229,7 @@ export default function InsuranceHomeScreen() {
   const onCallInsurer = async () => {
     void loadInsurerCallMeta().then((existing) => {
       if (existing) return;
-      void captureReportAccidentEntryMeta().then((meta) => {
+      void captureLocationSnapshot().then((meta) => {
         void saveInsurerCallMeta(meta);
         if (__DEV__) {
           console.log('[Allianz call — time & location at tap]', meta);
@@ -253,7 +252,7 @@ export default function InsuranceHomeScreen() {
       // Fire-and-forget GPS on first tap only; persists until reset.
       void loadReportAccidentEntryMeta().then((existing) => {
         if (existing) return;
-        void captureReportAccidentEntryMeta().then((meta) => {
+        void captureLocationSnapshot().then((meta) => {
           void saveReportAccidentEntryMeta(meta);
         });
       });

@@ -16,11 +16,11 @@ import {
   saveThirdPartyState,
   type ThirdPartyCaptureStep,
 } from '@/features/third-party/storage/third-party-store';
+import { snapAndSavePhotoGps } from '@/lib/snap-photo-gps';
+import { appendUniqueUri } from '@/lib/uri-utils';
 
 const CTA_BLUE = '#1565c0';
 const PRIMARY_BLUE = '#1f8bff';
-
-const appendUniqueUri = (list: string[], uri: string) => (list.includes(uri) ? list : [...list, uri]);
 
 export default function ThirdPartyDetailsScreen() {
   const router = useRouter();
@@ -113,6 +113,7 @@ export default function ThirdPartyDetailsScreen() {
     }
     try {
       setIsTakingPhoto(true);
+      const capturedAt = new Date().toISOString();
       const photo = await cam.takePictureAsync({
         quality: 0.85,
         skipProcessing: false,
@@ -129,6 +130,7 @@ export default function ThirdPartyDetailsScreen() {
       } catch {
         storedUri = uri;
       }
+      void snapAndSavePhotoGps(storedUri, capturedAt);
       setNotApplicable(false);
       setLibraryUris((prev) => appendUniqueUri(prev, storedUri));
 

@@ -14,6 +14,8 @@ import {
   persistDrivingLicencePhoto,
   saveDrivingLicenceState,
 } from '@/features/driving-licence/storage/driving-licence-store';
+import { snapAndSavePhotoGps } from '@/lib/snap-photo-gps';
+import { appendUniqueUri } from '@/lib/uri-utils';
 
 const CTA_BLUE = '#1565c0';
 const PRIMARY_BLUE = '#1f8bff';
@@ -101,13 +103,12 @@ export default function DrivingLicencePhotoScreen() {
     void deleteDrivingLicencePhotos(urisToDelete);
   };
 
-  const appendUniqueUri = (list: string[], uri: string) => (list.includes(uri) ? list : [...list, uri]);
-
   const takePhoto = async () => {
     const cam = cameraRef.current;
     if (!cam || isTakingPhoto) return;
     try {
       setIsTakingPhoto(true);
+      const capturedAt = new Date().toISOString();
       const photo = await cam.takePictureAsync({
         quality: 0.85,
         skipProcessing: false,
@@ -124,6 +125,7 @@ export default function DrivingLicencePhotoScreen() {
       } catch {
         storedUri = uri;
       }
+      void snapAndSavePhotoGps(storedUri, capturedAt);
 
       if (side === 'front') {
         setFrontPreviewUri(storedUri);

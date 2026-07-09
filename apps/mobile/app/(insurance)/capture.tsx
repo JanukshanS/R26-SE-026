@@ -184,7 +184,7 @@ export default function GuidedCaptureScreen() {
               </View>
 
               <FlatList
-                data={capturedPhotoUris}
+                data={isPreviewVisible ? capturedPhotoUris : []}
                 keyExtractor={(item, index) => `${item}-${index}`}
                 numColumns={previewGrid.cols}
                 columnWrapperStyle={styles.thumbnailRow}

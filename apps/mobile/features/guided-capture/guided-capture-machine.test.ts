@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { evaluateGuidedCaptureState } from './guided-capture-machine';
+import { evaluateGuidedCaptureState } from './guided-capture-evaluator';
 
 const baseInput = {
   capturedCount: 0,

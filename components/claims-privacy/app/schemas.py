@@ -1,7 +1,9 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
+
+LocationPermission = Optional[Literal["granted", "denied", "unavailable"]]
 
 
 class CreateCaptureRequest(BaseModel):
@@ -24,7 +26,7 @@ class CreateCaptureRequest(BaseModel):
     insurer_call_at: Optional[datetime] = None
     insurer_call_gps_lat: Optional[float] = None
     insurer_call_gps_lng: Optional[float] = None
-    insurer_call_location_permission: Optional[str] = Field(default=None, max_length=20)
+    insurer_call_location_permission: LocationPermission = None
     insurer_call_location_label: Optional[str] = Field(default=None, max_length=2000)
     insurer_call_captured_at_display_local: Optional[str] = Field(default=None, max_length=240)
 
@@ -33,7 +35,7 @@ class CreateCaptureRequest(BaseModel):
     guided_capture_start_captured_at_display_local: Optional[str] = Field(default=None, max_length=240)
     guided_capture_start_gps_lat: Optional[float] = None
     guided_capture_start_gps_lng: Optional[float] = None
-    guided_capture_start_location_permission: Optional[str] = Field(default=None, max_length=20)
+    guided_capture_start_location_permission: LocationPermission = None
     guided_capture_start_location_label: Optional[str] = Field(default=None, max_length=2000)
 
 

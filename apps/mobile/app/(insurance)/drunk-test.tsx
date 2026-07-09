@@ -21,8 +21,7 @@ const PRIMARY_BLUE = '#1f8bff';
 const RECORD_DURATION_SEC = 40;
 
 const READ_ALOUD_SCRIPT =
-//'My name is Dilnuk De Silva. This video is to prove that I am not drunk. My Driving Licence Number is B4818153 and my vehicle is a (Type of Car) and its (Time) and the location is (Location).';
-  'My name is Dilnuk De Silva. Licence number B4818153. I am driving a (Vehicle Type). Today is (Date). The time is (Time), and I am at (Location). I am recording this after the accident to confirm I am conscious and not under the influence of alcohol or drugs. The accident happened because (brief description).'
+  'My name is (Full Name). Licence number (Licence Number). I am driving a (Vehicle Type). Today is (Date). The time is (Time), and I am at (Location). I am recording this after the accident to confirm I am conscious and not under the influence of alcohol or drugs. The accident happened because (brief description).'
   
 const DRUNK_TEST_VIDEO_DIR = (FileSystem.documentDirectory ?? '') + 'drunk-test-videos/';
 
