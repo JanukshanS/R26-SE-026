@@ -6,6 +6,7 @@ import { loadDrunkTestState } from '@/features/drunk-test/storage/drunk-test-sto
 import { loadDrivingLicenceState } from '@/features/driving-licence/storage/driving-licence-store';
 import { loadGuidedCaptureStoreState } from '@/features/guided-capture/storage/guided-capture-store';
 import { loadThirdPartyState } from '@/features/third-party/storage/third-party-store';
+import { loadPhotoGps } from '@/lib/photo-gps-store';
 
 /**
  * Base URL for the Guided Camera FastAPI backend (no trailing slash).
@@ -175,6 +176,13 @@ async function postOriginalMedia(
   formData.append('asset_kind', 'original');
   formData.append('photo_slot', photoSlot);
   formData.append('photo', { uri, name, type } as unknown as Blob);
+  const gps = await loadPhotoGps(uri);
+  if (gps) {
+    formData.append('gps_lat', String(gps.lat));
+    formData.append('gps_lng', String(gps.lng));
+    if (gps.accuracy != null) formData.append('gps_accuracy', String(gps.accuracy));
+    formData.append('captured_at_client', gps.capturedAt);
+  }
 
   const upRes = await fetch(`${base}/captures/${captureId}/photos`, {
     method: 'POST',
