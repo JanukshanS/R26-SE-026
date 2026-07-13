@@ -16,9 +16,19 @@ import {
 } from '@/features/driving-licence/storage/driving-licence-store';
 import { snapAndSavePhotoGps } from '@/lib/snap-photo-gps';
 import { appendUniqueUri } from '@/lib/uri-utils';
-
-const CTA_BLUE = '#1565c0';
-const PRIMARY_BLUE = '#1f8bff';
+import {
+  INSURANCE_BORDER,
+  INSURANCE_CAMERA_PLACEHOLDER_BG,
+  INSURANCE_CTA_LINK,
+  INSURANCE_PRIMARY,
+  INSURANCE_SCREEN_BG,
+  INSURANCE_SHADOW_COLOR,
+  INSURANCE_TEXT,
+  INSURANCE_TEXT_DIM,
+  INSURANCE_TEXT_MUTED,
+  INSURANCE_THUMBNAIL_BG,
+  WHITE,
+} from '@/features/guided-capture/capture-ui-theme';
 
 const SELFIE_GUIDE_IMAGE = require('../../assets/images/driving-licence-test-selfie.png');
 
@@ -268,7 +278,7 @@ export default function DrivingLicencePhotoScreen() {
           }}
           disabled={isTakingPhoto}>
           {isTakingPhoto ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={WHITE} />
           ) : (
             <Text style={styles.primaryButtonText}>{primaryLabel}</Text>
           )}
@@ -279,10 +289,10 @@ export default function DrivingLicencePhotoScreen() {
 }
 
 const COLORS = {
-  text: '#111111',
-  textMuted: '#666666',
-  screen: '#efefef',
-  border: '#d0d0d0',
+  text: INSURANCE_TEXT,
+  textMuted: INSURANCE_TEXT_MUTED,
+  screen: INSURANCE_SCREEN_BG,
+  border: INSURANCE_BORDER,
 };
 
 const styles = StyleSheet.create({
@@ -350,7 +360,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.text,
-    backgroundColor: '#fff',
+    backgroundColor: WHITE,
     flexShrink: 0,
     marginRight: 10,
   },
@@ -373,7 +383,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     overflow: 'hidden',
-    backgroundColor: '#d8d8d8',
+    backgroundColor: INSURANCE_CAMERA_PLACEHOLDER_BG,
     position: 'relative',
     marginBottom: 24,
   },
@@ -397,9 +407,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#fff',
-    backgroundColor: '#ccc',
-    shadowColor: '#000',
+    borderColor: WHITE,
+    backgroundColor: INSURANCE_THUMBNAIL_BG,
+    shadowColor: INSURANCE_SHADOW_COLOR,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.25,
     shadowRadius: 3,
@@ -410,7 +420,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   primaryButton: {
-    backgroundColor: PRIMARY_BLUE,
+    backgroundColor: INSURANCE_PRIMARY,
     borderRadius: 10,
     paddingVertical: 16,
     alignItems: 'center',
@@ -423,7 +433,7 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   primaryButtonText: {
-    color: '#fff',
+    color: WHITE,
     fontSize: 17,
     fontWeight: '700',
   },
@@ -441,19 +451,19 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   centerText: {
-    color: '#333',
+    color: INSURANCE_TEXT_DIM,
     textAlign: 'center',
     fontSize: 16,
     lineHeight: 22,
   },
   permissionButton: {
-    backgroundColor: PRIMARY_BLUE,
+    backgroundColor: INSURANCE_PRIMARY,
     borderRadius: 8,
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
   permissionButtonText: {
-    color: '#fff',
+    color: WHITE,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -462,7 +472,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   textButtonLabel: {
-    color: CTA_BLUE,
+    color: INSURANCE_CTA_LINK,
     fontSize: 16,
     fontWeight: '600',
   },

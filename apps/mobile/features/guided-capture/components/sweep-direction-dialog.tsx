@@ -10,11 +10,13 @@ import {
 } from 'react-native';
 
 import {
+  BLACK,
+  BORDER_LIGHT,
   CAPTURE_ACTION_BLUE,
-  CAPTURE_PANEL_BORDER,
   CAPTURE_SURFACE_WHITE,
-  CAPTURE_TEXT_BLUE,
   CAPTURE_TEXT_WHITE,
+  GRAY_900,
+  WHITE,
 } from '@/features/guided-capture/capture-ui-theme';
 import {
   CaptureModalBackdrop,
@@ -152,11 +154,11 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     width: '100%',
-    borderColor: '#d0d0d0',
+    borderColor: BORDER_LIGHT,
     ...(Platform.OS === 'android' ? { elevation: 12 } : {}),
   },
   title: {
-    color: '#000000',
+    color: BLACK,
     fontSize: 22,
     fontWeight: '800',
     marginBottom: 10,
@@ -164,7 +166,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   message: {
-    color: '#111111',
+    color: GRAY_900,
     fontSize: 16,
     lineHeight: 22,
     textAlign: 'center',
@@ -178,9 +180,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 5,
-    backgroundColor: '#ffffff',
+    backgroundColor: WHITE,
     borderWidth: 1,
-    borderColor: CAPTURE_PANEL_BORDER,
+    borderColor: CAPTURE_ACTION_BLUE,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -198,7 +200,7 @@ const styles = StyleSheet.create({
     opacity: 0.88,
   },
   leftLabel: {
-    color: CAPTURE_TEXT_BLUE,
+    color: CAPTURE_ACTION_BLUE,
     fontWeight: '700',
     fontSize: 15,
   },
