@@ -18,14 +18,25 @@ import { INSURER_PHONE_TEL } from '@/lib/constants';
 import { loadClaimantProfile } from '@/features/claimant/storage/claimant-profile-store';
 import { useClaimUpload } from '@/features/report-accident/hooks/use-claim-upload';
 import { formatTimestamp } from '@/lib/format-timestamp';
+import { clearAllClaimData } from '@/lib/clear-claim-data';
+import {
+  INSURANCE_BORDER_SOFT,
+  INSURANCE_CARD_BORDER_ACCENT,
+  INSURANCE_PRESSED_SURFACE,
+  INSURANCE_PRESSED_SURFACE_SOFT,
+  INSURANCE_PROGRESS_DONE,
+  INSURANCE_TEXT,
+  INSURANCE_TEXT_MUTED_SOFT,
+  WHITE,
+} from '@/features/guided-capture/capture-ui-theme';
 
 const COLORS = {
-  screen: '#ffffff',
-  text: '#111111',
-  textMuted: '#9e9e9e',
-  border: '#e0e0e0',
-  success: '#22c55e',
-  cardBorder: '#ff6b35',
+  screen: WHITE,
+  text: INSURANCE_TEXT,
+  textMuted: INSURANCE_TEXT_MUTED_SOFT,
+  border: INSURANCE_BORDER_SOFT,
+  success: INSURANCE_PROGRESS_DONE,
+  cardBorder: INSURANCE_CARD_BORDER_ACCENT,
 };
 
 function ProgressRow({
@@ -99,12 +110,23 @@ export default function UploadAccidentDetailsScreen() {
     fraudValidationComplete,
   } = useClaimUpload(uploadKey, reportedAtIso, claimantHydrated, claimantRef);
 
+  const claimComplete = photosUploadComplete && fraudValidationComplete;
+
   const onCallInsurer = async () => {
     try {
       await Linking.openURL(INSURER_PHONE_TEL);
     } catch {
       Alert.alert('Call your insurer', 'Use the phone number on your insurance card or policy document.');
     }
+  };
+
+  const onStartNewClaim = async () => {
+    try {
+      await clearAllClaimData();
+    } catch {
+      // best-effort — navigate even if cleanup partially fails
+    }
+    router.replace('/(insurance)');
   };
 
   const onTabPress = (tab: InsuranceTabId) => {
@@ -177,6 +199,16 @@ export default function UploadAccidentDetailsScreen() {
             onPress={onCallInsurer}>
             <Text style={styles.callInsurerText}>Need to call Allianz Insurance ?</Text>
           </Pressable>
+
+          {claimComplete && (
+            <Pressable
+              style={({ pressed }) => [styles.callInsurerBtn, styles.newClaimBtnMargin, pressed && styles.callInsurerPressed]}
+              onPress={() => void onStartNewClaim()}
+              accessibilityRole="button"
+              accessibilityLabel="Start a new claim">
+              <Text style={styles.callInsurerText}>Start New Claim</Text>
+            </Pressable>
+          )}
         </ScrollView>
 
         <InsuranceBottomTabBar onTabPress={onTabPress} />
@@ -318,7 +350,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   insuranceRowPressed: {
-    backgroundColor: '#fafafa',
+    backgroundColor: INSURANCE_PRESSED_SURFACE_SOFT,
   },
   insuranceRowLabel: {
     fontSize: 16,
@@ -340,11 +372,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   callInsurerPressed: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: INSURANCE_PRESSED_SURFACE,
   },
   callInsurerText: {
     fontSize: 17,
     fontWeight: '700',
     color: COLORS.text,
+  },
+  newClaimBtnMargin: {
+    marginTop: 12,
   },
 });

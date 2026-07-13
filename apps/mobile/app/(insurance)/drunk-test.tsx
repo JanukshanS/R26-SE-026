@@ -14,9 +14,24 @@ import {
   loadDrunkTestState,
   saveDrunkTestState,
 } from '@/features/drunk-test/storage/drunk-test-store';
+import {
+  INSURANCE_BORDER,
+  INSURANCE_CAMERA_PLACEHOLDER_BG,
+  INSURANCE_CTA_LINK,
+  INSURANCE_PERMISSION_BLUE,
+  INSURANCE_PRIMARY,
+  INSURANCE_RECORDING_BAR_BG,
+  INSURANCE_SCREEN_BG,
+  INSURANCE_SCRIPT_BOX_BG,
+  INSURANCE_SHADOW_COLOR,
+  INSURANCE_TEXT,
+  INSURANCE_TEXT_DIM,
+  INSURANCE_TEXT_MUTED,
+  INSURANCE_VIDEO_TILE_BG,
+  INSURANCE_VIDEO_TILE_SUBTEXT,
+  WHITE,
+} from '@/features/guided-capture/capture-ui-theme';
 
-const CTA_BLUE = '#1565c0';
-const PRIMARY_BLUE = '#1f8bff';
 /** Matches on-screen “Recording N seconds left” and `recordAsync.maxDuration`. */
 const RECORD_DURATION_SEC = 40;
 
@@ -342,7 +357,7 @@ export default function DrunkTestScreen() {
               (Platform.OS === 'android' && !micPermission?.granted)
             }>
             {isRecording ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={WHITE} />
             ) : (
               <Text style={styles.primaryButtonText}>
                 {!isCameraReady ? 'Preparing camera…' : Platform.OS === 'web' ? 'Video (device only)' : 'Take Video'}
@@ -362,11 +377,11 @@ export default function DrunkTestScreen() {
 }
 
 const COLORS = {
-  text: '#111111',
-  textMuted: '#666666',
-  screen: '#efefef',
-  border: '#d0d0d0',
-  scriptBg: '#fff0e6',
+  text: INSURANCE_TEXT,
+  textMuted: INSURANCE_TEXT_MUTED,
+  screen: INSURANCE_SCREEN_BG,
+  border: INSURANCE_BORDER,
+  scriptBg: INSURANCE_SCRIPT_BOX_BG,
 };
 
 const styles = StyleSheet.create({
@@ -442,7 +457,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.border,
-    backgroundColor: '#d8d8d8',
+    backgroundColor: INSURANCE_CAMERA_PLACEHOLDER_BG,
     position: 'relative',
     marginBottom: 10,
   },
@@ -457,7 +472,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     alignItems: 'center',
-    backgroundColor: 'rgba(220, 220, 220, 0.88)',
+    backgroundColor: INSURANCE_RECORDING_BAR_BG,
     gap: 6,
   },
   recordingBarHint: {
@@ -483,30 +498,30 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#fff',
-    backgroundColor: 'rgba(20,20,20,0.85)',
+    borderColor: WHITE,
+    backgroundColor: INSURANCE_VIDEO_TILE_BG,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
-    shadowColor: '#000',
+    shadowColor: INSURANCE_SHADOW_COLOR,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.3,
     shadowRadius: 3,
     elevation: 4,
   },
   cornerVideoLabel: {
-    color: '#fff',
+    color: WHITE,
     fontSize: 15,
     fontWeight: '800',
   },
   cornerVideoSub: {
-    color: 'rgba(255,255,255,0.75)',
+    color: INSURANCE_VIDEO_TILE_SUBTEXT,
     fontSize: 11,
     marginTop: 2,
     fontWeight: '600',
   },
   primaryButton: {
-    backgroundColor: PRIMARY_BLUE,
+    backgroundColor: INSURANCE_PRIMARY,
     borderRadius: 10,
     paddingVertical: 16,
     alignItems: 'center',
@@ -519,7 +534,7 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   primaryButtonText: {
-    color: '#fff',
+    color: WHITE,
     fontSize: 17,
     fontWeight: '700',
   },
@@ -537,19 +552,19 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   centerText: {
-    color: '#333',
+    color: INSURANCE_TEXT_DIM,
     textAlign: 'center',
     fontSize: 16,
     lineHeight: 22,
   },
   permissionButton: {
-    backgroundColor: '#1f8bff',
+    backgroundColor: INSURANCE_PERMISSION_BLUE,
     borderRadius: 5,
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
   permissionButtonText: {
-    color: '#fff',
+    color: WHITE,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -558,7 +573,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   textButtonLabel: {
-    color: CTA_BLUE,
+    color: INSURANCE_CTA_LINK,
     fontSize: 16,
     fontWeight: '600',
   },

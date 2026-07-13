@@ -32,21 +32,35 @@ import { computeClaimBundleUploadKey, isClaimReportSubmittedLocked } from '@/lib
 import { formatGeocodedLine } from '@/lib/format-geocoded-line';
 import { formatTimestamp } from '@/lib/format-timestamp';
 import { type LocationSnapshotMeta } from '@/lib/location-snapshot-store';
+import {
+  INSURANCE_BORDER_SOFT,
+  INSURANCE_PILL_INCOMPLETE_BG,
+  INSURANCE_PILL_INCOMPLETE_TEXT,
+  INSURANCE_PRESSED_SURFACE,
+  INSURANCE_PRESSED_SURFACE_SOFT,
+  INSURANCE_PRIMARY,
+  INSURANCE_REPORT_BG,
+  INSURANCE_REPORT_DISABLED_BG,
+  INSURANCE_STEP_BADGE_BG,
+  INSURANCE_TEXT,
+  INSURANCE_TEXT_MUTED,
+  WHITE,
+} from '@/features/guided-capture/capture-ui-theme';
 
 const COLORS = {
-  screen: '#ffffff',
-  text: '#111111',
-  textMuted: '#666666',
-  border: '#e0e0e0',
-  stepBadgeBg: '#dbeafe',
-  stepBadgeText: '#1565c0',
-  cardBg: '#ffffff',
-  pillIncompleteBg: '#ffebee',
-  pillIncompleteText: '#c62828',
-  pillDoneBg: '#e8f5e9',
-  pillDoneText: '#2e7d32',
-  reportBg: '#ff5c5c',
-  reportText: '#ffffff',
+  screen: WHITE,
+  text: INSURANCE_TEXT,
+  textMuted: INSURANCE_TEXT_MUTED,
+  border: INSURANCE_BORDER_SOFT,
+  stepBadgeBg: INSURANCE_STEP_BADGE_BG,
+  stepBadgeText: INSURANCE_PRIMARY,
+  cardBg: WHITE,
+  pillIncompleteBg: INSURANCE_PILL_INCOMPLETE_BG,
+  pillIncompleteText: INSURANCE_PILL_INCOMPLETE_TEXT,
+  pillDoneBg: INSURANCE_STEP_BADGE_BG,
+  pillDoneText: INSURANCE_PRIMARY,
+  reportBg: INSURANCE_REPORT_BG,
+  reportText: WHITE,
 };
 
 type TaskStatus = 'done' | 'incomplete';
@@ -377,6 +391,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingTop: 10,
     marginBottom: 20,
     gap: 4,
   },
@@ -395,7 +410,6 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   headerTitle: {
-    paddingTop: 10,
     fontSize: 22,
     fontWeight: '700',
     color: COLORS.text,
@@ -416,7 +430,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   callInsurerPressed: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: INSURANCE_PRESSED_SURFACE,
   },
   callInsurerText: {
     fontSize: 17,
@@ -496,7 +510,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   taskCardPressed: {
-    backgroundColor: '#fafafa',
+    backgroundColor: INSURANCE_PRESSED_SURFACE_SOFT,
   },
   taskTitle: {
     fontSize: 16,
@@ -535,7 +549,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   reportBtnDisabled: {
-    backgroundColor: '#e8e8e8',
+    backgroundColor: INSURANCE_REPORT_DISABLED_BG,
   },
   reportBtnPressed: {
     opacity: 0.9,

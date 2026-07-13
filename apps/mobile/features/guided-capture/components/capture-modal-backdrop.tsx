@@ -9,9 +9,9 @@ import {
 } from 'react-native';
 
 import {
+  BLACK,
   CAPTURE_MODAL_BLUR_INTENSITY_ANDROID,
   CAPTURE_MODAL_BLUR_INTENSITY_IOS,
-  CAPTURE_MODAL_BLUR_REDUCTION_ANDROID,
   CAPTURE_MODAL_BLUR_TINT,
   CAPTURE_MODAL_UNIFORM_VEIL,
   CAPTURE_MODAL_WEB_SCRIM,
@@ -58,12 +58,6 @@ export function CaptureModalBackdrop({ width, height }: CaptureModalBackdropProp
             : CAPTURE_MODAL_BLUR_INTENSITY_IOS
         }
         style={sizedFill}
-        {...(Platform.OS === 'android'
-          ? {
-              experimentalBlurMethod: 'dimezisBlurView' as const,
-              blurReductionFactor: CAPTURE_MODAL_BLUR_REDUCTION_ANDROID,
-            }
-          : {})}
       />
       <View
         pointerEvents="none"
@@ -81,7 +75,7 @@ export const captureModalBackdropStyles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     top: 0,
-    backgroundColor: '#000000',
+    backgroundColor: BLACK,
   },
   rootWeb: {
     position: 'absolute',
