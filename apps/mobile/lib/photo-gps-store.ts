@@ -35,3 +35,16 @@ export async function loadPhotoGps(uri: string): Promise<PhotoGpsEntry | null> {
 export async function clearAllPhotoGps(): Promise<void> {
   await FileSystem.deleteAsync(DIR, { idempotent: true }).catch(() => {});
 }
+
+/** Deletes GPS entries for specific photo URIs only — use instead of clearAllPhotoGps when
+ * other features' photos share this same store and must not be affected. */
+export async function deletePhotoGpsEntries(uris: string[]): Promise<void> {
+  for (const uri of uris) {
+    const path = `${DIR}/${keyFromUri(uri)}.json`;
+    try {
+      await FileSystem.deleteAsync(path, { idempotent: true });
+    } catch {
+      // best-effort
+    }
+  }
+}

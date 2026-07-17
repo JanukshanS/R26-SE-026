@@ -1,17 +1,13 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
-import type { CaptureAngle } from '@/features/guided-capture/types';
+import type { StopPhoto } from '@/features/guided-capture/types';
 
 type GuidedCaptureStoreState = {
-  activeAngles: CaptureAngle[];
-  activePhotoUris: string[];
-  libraryPhotoUris: string[];
+  photos: StopPhoto[];
 };
 
 const EMPTY_STATE: GuidedCaptureStoreState = {
-  activeAngles: [],
-  activePhotoUris: [],
-  libraryPhotoUris: [],
+  photos: [],
 };
 
 const ROOT_DIR = (FileSystem.documentDirectory ?? '') + 'guided-capture/';
@@ -37,9 +33,7 @@ export async function loadGuidedCaptureStoreState(): Promise<GuidedCaptureStoreS
     const content = await FileSystem.readAsStringAsync(STATE_FILE);
     const parsed = JSON.parse(content) as Partial<GuidedCaptureStoreState>;
     return {
-      activeAngles: Array.isArray(parsed.activeAngles) ? parsed.activeAngles : [],
-      activePhotoUris: Array.isArray(parsed.activePhotoUris) ? parsed.activePhotoUris : [],
-      libraryPhotoUris: Array.isArray(parsed.libraryPhotoUris) ? parsed.libraryPhotoUris : [],
+      photos: Array.isArray(parsed.photos) ? parsed.photos : [],
     };
   } catch {
     return EMPTY_STATE;

@@ -1,8 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { DEFAULT_STOP_COUNT } from '@/features/guided-capture/constants';
+import { loadGuidedCaptureStoreState } from '@/features/guided-capture/storage/guided-capture-store';
+import { HEIGHT_STEPS } from '@/features/guided-capture/types';
 
 const INTRO_DIAGRAM = require('../../assets/images/guided-capture-angles-intro.png');
 
@@ -13,6 +18,20 @@ const TEXT = '#111111';
 export default function GuidedCaptureIntroScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const [hasRequiredPhotos, setHasRequiredPhotos] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void loadGuidedCaptureStoreState().then((state) => {
+        if (cancelled) return;
+        setHasRequiredPhotos(state.photos.length >= DEFAULT_STOP_COUNT * HEIGHT_STEPS.length);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
@@ -45,18 +64,41 @@ export default function GuidedCaptureIntroScreen() {
         </View>
 
         <Text style={styles.body}>
-        Start from any angle and move in one direction, capturing each guided point from about 1 meter away.
+        Walk around the vehicle to each stop. At every stop, take 3 photos: overhead (tilted down over the car), chest height, and waist height.
         </Text>
+
+        {hasRequiredPhotos ? (
+          <Text style={styles.doneNotice}>You already have the required photos.</Text>
+        ) : null}
       </ScrollView>
 
       <View style={styles.footer}>
-        <Pressable
-          style={({ pressed }) => [styles.nextBtn, pressed && styles.nextPressed]}
-          onPress={() => router.push('/(insurance)/capture')}
-          accessibilityRole="button"
-          accessibilityLabel="Continue to camera">
-          <Text style={styles.nextBtnText}>Next</Text>
-        </Pressable>
+        {hasRequiredPhotos ? (
+          <View style={styles.footerRow}>
+            <Pressable
+              style={({ pressed }) => [styles.backBtn, pressed && styles.backPressed]}
+              onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="Go back">
+              <Text style={styles.backBtnText}>Back</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.nextBtn, styles.nextBtnFlex, pressed && styles.nextPressed]}
+              onPress={() => router.push('/(insurance)/capture')}
+              accessibilityRole="button"
+              accessibilityLabel="Continue to camera">
+              <Text style={styles.nextBtnText}>Next</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            style={({ pressed }) => [styles.nextBtn, pressed && styles.nextPressed]}
+            onPress={() => router.push('/(insurance)/capture')}
+            accessibilityRole="button"
+            accessibilityLabel="Continue to camera">
+            <Text style={styles.nextBtnText}>Next</Text>
+          </Pressable>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -132,11 +174,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
   },
+  doneNotice: {
+    marginTop: 12,
+    paddingHorizontal: 10,
+    fontSize: 15,
+    lineHeight: 20,
+    color: ORANGE,
+    textAlign: 'center',
+    fontWeight: '700',
+  },
   footer: {
     paddingHorizontal: 25,
     paddingTop: 12,
     paddingBottom: 20,
     backgroundColor: '#ffffff',
+  },
+  footerRow: {
+    flexDirection: 'row',
+    gap: 12,
   },
   nextBtn: {
     backgroundColor: ORANGE,
@@ -145,11 +200,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  nextBtnFlex: {
+    flex: 1,
+  },
   nextPressed: {
     opacity: 0.92,
   },
   nextBtnText: {
     color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  backBtn: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: ORANGE,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backPressed: {
+    backgroundColor: '#fff3ea',
+  },
+  backBtnText: {
+    color: ORANGE,
     fontSize: 17,
     fontWeight: '700',
   },

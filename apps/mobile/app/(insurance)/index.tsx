@@ -12,8 +12,9 @@ import {
   loadDrivingLicenceState,
 } from '@/features/driving-licence/storage/driving-licence-store';
 import { isDrunkTestVideoCaptured, loadDrunkTestState } from '@/features/drunk-test/storage/drunk-test-store';
-import { MIN_PHOTOS } from '@/features/guided-capture/constants';
+import { DEFAULT_STOP_COUNT } from '@/features/guided-capture/constants';
 import { loadGuidedCaptureStoreState } from '@/features/guided-capture/storage/guided-capture-store';
+import { HEIGHT_STEPS } from '@/features/guided-capture/types';
 import {
   loadGuidedCaptureEntryMeta,
   saveGuidedCaptureEntryMeta,
@@ -89,6 +90,9 @@ async function captureLocationSnapshot(): Promise<LocationSnapshotMeta> {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
       base.locationPermission = 'denied';
+      if (__DEV__) {
+        console.log('[Location captured]', base);
+      }
       return base;
     }
     base.locationPermission = 'granted';
@@ -113,6 +117,9 @@ async function captureLocationSnapshot(): Promise<LocationSnapshotMeta> {
     base.locationPermission = 'unavailable';
   }
 
+  if (__DEV__) {
+    console.log('[Location captured]', base);
+  }
   return base;
 }
 
@@ -182,7 +189,7 @@ export default function InsuranceHomeScreen() {
         if (cancelled) {
           return;
         }
-        setGuidedMeetsMinimum(guidedState.activeAngles.length >= MIN_PHOTOS);
+        setGuidedMeetsMinimum(guidedState.photos.length >= DEFAULT_STOP_COUNT * HEIGHT_STEPS.length);
         setLicenceComplete(isDrivingLicenceCaptureComplete(licenceState));
         setDrunkTestComplete(isDrunkTestVideoCaptured(drunkState));
         setThirdPartyComplete(isThirdPartyStepComplete(thirdState));
@@ -241,15 +248,23 @@ export default function InsuranceHomeScreen() {
   };
 
   const onCallInsurer = async () => {
-    void loadInsurerCallMeta().then((existing) => {
-      if (existing) return;
-      void captureLocationSnapshot().then((meta) => {
-        void saveInsurerCallMeta(meta);
-        if (__DEV__) {
-          console.log('[Allianz call — time & location at tap]', meta);
-        }
-      });
-    });
+    try {
+      // Android-only: shows the native "Location Accuracy" dialog when device
+      // location / high-accuracy mode isn't already on. No-op on iOS.
+      await Location.enableNetworkProviderAsync();
+    } catch {
+      // User tapped "No, thanks" (or provider unavailable) — proceed with the call regardless.
+    }
+
+    const existing = await loadInsurerCallMeta();
+    if (!existing) {
+      const meta = await captureLocationSnapshot();
+      await saveInsurerCallMeta(meta);
+      if (__DEV__) {
+        console.log('[Allianz call — time & location at tap]', meta);
+      }
+    }
+
     try {
       await Linking.openURL(INSURER_PHONE_TEL);
     } catch {

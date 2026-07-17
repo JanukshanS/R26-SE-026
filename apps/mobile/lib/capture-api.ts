@@ -5,8 +5,20 @@ import { type GuidedCaptureEntryMeta } from '@/features/guided-capture/storage/g
 import { loadDrunkTestState } from '@/features/drunk-test/storage/drunk-test-store';
 import { loadDrivingLicenceState } from '@/features/driving-licence/storage/driving-licence-store';
 import { loadGuidedCaptureStoreState } from '@/features/guided-capture/storage/guided-capture-store';
+import { HEIGHT_STEPS } from '@/features/guided-capture/types';
 import { loadThirdPartyState } from '@/features/third-party/storage/third-party-store';
 import { loadPhotoGps } from '@/lib/photo-gps-store';
+
+/** Guided-capture walkaround photo URIs in stop/height order (matches how they were captured). */
+async function loadGuidedWalkaroundUris(): Promise<string[]> {
+  const { photos } = await loadGuidedCaptureStoreState();
+  return [...photos]
+    .sort((a, b) => {
+      if (a.stopIndex !== b.stopIndex) return a.stopIndex - b.stopIndex;
+      return HEIGHT_STEPS.indexOf(a.heightStep) - HEIGHT_STEPS.indexOf(b.heightStep);
+    })
+    .map((p) => p.uri);
+}
 
 /**
  * Base URL for the Guided Camera FastAPI backend (no trailing slash).
@@ -220,13 +232,7 @@ export async function uploadFullClaimBundleToBackend(options: {
     );
   }
 
-  const guidedStore = await loadGuidedCaptureStoreState();
-  const guidedUris =
-    guidedStore.libraryPhotoUris.length > 0
-      ? guidedStore.libraryPhotoUris
-      : guidedStore.activePhotoUris.length > 0
-        ? guidedStore.activePhotoUris
-        : [];
+  const guidedUris = await loadGuidedWalkaroundUris();
 
   if (guidedUris.length === 0) {
     throw new Error('No guided capture photos found. Complete the walkaround capture first.');

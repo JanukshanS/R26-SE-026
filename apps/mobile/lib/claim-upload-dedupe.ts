@@ -46,7 +46,7 @@ export async function computeClaimBundleUploadKey(): Promise<string> {
   const third = await loadThirdPartyState();
   const drunk = await loadDrunkTestState();
   const raw = [
-    [...guided.libraryPhotoUris].sort().join(','),
+    [...guided.photos.map((p) => p.uri)].sort().join(','),
     [licence.frontUri, licence.backUri, licence.selfieUri].filter(Boolean).join(','),
     third.notApplicable
       ? 'na'

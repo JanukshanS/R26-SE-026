@@ -38,7 +38,7 @@ export async function clearAllClaimData(): Promise<void> {
 
   await Promise.all([
     // Delete photo and video files from device storage
-    deleteGuidedCapturePhotos([...guidedState.activePhotoUris, ...guidedState.libraryPhotoUris]),
+    deleteGuidedCapturePhotos(guidedState.photos.map((p) => p.uri)),
     deleteDrivingLicencePhotos(licenceState.libraryUris),
     deleteDrunkTestVideo(drunkState.videoUri),
     deleteThirdPartyPhotos(thirdPartyState.libraryUris),
@@ -53,7 +53,7 @@ export async function clearAllClaimData(): Promise<void> {
     clearReportAccidentEntryMeta(),
 
     // Reset store state files to empty (next load returns defaults)
-    saveGuidedCaptureStoreState({ activeAngles: [], activePhotoUris: [], libraryPhotoUris: [] }),
+    saveGuidedCaptureStoreState({ photos: [] }),
     saveDrivingLicenceState({ side: 'front', frontUri: null, backUri: null, selfieUri: null, libraryUris: [] }),
     saveDrunkTestState({ videoUri: null }),
     saveThirdPartyState({

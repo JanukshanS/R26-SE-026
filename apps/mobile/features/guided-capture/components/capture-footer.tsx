@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   CAPTURE_ACTION_BLUE,
@@ -9,19 +9,24 @@ import {
 type CaptureFooterProps = {
   label: string;
   disabled: boolean;
+  isCapturing?: boolean;
   onCapture: () => void;
 };
 
-export function CaptureFooter({ label, disabled, onCapture }: CaptureFooterProps) {
+export function CaptureFooter({ label, disabled, isCapturing, onCapture }: CaptureFooterProps) {
   return (
     <View style={styles.footer}>
       <Pressable
         style={[styles.captureButton, disabled && styles.captureButtonDisabled]}
         onPress={onCapture}
         disabled={disabled}>
-        <Text style={styles.captureButtonText} numberOfLines={4}>
-          {label}
-        </Text>
+        {isCapturing ? (
+          <ActivityIndicator color={CAPTURE_TEXT_WHITE} />
+        ) : (
+          <Text style={styles.captureButtonText} numberOfLines={4}>
+            {label}
+          </Text>
+        )}
       </Pressable>
     </View>
   );

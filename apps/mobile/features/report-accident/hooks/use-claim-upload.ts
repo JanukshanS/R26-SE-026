@@ -46,6 +46,9 @@ export function useClaimUpload(
   const photosUploadedForKeyRef = useRef<string | null>(null);
   const guidedWalkaroundUploadsDoneRef = useRef(false);
   const fraudValidationMediaUploadsDoneRef = useRef(false);
+  /** Guards against a second concurrent run for the same key (e.g. a duplicate focus event
+   * firing mid-upload) — unlike photosUploadedForKeyRef, this is set before the upload starts. */
+  const uploadInFlightForKeyRef = useRef<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -58,186 +61,202 @@ export function useClaimUpload(
       setTimestampLine('');
 
       void (async () => {
-        const parsed = reportedAtIso ? new Date(reportedAtIso) : null;
-        const recordedAt = parsed && Number.isFinite(parsed.getTime()) ? parsed : new Date();
-
-        // Skip GPS entirely if this upload key was already completed.
+        // Guards against a second concurrent invocation for the same key (e.g. a duplicate
+        // focus event firing while the first pass is still mid-upload) starting a whole
+        // second GPS+upload sequence, which would post every photo twice.
         if (uploadKey) {
-          const persistedSuccessKey = await getPersistedSuccessfulClaimUploadKey();
-          if (!cancelled && persistedSuccessKey === uploadKey) {
-            photosUploadedForKeyRef.current = uploadKey;
-            setPhotosUploadPercent(100);
-            setPhotosUploadComplete(true);
-            setFraudValidationPercent(100);
-            setFraudValidationComplete(true);
-            const saved = await loadPersistedClaimLocation();
-            if (!cancelled) {
-              if (saved) {
-                setLocationLine(saved.locationLine);
-                setTimestampLine(saved.timestampLine);
-              }
-              setLocationLoading(false);
-            }
+          if (uploadInFlightForKeyRef.current === uploadKey) {
             return;
           }
-          if (!cancelled && photosUploadedForKeyRef.current === uploadKey) {
-            setPhotosUploadPercent(100);
-            setPhotosUploadComplete(true);
-            setFraudValidationPercent(100);
-            setFraudValidationComplete(true);
-            const saved = await loadPersistedClaimLocation();
-            if (!cancelled) {
-              if (saved) {
-                setLocationLine(saved.locationLine);
-                setTimestampLine(saved.timestampLine);
-              }
-              setLocationLoading(false);
-            }
-            return;
-          }
+          uploadInFlightForKeyRef.current = uploadKey;
         }
-
-        let lat: number | null = null;
-        let lng: number | null = null;
-        let line = 'Getting location…';
-
-        const persistedEntryMeta = await loadReportAccidentEntryMeta();
-        if (!cancelled && persistedEntryMeta?.latitude != null && persistedEntryMeta?.longitude != null) {
-          lat = persistedEntryMeta.latitude;
-          lng = persistedEntryMeta.longitude;
-          line = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-          try {
-            const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-            if (geo && !cancelled) line = formatGeocodedLine(geo);
-          } catch {
-            // keep coordinates
-          }
-          if (!cancelled) {
-            setLocationLine(line);
-            setTimestampLine(formatTimestamp(recordedAt));
-            setLocationLoading(false);
-          }
-        } else {
-          try {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (cancelled) return;
-            if (status !== 'granted') {
-              line = 'Location permission not granted';
-              if (!cancelled) {
-                setLocationLine(line);
-                setTimestampLine(formatTimestamp(recordedAt));
-              }
-            } else {
-              const pos = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced,
-              });
-              if (cancelled) return;
-              lat = pos.coords.latitude;
-              lng = pos.coords.longitude;
-              line = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-              try {
-                const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-                if (geo && !cancelled) line = formatGeocodedLine(geo);
-              } catch {
-                // keep coordinates
-              }
-              if (!cancelled) {
-                setLocationLine(line);
-                setTimestampLine(formatTimestamp(recordedAt));
-              }
-            }
-          } catch {
-            if (!cancelled) {
-              line = 'Could not read location';
-              setLocationLine(line);
-              setTimestampLine(formatTimestamp(recordedAt));
-            }
-          } finally {
-            if (!cancelled) setLocationLoading(false);
-          }
-        }
-
-        if (cancelled || !uploadKey) return;
-
-        // Block upload if GPS location was not obtained.
-        if (lat === null) {
-          Alert.alert(
-            'Location required',
-            'We could not get your GPS location. Please enable location access and try again.',
-            [{ text: 'OK' }]
-          );
-          return;
-        }
-
-        setPhotosUploadPercent(0);
-        setPhotosUploadComplete(false);
-        setFraudValidationPercent(0);
-        setFraudValidationComplete(false);
-        guidedWalkaroundUploadsDoneRef.current = false;
-        fraudValidationMediaUploadsDoneRef.current = false;
 
         try {
-          const [saved, insurerCallMeta, guidedCaptureEntryMeta] = await Promise.all([
-            loadClaimantProfile(),
-            loadInsurerCallMeta(),
-            loadGuidedCaptureEntryMeta(),
-          ]);
-          const claimant = {
-            fullName: (claimantRef.current.fullName || saved.fullName).trim(),
-            nic: (claimantRef.current.nic || saved.nic).trim(),
-            licenceNumber: (claimantRef.current.licenceNumber || saved.licenceNumber).trim(),
-          };
-          await saveClaimantProfile(claimant);
-          await uploadFullClaimBundleToBackend({
-            insurerCallMeta,
-            guidedCaptureEntryMeta,
-            onGuidedProgress: (p) => { if (!cancelled) setPhotosUploadPercent(p); },
-            onFraudProgress: (p) => { if (!cancelled) setFraudValidationPercent(p); },
-            onGuidedWalkaroundUploadsComplete: () => {
+          const parsed = reportedAtIso ? new Date(reportedAtIso) : null;
+          const recordedAt = parsed && Number.isFinite(parsed.getTime()) ? parsed : new Date();
+
+          // Skip GPS entirely if this upload key was already completed.
+          if (uploadKey) {
+            const persistedSuccessKey = await getPersistedSuccessfulClaimUploadKey();
+            if (!cancelled && persistedSuccessKey === uploadKey) {
+              photosUploadedForKeyRef.current = uploadKey;
+              setPhotosUploadPercent(100);
+              setPhotosUploadComplete(true);
+              setFraudValidationPercent(100);
+              setFraudValidationComplete(true);
+              const saved = await loadPersistedClaimLocation();
               if (!cancelled) {
-                guidedWalkaroundUploadsDoneRef.current = true;
-                setPhotosUploadPercent(100);
-                setPhotosUploadComplete(true);
+                if (saved) {
+                  setLocationLine(saved.locationLine);
+                  setTimestampLine(saved.timestampLine);
+                }
+                setLocationLoading(false);
               }
-            },
-            onFraudValidationMediaUploadsComplete: () => {
+              return;
+            }
+            if (!cancelled && photosUploadedForKeyRef.current === uploadKey) {
+              setPhotosUploadPercent(100);
+              setPhotosUploadComplete(true);
+              setFraudValidationPercent(100);
+              setFraudValidationComplete(true);
+              const saved = await loadPersistedClaimLocation();
               if (!cancelled) {
-                fraudValidationMediaUploadsDoneRef.current = true;
-                setFraudValidationPercent(100);
-                setFraudValidationComplete(true);
+                if (saved) {
+                  setLocationLine(saved.locationLine);
+                  setTimestampLine(saved.timestampLine);
+                }
+                setLocationLoading(false);
               }
-            },
-            report: {
-              capturedAtIso: recordedAt.toISOString(),
-              capturedAtDisplayLocal: formatTimestamp(recordedAt),
-              gpsLat: lat,
-              gpsLng: lng,
-              locationLabel: line,
-            },
-            claimant: {
-              fullName: claimant.fullName,
-              nic: claimant.nic,
-              licenceNumber: claimant.licenceNumber,
-            },
-          });
-          if (!cancelled) {
-            photosUploadedForKeyRef.current = uploadKey;
-            await setPersistedSuccessfulClaimUploadKey(uploadKey);
-            // Best-effort: a storage failure here must not flip the upload into an error state.
-            await savePersistedClaimLocation({ locationLine: line, timestampLine: formatTimestamp(recordedAt) }).catch(() => {});
+              return;
+            }
           }
-        } catch (e) {
-          if (!cancelled) {
-            const message = e instanceof Error ? e.message : 'Upload failed';
-            if (!guidedWalkaroundUploadsDoneRef.current) {
-              setPhotosUploadPercent(0);
-              setPhotosUploadComplete(false);
+
+          let lat: number | null = null;
+          let lng: number | null = null;
+          let line = 'Getting location…';
+
+          const persistedEntryMeta = await loadReportAccidentEntryMeta();
+          if (!cancelled && persistedEntryMeta?.latitude != null && persistedEntryMeta?.longitude != null) {
+            lat = persistedEntryMeta.latitude;
+            lng = persistedEntryMeta.longitude;
+            line = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            try {
+              const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+              if (geo && !cancelled) line = formatGeocodedLine(geo);
+            } catch {
+              // keep coordinates
             }
-            if (!fraudValidationMediaUploadsDoneRef.current) {
-              setFraudValidationPercent(0);
-              setFraudValidationComplete(false);
+            if (!cancelled) {
+              setLocationLine(line);
+              setTimestampLine(formatTimestamp(recordedAt));
+              setLocationLoading(false);
             }
-            Alert.alert('Photos upload failed', message);
+          } else {
+            try {
+              const { status } = await Location.requestForegroundPermissionsAsync();
+              if (cancelled) return;
+              if (status !== 'granted') {
+                line = 'Location permission not granted';
+                if (!cancelled) {
+                  setLocationLine(line);
+                  setTimestampLine(formatTimestamp(recordedAt));
+                }
+              } else {
+                const pos = await Location.getCurrentPositionAsync({
+                  accuracy: Location.Accuracy.Balanced,
+                });
+                if (cancelled) return;
+                lat = pos.coords.latitude;
+                lng = pos.coords.longitude;
+                line = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+                try {
+                  const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+                  if (geo && !cancelled) line = formatGeocodedLine(geo);
+                } catch {
+                  // keep coordinates
+                }
+                if (!cancelled) {
+                  setLocationLine(line);
+                  setTimestampLine(formatTimestamp(recordedAt));
+                }
+              }
+            } catch {
+              if (!cancelled) {
+                line = 'Could not read location';
+                setLocationLine(line);
+                setTimestampLine(formatTimestamp(recordedAt));
+              }
+            } finally {
+              if (!cancelled) setLocationLoading(false);
+            }
+          }
+
+          if (cancelled || !uploadKey) return;
+
+          // Block upload if GPS location was not obtained.
+          if (lat === null) {
+            Alert.alert(
+              'Location required',
+              'We could not get your GPS location. Please enable location access and try again.',
+              [{ text: 'OK' }]
+            );
+            return;
+          }
+
+          setPhotosUploadPercent(0);
+          setPhotosUploadComplete(false);
+          setFraudValidationPercent(0);
+          setFraudValidationComplete(false);
+          guidedWalkaroundUploadsDoneRef.current = false;
+          fraudValidationMediaUploadsDoneRef.current = false;
+
+          try {
+            const [saved, insurerCallMeta, guidedCaptureEntryMeta] = await Promise.all([
+              loadClaimantProfile(),
+              loadInsurerCallMeta(),
+              loadGuidedCaptureEntryMeta(),
+            ]);
+            const claimant = {
+              fullName: (claimantRef.current.fullName || saved.fullName).trim(),
+              nic: (claimantRef.current.nic || saved.nic).trim(),
+              licenceNumber: (claimantRef.current.licenceNumber || saved.licenceNumber).trim(),
+            };
+            await saveClaimantProfile(claimant);
+            await uploadFullClaimBundleToBackend({
+              insurerCallMeta,
+              guidedCaptureEntryMeta,
+              onGuidedProgress: (p) => { if (!cancelled) setPhotosUploadPercent(p); },
+              onFraudProgress: (p) => { if (!cancelled) setFraudValidationPercent(p); },
+              onGuidedWalkaroundUploadsComplete: () => {
+                if (!cancelled) {
+                  guidedWalkaroundUploadsDoneRef.current = true;
+                  setPhotosUploadPercent(100);
+                  setPhotosUploadComplete(true);
+                }
+              },
+              onFraudValidationMediaUploadsComplete: () => {
+                if (!cancelled) {
+                  fraudValidationMediaUploadsDoneRef.current = true;
+                  setFraudValidationPercent(100);
+                  setFraudValidationComplete(true);
+                }
+              },
+              report: {
+                capturedAtIso: recordedAt.toISOString(),
+                capturedAtDisplayLocal: formatTimestamp(recordedAt),
+                gpsLat: lat,
+                gpsLng: lng,
+                locationLabel: line,
+              },
+              claimant: {
+                fullName: claimant.fullName,
+                nic: claimant.nic,
+                licenceNumber: claimant.licenceNumber,
+              },
+            });
+            if (!cancelled) {
+              photosUploadedForKeyRef.current = uploadKey;
+              await setPersistedSuccessfulClaimUploadKey(uploadKey);
+              // Best-effort: a storage failure here must not flip the upload into an error state.
+              await savePersistedClaimLocation({ locationLine: line, timestampLine: formatTimestamp(recordedAt) }).catch(() => {});
+            }
+          } catch (e) {
+            if (!cancelled) {
+              const message = e instanceof Error ? e.message : 'Upload failed';
+              if (!guidedWalkaroundUploadsDoneRef.current) {
+                setPhotosUploadPercent(0);
+                setPhotosUploadComplete(false);
+              }
+              if (!fraudValidationMediaUploadsDoneRef.current) {
+                setFraudValidationPercent(0);
+                setFraudValidationComplete(false);
+              }
+              Alert.alert('Photos upload failed', message);
+            }
+          }
+        } finally {
+          if (uploadKey && uploadInFlightForKeyRef.current === uploadKey) {
+            uploadInFlightForKeyRef.current = null;
           }
         }
       })();

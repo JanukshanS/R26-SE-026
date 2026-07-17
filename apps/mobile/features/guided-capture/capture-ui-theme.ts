@@ -59,6 +59,14 @@ export const CAPTURE_VALID_BORDER_SOFT = 'rgba(112, 255, 147, 0.5)';
 export const CAPTURE_INVALID_BG = 'rgba(255, 128, 128, 0.15)';
 export const CAPTURE_INVALID_BORDER_SOFT = 'rgba(255, 128, 128, 0.5)';
 
+/** Orbit progress (walk-to-next-stop arc of dots) */
+export const CAPTURE_ARC_DOT_DONE = CAPTURE_ACTION_BLUE;
+export const CAPTURE_ARC_DOT_TARGET = 'rgba(0, 219, 126, 0.9)';
+export const CAPTURE_ARC_DOT_UPCOMING = 'rgba(17, 17, 17, 0.25)';
+export const CAPTURE_ARC_TRACK = 'rgba(17, 17, 17, 0.12)';
+export const CAPTURE_ARC_CAR_FILL = '#c9c9c9';
+export const CAPTURE_ARC_CAR_ROOF = '#9e9e9e';
+
 /** Sweep direction UI */
 export const SWEEP_CUE_BG = '#90b08d';
 export const SWEEP_CUE_SHADOW = BLACK;
