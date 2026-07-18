@@ -6,30 +6,10 @@
  * rather than a flat default. Never throws to the caller: returns null on any
  * failure so dispatch degrades gracefully when geo is unreachable.
  */
+import { mapServiceTypeToIncidentType } from '../../../../contracts/geo-service-mapping';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { ServiceTypeProbabilities } from '../types';
-
-// Maps the dispatch ServiceType (triage's most-likely fault) onto the geo model's
-// incident_type vocabulary. Unmapped types fall back to 'engine_failure'.
-const SERVICE_TO_INCIDENT_TYPE: Record<string, string> = {
-  MAJOR_ACCIDENT: 'major_accident',
-  URGENT_TOW: 'major_accident',
-  SEVERE_MECHANICAL_TOW: 'major_accident',
-  FLOOD_RECOVERY: 'major_accident',
-  FLAT_TIRE_CHANGE: 'flat_tire',
-  FUEL_EMPTY: 'fuel_empty',
-  FUEL_WRONG: 'fuel_empty',
-  LOCKOUT: 'fuel_empty',
-  KEY_LOST: 'fuel_empty',
-  BATTERY_JUMP: 'battery_dead',
-  BATTERY_TERMINAL_CLEAN: 'battery_dead',
-  BATTERY_REPLACE: 'battery_dead',
-  COOLANT_LOW: 'overheating',
-  RADIATOR_FAN_ISSUE: 'overheating',
-  RADIATOR_HOSE_LEAK: 'overheating',
-  ENGINE_OVERHEAT_SEVERE: 'overheating',
-};
 
 function topServiceType(probabilities?: ServiceTypeProbabilities): string | undefined {
   const entries = Object.entries((probabilities ?? {}) as Record<string, number>);
@@ -45,7 +25,7 @@ export interface GeoScoreContext {
 
 export async function fetchTrafficImpactScore(ctx: GeoScoreContext): Promise<number | null> {
   const top = topServiceType(ctx.probabilities);
-  const incidentType = (top && SERVICE_TO_INCIDENT_TYPE[top]) || 'engine_failure';
+  const incidentType = mapServiceTypeToIncidentType(top);
   const now = new Date();
 
   const body = {

@@ -6,9 +6,9 @@ and dispatch component can all consume it from one place.
 Run locally:
 
     pip install -r ../requirements.txt
-    uvicorn src.api:app --reload --port 8080
+    uvicorn src.api:app --reload --port 5001
 
-OpenAPI docs auto-generate at http://localhost:8080/docs.
+OpenAPI docs auto-generate at http://localhost:5001/docs.
 """
 from __future__ import annotations
 
@@ -78,7 +78,10 @@ class ScoreRequest(BaseModel):
     longitude: float = Field(..., example=79.8612)
     road_type: str = Field(
         ..., example="primary",
-        description="One of: motorway, trunk, primary, secondary, tertiary, residential",
+        description=(
+            "One of: motorway, trunk, primary, secondary, tertiary, residential, "
+            "living_street, unclassified"
+        ),
     )
     total_lanes: int = Field(..., ge=1, le=8, example=2)
     lanes_blocked: int = Field(..., ge=0, le=8, example=1)
@@ -86,7 +89,9 @@ class ScoreRequest(BaseModel):
         ..., example="engine_failure",
         description=(
             "One of: major_accident, minor_accident, engine_failure, flat_tire, "
-            "fuel_empty, battery_dead, lockout, other"
+            "fuel_empty, battery_dead, lockout, overheating, other. "
+            "Aliases: major_accident→accident_major, minor_accident→accident_minor; "
+            "lockout/other use default ISF 0.5."
         ),
     )
     hour: int = Field(..., ge=0, le=23, example=8)
@@ -109,6 +114,35 @@ class HotspotCluster(BaseModel):
     incident_count: int
     avg_score: float
     composite_risk: float
+    road_type: Optional[str] = None
+    incident_type: Optional[str] = None
+    peak_hour: Optional[int] = None
+    radius_m: Optional[float] = None
+
+
+def _hotspot_from_row(row: dict, index: int) -> HotspotCluster:
+    road_type = str(row.get("road_type", row.get("roadType", ""))) or None
+    incident_type = str(row.get("incident_type", row.get("incidentType", ""))) or None
+    peak_hour_raw = row.get("peak_hour", row.get("peakHour"))
+    peak_hour = int(peak_hour_raw) if peak_hour_raw is not None else None
+    radius_raw = row.get("radius_m", row.get("radiusM"))
+    radius_m = float(radius_raw) if radius_raw is not None else None
+    return HotspotCluster(
+        cluster_id=int(row.get("cluster_id", row.get("id", index))),
+        centroid_lat=float(
+            row.get("centroid_lat", row.get("lat", row.get("latitude", 0.0)))
+        ),
+        centroid_lon=float(
+            row.get("centroid_lon", row.get("lng", row.get("longitude", 0.0)))
+        ),
+        incident_count=int(row.get("incident_count", row.get("count", 0))),
+        avg_score=float(row.get("avg_score", row.get("avgScore", 0.0))),
+        composite_risk=float(row.get("composite_risk", row.get("risk", 0.0))),
+        road_type=road_type,
+        incident_type=incident_type,
+        peak_hour=peak_hour,
+        radius_m=radius_m,
+    )
 
 
 class HealthResponse(BaseModel):
@@ -198,27 +232,7 @@ def hotspots() -> List[HotspotCluster]:
     if not path.exists():
         raise HTTPException(status_code=503, detail="hotspot dataset not available")
     raw = json.loads(path.read_text())
-    return [
-        HotspotCluster(
-            cluster_id=int(row.get("cluster_id", row.get("id", i))),
-            centroid_lat=float(
-                row.get("centroid_lat", row.get("lat", row.get("latitude", 0.0)))
-            ),
-            centroid_lon=float(
-                row.get("centroid_lon", row.get("lng", row.get("longitude", 0.0)))
-            ),
-            incident_count=int(
-                row.get("incident_count", row.get("count", 0))
-            ),
-            avg_score=float(
-                row.get("avg_score", row.get("avgScore", 0.0))
-            ),
-            composite_risk=float(
-                row.get("composite_risk", row.get("risk", 0.0))
-            ),
-        )
-        for i, row in enumerate(raw)
-    ]
+    return [_hotspot_from_row(row, i) for i, row in enumerate(raw)]
 
 
 @app.get("/v1/stats", tags=["meta"])

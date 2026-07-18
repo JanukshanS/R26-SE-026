@@ -168,6 +168,11 @@ sequenceDiagram
   M->>D: navigate to "connected" (show provider + ETA + impact card)
 ```
 
+> **Known limitation (G-004):** `geo-client.ts` sends static road geometry
+> (`primary`, 2 lanes, 1 blocked) for every incident. Live scores reflect
+> incident type and time-of-day but not OSM road class at GPS. Research CSVs
+> use per-incident geometry. See `rp-analysis/gaps/remediation/R4-integration-test-spec.md`.
+
 ## 3. Legend & conventions (how to add / modify / mark)
 
 ```mermaid

@@ -1,0 +1,58 @@
+name: Geo Spine Quality
+
+on:
+  pull_request:
+    paths:
+      - "components/geo-intelligence/**"
+      - "components/dispatch/**"
+      - "contracts/**"
+      - "scripts/test-fast.sh"
+      - "docker-compose.yml"
+
+jobs:
+  fast-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Geo tests
+        working-directory: components/geo-intelligence
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r requirements.txt pytest httpx
+          .venv/bin/python -m pytest -q tests/
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Dispatch vitest
+        working-directory: components/dispatch
+        run: |
+          npm ci
+          npm test -- --run
+
+  contract-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npx --yes @redocly/cli@latest lint contracts/geo-intelligence.openapi.yaml
+
+  data-parity-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Geo vs dashboard hotspots match
+        run: |
+          diff -q components/geo-intelligence/data/hotspots.json \
+                   apps/dashboard-web/public/data/hotspots.json
+          python3 -c "
+          import json, sys
+          n = len(json.load(open('components/geo-intelligence/data/hotspots.json')))
+          assert n == 25, f'expected 25 clusters, got {n}'
+          print('OK: 25 hotspot clusters')
+          "

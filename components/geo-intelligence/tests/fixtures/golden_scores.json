@@ -1,0 +1,17 @@
+[
+  {
+    "id": "rp-sample-001",
+    "request": {
+      "latitude": 6.9271,
+      "longitude": 79.8612,
+      "road_type": "primary",
+      "total_lanes": 2,
+      "lanes_blocked": 1,
+      "incident_type": "accident_major",
+      "hour": 8,
+      "day_of_week": 0
+    },
+    "expected_score": 7.9,
+    "epsilon": 0.02
+  }
+]
