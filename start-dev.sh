@@ -102,8 +102,15 @@ echo "== dashboard-web =="
 PIDS+=("$!")
 
 echo "== mobile (Expo web) =="
-[ -d "$MOBILE_DIR/node_modules" ] || (cd "$MOBILE_DIR" && npm install)
-[ -f "$MOBILE_DIR/.env" ] || cp "$MOBILE_DIR/.env.example" "$MOBILE_DIR/.env"
+# Mobile switched from npm to pnpm at some point (pnpm-lock.yaml vs
+# package-lock.json) — detect which this checkout uses instead of hardcoding.
+if [ -f "$MOBILE_DIR/pnpm-lock.yaml" ]; then
+  MOBILE_PKG_MGR=pnpm
+else
+  MOBILE_PKG_MGR=npm
+fi
+[ -d "$MOBILE_DIR/node_modules" ] || (cd "$MOBILE_DIR" && "$MOBILE_PKG_MGR" install)
+[ -f "$MOBILE_DIR/.env" ] || { [ -f "$MOBILE_DIR/.env.example" ] && cp "$MOBILE_DIR/.env.example" "$MOBILE_DIR/.env"; }
 (
   cd "$MOBILE_DIR" || exit 1
   exec npx expo start --web
