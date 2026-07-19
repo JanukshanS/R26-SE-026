@@ -1,0 +1,501 @@
+incident_id,latitude,longitude,road_type,road_name,total_lanes,lanes_blocked,incident_type,severity_factor,hour,minute,day_of_week,day_of_week_name,month,duration_minutes,timestamp,impact_score,priority,clf,tvf,tf,lf,isf,predicted_queue_km,predicted_vhl,predicted_recovery_min
+INC-0001,6.938439,79.954808,primary,Avissawella Road(Colombo-Hanwella Low Level Road),2,2,accident_major,1.0,15,32,2,Wednesday,12,72,2026-12-16T15:32:00,9.0,CRITICAL,1.0,0.65,0.65,0.7,1.0,13.0,780.0,180.0
+INC-0002,6.966941,80.204434,residential,Unknown,2,1,overheating,0.5,19,44,1,Tuesday,8,61,2026-08-01T19:44:00,4.5,MEDIUM,0.5,0.75,0.75,0.15,0.5,0.42,8.3,40.0
+INC-0003,6.834194,80.06359,residential,Unknown,2,1,accident_minor,0.5,22,10,3,Thursday,9,35,2026-09-22T22:10:00,3.9,MEDIUM,0.5,0.15,0.15,0.15,0.5,0.0,0.0,0.0
+INC-0004,6.87793,80.051673,residential,Unknown,2,1,flat_tire,0.3,7,20,0,Monday,6,30,2026-06-28T07:20:00,4.2,MEDIUM,0.5,0.8,0.8,0.15,0.3,0.38,5.6,45.0
+INC-0005,6.905558,79.866118,tertiary,Sri Lanka Foundation Mawatha,2,1,overheating,0.5,23,52,3,Thursday,5,23,2026-05-05T23:52:00,4.3,MEDIUM,0.5,0.1,0.1,0.35,0.5,0.0,0.0,0.0
+INC-0006,6.947984,79.925835,residential,Unknown,2,1,flat_tire,0.3,8,44,3,Thursday,1,24,2026-01-17T08:44:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.62,9.4,15.0
+INC-0007,6.862423,79.913172,secondary,Old Kottawa Road,2,1,flat_tire,0.3,9,38,4,Friday,2,40,2026-02-22T09:38:00,5.0,HIGH,0.5,0.85,0.85,0.5,0.3,1.17,17.5,70.0
+INC-0008,6.787966,79.959086,primary,Colombo - Horana Road,2,1,accident_minor,0.5,15,29,4,Friday,1,45,2026-01-16T15:29:00,5.6,HIGH,0.5,0.65,0.65,0.7,0.5,1.12,25.3,19.3
+INC-0009,6.880752,79.984116,primary,Malabe - Athurugiriya Road,2,1,engine_failure,0.7,18,13,4,Friday,3,28,2026-03-07T18:13:00,6.3,HIGH,0.5,1.0,1.0,0.7,0.7,5.0,150.0,30.0
+INC-0010,6.793517,79.936757,residential,Unknown,2,1,engine_failure,0.7,19,51,3,Thursday,1,85,2026-01-24T19:51:00,4.8,MEDIUM,0.5,0.75,0.75,0.15,0.7,0.62,18.8,60.0
+INC-0011,6.880815,79.899872,secondary,Kotte Road,2,1,engine_failure,0.7,14,16,6,Sunday,4,29,2026-04-10T14:16:00,5.1,HIGH,0.5,0.22,0.22,0.5,0.7,0.0,0.0,0.0
+INC-0012,6.773188,79.924589,residential,Unknown,2,1,accident_minor,0.5,22,52,2,Wednesday,11,44,2026-11-11T22:52:00,3.9,MEDIUM,0.5,0.15,0.15,0.15,0.5,0.0,0.0,0.0
+INC-0013,6.885942,80.145481,secondary,Kaluaggala-Labugama-Kalatuwawa Road,2,1,flat_tire,0.3,7,54,3,Thursday,11,35,2026-11-22T07:54:00,4.9,MEDIUM,0.5,0.8,0.8,0.5,0.3,1.0,15.0,45.0
+INC-0014,6.79831,79.928587,primary,Colombo - Horana Road,2,1,engine_failure,0.7,19,26,4,Friday,2,43,2026-02-26T19:26:00,6.0,HIGH,0.5,0.75,0.75,0.7,0.7,2.5,75.0,60.0
+INC-0015,6.807788,79.882796,residential,C P De Silva Avenue,2,1,fuel_empty,0.2,10,41,1,Tuesday,5,11,2026-05-06T10:41:00,3.8,MEDIUM,0.5,0.6,0.6,0.15,0.2,0.08,0.8,5.0
+INC-0016,6.791723,79.880551,residential,Lakshapathiya Road,2,1,engine_failure,0.7,14,44,1,Tuesday,10,56,2026-10-25T14:44:00,4.6,MEDIUM,0.5,0.55,0.55,0.15,0.7,0.12,3.8,6.7
+INC-0017,6.918581,79.914943,residential,Unknown,2,2,accident_major,1.0,14,42,6,Sunday,1,126,2026-01-26T14:42:00,7.4,HIGH,1.0,0.22,0.22,0.15,1.0,1.1,66.0,33.8
+INC-0018,6.770289,79.948388,residential,Unknown,2,1,overheating,0.5,15,55,2,Wednesday,10,30,2026-10-28T15:55:00,4.4,MEDIUM,0.5,0.65,0.65,0.15,0.5,0.25,5.0,17.1
+INC-0019,6.833793,80.047932,residential,Unknown,2,1,accident_minor,0.5,18,13,0,Monday,3,51,2026-03-07T18:13:00,4.7,MEDIUM,0.5,1.0,1.0,0.15,0.5,0.94,21.1,22.5
+INC-0020,6.843074,79.884591,secondary,Attidiya Road,2,1,flat_tire,0.3,19,37,3,Thursday,9,35,2026-09-23T19:37:00,4.9,MEDIUM,0.5,0.75,0.75,0.5,0.3,0.83,12.5,30.0
+INC-0021,6.951622,79.894408,primary,Ambatale Road,2,1,flat_tire,0.3,9,38,0,Monday,12,45,2026-12-25T09:38:00,5.4,HIGH,0.5,0.85,0.85,0.7,0.3,1.75,26.2,70.0
+INC-0022,6.887724,79.930522,residential,Pahalawela Road,2,1,fuel_empty,0.2,14,46,3,Thursday,6,25,2026-06-02T14:46:00,3.7,MEDIUM,0.5,0.55,0.55,0.15,0.2,0.04,0.4,2.2
+INC-0023,6.780819,79.883589,trunk,Galle Road,3,1,accident_minor,0.5,15,41,1,Tuesday,6,19,2026-06-20T15:41:00,5.1,HIGH,0.333,0.65,0.65,0.85,0.5,0.0,0.0,0.0
+INC-0024,6.931239,79.916518,residential,Galkotuwa Road,2,1,overheating,0.5,16,32,0,Monday,5,51,2026-05-06T16:32:00,4.5,MEDIUM,0.5,0.8,0.8,0.15,0.5,0.5,10.0,60.0
+INC-0025,6.880568,80.082536,unclassified,Unknown,2,1,accident_minor,0.5,19,29,1,Tuesday,7,11,2026-07-09T19:29:00,4.6,MEDIUM,0.5,0.75,0.75,0.2,0.5,0.62,14.1,45.0
+INC-0026,6.847769,80.089452,living_street,Unknown,2,1,overheating,0.5,7,1,3,Thursday,11,48,2026-11-04T07:01:00,4.4,MEDIUM,0.5,0.8,0.8,0.1,0.5,0.25,5.0,60.0
+INC-0027,6.872784,79.907344,residential,Unknown,2,1,overheating,0.5,14,37,4,Friday,9,19,2026-09-02T14:37:00,4.3,MEDIUM,0.5,0.55,0.55,0.15,0.5,0.08,1.7,4.4
+INC-0028,6.796686,79.969873,residential,Unknown,2,1,fuel_empty,0.2,8,53,4,Friday,4,23,2026-04-01T08:53:00,4.2,MEDIUM,0.5,1.0,1.0,0.15,0.2,0.42,4.2,10.0
+INC-0029,6.854682,80.024402,residential,Keremulla Road,2,1,accident_minor,0.5,17,13,1,Tuesday,5,56,2026-05-11T17:13:00,4.7,MEDIUM,0.5,0.95,0.95,0.15,0.5,0.84,19.0,180.0
+INC-0030,6.857166,79.954821,tertiary,Pannipitiya-Malambe Road,2,1,engine_failure,0.7,13,4,0,Monday,12,29,2026-12-02T13:04:00,5.1,HIGH,0.5,0.6,0.6,0.35,0.7,0.5,15.0,15.0
+INC-0031,6.877084,79.858007,residential,Unknown,2,1,fuel_empty,0.2,9,36,0,Monday,9,27,2026-09-11T09:36:00,4.0,MEDIUM,0.5,0.85,0.85,0.15,0.2,0.29,2.9,46.7
+INC-0032,6.819939,79.888751,tertiary,Airport Road,2,1,flat_tire,0.3,19,59,6,Sunday,5,34,2026-05-24T19:59:00,4.1,MEDIUM,0.5,0.3,0.3,0.35,0.3,0.0,0.0,0.0
+INC-0033,6.856572,79.910289,trunk,High Level Road,2,1,flat_tire,0.3,11,0,4,Friday,6,33,2026-06-28T11:00:00,5.5,HIGH,0.5,0.55,0.55,0.85,0.3,0.38,5.6,3.3
+INC-0034,6.876418,79.935518,secondary,Hokandara-Thalawathugoda Road,2,1,flat_tire,0.3,8,20,1,Tuesday,3,26,2026-03-27T08:20:00,5.1,HIGH,0.5,1.0,1.0,0.5,0.3,1.67,25.0,15.0
+INC-0035,6.859385,79.971829,residential,Unknown,2,1,battery_dead,0.3,9,41,2,Wednesday,8,19,2026-08-08T09:41:00,4.2,MEDIUM,0.5,0.85,0.85,0.15,0.3,0.36,4.6,58.3
+INC-0036,6.945602,80.2221,unclassified,Unknown,2,1,engine_failure,0.7,18,14,3,Thursday,1,19,2026-01-01T18:14:00,5.2,HIGH,0.5,1.0,1.0,0.2,0.7,1.67,50.0,30.0
+INC-0037,6.916858,79.913286,residential,Bandaranayake Pura Road,2,1,accident_minor,0.5,6,39,3,Thursday,3,25,2026-03-06T06:39:00,4.2,MEDIUM,0.5,0.45,0.45,0.15,0.5,0.0,0.0,0.0
+INC-0038,6.882418,79.959819,residential,Vidyaraja Mawatha,2,1,flat_tire,0.3,18,28,3,Thursday,7,40,2026-07-27T18:28:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.62,9.4,15.0
+INC-0039,6.807983,79.993895,secondary,Kottawa-Thalagala Road,2,1,flat_tire,0.3,9,36,4,Friday,1,34,2026-01-04T09:36:00,5.0,HIGH,0.5,0.85,0.85,0.5,0.3,1.17,17.5,70.0
+INC-0040,6.85335,79.893782,primary,Colombo-Piliyandala-Horana Road,1,1,engine_failure,0.7,18,30,2,Wednesday,8,66,2026-08-20T18:30:00,8.8,CRITICAL,1.0,1.0,1.0,0.7,0.7,10.0,300.0,30.0
+INC-0041,6.903037,79.905323,secondary,Kotte Road,2,1,fuel_empty,0.2,8,46,2,Wednesday,2,22,2026-02-27T08:46:00,5.0,HIGH,0.5,1.0,1.0,0.5,0.2,1.11,11.1,10.0
+INC-0042,6.837732,79.938106,residential,Unknown,2,1,engine_failure,0.7,10,10,6,Sunday,8,93,2026-08-06T10:10:00,4.3,MEDIUM,0.5,0.24,0.24,0.15,0.7,0.0,0.0,0.0
+INC-0043,6.928781,79.907367,secondary,Kolonnawa-Angoda Road,2,1,engine_failure,0.7,9,42,0,Monday,8,61,2026-08-18T09:42:00,5.7,HIGH,0.5,0.85,0.85,0.5,0.7,2.33,70.0,140.0
+INC-0044,6.843673,79.975068,residential,Unknown,2,2,accident_major,1.0,20,7,3,Thursday,1,146,2026-01-28T20:07:00,7.6,HIGH,1.0,0.45,0.45,0.15,1.0,2.25,135.0,98.2
+INC-0045,6.906909,80.144856,residential,Unknown,2,1,flat_tire,0.3,7,13,6,Sunday,6,52,2026-06-11T07:13:00,3.7,MEDIUM,0.5,0.32,0.32,0.15,0.3,0.0,0.0,0.0
+INC-0046,6.801143,79.982144,residential,Unknown,2,1,engine_failure,0.7,6,8,1,Tuesday,9,69,2026-09-21T06:08:00,4.5,MEDIUM,0.5,0.45,0.45,0.15,0.7,0.0,0.0,0.0
+INC-0047,6.92516,79.930503,tertiary,Himbutana Road,2,1,flat_tire,0.3,12,25,6,Sunday,2,26,2026-02-07T12:25:00,4.1,MEDIUM,0.5,0.26,0.26,0.35,0.3,0.0,0.0,0.0
+INC-0048,6.770951,79.919397,residential,Unknown,2,1,flat_tire,0.3,13,50,1,Tuesday,9,45,2026-09-07T13:50:00,4.0,MEDIUM,0.5,0.6,0.6,0.15,0.3,0.12,1.9,7.5
+INC-0049,6.840105,79.988064,residential,Unknown,2,1,flat_tire,0.3,9,28,3,Thursday,6,20,2026-06-26T09:28:00,4.2,MEDIUM,0.5,0.85,0.85,0.15,0.3,0.44,6.6,70.0
+INC-0050,6.783922,79.891422,residential,Unknown,2,1,overheating,0.5,7,53,5,Saturday,8,46,2026-08-17T07:53:00,4.2,MEDIUM,0.5,0.48,0.48,0.15,0.5,0.0,0.0,0.0
+INC-0051,6.778841,79.921134,residential,Unknown,2,1,engine_failure,0.7,11,50,1,Tuesday,3,106,2026-03-17T11:50:00,4.6,MEDIUM,0.5,0.55,0.55,0.15,0.7,0.12,3.8,6.7
+INC-0052,6.888866,79.988852,living_street,Unknown,2,1,flat_tire,0.3,18,46,3,Thursday,6,20,2026-06-28T18:46:00,4.3,MEDIUM,0.5,1.0,1.0,0.1,0.3,0.31,4.7,15.0
+INC-0053,6.962554,79.877439,residential,Unknown,2,1,accident_minor,0.5,18,3,1,Tuesday,7,51,2026-07-07T18:03:00,4.7,MEDIUM,0.5,1.0,1.0,0.15,0.5,0.94,21.1,22.5
+INC-0054,6.906431,80.140937,residential,Unknown,2,1,accident_minor,0.5,18,54,0,Monday,2,41,2026-02-07T18:54:00,4.7,MEDIUM,0.5,1.0,1.0,0.15,0.5,0.94,21.1,22.5
+INC-0055,6.830804,80.046223,residential,Unknown,2,1,flat_tire,0.3,8,23,1,Tuesday,8,38,2026-08-22T08:23:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.62,9.4,15.0
+INC-0056,6.824676,79.959901,residential,Unknown,2,1,accident_minor,0.5,17,34,1,Tuesday,8,47,2026-08-14T17:34:00,4.7,MEDIUM,0.5,0.95,0.95,0.15,0.5,0.84,19.0,180.0
+INC-0057,6.976844,79.876589,primary,Approach Road to Mattakkuliya Bridge,2,1,engine_failure,0.7,17,20,2,Wednesday,7,84,2026-07-16T17:20:00,6.2,HIGH,0.5,0.95,0.95,0.7,0.7,4.5,135.0,180.0
+INC-0058,6.838959,79.972806,residential,Unknown,2,1,battery_dead,0.3,7,18,3,Thursday,12,30,2026-12-18T07:18:00,4.2,MEDIUM,0.5,0.8,0.8,0.15,0.3,0.31,3.9,37.5
+INC-0059,6.810401,79.995218,secondary,Homagama Diyagama Road,2,1,fuel_empty,0.2,10,41,5,Saturday,3,17,2026-03-23T10:41:00,4.3,MEDIUM,0.5,0.36,0.36,0.5,0.2,0.0,0.0,0.0
+INC-0060,6.940016,79.912088,residential,Unknown,2,1,fuel_empty,0.2,10,52,1,Tuesday,4,26,2026-04-26T10:52:00,3.8,MEDIUM,0.5,0.6,0.6,0.15,0.2,0.08,0.8,5.0
+INC-0061,6.911091,80.110808,secondary,Kaluaggala-Labugama-Kalatuwawa Road,2,1,flat_tire,0.3,19,55,6,Sunday,7,45,2026-07-17T19:55:00,4.4,MEDIUM,0.5,0.3,0.3,0.5,0.3,0.0,0.0,0.0
+INC-0062,6.853212,80.00391,secondary,Homagama Athurugiriya road,2,2,accident_major,1.0,11,8,0,Monday,11,123,2026-11-14T11:08:00,8.4,CRITICAL,1.0,0.55,0.55,0.5,1.0,7.33,440.0,146.7
+INC-0063,6.941784,79.860086,primary,Maha Vidyalaya Mawatha,2,1,accident_minor,0.5,8,22,4,Friday,6,44,2026-06-18T08:22:00,5.9,HIGH,0.5,1.0,1.0,0.7,0.5,3.75,84.4,22.5
+INC-0064,6.860209,80.0132,residential,Unknown,2,1,flat_tire,0.3,11,37,5,Saturday,7,42,2026-07-21T11:37:00,3.7,MEDIUM,0.5,0.33,0.33,0.15,0.3,0.0,0.0,0.0
+INC-0065,6.795808,79.897632,secondary,Katubedda-Piliyandala Road,2,1,flat_tire,0.3,19,5,4,Friday,2,54,2026-02-12T19:05:00,4.9,MEDIUM,0.5,0.75,0.75,0.5,0.3,0.83,12.5,30.0
+INC-0066,6.87254,79.976512,tertiary,Unknown,2,1,battery_dead,0.3,11,57,2,Wednesday,2,23,2026-02-28T11:57:00,4.4,MEDIUM,0.5,0.55,0.55,0.35,0.3,0.1,1.3,2.8
+INC-0067,6.863405,79.915089,residential,Jaya Road,2,1,flat_tire,0.3,7,50,1,Tuesday,5,42,2026-05-11T07:50:00,4.2,MEDIUM,0.5,0.8,0.8,0.15,0.3,0.38,5.6,45.0
+INC-0068,6.847809,79.941567,residential,Unknown,2,1,engine_failure,0.7,15,33,2,Wednesday,8,44,2026-08-22T15:33:00,4.7,MEDIUM,0.5,0.65,0.65,0.15,0.7,0.38,11.2,25.7
+INC-0069,6.84573,79.872842,tertiary,Sudarma Mawatha,2,1,accident_minor,0.5,9,46,1,Tuesday,3,79,2026-03-20T09:46:00,5.0,HIGH,0.5,0.85,0.85,0.35,0.5,1.31,29.5,105.0
+INC-0070,6.881126,79.943271,residential,Dickland Gardens,2,1,engine_failure,0.7,18,52,2,Wednesday,8,58,2026-08-17T18:52:00,5.1,HIGH,0.5,1.0,1.0,0.15,0.7,1.25,37.5,30.0
+INC-0071,6.917333,79.896674,tertiary,Rajagiriya Road,2,2,accident_major,1.0,16,24,1,Tuesday,3,80,2026-03-18T16:24:00,8.4,CRITICAL,1.0,0.8,0.8,0.35,1.0,8.0,480.0,180.0
+INC-0072,6.815391,80.039364,residential,Rubber Estate Lane,2,1,accident_minor,0.5,10,43,4,Friday,1,57,2026-01-17T10:43:00,4.3,MEDIUM,0.5,0.6,0.6,0.15,0.5,0.19,4.2,11.2
+INC-0073,6.849835,79.877666,tertiary,Kadawata Road,2,1,engine_failure,0.7,8,15,5,Saturday,8,75,2026-08-21T08:15:00,5.1,HIGH,0.5,0.6,0.6,0.35,0.7,0.5,15.0,15.0
+INC-0074,6.891149,80.07762,residential,Unknown,2,1,overheating,0.5,19,11,1,Tuesday,10,56,2026-10-09T19:11:00,4.5,MEDIUM,0.5,0.75,0.75,0.15,0.5,0.42,8.3,40.0
+INC-0075,6.878244,80.011315,tertiary,Oruwala Road,2,1,flat_tire,0.3,17,6,6,Sunday,10,23,2026-10-21T17:06:00,4.2,MEDIUM,0.5,0.38,0.38,0.35,0.3,0.0,0.0,0.0
+INC-0076,6.79718,80.055769,residential,Unknown,2,1,fuel_empty,0.2,8,7,6,Sunday,7,17,2026-07-18T08:07:00,3.6,MEDIUM,0.5,0.4,0.4,0.15,0.2,0.0,0.0,0.0
+INC-0077,6.927103,79.977329,living_street,Unknown,2,1,flat_tire,0.3,13,58,5,Saturday,1,26,2026-01-14T13:58:00,3.6,MEDIUM,0.5,0.36,0.36,0.1,0.3,0.0,0.0,0.0
+INC-0078,6.881852,79.872319,residential,Unknown,2,1,flat_tire,0.3,17,39,2,Wednesday,7,27,2026-07-12T17:39:00,4.3,MEDIUM,0.5,0.95,0.95,0.15,0.3,0.56,8.4,180.0
+INC-0079,6.868014,80.000254,residential,Unknown,2,1,fuel_empty,0.2,15,21,1,Tuesday,2,11,2026-02-01T15:21:00,3.8,MEDIUM,0.5,0.65,0.65,0.15,0.2,0.12,1.2,8.6
+INC-0080,6.906763,79.889648,residential,Bandaranayakepura Road,2,1,flat_tire,0.3,19,29,0,Monday,2,35,2026-02-03T19:29:00,4.1,MEDIUM,0.5,0.75,0.75,0.15,0.3,0.31,4.7,30.0
+INC-0081,6.807757,79.914688,residential,Unknown,2,1,flat_tire,0.3,6,48,2,Wednesday,5,25,2026-05-12T06:48:00,3.8,MEDIUM,0.5,0.45,0.45,0.15,0.3,0.0,0.0,0.0
+INC-0082,6.887444,79.965375,residential,Ernest Wanaguru Mawatha,2,1,engine_failure,0.7,18,29,0,Monday,8,86,2026-08-18T18:29:00,5.1,HIGH,0.5,1.0,1.0,0.15,0.7,1.25,37.5,30.0
+INC-0083,6.874725,79.907882,residential,Unknown,2,1,flat_tire,0.3,6,0,5,Saturday,9,20,2026-09-15T06:00:00,3.6,MEDIUM,0.5,0.27,0.27,0.15,0.3,0.0,0.0,0.0
+INC-0084,6.891807,79.908802,tertiary,Sri Lanka Nippon Avenue,2,1,overheating,0.5,18,42,3,Thursday,7,48,2026-07-24T18:42:00,5.2,HIGH,0.5,1.0,1.0,0.35,0.5,1.67,33.3,20.0
+INC-0085,6.854783,79.94424,residential,Unknown,2,1,accident_minor,0.5,19,33,1,Tuesday,4,47,2026-04-04T19:33:00,4.5,MEDIUM,0.5,0.75,0.75,0.15,0.5,0.47,10.5,45.0
+INC-0086,6.946965,79.910837,residential,Unknown,2,1,accident_minor,0.5,14,9,0,Monday,9,51,2026-09-26T14:09:00,4.3,MEDIUM,0.5,0.55,0.55,0.15,0.5,0.09,2.1,5.0
+INC-0087,6.809671,80.036777,residential,Unknown,2,1,overheating,0.5,18,4,0,Monday,7,47,2026-07-17T18:04:00,4.7,MEDIUM,0.5,1.0,1.0,0.15,0.5,0.83,16.7,20.0
+INC-0088,6.902262,80.056997,tertiary,Artigala Road,2,1,engine_failure,0.7,14,17,4,Friday,8,104,2026-08-03T14:17:00,5.1,HIGH,0.5,0.55,0.55,0.35,0.7,0.25,7.5,6.7
+INC-0089,6.852452,80.070208,residential,Unknown,2,1,flat_tire,0.3,8,46,0,Monday,4,10,2026-04-14T08:46:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.62,9.4,15.0
+INC-0090,6.83796,80.088695,residential,School Lane,2,1,engine_failure,0.7,13,2,6,Sunday,12,44,2026-12-10T13:02:00,4.3,MEDIUM,0.5,0.24,0.24,0.15,0.7,0.0,0.0,0.0
+INC-0091,6.840593,79.868147,residential,Fonseka Road,2,2,accident_major,1.0,15,58,1,Tuesday,12,111,2026-12-15T15:58:00,7.8,HIGH,1.0,0.65,0.65,0.15,1.0,3.25,195.0,180.0
+INC-0092,6.80529,79.958788,living_street,Unknown,2,1,accident_minor,0.5,21,47,4,Friday,5,46,2026-05-13T21:47:00,3.9,MEDIUM,0.5,0.3,0.3,0.1,0.5,0.0,0.0,0.0
+INC-0093,6.78842,79.897982,tertiary,De Soysa Road,2,1,accident_minor,0.5,13,28,5,Saturday,3,59,2026-03-24T13:28:00,4.5,MEDIUM,0.5,0.36,0.36,0.35,0.5,0.0,0.0,0.0
+INC-0094,6.794077,79.985802,tertiary,Diyagama Road,2,1,fuel_empty,0.2,14,15,4,Friday,1,20,2026-01-27T14:15:00,4.2,MEDIUM,0.5,0.55,0.55,0.35,0.2,0.08,0.8,2.2
+INC-0095,6.939928,79.959391,residential,Unknown,2,2,accident_major,1.0,19,24,6,Sunday,4,113,2026-04-27T19:24:00,7.4,HIGH,1.0,0.3,0.3,0.15,1.0,1.5,90.0,51.4
+INC-0096,6.825676,79.951058,residential,Unknown,2,1,engine_failure,0.7,18,30,0,Monday,2,62,2026-02-14T18:30:00,5.1,HIGH,0.5,1.0,1.0,0.15,0.7,1.25,37.5,30.0
+INC-0097,6.790132,79.920335,residential,Unknown,2,1,engine_failure,0.7,8,12,3,Thursday,1,73,2026-01-09T08:12:00,5.1,HIGH,0.5,1.0,1.0,0.15,0.7,1.25,37.5,30.0
+INC-0098,6.939756,79.899146,residential,Unknown,2,1,accident_minor,0.5,18,5,1,Tuesday,7,26,2026-07-10T18:05:00,4.7,MEDIUM,0.5,1.0,1.0,0.15,0.5,0.94,21.1,22.5
+INC-0099,6.949848,79.857111,primary,Srimath Ramanadhan Mawatha,2,1,battery_dead,0.3,11,14,6,Sunday,6,28,2026-06-04T11:14:00,4.8,MEDIUM,0.5,0.22,0.22,0.7,0.3,0.0,0.0,0.0
+INC-0100,6.840974,79.937577,residential,Ananda Maithree Mawatha,2,2,accident_major,1.0,13,21,3,Thursday,11,98,2026-11-18T13:21:00,7.7,HIGH,1.0,0.6,0.6,0.15,1.0,3.0,180.0,180.0
+INC-0101,6.935941,79.925705,primary,Avissawella Road,4,1,overheating,0.5,21,35,3,Thursday,4,58,2026-04-12T21:35:00,4.0,MEDIUM,0.25,0.3,0.3,0.7,0.5,0.0,0.0,0.0
+INC-0102,6.916009,80.033292,residential,Unknown,2,2,accident_major,1.0,12,45,2,Wednesday,4,117,2026-04-17T12:45:00,7.8,HIGH,1.0,0.65,0.65,0.15,1.0,3.25,195.0,180.0
+INC-0103,6.879785,79.894491,residential,7th Lane,2,1,battery_dead,0.3,15,28,4,Friday,4,21,2026-04-02T15:28:00,4.0,MEDIUM,0.5,0.65,0.65,0.15,0.3,0.16,2.0,10.7
+INC-0104,6.764008,79.888581,residential,Unknown,2,1,battery_dead,0.3,21,55,2,Wednesday,5,22,2026-05-15T21:55:00,3.7,MEDIUM,0.5,0.3,0.3,0.15,0.3,0.0,0.0,0.0
+INC-0105,6.780814,79.921896,residential,Unknown,2,1,accident_minor,0.5,11,56,2,Wednesday,11,57,2026-11-01T11:56:00,4.3,MEDIUM,0.5,0.55,0.55,0.15,0.5,0.09,2.1,5.0
+INC-0106,6.907078,79.858447,trunk,Sir Ernest de Silva Mawatha,4,1,flat_tire,0.3,19,23,2,Wednesday,12,37,2026-12-16T19:23:00,4.4,MEDIUM,0.25,0.75,0.75,0.85,0.3,0.0,0.0,0.0
+INC-0107,6.912159,80.050081,primary,Avissawella Road(Colombo-Hanwella Low Level Road),2,1,flat_tire,0.3,8,28,4,Friday,11,34,2026-11-14T08:28:00,5.6,HIGH,0.5,1.0,1.0,0.7,0.3,2.5,37.5,15.0
+INC-0108,6.835339,79.98043,unclassified,Unknown,2,1,overheating,0.5,8,14,2,Wednesday,7,36,2026-07-17T08:14:00,4.8,MEDIUM,0.5,1.0,1.0,0.2,0.5,1.11,22.2,20.0
+INC-0109,6.826784,80.007729,tertiary,Uduwana-Pansala Handiya Road,2,1,flat_tire,0.3,15,47,2,Wednesday,6,16,2026-06-22T15:47:00,4.5,MEDIUM,0.5,0.65,0.65,0.35,0.3,0.38,5.6,12.9
+INC-0110,6.869844,79.862254,trunk,Galle Road,2,1,overheating,0.5,8,20,0,Monday,2,63,2026-02-14T08:20:00,6.3,HIGH,0.5,1.0,1.0,0.85,0.5,5.0,100.0,20.0
+INC-0111,6.963534,79.875629,residential,Unknown,2,2,accident_major,1.0,17,24,5,Saturday,6,85,2026-06-09T17:24:00,7.7,HIGH,1.0,0.57,0.57,0.15,1.0,2.85,171.0,159.1
+INC-0112,6.798283,79.983215,motorway,Southern Expressway,2,1,flat_tire,0.3,22,31,0,Monday,6,29,2026-06-22T22:31:00,5.4,HIGH,0.5,0.15,0.15,1.0,0.3,0.0,0.0,0.0
+INC-0113,6.89726,79.938647,residential,Nugedeniya Road,2,1,engine_failure,0.7,18,49,1,Tuesday,2,55,2026-02-01T18:49:00,5.1,HIGH,0.5,1.0,1.0,0.15,0.7,1.25,37.5,30.0
+INC-0114,6.903221,79.94783,living_street,Unknown,2,1,flat_tire,0.3,11,1,6,Sunday,10,29,2026-10-14T11:01:00,3.5,MEDIUM,0.5,0.22,0.22,0.1,0.3,0.0,0.0,0.0
+INC-0115,6.923531,80.026915,primary,Avissawella Road(Colombo-Hanwella Low Level Road),2,1,fuel_empty,0.2,6,43,0,Monday,11,30,2026-11-03T06:43:00,4.9,MEDIUM,0.5,0.45,0.45,0.7,0.2,0.0,0.0,0.0
+INC-0116,6.934432,79.952142,residential,Weli Para Road,2,1,accident_minor,0.5,9,11,5,Saturday,2,63,2026-02-28T09:11:00,4.2,MEDIUM,0.5,0.51,0.51,0.15,0.5,0.02,0.4,0.9
+INC-0117,6.830157,79.943089,residential,Medawala Road,2,1,engine_failure,0.7,18,6,4,Friday,4,97,2026-04-06T18:06:00,5.1,HIGH,0.5,1.0,1.0,0.15,0.7,1.25,37.5,30.0
+INC-0118,6.796236,79.925317,residential,Artigala Mawatha,2,1,accident_minor,0.5,18,10,4,Friday,12,35,2026-12-23T18:10:00,4.7,MEDIUM,0.5,1.0,1.0,0.15,0.5,0.94,21.1,22.5
+INC-0119,6.864465,79.952104,living_street,Unknown,2,1,accident_minor,0.5,16,18,6,Sunday,4,53,2026-04-13T16:18:00,3.9,MEDIUM,0.5,0.32,0.32,0.1,0.5,0.0,0.0,0.0
+INC-0120,6.882883,79.930175,residential,Unknown,2,1,accident_minor,0.5,15,17,3,Thursday,5,60,2026-05-24T15:17:00,4.4,MEDIUM,0.5,0.65,0.65,0.15,0.5,0.28,6.3,19.3
+INC-0121,6.870723,79.922234,residential,Unknown,2,2,accident_major,1.0,8,34,1,Tuesday,6,159,2026-06-15T08:34:00,8.1,CRITICAL,1.0,1.0,1.0,0.15,1.0,5.0,300.0,60.0
+INC-0122,6.900995,80.171293,residential,Unknown,2,2,accident_major,1.0,18,19,3,Thursday,12,116,2026-12-12T18:19:00,8.1,CRITICAL,1.0,1.0,1.0,0.15,1.0,5.0,300.0,60.0
+INC-0123,6.837333,80.143213,residential,Siyambalawa Road,2,1,accident_minor,0.5,15,50,3,Thursday,4,59,2026-04-26T15:50:00,4.4,MEDIUM,0.5,0.65,0.65,0.15,0.5,0.28,6.3,19.3
+INC-0124,6.905316,79.87466,residential,Unknown,2,1,battery_dead,0.3,12,41,6,Sunday,10,24,2026-10-22T12:41:00,3.6,MEDIUM,0.5,0.26,0.26,0.15,0.3,0.0,0.0,0.0
+INC-0125,6.85906,79.989212,secondary,Athurugiriya-Kottawa Road,2,1,engine_failure,0.7,13,20,4,Friday,3,65,2026-03-26T13:20:00,5.5,HIGH,0.5,0.6,0.6,0.5,0.7,0.67,20.0,15.0
+INC-0126,6.852663,79.861873,primary,Marine Drive,4,1,accident_minor,0.5,8,59,2,Wednesday,8,41,2026-08-07T08:59:00,4.7,MEDIUM,0.25,1.0,1.0,0.7,0.5,1.88,42.2,22.5
+INC-0127,6.904477,79.961954,tertiary,Susilarama Road,2,1,accident_minor,0.5,8,58,1,Tuesday,12,45,2026-12-02T08:58:00,5.2,HIGH,0.5,1.0,1.0,0.35,0.5,1.88,42.2,22.5
+INC-0128,6.895708,80.074927,residential,Unknown,2,1,accident_minor,0.5,11,22,2,Wednesday,11,43,2026-11-10T11:22:00,4.3,MEDIUM,0.5,0.55,0.55,0.15,0.5,0.09,2.1,5.0
+INC-0129,6.859679,79.867418,primary,Anagarika Dharmapala Mawatha (Allen Avenue),2,1,flat_tire,0.3,14,9,4,Friday,9,35,2026-09-01T14:09:00,5.1,HIGH,0.5,0.55,0.55,0.7,0.3,0.25,3.8,3.3
+INC-0130,6.80363,79.892813,residential,Sri Rahula Mawatha,2,1,engine_failure,0.7,10,27,0,Monday,5,62,2026-05-15T10:27:00,4.7,MEDIUM,0.5,0.6,0.6,0.15,0.7,0.25,7.5,15.0
+INC-0131,6.870355,79.912862,secondary,Madiwela Road,2,1,accident_minor,0.5,19,43,2,Wednesday,6,40,2026-06-12T19:43:00,5.2,HIGH,0.5,0.75,0.75,0.5,0.5,1.25,28.1,45.0
+INC-0132,6.8562,79.94779,residential,Temple Road,2,1,flat_tire,0.3,17,34,2,Wednesday,5,25,2026-05-27T17:34:00,4.3,MEDIUM,0.5,0.95,0.95,0.15,0.3,0.56,8.4,180.0
+INC-0133,6.845664,79.868389,residential,Unknown,2,1,accident_minor,0.5,6,41,2,Wednesday,2,45,2026-02-24T06:41:00,4.2,MEDIUM,0.5,0.45,0.45,0.15,0.5,0.0,0.0,0.0
+INC-0134,6.91656,80.01239,residential,Unknown,2,1,engine_failure,0.7,14,22,4,Friday,4,67,2026-04-23T14:22:00,4.6,MEDIUM,0.5,0.55,0.55,0.15,0.7,0.12,3.8,6.7
+INC-0135,6.876976,79.868865,residential,Unknown,2,1,engine_failure,0.7,17,41,4,Friday,8,47,2026-08-18T17:41:00,5.0,HIGH,0.5,0.95,0.95,0.15,0.7,1.12,33.8,180.0
+INC-0136,6.932216,79.868248,residential,Unknown,2,1,flat_tire,0.3,21,46,4,Friday,7,34,2026-07-23T21:46:00,3.7,MEDIUM,0.5,0.3,0.3,0.15,0.3,0.0,0.0,0.0
+INC-0137,6.749443,79.929479,residential,Unknown,2,2,accident_major,1.0,14,16,5,Saturday,8,127,2026-08-17T14:16:00,7.5,HIGH,1.0,0.33,0.33,0.15,1.0,1.65,99.0,59.1
+INC-0138,6.866567,79.952484,residential,Weera Mawatha,2,2,accident_major,1.0,8,15,5,Saturday,5,136,2026-05-09T08:15:00,7.7,HIGH,1.0,0.6,0.6,0.15,1.0,3.0,180.0,180.0
+INC-0139,6.913154,79.97402,residential,Unknown,2,2,accident_major,1.0,23,5,1,Tuesday,1,107,2026-01-09T23:05:00,7.2,HIGH,1.0,0.1,0.1,0.15,1.0,0.5,30.0,13.3
+INC-0140,6.811079,79.928243,residential,Koskanaththa Road,2,1,engine_failure,0.7,7,33,2,Wednesday,4,63,2026-04-06T07:33:00,4.9,MEDIUM,0.5,0.8,0.8,0.15,0.7,0.75,22.5,90.0
+INC-0141,6.774045,79.960643,residential,Unknown,2,1,battery_dead,0.3,19,22,2,Wednesday,11,23,2026-11-01T19:22:00,4.1,MEDIUM,0.5,0.75,0.75,0.15,0.3,0.26,3.3,25.0
+INC-0142,6.861558,79.942128,tertiary,Polwatte Road,2,1,engine_failure,0.7,10,6,3,Thursday,3,60,2026-03-28T10:06:00,5.1,HIGH,0.5,0.6,0.6,0.35,0.7,0.5,15.0,15.0
+INC-0143,6.939698,79.891177,primary,Avissawella Road,2,1,accident_minor,0.5,15,34,1,Tuesday,10,59,2026-10-11T15:34:00,5.6,HIGH,0.5,0.65,0.65,0.7,0.5,1.12,25.3,19.3
+INC-0144,6.845495,79.929736,trunk,Old Road,2,1,accident_minor,0.5,11,25,6,Sunday,2,65,2026-02-06T11:25:00,5.5,HIGH,0.5,0.22,0.22,0.85,0.5,0.0,0.0,0.0
+INC-0145,6.83792,80.019529,residential,Preethika Mawatha,2,1,fuel_empty,0.2,7,4,2,Wednesday,5,28,2026-05-15T07:04:00,4.0,MEDIUM,0.5,0.8,0.8,0.15,0.2,0.25,2.5,30.0
+INC-0146,6.847238,79.957824,residential,Unknown,2,1,fuel_empty,0.2,17,58,3,Thursday,5,23,2026-05-23T17:58:00,4.1,MEDIUM,0.5,0.95,0.95,0.15,0.2,0.38,3.8,180.0
+INC-0147,6.902976,79.898577,residential,2nd Lane,2,1,battery_dead,0.3,7,14,1,Tuesday,11,23,2026-11-19T07:14:00,4.2,MEDIUM,0.5,0.8,0.8,0.15,0.3,0.31,3.9,37.5
+INC-0148,6.845304,79.87925,residential,Flower Drive,2,1,flat_tire,0.3,13,47,3,Thursday,11,34,2026-11-15T13:47:00,4.0,MEDIUM,0.5,0.6,0.6,0.15,0.3,0.12,1.9,7.5
+INC-0149,6.926632,79.866094,primary,P. de S. Kularatne Mawatha,2,1,accident_minor,0.5,7,29,4,Friday,1,43,2026-01-13T07:29:00,5.7,HIGH,0.5,0.8,0.8,0.7,0.5,2.25,50.6,67.5
+INC-0150,6.955962,80.207321,residential,Unknown,2,2,accident_major,1.0,8,12,1,Tuesday,8,114,2026-08-17T08:12:00,8.1,CRITICAL,1.0,1.0,1.0,0.15,1.0,5.0,300.0,60.0
+INC-0151,6.906673,79.886159,residential,Unknown,2,1,engine_failure,0.7,21,3,0,Monday,6,41,2026-06-01T21:03:00,4.4,MEDIUM,0.5,0.3,0.3,0.15,0.7,0.0,0.0,0.0
+INC-0152,6.956725,80.200134,residential,Parakum Mawatha,2,1,flat_tire,0.3,17,20,5,Saturday,9,30,2026-09-26T17:20:00,3.9,MEDIUM,0.5,0.57,0.57,0.15,0.3,0.09,1.3,4.9
+INC-0153,6.967482,79.870947,residential,St. John's Road,2,1,accident_minor,0.5,12,41,5,Saturday,1,59,2026-01-26T12:41:00,4.1,MEDIUM,0.5,0.39,0.39,0.15,0.5,0.0,0.0,0.0
+INC-0154,6.949654,79.881105,residential,Unknown,2,1,battery_dead,0.3,17,24,0,Monday,4,18,2026-04-10T17:24:00,4.3,MEDIUM,0.5,0.95,0.95,0.15,0.3,0.47,5.9,180.0
+INC-0155,6.933799,79.838243,unclassified,Serandib East Boulevard,2,1,accident_minor,0.5,8,34,5,Saturday,1,37,2026-01-23T08:34:00,4.4,MEDIUM,0.5,0.6,0.6,0.2,0.5,0.25,5.6,11.2
+INC-0156,6.921752,79.943242,residential,Unknown,2,1,flat_tire,0.3,8,10,1,Tuesday,9,21,2026-09-25T08:10:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.62,9.4,15.0
+INC-0157,6.837134,79.949015,residential,Unknown,2,1,flat_tire,0.3,17,2,2,Wednesday,7,32,2026-07-09T17:02:00,4.3,MEDIUM,0.5,0.95,0.95,0.15,0.3,0.56,8.4,180.0
+INC-0158,6.774854,79.901228,living_street,Unknown,2,1,accident_minor,0.5,9,45,1,Tuesday,5,37,2026-05-01T09:45:00,4.5,MEDIUM,0.5,0.85,0.85,0.1,0.5,0.33,7.4,105.0
+INC-0159,6.948624,80.213468,trunk,Avissawella - Ratnapura Road (bypass),2,1,engine_failure,0.7,10,5,2,Wednesday,4,64,2026-04-13T10:05:00,6.2,HIGH,0.5,0.6,0.6,0.85,0.7,1.5,45.0,15.0
+INC-0160,6.780131,79.994364,tertiary,Saranathissa Mawatha,2,1,battery_dead,0.3,17,53,1,Tuesday,10,13,2026-10-03T17:53:00,4.8,MEDIUM,0.5,0.95,0.95,0.35,0.3,0.94,11.7,180.0
+INC-0161,6.868262,79.906985,residential,Kottawa 2nd Lane,2,1,flat_tire,0.3,11,37,3,Thursday,2,30,2026-02-23T11:37:00,3.9,MEDIUM,0.5,0.55,0.55,0.15,0.3,0.06,0.9,3.3
+INC-0162,6.919298,79.943092,residential,Unknown,2,1,overheating,0.5,8,30,4,Friday,7,31,2026-07-16T08:30:00,4.7,MEDIUM,0.5,1.0,1.0,0.15,0.5,0.83,16.7,20.0
+INC-0163,6.91897,80.030206,residential,Unknown,2,1,engine_failure,0.7,18,11,2,Wednesday,12,40,2026-12-08T18:11:00,5.1,HIGH,0.5,1.0,1.0,0.15,0.7,1.25,37.5,30.0
+INC-0164,6.941737,79.83637,secondary,Unknown,2,1,overheating,0.5,20,43,1,Tuesday,5,36,2026-05-20T20:43:00,5.0,HIGH,0.5,0.45,0.45,0.5,0.5,0.0,0.0,0.0
+INC-0165,6.971758,79.873454,tertiary,Vystwyke Road,2,1,flat_tire,0.3,18,32,3,Thursday,12,23,2026-12-06T18:32:00,4.8,MEDIUM,0.5,1.0,1.0,0.35,0.3,1.25,18.8,15.0
+INC-0166,6.909457,79.895964,primary,Cotta Road,2,1,engine_failure,0.7,10,56,3,Thursday,11,38,2026-11-03T10:56:00,5.9,HIGH,0.5,0.6,0.6,0.7,0.7,1.0,30.0,15.0
+INC-0167,6.901661,80.020843,residential,Unknown,2,1,engine_failure,0.7,16,54,0,Monday,6,24,2026-06-11T16:54:00,4.9,MEDIUM,0.5,0.8,0.8,0.15,0.7,0.75,22.5,90.0
+INC-0168,6.760657,79.926239,tertiary,Ferry Road,2,1,accident_minor,0.5,11,37,4,Friday,3,61,2026-03-24T11:37:00,4.7,MEDIUM,0.5,0.55,0.55,0.35,0.5,0.19,4.2,5.0
+INC-0169,6.915189,79.850419,primary,Sri Uttarananda Mawatha,2,2,accident_major,1.0,7,6,1,Tuesday,9,139,2026-09-15T07:06:00,9.1,CRITICAL,1.0,0.8,0.8,0.7,1.0,15.0,960.0,180.0
+INC-0170,6.904268,80.036945,residential,Unknown,2,1,engine_failure,0.7,22,9,5,Saturday,9,43,2026-09-22T22:09:00,4.2,MEDIUM,0.5,0.09,0.09,0.15,0.7,0.0,0.0,0.0
+INC-0171,6.828427,79.947859,residential,Gilbert Edirisinghe Mawatha,2,1,accident_minor,0.5,7,15,4,Friday,4,51,2026-04-03T07:15:00,4.5,MEDIUM,0.5,0.8,0.8,0.15,0.5,0.56,12.7,67.5
+INC-0172,6.918488,79.854191,trunk,Sir James Peiris Mawatha,3,1,flat_tire,0.3,13,3,0,Monday,4,38,2026-04-13T13:03:00,4.7,MEDIUM,0.333,0.6,0.6,0.85,0.3,0.0,0.0,0.0
+INC-0173,6.819309,79.901322,tertiary,Borupana Road,2,1,overheating,0.5,12,12,6,Sunday,4,40,2026-04-18T12:12:00,4.4,MEDIUM,0.5,0.26,0.26,0.35,0.5,0.0,0.0,0.0
+INC-0174,6.864679,80.033559,residential,Pelandagoda Road,2,1,engine_failure,0.7,11,4,4,Friday,10,55,2026-10-25T11:04:00,4.6,MEDIUM,0.5,0.55,0.55,0.15,0.7,0.12,3.8,6.7
+INC-0175,6.878338,80.104179,residential,Unknown,2,1,overheating,0.5,6,55,1,Tuesday,7,30,2026-07-19T06:55:00,4.2,MEDIUM,0.5,0.45,0.45,0.15,0.5,0.0,0.0,0.0
+INC-0176,6.871806,79.961331,residential,Unknown,2,2,accident_major,1.0,16,3,6,Sunday,1,99,2026-01-05T16:03:00,7.5,HIGH,1.0,0.32,0.32,0.15,1.0,1.6,96.0,56.5
+INC-0177,6.783628,79.959982,residential,Unknown,2,1,engine_failure,0.7,16,59,5,Saturday,2,35,2026-02-05T16:59:00,4.6,MEDIUM,0.5,0.48,0.48,0.15,0.7,0.0,0.0,0.0
+INC-0178,6.873492,79.95464,residential,Unknown,2,1,engine_failure,0.7,12,13,1,Tuesday,6,55,2026-06-05T12:13:00,4.7,MEDIUM,0.5,0.65,0.65,0.15,0.7,0.38,11.2,25.7
+INC-0179,6.822777,79.871294,trunk,Galle Road,3,1,engine_failure,0.7,13,53,4,Friday,5,68,2026-05-10T13:53:00,5.4,HIGH,0.333,0.6,0.6,0.85,0.7,0.0,0.0,0.0
+INC-0180,6.908077,79.927316,residential,Shanthi Mawatha,2,1,engine_failure,0.7,19,44,6,Sunday,2,38,2026-02-05T19:44:00,4.4,MEDIUM,0.5,0.3,0.3,0.15,0.7,0.0,0.0,0.0
+INC-0181,6.89873,80.063169,residential,Unknown,2,1,accident_minor,0.5,7,59,3,Thursday,5,39,2026-05-20T07:59:00,4.5,MEDIUM,0.5,0.8,0.8,0.15,0.5,0.56,12.7,67.5
+INC-0182,6.896379,79.889167,residential,Sudarshana Road,2,2,accident_major,1.0,18,28,2,Wednesday,6,139,2026-06-10T18:28:00,8.1,CRITICAL,1.0,1.0,1.0,0.15,1.0,5.0,300.0,60.0
+INC-0183,6.867066,79.877403,tertiary,Sri Sunandarama Road,2,1,battery_dead,0.3,21,16,4,Friday,9,23,2026-09-01T21:16:00,4.1,MEDIUM,0.5,0.3,0.3,0.35,0.3,0.0,0.0,0.0
+INC-0184,6.868459,79.875152,residential,De Silva Road,2,1,overheating,0.5,8,39,2,Wednesday,11,35,2026-11-23T08:39:00,4.7,MEDIUM,0.5,1.0,1.0,0.15,0.5,0.83,16.7,20.0
+INC-0185,6.923669,80.096524,tertiary,Kaluaggala-Akarawita Road,2,1,battery_dead,0.3,17,14,5,Saturday,7,20,2026-07-24T17:14:00,4.4,MEDIUM,0.5,0.57,0.57,0.35,0.3,0.15,1.8,4.1
+INC-0186,6.927098,79.907821,tertiary,Bogaha Handiya Road,2,1,flat_tire,0.3,18,0,0,Monday,8,29,2026-08-03T18:00:00,4.8,MEDIUM,0.5,1.0,1.0,0.35,0.3,1.25,18.8,15.0
+INC-0187,6.921513,80.145431,tertiary,Kadugoda Road,2,1,overheating,0.5,18,57,2,Wednesday,4,27,2026-04-11T18:57:00,5.2,HIGH,0.5,1.0,1.0,0.35,0.5,1.67,33.3,20.0
+INC-0188,6.959618,80.169385,tertiary,Eswaththa - Ranwala Road,2,1,accident_minor,0.5,19,7,1,Tuesday,6,20,2026-06-15T19:07:00,4.9,MEDIUM,0.5,0.75,0.75,0.35,0.5,0.94,21.1,45.0
+INC-0189,6.895663,79.944674,secondary,Pothuarawa Road,2,1,overheating,0.5,9,39,3,Thursday,2,43,2026-02-15T09:39:00,5.3,HIGH,0.5,0.85,0.85,0.5,0.5,1.56,31.1,93.3
+INC-0190,6.924859,79.943422,residential,Unknown,2,1,fuel_empty,0.2,17,57,2,Wednesday,2,14,2026-02-10T17:57:00,4.1,MEDIUM,0.5,0.95,0.95,0.15,0.2,0.38,3.8,180.0
+INC-0191,6.911571,79.849562,trunk,Galle Road,2,1,engine_failure,0.7,22,53,2,Wednesday,12,70,2026-12-02T22:53:00,5.8,HIGH,0.5,0.15,0.15,0.85,0.7,0.0,0.0,0.0
+INC-0192,6.874072,80.172802,residential,Unknown,2,1,flat_tire,0.3,10,58,3,Thursday,10,28,2026-10-25T10:58:00,4.0,MEDIUM,0.5,0.6,0.6,0.15,0.3,0.12,1.9,7.5
+INC-0193,6.876059,80.180234,residential,Unknown,2,1,engine_failure,0.7,20,43,1,Tuesday,1,38,2026-01-24T20:43:00,4.5,MEDIUM,0.5,0.45,0.45,0.15,0.7,0.0,0.0,0.0
+INC-0194,6.898672,80.036094,residential,Nelum Place,2,1,battery_dead,0.3,9,46,1,Tuesday,5,33,2026-05-08T09:46:00,4.2,MEDIUM,0.5,0.85,0.85,0.15,0.3,0.36,4.6,58.3
+INC-0195,6.883449,80.05012,residential,Unknown,2,1,accident_minor,0.5,8,31,1,Tuesday,6,43,2026-06-22T08:31:00,4.7,MEDIUM,0.5,1.0,1.0,0.15,0.5,0.94,21.1,22.5
+INC-0196,6.856041,79.984031,residential,Unknown,2,2,accident_major,1.0,18,30,2,Wednesday,7,116,2026-07-24T18:30:00,8.1,CRITICAL,1.0,1.0,1.0,0.15,1.0,5.0,300.0,60.0
+INC-0197,6.80445,79.971872,residential,Unknown,2,1,engine_failure,0.7,18,32,3,Thursday,6,62,2026-06-19T18:32:00,5.1,HIGH,0.5,1.0,1.0,0.15,0.7,1.25,37.5,30.0
+INC-0198,6.874335,80.173088,residential,Unknown,2,1,battery_dead,0.3,12,7,2,Wednesday,8,18,2026-08-01T12:07:00,4.0,MEDIUM,0.5,0.65,0.65,0.15,0.3,0.16,2.0,10.7
+INC-0199,6.939118,80.094703,tertiary,Kaluaggala-Akarawita Road,2,1,battery_dead,0.3,9,34,2,Wednesday,10,37,2026-10-02T09:34:00,4.7,MEDIUM,0.5,0.85,0.85,0.35,0.3,0.73,9.1,58.3
+INC-0200,6.848158,80.068051,tertiary,Sri Somarathana Mawatha,2,1,accident_minor,0.5,8,40,2,Wednesday,9,50,2026-09-20T08:40:00,5.2,HIGH,0.5,1.0,1.0,0.35,0.5,1.88,42.2,22.5
+INC-0201,6.899649,80.055697,residential,Unknown,2,1,battery_dead,0.3,19,11,4,Friday,9,33,2026-09-02T19:11:00,4.1,MEDIUM,0.5,0.75,0.75,0.15,0.3,0.26,3.3,25.0
+INC-0202,6.812292,79.871303,residential,Unknown,2,1,battery_dead,0.3,13,18,6,Sunday,4,30,2026-04-15T13:18:00,3.6,MEDIUM,0.5,0.24,0.24,0.15,0.3,0.0,0.0,0.0
+INC-0203,6.887843,79.983983,residential,Unknown,2,2,accident_major,1.0,19,34,0,Monday,6,105,2026-06-21T19:34:00,7.9,HIGH,1.0,0.75,0.75,0.15,1.0,3.75,225.0,180.0
+INC-0204,6.840773,80.109041,residential,Unknown,2,1,engine_failure,0.7,11,6,2,Wednesday,3,52,2026-03-24T11:06:00,4.6,MEDIUM,0.5,0.55,0.55,0.15,0.7,0.12,3.8,6.7
+INC-0205,6.910058,79.968669,residential,Unknown,2,1,flat_tire,0.3,17,55,3,Thursday,2,21,2026-02-18T17:55:00,4.3,MEDIUM,0.5,0.95,0.95,0.15,0.3,0.56,8.4,180.0
+INC-0206,6.956366,79.875531,primary,Sirimavo Bandaranaike Mawatha (Prince of Wales Avenue),2,2,accident_major,1.0,18,57,4,Friday,4,133,2026-04-19T18:57:00,9.3,CRITICAL,1.0,1.0,1.0,0.7,1.0,15.0,1200.0,60.0
+INC-0207,6.879596,79.938704,residential,4th Lane,2,1,flat_tire,0.3,9,54,1,Tuesday,4,31,2026-04-17T09:54:00,4.2,MEDIUM,0.5,0.85,0.85,0.15,0.3,0.44,6.6,70.0
+INC-0208,6.941731,79.91773,residential,Unknown,2,1,engine_failure,0.7,17,47,1,Tuesday,6,70,2026-06-15T17:47:00,5.0,HIGH,0.5,0.95,0.95,0.15,0.7,1.12,33.8,180.0
+INC-0209,6.873927,79.87275,secondary,Stratford Avenue,2,1,engine_failure,0.7,16,15,1,Tuesday,4,50,2026-04-10T16:15:00,5.7,HIGH,0.5,0.8,0.8,0.5,0.7,2.0,60.0,90.0
+INC-0210,6.786201,79.980828,motorway,Southern Expressway,2,1,accident_minor,0.5,9,52,0,Monday,3,55,2026-03-14T09:52:00,6.4,HIGH,0.5,0.85,0.85,1.0,0.5,4.81,108.3,105.0
+INC-0211,6.852114,79.98377,residential,Unknown,2,1,engine_failure,0.7,13,19,4,Friday,10,51,2026-10-05T13:19:00,4.7,MEDIUM,0.5,0.6,0.6,0.15,0.7,0.25,7.5,15.0
+INC-0212,6.841241,79.884695,residential,5th Lane,2,1,battery_dead,0.3,20,23,4,Friday,6,26,2026-06-09T20:23:00,3.8,MEDIUM,0.5,0.45,0.45,0.15,0.3,0.0,0.0,0.0
+INC-0213,6.901846,80.086508,residential,Unknown,2,1,accident_minor,0.5,7,30,6,Sunday,9,56,2026-09-04T07:30:00,4.1,MEDIUM,0.5,0.32,0.32,0.15,0.5,0.0,0.0,0.0
+INC-0214,6.776553,79.966488,residential,Unknown,2,1,overheating,0.5,10,30,2,Wednesday,6,31,2026-06-12T10:30:00,4.3,MEDIUM,0.5,0.6,0.6,0.15,0.5,0.17,3.3,10.0
+INC-0215,6.817138,79.966556,living_street,Unknown,2,1,battery_dead,0.3,6,17,5,Saturday,9,11,2026-09-21T06:17:00,3.5,MEDIUM,0.5,0.27,0.27,0.1,0.3,0.0,0.0,0.0
+INC-0216,6.781525,79.887879,residential,Mendis Road,2,1,battery_dead,0.3,5,55,3,Thursday,8,17,2026-08-15T05:55:00,3.5,MEDIUM,0.5,0.15,0.15,0.15,0.3,0.0,0.0,0.0
+INC-0217,6.940299,79.914589,residential,Unknown,2,1,engine_failure,0.7,19,55,1,Tuesday,9,74,2026-09-05T19:55:00,4.8,MEDIUM,0.5,0.75,0.75,0.15,0.7,0.62,18.8,60.0
+INC-0218,6.83452,79.914104,residential,Embillawatta Road,2,1,flat_tire,0.3,15,18,1,Tuesday,5,18,2026-05-12T15:18:00,4.0,MEDIUM,0.5,0.65,0.65,0.15,0.3,0.19,2.8,12.9
+INC-0219,6.916647,80.101697,residential,Unknown,2,1,flat_tire,0.3,8,3,2,Wednesday,9,33,2026-09-07T08:03:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.62,9.4,15.0
+INC-0220,6.866825,79.900183,secondary,Old Kesbawa Road,2,1,flat_tire,0.3,11,42,0,Monday,6,30,2026-06-17T11:42:00,4.7,MEDIUM,0.5,0.55,0.55,0.5,0.3,0.17,2.5,3.3
+INC-0221,6.840014,79.99013,residential,Sethsiri Lane,2,1,flat_tire,0.3,13,0,2,Wednesday,5,28,2026-05-02T13:00:00,4.0,MEDIUM,0.5,0.6,0.6,0.15,0.3,0.12,1.9,7.5
+INC-0222,6.781237,79.934677,residential,Unknown,2,1,battery_dead,0.3,13,38,3,Thursday,8,23,2026-08-15T13:38:00,4.0,MEDIUM,0.5,0.6,0.6,0.15,0.3,0.1,1.3,6.2
+INC-0223,6.920569,79.926714,secondary,Walpola Road,2,1,fuel_empty,0.2,13,50,4,Friday,7,26,2026-07-21T13:50:00,4.6,MEDIUM,0.5,0.6,0.6,0.5,0.2,0.22,2.2,5.0
+INC-0224,6.923864,79.914662,residential,Unknown,2,1,accident_minor,0.5,8,20,4,Friday,4,34,2026-04-28T08:20:00,4.7,MEDIUM,0.5,1.0,1.0,0.15,0.5,0.94,21.1,22.5
+INC-0225,6.922225,79.914114,secondary,Kolonnawa-Angoda Road,2,1,overheating,0.5,15,27,4,Friday,2,24,2026-02-25T15:27:00,5.1,HIGH,0.5,0.65,0.65,0.5,0.5,0.67,13.3,17.1
+INC-0226,6.904708,79.850761,residential,Sea Avenue,2,1,engine_failure,0.7,18,38,4,Friday,9,43,2026-09-27T18:38:00,5.1,HIGH,0.5,1.0,1.0,0.15,0.7,1.25,37.5,30.0
+INC-0227,6.801793,80.027431,secondary,Kottawa Thalagala Road,2,1,fuel_empty,0.2,21,55,1,Tuesday,8,15,2026-08-24T21:55:00,4.3,MEDIUM,0.5,0.3,0.3,0.5,0.2,0.0,0.0,0.0
+INC-0228,6.916545,79.924223,secondary,Kalapaluwawa Road,2,1,engine_failure,0.7,17,14,5,Saturday,8,76,2026-08-18T17:14:00,5.4,HIGH,0.5,0.57,0.57,0.5,0.7,0.47,14.0,9.8
+INC-0229,6.838903,79.931061,residential,Unknown,2,2,accident_major,1.0,18,6,3,Thursday,3,100,2026-03-27T18:06:00,8.1,CRITICAL,1.0,1.0,1.0,0.15,1.0,5.0,300.0,60.0
+INC-0230,6.926918,79.943009,residential,Unknown,2,1,battery_dead,0.3,17,42,1,Tuesday,6,21,2026-06-14T17:42:00,4.3,MEDIUM,0.5,0.95,0.95,0.15,0.3,0.47,5.9,180.0
+INC-0231,6.856071,79.87205,residential,Unknown,2,1,battery_dead,0.3,18,45,1,Tuesday,1,33,2026-01-13T18:45:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.52,6.5,12.5
+INC-0232,6.844152,79.878873,residential,Araliya Drive,2,1,flat_tire,0.3,19,30,4,Friday,11,42,2026-11-05T19:30:00,4.1,MEDIUM,0.5,0.75,0.75,0.15,0.3,0.31,4.7,30.0
+INC-0233,6.87594,79.980255,living_street,Unknown,2,1,accident_minor,0.5,17,33,1,Tuesday,5,48,2026-05-03T17:33:00,4.6,MEDIUM,0.5,0.95,0.95,0.1,0.5,0.42,9.5,180.0
+INC-0234,6.815428,79.947394,residential,Egodawatte Road,2,1,accident_minor,0.5,17,43,6,Sunday,2,49,2026-02-15T17:43:00,4.1,MEDIUM,0.5,0.38,0.38,0.15,0.5,0.0,0.0,0.0
+INC-0235,6.886069,79.937286,residential,Unknown,2,1,engine_failure,0.7,9,21,5,Saturday,12,49,2026-12-26T09:21:00,4.6,MEDIUM,0.5,0.51,0.51,0.15,0.7,0.03,0.8,1.2
+INC-0236,6.757551,79.94219,residential,Unknown,2,1,battery_dead,0.3,18,17,4,Friday,9,37,2026-09-23T18:17:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.52,6.5,12.5
+INC-0237,6.793629,79.906565,residential,Unknown,2,1,engine_failure,0.7,19,10,5,Saturday,11,51,2026-11-03T19:10:00,4.5,MEDIUM,0.5,0.45,0.45,0.15,0.7,0.0,0.0,0.0
+INC-0238,6.841745,79.892853,primary,Dehiwela Road (Dehiwela-Maharagama Road),2,1,engine_failure,0.7,0,46,1,Tuesday,9,65,2026-09-20T00:46:00,5.4,HIGH,0.5,0.05,0.05,0.7,0.7,0.0,0.0,0.0
+INC-0239,6.947635,80.129502,residential,Unknown,2,1,battery_dead,0.3,9,2,4,Friday,9,32,2026-09-15T09:02:00,4.2,MEDIUM,0.5,0.85,0.85,0.15,0.3,0.36,4.6,58.3
+INC-0240,6.846872,79.864646,residential,Auburn lane,2,1,overheating,0.5,19,38,4,Friday,12,24,2026-12-13T19:38:00,4.5,MEDIUM,0.5,0.75,0.75,0.15,0.5,0.42,8.3,40.0
+INC-0241,6.823961,79.93571,residential,1st lane,2,2,accident_major,1.0,19,26,3,Thursday,11,159,2026-11-02T19:26:00,7.9,HIGH,1.0,0.75,0.75,0.15,1.0,3.75,225.0,180.0
+INC-0242,6.777384,79.924561,residential,Unknown,2,1,accident_minor,0.5,11,29,4,Friday,11,43,2026-11-20T11:29:00,4.3,MEDIUM,0.5,0.55,0.55,0.15,0.5,0.09,2.1,5.0
+INC-0243,6.918242,79.915635,residential,Unknown,2,1,engine_failure,0.7,5,37,1,Tuesday,9,69,2026-09-19T05:37:00,4.2,MEDIUM,0.5,0.15,0.15,0.15,0.7,0.0,0.0,0.0
+INC-0244,6.849039,80.108695,residential,Unknown,2,1,battery_dead,0.3,22,13,4,Friday,11,31,2026-11-28T22:13:00,3.5,MEDIUM,0.5,0.15,0.15,0.15,0.3,0.0,0.0,0.0
+INC-0245,6.79808,79.966594,tertiary,Polgasowita Road,2,1,engine_failure,0.7,19,13,1,Tuesday,5,26,2026-05-04T19:13:00,5.3,HIGH,0.5,0.75,0.75,0.35,0.7,1.25,37.5,60.0
+INC-0246,6.93814,79.88246,residential,Unknown,2,1,accident_minor,0.5,9,58,4,Friday,9,41,2026-09-04T09:58:00,4.6,MEDIUM,0.5,0.85,0.85,0.15,0.5,0.66,14.8,105.0
+INC-0247,6.945668,79.901424,residential,Unknown,2,1,battery_dead,0.3,19,45,2,Wednesday,8,21,2026-08-23T19:45:00,4.1,MEDIUM,0.5,0.75,0.75,0.15,0.3,0.26,3.3,25.0
+INC-0248,6.901495,80.015414,residential,Unknown,2,1,engine_failure,0.7,9,45,5,Saturday,5,74,2026-05-05T09:45:00,4.6,MEDIUM,0.5,0.51,0.51,0.15,0.7,0.03,0.8,1.2
+INC-0249,6.850332,79.946054,residential,Unknown,2,1,flat_tire,0.3,14,52,0,Monday,9,19,2026-09-04T14:52:00,3.9,MEDIUM,0.5,0.55,0.55,0.15,0.3,0.06,0.9,3.3
+INC-0250,6.84941,79.898508,residential,1st Lane,2,1,engine_failure,0.7,8,21,3,Thursday,3,58,2026-03-06T08:21:00,5.1,HIGH,0.5,1.0,1.0,0.15,0.7,1.25,37.5,30.0
+INC-0251,6.725524,79.898954,residential,Unknown,2,2,accident_major,1.0,8,6,0,Monday,4,112,2026-04-22T08:06:00,8.1,CRITICAL,1.0,1.0,1.0,0.15,1.0,5.0,300.0,60.0
+INC-0252,6.800079,79.891881,residential,Alwis Perera Mawatha,2,1,overheating,0.5,9,37,0,Monday,9,19,2026-09-18T09:37:00,4.6,MEDIUM,0.5,0.85,0.85,0.15,0.5,0.58,11.7,93.3
+INC-0253,6.787333,79.930188,residential,Unknown,2,1,accident_minor,0.5,6,7,1,Tuesday,10,76,2026-10-01T06:07:00,4.2,MEDIUM,0.5,0.45,0.45,0.15,0.5,0.0,0.0,0.0
+INC-0254,6.872653,80.170644,secondary,Thummodara - Puwakpitiya Road,2,1,accident_minor,0.5,12,19,1,Tuesday,6,38,2026-06-17T12:19:00,5.1,HIGH,0.5,0.65,0.65,0.5,0.5,0.75,16.9,19.3
+INC-0255,6.80614,79.897337,residential,Sri Rahula Mawatha,2,1,flat_tire,0.3,6,59,1,Tuesday,7,25,2026-07-21T06:59:00,3.8,MEDIUM,0.5,0.45,0.45,0.15,0.3,0.0,0.0,0.0
+INC-0256,6.783143,79.997738,residential,Pragathi Mawatha,2,1,flat_tire,0.3,9,23,0,Monday,9,17,2026-09-17T09:23:00,4.2,MEDIUM,0.5,0.85,0.85,0.15,0.3,0.44,6.6,70.0
+INC-0257,6.841292,79.867045,trunk,Galle Road,2,1,engine_failure,0.7,14,40,0,Monday,11,52,2026-11-14T14:40:00,6.2,HIGH,0.5,0.55,0.55,0.85,0.7,0.75,22.5,6.7
+INC-0258,6.894949,79.933411,secondary,Defence Headquarters Access Road,2,1,engine_failure,0.7,12,11,5,Saturday,5,48,2026-05-13T12:11:00,5.2,HIGH,0.5,0.39,0.39,0.5,0.7,0.0,0.0,0.0
+INC-0259,6.891886,79.955229,residential,Unknown,2,1,engine_failure,0.7,18,38,6,Sunday,5,53,2026-05-08T18:38:00,4.5,MEDIUM,0.5,0.4,0.4,0.15,0.7,0.0,0.0,0.0
+INC-0260,6.909509,79.851046,residential,Sea View Avenue,2,2,accident_major,1.0,18,35,2,Wednesday,3,140,2026-03-15T18:35:00,8.1,CRITICAL,1.0,1.0,1.0,0.15,1.0,5.0,300.0,60.0
+INC-0261,6.977835,79.878524,residential,Unknown,2,1,fuel_empty,0.2,7,57,1,Tuesday,9,27,2026-09-07T07:57:00,4.0,MEDIUM,0.5,0.8,0.8,0.15,0.2,0.25,2.5,30.0
+INC-0262,6.873693,80.057448,residential,Unknown,2,1,battery_dead,0.3,16,13,3,Thursday,6,34,2026-06-09T16:13:00,4.2,MEDIUM,0.5,0.8,0.8,0.15,0.3,0.31,3.9,37.5
+INC-0263,6.864853,79.900977,residential,Unknown,2,1,battery_dead,0.3,18,26,4,Friday,6,12,2026-06-03T18:26:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.52,6.5,12.5
+INC-0264,6.826536,79.961678,residential,Daham Mawatha,2,1,accident_minor,0.5,16,25,5,Saturday,1,36,2026-01-25T16:25:00,4.2,MEDIUM,0.5,0.48,0.48,0.15,0.5,0.0,0.0,0.0
+INC-0265,6.835299,79.935587,residential,Unknown,2,2,accident_major,1.0,19,53,5,Saturday,4,160,2026-04-03T19:53:00,7.6,HIGH,1.0,0.45,0.45,0.15,1.0,2.25,135.0,98.2
+INC-0266,6.950458,79.877769,primary,New Kelani Bridge Road,2,1,accident_minor,0.5,8,31,5,Saturday,12,46,2026-12-12T08:31:00,5.5,HIGH,0.5,0.6,0.6,0.7,0.5,0.75,16.9,11.2
+INC-0267,6.899198,79.994107,residential,Unknown,2,1,engine_failure,0.7,9,47,0,Monday,11,70,2026-11-25T09:47:00,4.9,MEDIUM,0.5,0.85,0.85,0.15,0.7,0.88,26.2,140.0
+INC-0268,6.888924,80.008354,secondary,Kaduwela – Athurugiriya Road,2,1,accident_minor,0.5,8,6,0,Monday,8,12,2026-08-01T08:06:00,5.5,HIGH,0.5,1.0,1.0,0.5,0.5,2.5,56.2,22.5
+INC-0269,6.858739,80.037486,residential,Unknown,2,1,flat_tire,0.3,5,59,2,Wednesday,3,33,2026-03-11T05:59:00,3.5,MEDIUM,0.5,0.15,0.15,0.15,0.3,0.0,0.0,0.0
+INC-0270,6.746606,79.890501,trunk,Galle Road New Deviation,2,1,flat_tire,0.3,19,7,2,Wednesday,4,41,2026-04-24T19:07:00,5.7,HIGH,0.5,0.75,0.75,0.85,0.3,1.88,28.1,30.0
+INC-0271,6.809796,79.907024,tertiary,Karadiyana Road,2,1,accident_minor,0.5,17,44,6,Sunday,8,43,2026-08-24T17:44:00,4.6,MEDIUM,0.5,0.38,0.38,0.35,0.5,0.0,0.0,0.0
+INC-0272,6.798788,80.005644,secondary,Kottawa Thalagala Road,2,1,flat_tire,0.3,5,26,0,Monday,2,33,2026-02-06T05:26:00,4.3,MEDIUM,0.5,0.15,0.15,0.5,0.3,0.0,0.0,0.0
+INC-0273,6.785724,79.974893,primary,Colombo - Horana Road,2,1,accident_minor,0.5,9,36,5,Saturday,5,10,2026-05-10T09:36:00,5.5,HIGH,0.5,0.51,0.51,0.7,0.5,0.07,1.7,0.9
+INC-0274,6.828993,80.004721,residential,Unknown,2,1,overheating,0.5,15,28,1,Tuesday,4,25,2026-04-17T15:28:00,4.4,MEDIUM,0.5,0.65,0.65,0.15,0.5,0.25,5.0,17.1
+INC-0275,6.813126,79.898931,residential,Siri Viwekarama Mawatha,2,1,engine_failure,0.7,15,36,2,Wednesday,2,56,2026-02-13T15:36:00,4.7,MEDIUM,0.5,0.65,0.65,0.15,0.7,0.38,11.2,25.7
+INC-0276,6.80851,79.890925,residential,Unknown,2,1,engine_failure,0.7,9,50,1,Tuesday,5,82,2026-05-14T09:50:00,4.9,MEDIUM,0.5,0.85,0.85,0.15,0.7,0.88,26.2,140.0
+INC-0277,6.822882,79.909475,residential,Unknown,2,1,flat_tire,0.3,19,3,2,Wednesday,12,32,2026-12-24T19:03:00,4.1,MEDIUM,0.5,0.75,0.75,0.15,0.3,0.31,4.7,30.0
+INC-0278,6.956575,80.133732,tertiary,Kosgama-Pugoda Road,2,1,flat_tire,0.3,18,34,5,Saturday,8,26,2026-08-22T18:34:00,4.4,MEDIUM,0.5,0.6,0.6,0.35,0.3,0.25,3.8,7.5
+INC-0279,6.925692,80.01505,primary,Avissawella Road(Colombo-Hanwella Low Level Road),2,1,accident_minor,0.5,8,20,0,Monday,5,67,2026-05-17T08:20:00,5.9,HIGH,0.5,1.0,1.0,0.7,0.5,3.75,84.4,22.5
+INC-0280,6.830371,79.915088,residential,Unknown,2,1,engine_failure,0.7,13,53,0,Monday,11,88,2026-11-07T13:53:00,4.7,MEDIUM,0.5,0.6,0.6,0.15,0.7,0.25,7.5,15.0
+INC-0281,6.905006,80.071935,residential,Unknown,2,1,fuel_empty,0.2,9,45,0,Monday,6,14,2026-06-17T09:45:00,4.0,MEDIUM,0.5,0.85,0.85,0.15,0.2,0.29,2.9,46.7
+INC-0282,6.891118,79.973634,residential,Unknown,2,1,fuel_empty,0.2,14,54,2,Wednesday,6,20,2026-06-11T14:54:00,3.7,MEDIUM,0.5,0.55,0.55,0.15,0.2,0.04,0.4,2.2
+INC-0283,6.912824,79.970757,residential,Methsiri Mawatha,2,1,fuel_empty,0.2,11,10,6,Sunday,3,19,2026-03-18T11:10:00,3.4,MEDIUM,0.5,0.22,0.22,0.15,0.2,0.0,0.0,0.0
+INC-0284,6.926822,79.933144,tertiary,Himbutana Road,2,1,engine_failure,0.7,16,46,3,Thursday,3,77,2026-03-16T16:46:00,5.3,HIGH,0.5,0.8,0.8,0.35,0.7,1.5,45.0,90.0
+INC-0285,6.89304,79.909937,residential,Rampart Road,2,1,flat_tire,0.3,0,16,5,Saturday,8,37,2026-08-19T00:16:00,3.4,MEDIUM,0.5,0.03,0.03,0.15,0.3,0.0,0.0,0.0
+INC-0286,6.909527,79.898304,primary,Old Kotte Road,2,1,battery_dead,0.3,5,2,4,Friday,10,30,2026-10-21T05:02:00,4.7,MEDIUM,0.5,0.15,0.15,0.7,0.3,0.0,0.0,0.0
+INC-0287,6.911677,79.914106,residential,Unknown,2,1,fuel_empty,0.2,9,55,3,Thursday,3,27,2026-03-19T09:55:00,4.0,MEDIUM,0.5,0.85,0.85,0.15,0.2,0.29,2.9,46.7
+INC-0288,6.876178,79.971127,tertiary,Unknown,2,1,flat_tire,0.3,1,7,4,Friday,9,17,2026-09-01T01:07:00,3.8,MEDIUM,0.5,0.03,0.03,0.35,0.3,0.0,0.0,0.0
+INC-0289,6.897343,79.862039,residential,Stanmore Crescent,2,1,accident_minor,0.5,7,8,4,Friday,4,73,2026-04-06T07:08:00,4.5,MEDIUM,0.5,0.8,0.8,0.15,0.5,0.56,12.7,67.5
+INC-0290,6.904797,80.036537,residential,Nelum Place,2,1,accident_minor,0.5,17,44,6,Sunday,11,55,2026-11-06T17:44:00,4.1,MEDIUM,0.5,0.38,0.38,0.15,0.5,0.0,0.0,0.0
+INC-0291,6.938307,79.863073,tertiary,Abdul Hameed Street,2,1,flat_tire,0.3,14,41,1,Tuesday,6,38,2026-06-28T14:41:00,4.4,MEDIUM,0.5,0.55,0.55,0.35,0.3,0.12,1.9,3.3
+INC-0292,6.841715,79.876513,secondary,Kawdana Road,2,1,flat_tire,0.3,19,2,4,Friday,8,41,2026-08-23T19:02:00,4.9,MEDIUM,0.5,0.75,0.75,0.5,0.3,0.83,12.5,30.0
+INC-0293,6.921156,79.846916,primary,Sir Mohamed Macan Makar Mawatha,2,1,engine_failure,0.7,13,0,3,Thursday,5,84,2026-05-13T13:00:00,5.9,HIGH,0.5,0.6,0.6,0.7,0.7,1.0,30.0,15.0
+INC-0294,6.810826,79.913513,residential,Unknown,2,1,flat_tire,0.3,19,22,5,Saturday,10,18,2026-10-10T19:22:00,3.8,MEDIUM,0.5,0.45,0.45,0.15,0.3,0.0,0.0,0.0
+INC-0295,6.869877,79.906154,residential,Unknown,2,1,accident_minor,0.5,17,49,1,Tuesday,12,48,2026-12-14T17:49:00,4.7,MEDIUM,0.5,0.95,0.95,0.15,0.5,0.84,19.0,180.0
+INC-0296,6.786502,79.930148,residential,Unknown,2,1,accident_minor,0.5,7,22,4,Friday,12,63,2026-12-23T07:22:00,4.5,MEDIUM,0.5,0.8,0.8,0.15,0.5,0.56,12.7,67.5
+INC-0297,6.93755,80.168218,trunk,High Level Road,2,1,battery_dead,0.3,18,10,1,Tuesday,1,29,2026-01-15T18:10:00,5.9,HIGH,0.5,1.0,1.0,0.85,0.3,3.12,39.1,12.5
+INC-0298,6.89754,80.096934,residential,Unknown,2,2,accident_major,1.0,16,16,0,Monday,2,97,2026-02-08T16:16:00,7.9,HIGH,1.0,0.8,0.8,0.15,1.0,4.0,240.0,180.0
+INC-0299,6.899497,80.048858,residential,Unknown,2,1,flat_tire,0.3,18,28,6,Sunday,9,39,2026-09-01T18:28:00,3.8,MEDIUM,0.5,0.4,0.4,0.15,0.3,0.0,0.0,0.0
+INC-0300,6.961816,79.872552,residential,Henamulla Road,2,1,accident_minor,0.5,20,50,2,Wednesday,1,47,2026-01-06T20:50:00,4.2,MEDIUM,0.5,0.45,0.45,0.15,0.5,0.0,0.0,0.0
+INC-0301,6.931139,79.875027,secondary,Dematagoda Road,2,1,overheating,0.5,7,57,0,Monday,1,46,2026-01-28T07:57:00,5.3,HIGH,0.5,0.8,0.8,0.5,0.5,1.33,26.7,60.0
+INC-0302,6.773963,80.001449,residential,Unknown,2,2,accident_major,1.0,21,43,0,Monday,4,90,2026-04-15T21:43:00,7.4,HIGH,1.0,0.3,0.3,0.15,1.0,1.5,90.0,51.4
+INC-0303,6.896537,79.93328,residential,Unknown,2,1,engine_failure,0.7,13,18,3,Thursday,10,60,2026-10-17T13:18:00,4.7,MEDIUM,0.5,0.6,0.6,0.15,0.7,0.25,7.5,15.0
+INC-0304,6.900661,80.060631,residential,Unknown,2,1,engine_failure,0.7,13,17,3,Thursday,3,70,2026-03-12T13:17:00,4.7,MEDIUM,0.5,0.6,0.6,0.15,0.7,0.25,7.5,15.0
+INC-0305,6.804671,79.970642,residential,Unknown,2,1,battery_dead,0.3,8,36,5,Saturday,2,27,2026-02-16T08:36:00,4.0,MEDIUM,0.5,0.6,0.6,0.15,0.3,0.1,1.3,6.2
+INC-0306,6.790594,79.907461,residential,Blue Lotus Road,2,1,accident_minor,0.5,18,22,3,Thursday,2,53,2026-02-09T18:22:00,4.7,MEDIUM,0.5,1.0,1.0,0.15,0.5,0.94,21.1,22.5
+INC-0307,6.818048,79.94366,residential,Unknown,2,2,accident_major,1.0,18,27,6,Sunday,12,208,2026-12-21T18:27:00,7.5,HIGH,1.0,0.4,0.4,0.15,1.0,2.0,120.0,80.0
+INC-0308,6.789422,79.942395,secondary,Kesbewa - Kindelpitiya - Bandaragama Road,2,1,flat_tire,0.3,6,12,0,Monday,6,21,2026-06-22T06:12:00,4.6,MEDIUM,0.5,0.45,0.45,0.5,0.3,0.0,0.0,0.0
+INC-0309,6.875462,79.902342,residential,Unknown,2,1,engine_failure,0.7,19,45,1,Tuesday,6,63,2026-06-24T19:45:00,4.8,MEDIUM,0.5,0.75,0.75,0.15,0.7,0.62,18.8,60.0
+INC-0310,6.819638,80.021694,residential,Unknown,2,1,flat_tire,0.3,18,37,3,Thursday,6,30,2026-06-20T18:37:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.62,9.4,15.0
+INC-0311,6.924295,79.986932,residential,Pattiyawatte Road,2,1,accident_minor,0.5,21,59,2,Wednesday,1,33,2026-01-20T21:59:00,4.0,MEDIUM,0.5,0.3,0.3,0.15,0.5,0.0,0.0,0.0
+INC-0312,6.915266,79.892283,residential,Unknown,2,1,flat_tire,0.3,19,53,0,Monday,11,23,2026-11-15T19:53:00,4.1,MEDIUM,0.5,0.75,0.75,0.15,0.3,0.31,4.7,30.0
+INC-0313,6.943753,79.862445,residential,Green Lane,2,1,flat_tire,0.3,9,31,2,Wednesday,9,35,2026-09-01T09:31:00,4.2,MEDIUM,0.5,0.85,0.85,0.15,0.3,0.44,6.6,70.0
+INC-0314,6.918641,79.851819,residential,Unknown,2,1,accident_minor,0.5,16,52,3,Thursday,7,28,2026-07-04T16:52:00,4.5,MEDIUM,0.5,0.8,0.8,0.15,0.5,0.56,12.7,67.5
+INC-0315,6.919037,79.86062,primary,Dr. Colvin R. de Silva Mawatha (Union Place),2,1,flat_tire,0.3,19,32,3,Thursday,8,32,2026-08-08T19:32:00,5.3,HIGH,0.5,0.75,0.75,0.7,0.3,1.25,18.8,30.0
+INC-0316,6.893934,79.935127,secondary,Defence Headquarters Access Road,2,1,accident_minor,0.5,13,59,2,Wednesday,10,47,2026-10-04T13:59:00,5.1,HIGH,0.5,0.6,0.6,0.5,0.5,0.5,11.2,11.2
+INC-0317,6.922251,79.884514,residential,Kuruppu Road,2,1,overheating,0.5,18,31,3,Thursday,11,31,2026-11-15T18:31:00,4.7,MEDIUM,0.5,1.0,1.0,0.15,0.5,0.83,16.7,20.0
+INC-0318,6.766726,79.974167,tertiary,Weediyagoda Road,2,2,accident_major,1.0,16,56,3,Thursday,10,142,2026-10-27T16:56:00,8.4,CRITICAL,1.0,0.8,0.8,0.35,1.0,8.0,480.0,180.0
+INC-0319,6.87818,79.996317,residential,Jaya Mawatha,2,1,flat_tire,0.3,18,39,5,Saturday,12,35,2026-12-11T18:39:00,4.0,MEDIUM,0.5,0.6,0.6,0.15,0.3,0.12,1.9,7.5
+INC-0320,6.879838,79.899718,secondary,Kotte Road,2,1,engine_failure,0.7,13,46,0,Monday,2,55,2026-02-26T13:46:00,5.5,HIGH,0.5,0.6,0.6,0.5,0.7,0.67,20.0,15.0
+INC-0321,6.870656,79.992067,residential,Unknown,2,1,flat_tire,0.3,17,10,0,Monday,1,23,2026-01-18T17:10:00,4.3,MEDIUM,0.5,0.95,0.95,0.15,0.3,0.56,8.4,180.0
+INC-0322,6.806954,79.943075,residential,Unknown,2,1,overheating,0.5,21,5,1,Tuesday,6,55,2026-06-18T21:05:00,4.0,MEDIUM,0.5,0.3,0.3,0.15,0.5,0.0,0.0,0.0
+INC-0323,6.889182,79.947898,residential,Unknown,2,1,flat_tire,0.3,13,2,1,Tuesday,8,22,2026-08-12T13:02:00,4.0,MEDIUM,0.5,0.6,0.6,0.15,0.3,0.12,1.9,7.5
+INC-0324,6.937796,79.883474,residential,Unknown,2,1,overheating,0.5,15,30,1,Tuesday,6,44,2026-06-09T15:30:00,4.4,MEDIUM,0.5,0.65,0.65,0.15,0.5,0.25,5.0,17.1
+INC-0325,6.785798,79.921871,residential,Unknown,2,1,overheating,0.5,23,58,6,Sunday,9,64,2026-09-12T23:58:00,3.8,MEDIUM,0.5,0.04,0.04,0.15,0.5,0.0,0.0,0.0
+INC-0326,6.84425,80.000234,residential,Unknown,2,1,flat_tire,0.3,16,25,0,Monday,12,17,2026-12-19T16:25:00,4.2,MEDIUM,0.5,0.8,0.8,0.15,0.3,0.38,5.6,45.0
+INC-0327,6.911162,80.105959,tertiary,Unknown,1,1,engine_failure,0.7,17,42,3,Thursday,2,58,2026-02-02T17:42:00,8.0,CRITICAL,1.0,0.95,0.95,0.35,0.7,4.75,142.5,180.0
+INC-0328,6.97307,79.872955,residential,Unknown,2,2,accident_major,1.0,8,0,2,Wednesday,1,75,2026-01-27T08:00:00,8.1,CRITICAL,1.0,1.0,1.0,0.15,1.0,5.0,300.0,60.0
+INC-0329,6.821744,80.087406,secondary,Horana - Padukka Road,2,1,fuel_empty,0.2,19,43,0,Monday,10,12,2026-10-04T19:43:00,4.7,MEDIUM,0.5,0.75,0.75,0.5,0.2,0.56,5.6,20.0
+INC-0330,6.82555,79.883242,residential,Unknown,2,1,engine_failure,0.7,19,7,4,Friday,6,70,2026-06-05T19:07:00,4.8,MEDIUM,0.5,0.75,0.75,0.15,0.7,0.62,18.8,60.0
+INC-0331,6.863491,80.013457,residential,Unknown,2,1,engine_failure,0.7,19,44,0,Monday,9,35,2026-09-22T19:44:00,4.8,MEDIUM,0.5,0.75,0.75,0.15,0.7,0.62,18.8,60.0
+INC-0332,6.810182,79.868892,tertiary,Sea Beach Road/Sri Gnanendra Road,2,1,fuel_empty,0.2,20,48,2,Wednesday,10,10,2026-10-14T20:48:00,4.1,MEDIUM,0.5,0.45,0.45,0.35,0.2,0.0,0.0,0.0
+INC-0333,6.847512,79.907221,tertiary,Egodawatte Road,2,1,overheating,0.5,11,52,2,Wednesday,4,40,2026-04-01T11:52:00,4.7,MEDIUM,0.5,0.55,0.55,0.35,0.5,0.17,3.3,4.4
+INC-0334,6.906766,79.886168,residential,Unknown,2,1,flat_tire,0.3,6,57,6,Sunday,6,21,2026-06-02T06:57:00,3.6,MEDIUM,0.5,0.18,0.18,0.15,0.3,0.0,0.0,0.0
+INC-0335,6.845047,80.007241,trunk,High Level Road,2,1,flat_tire,0.3,12,10,3,Thursday,5,28,2026-05-03T12:10:00,5.6,HIGH,0.5,0.65,0.65,0.85,0.3,1.12,16.9,12.9
+INC-0336,6.91394,79.850822,primary,Sri Uttarananda Mawatha,2,1,engine_failure,0.7,19,25,5,Saturday,5,63,2026-05-14T19:25:00,5.8,HIGH,0.5,0.45,0.45,0.7,0.7,0.0,0.0,0.0
+INC-0337,6.943848,79.865222,primary,Jethawana Road,3,1,accident_minor,0.5,14,51,1,Tuesday,8,39,2026-08-09T14:51:00,4.7,MEDIUM,0.333,0.55,0.55,0.7,0.5,0.0,0.0,0.0
+INC-0338,6.790058,79.922455,living_street,Unknown,2,1,accident_minor,0.5,10,57,6,Sunday,5,46,2026-05-01T10:57:00,3.9,MEDIUM,0.5,0.24,0.24,0.1,0.5,0.0,0.0,0.0
+INC-0339,6.945989,79.913445,primary,Ambatale Road,2,1,fuel_empty,0.2,19,35,4,Friday,8,10,2026-08-24T19:35:00,5.2,HIGH,0.5,0.75,0.75,0.7,0.2,0.83,8.3,20.0
+INC-0340,6.881406,79.954086,secondary,Hokandara-Thalawathugoda Road,2,1,engine_failure,0.7,6,52,4,Friday,9,65,2026-09-25T06:52:00,5.3,HIGH,0.5,0.45,0.45,0.5,0.7,0.0,0.0,0.0
+INC-0341,6.807763,79.94159,residential,Unknown,2,1,engine_failure,0.7,17,39,1,Tuesday,6,72,2026-06-21T17:39:00,5.0,HIGH,0.5,0.95,0.95,0.15,0.7,1.12,33.8,180.0
+INC-0342,6.92708,79.997917,secondary,Kaduwela – Athurugiriya Road,2,1,fuel_empty,0.2,19,22,3,Thursday,5,13,2026-05-25T19:22:00,4.7,MEDIUM,0.5,0.75,0.75,0.5,0.2,0.56,5.6,20.0
+INC-0343,6.763349,79.970753,tertiary,Unknown,2,1,engine_failure,0.7,7,47,5,Saturday,6,49,2026-06-04T07:47:00,5.0,HIGH,0.5,0.48,0.48,0.35,0.7,0.0,0.0,0.0
+INC-0344,6.918349,79.935707,residential,Unknown,2,1,accident_minor,0.5,17,58,2,Wednesday,10,64,2026-10-10T17:58:00,4.7,MEDIUM,0.5,0.95,0.95,0.15,0.5,0.84,19.0,180.0
+INC-0345,6.90968,79.878436,primary,Bauddhaloka Mawatha,2,1,engine_failure,0.7,14,16,6,Sunday,10,31,2026-10-22T14:16:00,5.5,HIGH,0.5,0.22,0.22,0.7,0.7,0.0,0.0,0.0
+INC-0346,6.936999,79.893645,residential,Unknown,2,2,accident_major,1.0,18,37,4,Friday,9,148,2026-09-19T18:37:00,8.1,CRITICAL,1.0,1.0,1.0,0.15,1.0,5.0,300.0,60.0
+INC-0347,6.906257,80.033178,secondary,Habarakada-Ranala Road,2,1,overheating,0.5,18,39,1,Tuesday,7,34,2026-07-27T18:39:00,5.5,HIGH,0.5,1.0,1.0,0.5,0.5,2.22,44.4,20.0
+INC-0348,6.810281,79.99516,residential,Hathalahagoda Road,2,1,flat_tire,0.3,6,8,2,Wednesday,6,38,2026-06-20T06:08:00,3.8,MEDIUM,0.5,0.45,0.45,0.15,0.3,0.0,0.0,0.0
+INC-0349,6.941662,79.954996,residential,Unknown,2,1,battery_dead,0.3,17,11,4,Friday,7,34,2026-07-01T17:11:00,4.3,MEDIUM,0.5,0.95,0.95,0.15,0.3,0.47,5.9,180.0
+INC-0350,6.936764,80.003914,residential,Unknown,2,1,engine_failure,0.7,20,48,0,Monday,4,10,2026-04-03T20:48:00,4.5,MEDIUM,0.5,0.45,0.45,0.15,0.7,0.0,0.0,0.0
+INC-0351,6.918318,79.891301,secondary,New Kolonnawa Road,2,2,accident_major,1.0,21,54,1,Tuesday,11,202,2026-11-19T21:54:00,8.2,CRITICAL,1.0,0.3,0.3,0.5,1.0,4.0,240.0,51.4
+INC-0352,6.900198,79.920395,residential,Asiri Mawatha,2,1,engine_failure,0.7,9,15,5,Saturday,3,94,2026-03-19T09:15:00,4.6,MEDIUM,0.5,0.51,0.51,0.15,0.7,0.03,0.8,1.2
+INC-0353,6.946767,79.868213,tertiary,Arthur De Silva Road,2,1,flat_tire,0.3,19,19,4,Friday,12,30,2026-12-23T19:19:00,4.6,MEDIUM,0.5,0.75,0.75,0.35,0.3,0.62,9.4,30.0
+INC-0354,6.823246,79.868456,residential,Unknown,2,1,flat_tire,0.3,9,54,3,Thursday,7,42,2026-07-19T09:54:00,4.2,MEDIUM,0.5,0.85,0.85,0.15,0.3,0.44,6.6,70.0
+INC-0355,6.869919,79.929362,residential,Unknown,2,1,flat_tire,0.3,8,32,3,Thursday,5,36,2026-05-11T08:32:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.62,9.4,15.0
+INC-0356,6.926997,80.097199,residential,Unknown,2,1,engine_failure,0.7,19,4,0,Monday,11,57,2026-11-01T19:04:00,4.8,MEDIUM,0.5,0.75,0.75,0.15,0.7,0.62,18.8,60.0
+INC-0357,6.905134,79.962199,primary,Kaduwela Road (New Kandy Road),2,1,engine_failure,0.7,17,4,0,Monday,7,72,2026-07-04T17:04:00,6.2,HIGH,0.5,0.95,0.95,0.7,0.7,4.5,135.0,180.0
+INC-0358,6.834801,79.932162,residential,Unknown,2,1,flat_tire,0.3,18,53,3,Thursday,4,37,2026-04-24T18:53:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.62,9.4,15.0
+INC-0359,6.873665,79.872753,primary,Unknown,2,1,engine_failure,0.7,22,25,2,Wednesday,10,66,2026-10-17T22:25:00,5.5,HIGH,0.5,0.15,0.15,0.7,0.7,0.0,0.0,0.0
+INC-0360,6.860646,80.10643,residential,Unknown,2,1,accident_minor,0.5,8,19,2,Wednesday,11,45,2026-11-17T08:19:00,4.7,MEDIUM,0.5,1.0,1.0,0.15,0.5,0.94,21.1,22.5
+INC-0361,6.901619,79.935439,tertiary,Robert Gunawardane Mawatha,2,1,engine_failure,0.7,8,24,4,Friday,2,45,2026-02-28T08:24:00,5.5,HIGH,0.5,1.0,1.0,0.35,0.7,2.5,75.0,30.0
+INC-0362,6.940059,80.156531,residential,Unknown,2,1,accident_minor,0.5,8,46,6,Sunday,11,50,2026-11-09T08:46:00,4.1,MEDIUM,0.5,0.4,0.4,0.15,0.5,0.0,0.0,0.0
+INC-0363,6.85603,80.067242,trunk,High Level Road,2,1,accident_minor,0.5,16,46,3,Thursday,5,58,2026-05-02T16:46:00,6.1,HIGH,0.5,0.8,0.8,0.85,0.5,3.38,75.9,67.5
+INC-0364,6.935975,79.908224,primary,Avissawella Road,4,1,accident_minor,0.5,17,5,1,Tuesday,4,17,2026-04-27T17:05:00,4.6,MEDIUM,0.25,0.95,0.95,0.7,0.5,1.5,33.8,180.0
+INC-0365,6.863867,79.975625,residential,Unknown,2,1,battery_dead,0.3,20,25,2,Wednesday,5,29,2026-05-15T20:25:00,3.8,MEDIUM,0.5,0.45,0.45,0.15,0.3,0.0,0.0,0.0
+INC-0366,6.861688,79.958134,tertiary,Pannipitiya-Malambe Road,2,1,engine_failure,0.7,6,0,0,Monday,4,83,2026-04-07T06:00:00,5.0,HIGH,0.5,0.45,0.45,0.35,0.7,0.0,0.0,0.0
+INC-0367,6.85252,79.926935,residential,Unknown,2,1,accident_minor,0.5,21,35,4,Friday,10,33,2026-10-06T21:35:00,4.0,MEDIUM,0.5,0.3,0.3,0.15,0.5,0.0,0.0,0.0
+INC-0368,6.946138,80.171668,residential,Unknown,2,1,fuel_empty,0.2,20,27,5,Saturday,4,19,2026-04-27T20:27:00,3.5,MEDIUM,0.5,0.27,0.27,0.15,0.2,0.0,0.0,0.0
+INC-0369,6.895805,79.859576,residential,Laurie's Road,2,1,flat_tire,0.3,16,16,3,Thursday,9,35,2026-09-10T16:16:00,4.2,MEDIUM,0.5,0.8,0.8,0.15,0.3,0.38,5.6,45.0
+INC-0370,6.953159,79.880941,trunk,New Kelani Bridge Road,3,1,fuel_empty,0.2,6,51,0,Monday,1,13,2026-01-25T06:51:00,4.3,MEDIUM,0.333,0.45,0.45,0.85,0.2,0.0,0.0,0.0
+INC-0371,6.879897,79.856403,primary,Marine Drive,4,1,flat_tire,0.3,20,10,2,Wednesday,3,14,2026-03-26T20:10:00,3.8,MEDIUM,0.25,0.45,0.45,0.7,0.3,0.0,0.0,0.0
+INC-0372,6.807022,79.980128,residential,Kirigampanuwa Road,2,1,engine_failure,0.7,19,18,3,Thursday,8,82,2026-08-14T19:18:00,4.8,MEDIUM,0.5,0.75,0.75,0.15,0.7,0.62,18.8,60.0
+INC-0373,6.919474,79.945783,residential,Unknown,2,1,accident_minor,0.5,9,26,3,Thursday,3,47,2026-03-14T09:26:00,4.6,MEDIUM,0.5,0.85,0.85,0.15,0.5,0.66,14.8,105.0
+INC-0374,6.850241,79.955487,residential,Bogahawatte Road,2,1,accident_minor,0.5,9,27,5,Saturday,5,55,2026-05-09T09:27:00,4.2,MEDIUM,0.5,0.51,0.51,0.15,0.5,0.02,0.4,0.9
+INC-0375,6.851437,79.92169,residential,Nagahawatta Road,2,1,fuel_empty,0.2,12,57,1,Tuesday,12,31,2026-12-06T12:57:00,3.8,MEDIUM,0.5,0.65,0.65,0.15,0.2,0.12,1.2,8.6
+INC-0376,6.921224,80.187798,secondary,Thummodara - Puwakpitiya Road,2,1,overheating,0.5,6,33,3,Thursday,11,30,2026-11-26T06:33:00,5.0,HIGH,0.5,0.45,0.45,0.5,0.5,0.0,0.0,0.0
+INC-0377,6.847773,80.102528,residential,Arukwatte-Pitumpe Road,2,1,engine_failure,0.7,14,42,2,Wednesday,4,51,2026-04-28T14:42:00,4.6,MEDIUM,0.5,0.55,0.55,0.15,0.7,0.12,3.8,6.7
+INC-0378,6.806384,79.92657,secondary,Piliyandala-Maharagama Road,2,2,accident_major,1.0,9,37,0,Monday,5,171,2026-05-17T09:37:00,8.8,CRITICAL,1.0,0.85,0.85,0.5,1.0,11.33,680.0,180.0
+INC-0379,6.797105,79.885116,residential,Unknown,2,2,accident_major,1.0,19,44,5,Saturday,3,187,2026-03-03T19:44:00,7.6,HIGH,1.0,0.45,0.45,0.15,1.0,2.25,135.0,98.2
+INC-0380,6.851352,80.022076,residential,Romiyal Mawatha,2,1,engine_failure,0.7,18,57,5,Saturday,9,24,2026-09-13T18:57:00,4.7,MEDIUM,0.5,0.6,0.6,0.15,0.7,0.25,7.5,15.0
+INC-0381,6.862325,79.872611,residential,Vijayaba Mawatha,2,1,battery_dead,0.3,21,35,3,Thursday,1,19,2026-01-10T21:35:00,3.7,MEDIUM,0.5,0.3,0.3,0.15,0.3,0.0,0.0,0.0
+INC-0382,6.904592,79.993784,residential,Unknown,2,1,battery_dead,0.3,7,44,3,Thursday,6,16,2026-06-09T07:44:00,4.2,MEDIUM,0.5,0.8,0.8,0.15,0.3,0.31,3.9,37.5
+INC-0383,6.942097,80.011944,residential,Unknown,2,2,accident_major,1.0,19,22,2,Wednesday,9,36,2026-09-22T19:22:00,7.9,HIGH,1.0,0.75,0.75,0.15,1.0,3.75,225.0,180.0
+INC-0384,6.831995,79.925615,residential,Unknown,2,2,accident_major,1.0,11,47,0,Monday,1,81,2026-01-23T11:47:00,7.7,HIGH,1.0,0.55,0.55,0.15,1.0,2.75,165.0,146.7
+INC-0385,6.902504,79.955554,residential,Unknown,2,2,accident_major,1.0,18,17,1,Tuesday,6,176,2026-06-01T18:17:00,8.1,CRITICAL,1.0,1.0,1.0,0.15,1.0,5.0,300.0,60.0
+INC-0386,6.830221,79.939107,residential,Medawala Road,2,1,battery_dead,0.3,7,46,0,Monday,4,20,2026-04-02T07:46:00,4.2,MEDIUM,0.5,0.8,0.8,0.15,0.3,0.31,3.9,37.5
+INC-0387,6.846834,80.024484,residential,Unknown,2,1,accident_minor,0.5,8,54,1,Tuesday,3,46,2026-03-22T08:54:00,4.7,MEDIUM,0.5,1.0,1.0,0.15,0.5,0.94,21.1,22.5
+INC-0388,6.828665,79.864247,residential,Unknown,2,1,accident_minor,0.5,12,32,3,Thursday,10,51,2026-10-08T12:32:00,4.4,MEDIUM,0.5,0.65,0.65,0.15,0.5,0.28,6.3,19.3
+INC-0389,6.919705,79.981176,residential,Gamunupura 1st Lane,2,1,flat_tire,0.3,14,50,3,Thursday,1,31,2026-01-02T14:50:00,3.9,MEDIUM,0.5,0.55,0.55,0.15,0.3,0.06,0.9,3.3
+INC-0390,6.869319,79.866787,residential,Unknown,2,1,accident_minor,0.5,20,38,0,Monday,10,49,2026-10-17T20:38:00,4.2,MEDIUM,0.5,0.45,0.45,0.15,0.5,0.0,0.0,0.0
+INC-0391,6.797538,79.910665,secondary,Moratuwa - Piliyandala Road,2,1,engine_failure,0.7,19,6,4,Friday,7,78,2026-07-21T19:06:00,5.6,HIGH,0.5,0.75,0.75,0.5,0.7,1.67,50.0,60.0
+INC-0392,6.858801,79.998565,residential,Unknown,2,2,accident_major,1.0,11,28,3,Thursday,10,131,2026-10-28T11:28:00,7.7,HIGH,1.0,0.55,0.55,0.15,1.0,2.75,165.0,146.7
+INC-0393,6.840492,80.088998,residential,Unknown,2,1,fuel_empty,0.2,17,55,5,Saturday,9,10,2026-09-22T17:55:00,3.8,MEDIUM,0.5,0.57,0.57,0.15,0.2,0.06,0.6,3.3
+INC-0394,6.918638,79.885431,living_street,Unknown,2,1,fuel_empty,0.2,12,18,5,Saturday,9,18,2026-09-13T12:18:00,3.5,MEDIUM,0.5,0.39,0.39,0.1,0.2,0.0,0.0,0.0
+INC-0395,6.87554,79.970062,tertiary,Horahena Road,2,1,flat_tire,0.3,11,56,4,Friday,3,29,2026-03-16T11:56:00,4.4,MEDIUM,0.5,0.55,0.55,0.35,0.3,0.12,1.9,3.3
+INC-0396,6.916821,79.856715,tertiary,Sri Jinarathana Road,2,1,flat_tire,0.3,18,14,0,Monday,9,24,2026-09-17T18:14:00,4.8,MEDIUM,0.5,1.0,1.0,0.35,0.3,1.25,18.8,15.0
+INC-0397,6.817753,79.933209,residential,Unknown,2,1,engine_failure,0.7,18,14,1,Tuesday,11,48,2026-11-10T18:14:00,5.1,HIGH,0.5,1.0,1.0,0.15,0.7,1.25,37.5,30.0
+INC-0398,6.938593,79.927905,residential,Unknown,2,1,engine_failure,0.7,6,3,2,Wednesday,4,38,2026-04-11T06:03:00,4.5,MEDIUM,0.5,0.45,0.45,0.15,0.7,0.0,0.0,0.0
+INC-0399,6.902175,79.984441,living_street,Unknown,2,2,accident_major,1.0,2,42,5,Saturday,1,141,2026-01-09T02:42:00,7.0,HIGH,1.0,0.012,0.012,0.1,1.0,0.03,1.8,1.5
+INC-0400,6.859992,79.928657,secondary,Pamunuwa Road,1,1,accident_minor,0.5,6,7,2,Wednesday,10,54,2026-10-05T06:07:00,7.4,HIGH,1.0,0.45,0.45,0.5,0.5,2.25,50.6,36.8
+INC-0401,6.893656,79.869718,residential,Botheju Road,2,1,engine_failure,0.7,17,51,0,Monday,5,47,2026-05-19T17:51:00,5.0,HIGH,0.5,0.95,0.95,0.15,0.7,1.12,33.8,180.0
+INC-0402,6.909057,80.20064,unclassified,Unknown,2,1,flat_tire,0.3,19,28,0,Monday,7,34,2026-07-03T19:28:00,4.2,MEDIUM,0.5,0.75,0.75,0.2,0.3,0.42,6.2,30.0
+INC-0403,6.798128,79.876248,residential,Unknown,2,1,fuel_empty,0.2,19,52,3,Thursday,10,14,2026-10-12T19:52:00,3.9,MEDIUM,0.5,0.75,0.75,0.15,0.2,0.21,2.1,20.0
+INC-0404,6.852559,79.991489,residential,Unknown,2,1,flat_tire,0.3,9,39,3,Thursday,2,38,2026-02-12T09:39:00,4.2,MEDIUM,0.5,0.85,0.85,0.15,0.3,0.44,6.6,70.0
+INC-0405,6.842279,79.975836,residential,Unknown,2,1,fuel_empty,0.2,15,25,4,Friday,12,26,2026-12-19T15:25:00,3.8,MEDIUM,0.5,0.65,0.65,0.15,0.2,0.12,1.2,8.6
+INC-0406,6.893487,80.149218,residential,Unknown,2,1,engine_failure,0.7,17,46,3,Thursday,3,70,2026-03-01T17:46:00,5.0,HIGH,0.5,0.95,0.95,0.15,0.7,1.12,33.8,180.0
+INC-0407,6.932367,79.910877,residential,Unknown,2,1,fuel_empty,0.2,13,45,1,Tuesday,4,26,2026-04-07T13:45:00,3.8,MEDIUM,0.5,0.6,0.6,0.15,0.2,0.08,0.8,5.0
+INC-0408,6.807208,79.976653,residential,1st Lane,2,1,fuel_empty,0.2,18,5,4,Friday,10,23,2026-10-05T18:05:00,4.2,MEDIUM,0.5,1.0,1.0,0.15,0.2,0.42,4.2,10.0
+INC-0409,6.947195,80.171157,residential,Unknown,2,1,flat_tire,0.3,8,36,1,Tuesday,6,34,2026-06-21T08:36:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.62,9.4,15.0
+INC-0410,6.915065,79.877146,primary,Gnanartha Pradeepaya Road,2,1,battery_dead,0.3,18,24,5,Saturday,11,33,2026-11-24T18:24:00,5.2,HIGH,0.5,0.6,0.6,0.7,0.3,0.42,5.2,6.2
+INC-0411,6.93074,80.18968,residential,Unknown,2,1,battery_dead,0.3,23,37,0,Monday,8,43,2026-08-11T23:37:00,3.5,MEDIUM,0.5,0.1,0.1,0.15,0.3,0.0,0.0,0.0
+INC-0412,6.913891,80.126264,residential,Unknown,2,1,engine_failure,0.7,9,34,0,Monday,11,38,2026-11-21T09:34:00,4.9,MEDIUM,0.5,0.85,0.85,0.15,0.7,0.88,26.2,140.0
+INC-0413,6.965104,80.204618,residential,Yahella Watta Road,2,1,accident_minor,0.5,9,47,1,Tuesday,6,48,2026-06-06T09:47:00,4.6,MEDIUM,0.5,0.85,0.85,0.15,0.5,0.66,14.8,105.0
+INC-0414,6.814892,79.968326,residential,Unknown,2,1,engine_failure,0.7,7,42,0,Monday,3,68,2026-03-16T07:42:00,4.9,MEDIUM,0.5,0.8,0.8,0.15,0.7,0.75,22.5,90.0
+INC-0415,6.926094,79.944747,residential,Unknown,2,1,engine_failure,0.7,11,3,6,Sunday,3,64,2026-03-11T11:03:00,4.3,MEDIUM,0.5,0.22,0.22,0.15,0.7,0.0,0.0,0.0
+INC-0416,6.855321,79.912932,trunk,High Level Road,2,1,accident_minor,0.5,19,10,6,Sunday,7,30,2026-07-28T19:10:00,5.6,HIGH,0.5,0.3,0.3,0.85,0.5,0.0,0.0,0.0
+INC-0417,6.738834,79.893417,trunk,Galle Road New Deviation,2,1,flat_tire,0.3,23,11,3,Thursday,6,30,2026-06-17T23:11:00,5.0,HIGH,0.5,0.1,0.1,0.85,0.3,0.0,0.0,0.0
+INC-0418,6.903106,79.911712,primary,Main Street (New Kandy Road),2,1,overheating,0.5,19,26,4,Friday,2,48,2026-02-24T19:26:00,5.7,HIGH,0.5,0.75,0.75,0.7,0.5,1.67,33.3,40.0
+INC-0419,6.857846,79.870269,primary,Anagarika Dharmapala Mawatha (Allen Avenue),2,1,flat_tire,0.3,14,40,3,Thursday,9,44,2026-09-09T14:40:00,5.1,HIGH,0.5,0.55,0.55,0.7,0.3,0.25,3.8,3.3
+INC-0420,6.894688,79.997761,residential,Unknown,2,1,fuel_empty,0.2,12,39,4,Friday,6,22,2026-06-18T12:39:00,3.8,MEDIUM,0.5,0.65,0.65,0.15,0.2,0.12,1.2,8.6
+INC-0421,6.915132,79.922629,residential,Unknown,2,1,battery_dead,0.3,8,19,4,Friday,1,10,2026-01-23T08:19:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.52,6.5,12.5
+INC-0422,6.82097,80.142997,secondary,Meepe-Ingiriya Road,2,2,accident_major,1.0,20,27,2,Wednesday,2,46,2026-02-05T20:27:00,8.3,CRITICAL,1.0,0.45,0.45,0.5,1.0,6.0,360.0,98.2
+INC-0423,6.871368,79.885402,trunk,High Level Road,4,1,accident_minor,0.5,7,10,3,Thursday,8,44,2026-08-11T07:10:00,4.8,MEDIUM,0.25,0.8,0.8,0.85,0.5,0.56,12.7,11.2
+INC-0424,6.832883,79.973603,residential,Unknown,2,1,flat_tire,0.3,16,51,1,Tuesday,11,25,2026-11-07T16:51:00,4.2,MEDIUM,0.5,0.8,0.8,0.15,0.3,0.38,5.6,45.0
+INC-0425,6.844504,79.92853,residential,Unknown,2,1,overheating,0.5,17,26,4,Friday,8,43,2026-08-09T17:26:00,4.7,MEDIUM,0.5,0.95,0.95,0.15,0.5,0.75,15.0,180.0
+INC-0426,6.863724,80.001728,residential,Unknown,2,1,accident_minor,0.5,19,29,0,Monday,12,46,2026-12-07T19:29:00,4.5,MEDIUM,0.5,0.75,0.75,0.15,0.5,0.47,10.5,45.0
+INC-0427,6.824942,79.915545,residential,Koshinnawatte Road,2,1,engine_failure,0.7,17,41,6,Sunday,3,56,2026-03-14T17:41:00,4.5,MEDIUM,0.5,0.38,0.38,0.15,0.7,0.0,0.0,0.0
+INC-0428,6.82708,80.046643,residential,Unknown,2,1,engine_failure,0.7,7,51,2,Wednesday,4,32,2026-04-03T07:51:00,4.9,MEDIUM,0.5,0.8,0.8,0.15,0.7,0.75,22.5,90.0
+INC-0429,6.86458,79.979447,residential,Unknown,2,1,flat_tire,0.3,7,43,1,Tuesday,8,20,2026-08-11T07:43:00,4.2,MEDIUM,0.5,0.8,0.8,0.15,0.3,0.38,5.6,45.0
+INC-0430,6.872475,79.868268,residential,Weluwanarama Road,2,1,flat_tire,0.3,9,48,2,Wednesday,4,23,2026-04-05T09:48:00,4.2,MEDIUM,0.5,0.85,0.85,0.15,0.3,0.44,6.6,70.0
+INC-0431,6.851475,79.940003,residential,Kendahenawatte Road,2,1,battery_dead,0.3,18,37,5,Saturday,8,28,2026-08-23T18:37:00,4.0,MEDIUM,0.5,0.6,0.6,0.15,0.3,0.1,1.3,6.2
+INC-0432,6.77958,79.893995,living_street,Unknown,2,1,accident_minor,0.5,8,37,4,Friday,8,56,2026-08-03T08:37:00,4.6,MEDIUM,0.5,1.0,1.0,0.1,0.5,0.47,10.5,22.5
+INC-0433,6.900363,80.029205,secondary,Habarakada-Ranala Road,2,1,flat_tire,0.3,19,0,2,Wednesday,10,22,2026-10-25T19:00:00,4.9,MEDIUM,0.5,0.75,0.75,0.5,0.3,0.83,12.5,30.0
+INC-0434,6.886064,79.861553,residential,Layard's Road,2,1,flat_tire,0.3,10,17,4,Friday,8,17,2026-08-17T10:17:00,4.0,MEDIUM,0.5,0.6,0.6,0.15,0.3,0.12,1.9,7.5
+INC-0435,6.806453,79.875107,residential,Unknown,2,1,engine_failure,0.7,15,38,3,Thursday,9,59,2026-09-08T15:38:00,4.7,MEDIUM,0.5,0.65,0.65,0.15,0.7,0.38,11.2,25.7
+INC-0436,6.887533,79.902434,secondary,Kotte Road,2,1,fuel_empty,0.2,14,43,4,Friday,12,11,2026-12-07T14:43:00,4.5,MEDIUM,0.5,0.55,0.55,0.5,0.2,0.11,1.1,2.2
+INC-0437,6.884982,79.855086,primary,Marine Drive,4,1,fuel_empty,0.2,7,38,2,Wednesday,9,31,2026-09-08T07:38:00,3.9,MEDIUM,0.25,0.8,0.8,0.7,0.2,0.17,1.7,5.0
+INC-0438,6.863976,79.923723,residential,Unknown,2,1,accident_minor,0.5,17,3,6,Sunday,8,66,2026-08-25T17:03:00,4.1,MEDIUM,0.5,0.38,0.38,0.15,0.5,0.0,0.0,0.0
+INC-0439,6.896377,79.914741,primary,Parliament Road,4,1,engine_failure,0.7,7,55,1,Tuesday,3,75,2026-03-28T07:55:00,4.8,MEDIUM,0.25,0.8,0.8,0.7,0.7,0.5,15.0,15.0
+INC-0440,6.934826,79.89038,residential,Gnanasiri Mawatha,2,1,accident_minor,0.5,16,54,3,Thursday,9,42,2026-09-06T16:54:00,4.5,MEDIUM,0.5,0.8,0.8,0.15,0.5,0.56,12.7,67.5
+INC-0441,6.918909,79.874395,residential,Norris Avenue,2,1,fuel_empty,0.2,10,58,2,Wednesday,11,13,2026-11-05T10:58:00,3.8,MEDIUM,0.5,0.6,0.6,0.15,0.2,0.08,0.8,5.0
+INC-0442,6.919473,79.94579,residential,Unknown,2,1,flat_tire,0.3,19,38,3,Thursday,4,36,2026-04-13T19:38:00,4.1,MEDIUM,0.5,0.75,0.75,0.15,0.3,0.31,4.7,30.0
+INC-0443,6.93734,79.960696,residential,Unknown,2,1,accident_minor,0.5,6,51,4,Friday,6,35,2026-06-04T06:51:00,4.2,MEDIUM,0.5,0.45,0.45,0.15,0.5,0.0,0.0,0.0
+INC-0444,6.830717,79.987376,tertiary,Unknown,2,1,accident_minor,0.5,20,44,6,Sunday,8,41,2026-08-08T20:44:00,4.4,MEDIUM,0.5,0.18,0.18,0.35,0.5,0.0,0.0,0.0
+INC-0445,6.783724,79.918754,residential,Unknown,2,1,fuel_empty,0.2,16,36,2,Wednesday,9,20,2026-09-16T16:36:00,4.0,MEDIUM,0.5,0.8,0.8,0.15,0.2,0.25,2.5,30.0
+INC-0446,6.83732,80.04162,residential,Unknown,2,2,accident_major,1.0,20,49,2,Wednesday,2,178,2026-02-13T20:49:00,7.6,HIGH,1.0,0.45,0.45,0.15,1.0,2.25,135.0,98.2
+INC-0447,6.852747,79.925885,residential,Unknown,2,1,fuel_empty,0.2,6,16,3,Thursday,4,23,2026-04-15T06:16:00,3.6,MEDIUM,0.5,0.45,0.45,0.15,0.2,0.0,0.0,0.0
+INC-0448,6.845149,80.008409,trunk,High Level Road,2,1,flat_tire,0.3,6,32,5,Saturday,9,65,2026-09-22T06:32:00,5.2,HIGH,0.5,0.27,0.27,0.85,0.3,0.0,0.0,0.0
+INC-0449,6.906789,79.952163,residential,Unknown,2,1,fuel_empty,0.2,18,15,1,Tuesday,12,21,2026-12-01T18:15:00,4.2,MEDIUM,0.5,1.0,1.0,0.15,0.2,0.42,4.2,10.0
+INC-0450,6.788086,79.889783,residential,Rawathawatta Road,2,1,accident_minor,0.5,8,50,4,Friday,11,51,2026-11-17T08:50:00,4.7,MEDIUM,0.5,1.0,1.0,0.15,0.5,0.94,21.1,22.5
+INC-0451,6.879642,80.086483,trunk,High Level Road,1,1,accident_minor,0.5,19,39,6,Sunday,6,65,2026-06-22T19:39:00,8.1,CRITICAL,1.0,0.3,0.3,0.85,0.5,3.38,75.9,19.3
+INC-0452,6.782708,80.003447,residential,Circular Road,2,1,flat_tire,0.3,10,48,2,Wednesday,2,31,2026-02-08T10:48:00,4.0,MEDIUM,0.5,0.6,0.6,0.15,0.3,0.12,1.9,7.5
+INC-0453,6.799832,79.914834,residential,Thapodha Mawatha,1,1,engine_failure,0.7,16,18,1,Tuesday,12,62,2026-12-02T16:18:00,7.4,HIGH,1.0,0.8,0.8,0.15,0.7,2.0,60.0,180.0
+INC-0454,6.938679,80.167059,residential,Miriswatta Road,2,1,engine_failure,0.7,20,35,6,Sunday,4,105,2026-04-26T20:35:00,4.3,MEDIUM,0.5,0.18,0.18,0.15,0.7,0.0,0.0,0.0
+INC-0455,6.883011,79.883349,residential,Kalinga Road,2,2,accident_major,1.0,16,45,4,Friday,12,150,2026-12-03T16:45:00,7.9,HIGH,1.0,0.8,0.8,0.15,1.0,4.0,240.0,180.0
+INC-0456,6.817538,79.97023,residential,Unknown,2,1,flat_tire,0.3,23,32,6,Sunday,8,25,2026-08-24T23:32:00,3.4,MEDIUM,0.5,0.04,0.04,0.15,0.3,0.0,0.0,0.0
+INC-0457,6.872415,79.904763,secondary,Edirisinghe Road,2,1,battery_dead,0.3,6,8,1,Tuesday,8,20,2026-08-12T06:08:00,4.6,MEDIUM,0.5,0.45,0.45,0.5,0.3,0.0,0.0,0.0
+INC-0458,6.892368,79.954133,residential,Unknown,2,1,battery_dead,0.3,8,23,2,Wednesday,10,10,2026-10-09T08:23:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.52,6.5,12.5
+INC-0459,6.884565,79.993199,secondary,Kaduwela – Athurugiriya Road,2,1,fuel_empty,0.2,16,2,1,Tuesday,3,18,2026-03-26T16:02:00,4.8,MEDIUM,0.5,0.8,0.8,0.5,0.2,0.67,6.7,30.0
+INC-0460,6.86156,79.866731,residential,Unknown,2,1,battery_dead,0.3,8,46,2,Wednesday,2,36,2026-02-20T08:46:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.52,6.5,12.5
+INC-0461,6.865823,79.867584,residential,Carron Place,2,1,engine_failure,0.7,9,47,1,Tuesday,9,44,2026-09-02T09:47:00,4.9,MEDIUM,0.5,0.85,0.85,0.15,0.7,0.88,26.2,140.0
+INC-0462,6.91837,80.099219,residential,Unknown,2,1,battery_dead,0.3,7,32,0,Monday,10,10,2026-10-26T07:32:00,4.2,MEDIUM,0.5,0.8,0.8,0.15,0.3,0.31,3.9,37.5
+INC-0463,6.947087,79.894095,residential,Unknown,2,1,fuel_empty,0.2,17,23,0,Monday,5,27,2026-05-06T17:23:00,4.1,MEDIUM,0.5,0.95,0.95,0.15,0.2,0.38,3.8,180.0
+INC-0464,6.902362,79.91525,primary,Main Street (New Kandy Road),2,2,accident_major,1.0,20,27,5,Saturday,8,89,2026-08-23T20:27:00,8.6,CRITICAL,1.0,0.27,0.27,0.7,1.0,5.4,324.0,44.4
+INC-0465,6.935552,79.843205,residential,Mudalige Mawatha,1,1,engine_failure,0.7,15,51,0,Monday,7,63,2026-07-11T15:51:00,7.2,HIGH,1.0,0.65,0.65,0.15,0.7,1.62,48.8,111.4
+INC-0466,6.940345,79.957595,living_street,Unknown,1,1,accident_minor,0.5,7,44,3,Thursday,5,32,2026-05-09T07:44:00,6.9,HIGH,1.0,0.8,0.8,0.1,0.5,0.75,16.9,180.0
+INC-0467,6.90158,79.951934,residential,Lihini Uyana Road,2,1,fuel_empty,0.2,17,50,4,Friday,12,21,2026-12-12T17:50:00,4.1,MEDIUM,0.5,0.95,0.95,0.15,0.2,0.38,3.8,180.0
+INC-0468,6.819557,79.873665,trunk,Galle Road,3,1,engine_failure,0.7,20,53,2,Wednesday,9,37,2026-09-07T20:53:00,5.2,HIGH,0.333,0.45,0.45,0.85,0.7,0.0,0.0,0.0
+INC-0469,6.840456,79.900071,primary,Dehiwela Road (Dehiwela-Maharagama Road),2,1,engine_failure,0.7,10,54,0,Monday,9,40,2026-09-12T10:54:00,5.9,HIGH,0.5,0.6,0.6,0.7,0.7,1.0,30.0,15.0
+INC-0470,6.951087,79.87049,residential,Unknown,2,2,accident_major,1.0,19,14,5,Saturday,6,127,2026-06-03T19:14:00,7.6,HIGH,1.0,0.45,0.45,0.15,1.0,2.25,135.0,98.2
+INC-0471,6.806343,79.994999,tertiary,Unknown,2,1,engine_failure,0.7,18,16,3,Thursday,1,82,2026-01-06T18:16:00,5.5,HIGH,0.5,1.0,1.0,0.35,0.7,2.5,75.0,30.0
+INC-0472,6.774022,79.923444,residential,Unknown,2,1,flat_tire,0.3,11,14,5,Saturday,11,29,2026-11-13T11:14:00,3.7,MEDIUM,0.5,0.33,0.33,0.15,0.3,0.0,0.0,0.0
+INC-0473,6.816782,79.888862,residential,Kandawala Road,2,1,engine_failure,0.7,20,5,4,Friday,10,71,2026-10-17T20:05:00,4.5,MEDIUM,0.5,0.45,0.45,0.15,0.7,0.0,0.0,0.0
+INC-0474,6.942675,79.859256,tertiary,Vivekananda Hill,2,1,engine_failure,0.7,8,58,4,Friday,2,62,2026-02-04T08:58:00,5.5,HIGH,0.5,1.0,1.0,0.35,0.7,2.5,75.0,30.0
+INC-0475,6.855313,79.958061,residential,Unknown,2,2,accident_major,1.0,6,43,0,Monday,3,157,2026-03-11T06:43:00,7.6,HIGH,1.0,0.45,0.45,0.15,1.0,2.25,135.0,98.2
+INC-0476,6.943688,79.856198,residential,Unknown,2,1,flat_tire,0.3,17,57,5,Saturday,8,42,2026-08-24T17:57:00,3.9,MEDIUM,0.5,0.57,0.57,0.15,0.3,0.09,1.3,4.9
+INC-0477,6.882231,79.86854,residential,Mayura Place,2,1,engine_failure,0.7,9,0,2,Wednesday,4,28,2026-04-13T09:00:00,4.9,MEDIUM,0.5,0.85,0.85,0.15,0.7,0.88,26.2,140.0
+INC-0478,6.895959,80.076922,residential,Unknown,2,1,flat_tire,0.3,9,39,0,Monday,12,32,2026-12-16T09:39:00,4.2,MEDIUM,0.5,0.85,0.85,0.15,0.3,0.44,6.6,70.0
+INC-0479,6.778892,79.924776,residential,Unknown,2,1,engine_failure,0.7,8,44,4,Friday,3,76,2026-03-22T08:44:00,5.1,HIGH,0.5,1.0,1.0,0.15,0.7,1.25,37.5,30.0
+INC-0480,6.791835,79.911803,residential,Unknown,2,1,flat_tire,0.3,13,38,3,Thursday,9,25,2026-09-16T13:38:00,4.0,MEDIUM,0.5,0.6,0.6,0.15,0.3,0.12,1.9,7.5
+INC-0481,6.926783,79.968794,residential,Unknown,2,1,fuel_empty,0.2,15,4,4,Friday,7,21,2026-07-28T15:04:00,3.8,MEDIUM,0.5,0.65,0.65,0.15,0.2,0.12,1.2,8.6
+INC-0482,6.766947,79.943555,residential,Unknown,2,1,flat_tire,0.3,20,45,0,Monday,7,36,2026-07-06T20:45:00,3.8,MEDIUM,0.5,0.45,0.45,0.15,0.3,0.0,0.0,0.0
+INC-0483,6.923494,79.851431,primary,Justice Akbar Mawatha,2,1,battery_dead,0.3,13,31,1,Tuesday,10,26,2026-10-20T13:31:00,5.2,HIGH,0.5,0.6,0.6,0.7,0.3,0.42,5.2,6.2
+INC-0484,6.92909,79.954473,residential,Ranabima Mawatha,2,1,fuel_empty,0.2,17,31,6,Sunday,4,25,2026-04-17T17:31:00,3.6,MEDIUM,0.5,0.38,0.38,0.15,0.2,0.0,0.0,0.0
+INC-0485,6.835539,79.992301,living_street,Unknown,2,1,engine_failure,0.7,17,5,2,Wednesday,1,44,2026-01-20T17:05:00,4.9,MEDIUM,0.5,0.95,0.95,0.1,0.7,0.56,16.9,180.0
+INC-0486,6.961707,80.202441,residential,Unknown,2,1,fuel_empty,0.2,23,11,4,Friday,1,33,2026-01-18T23:11:00,3.3,MEDIUM,0.5,0.1,0.1,0.15,0.2,0.0,0.0,0.0
+INC-0487,6.825789,79.978256,residential,Wickramage Mawatha,2,1,overheating,0.5,8,18,5,Saturday,5,42,2026-05-15T08:18:00,4.3,MEDIUM,0.5,0.6,0.6,0.15,0.5,0.17,3.3,10.0
+INC-0488,6.797513,79.898537,residential,Mill Road,2,1,engine_failure,0.7,18,41,0,Monday,10,41,2026-10-23T18:41:00,5.1,HIGH,0.5,1.0,1.0,0.15,0.7,1.25,37.5,30.0
+INC-0489,6.838211,79.875891,residential,Unknown,2,1,flat_tire,0.3,8,47,0,Monday,3,26,2026-03-11T08:47:00,4.4,MEDIUM,0.5,1.0,1.0,0.15,0.3,0.62,9.4,15.0
+INC-0490,6.899797,80.087976,residential,Unknown,2,1,battery_dead,0.3,20,41,6,Sunday,11,21,2026-11-11T20:41:00,3.6,MEDIUM,0.5,0.18,0.18,0.15,0.3,0.0,0.0,0.0
+INC-0491,6.889563,80.080612,residential,Unknown,2,1,flat_tire,0.3,19,58,3,Thursday,6,29,2026-06-25T19:58:00,4.1,MEDIUM,0.5,0.75,0.75,0.15,0.3,0.31,4.7,30.0
+INC-0492,6.916705,80.031803,residential,Unknown,2,1,accident_minor,0.5,11,38,0,Monday,10,44,2026-10-27T11:38:00,4.3,MEDIUM,0.5,0.55,0.55,0.15,0.5,0.09,2.1,5.0
+INC-0493,6.798737,80.026023,residential,Ankuttawala Road,2,1,accident_minor,0.5,18,46,3,Thursday,8,50,2026-08-28T18:46:00,4.7,MEDIUM,0.5,1.0,1.0,0.15,0.5,0.94,21.1,22.5
+INC-0494,6.83509,79.925537,tertiary,Neelammahara Road,2,1,flat_tire,0.3,8,20,0,Monday,10,34,2026-10-16T08:20:00,4.8,MEDIUM,0.5,1.0,1.0,0.35,0.3,1.25,18.8,15.0
+INC-0495,6.893974,80.140477,secondary,Kaluaggala-Labugama-Kalatuwawa Road,2,1,flat_tire,0.3,16,36,0,Monday,10,10,2026-10-07T16:36:00,4.9,MEDIUM,0.5,0.8,0.8,0.5,0.3,1.0,15.0,45.0
+INC-0496,6.923644,79.928166,residential,Indurugahawatta Rd,2,1,engine_failure,0.7,11,45,3,Thursday,10,53,2026-10-21T11:45:00,4.6,MEDIUM,0.5,0.55,0.55,0.15,0.7,0.12,3.8,6.7
+INC-0497,6.888315,79.941945,residential,Lakeway Terrace,2,1,fuel_empty,0.2,8,19,4,Friday,4,17,2026-04-02T08:19:00,4.2,MEDIUM,0.5,1.0,1.0,0.15,0.2,0.42,4.2,10.0
+INC-0498,6.868812,79.875192,residential,De Silva Road,2,1,flat_tire,0.3,11,22,4,Friday,11,31,2026-11-22T11:22:00,3.9,MEDIUM,0.5,0.55,0.55,0.15,0.3,0.06,0.9,3.3
+INC-0499,6.856134,79.882119,secondary,Anderson Road,2,1,battery_dead,0.3,19,35,0,Monday,3,27,2026-03-19T19:35:00,4.9,MEDIUM,0.5,0.75,0.75,0.5,0.3,0.69,8.7,25.0
+INC-0500,6.847499,79.879459,residential,Vijitha Road,2,1,flat_tire,0.3,15,49,2,Wednesday,4,33,2026-04-23T15:49:00,4.0,MEDIUM,0.5,0.65,0.65,0.15,0.3,0.19,2.8,12.9

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, Optional
 
 import boto3
 
@@ -20,12 +20,23 @@ class R2Storage:
             region_name="auto",
         )
 
-    def upload_bytes(self, key: str, body: bytes, content_type: Optional[str]) -> None:
-        put_args = {
+    def upload_bytes(
+        self,
+        key: str,
+        body: bytes,
+        content_type: Optional[str],
+        metadata: Optional[Dict[str, str]] = None,
+    ) -> None:
+        put_args: Dict[str, object] = {
             "Bucket": self.bucket_name,
             "Key": key,
             "Body": body,
         }
         if content_type:
             put_args["ContentType"] = content_type
+        if metadata:
+            put_args["Metadata"] = metadata
         self.client.put_object(**put_args)
+
+    def delete_object(self, key: str) -> None:
+        self.client.delete_object(Bucket=self.bucket_name, Key=key)

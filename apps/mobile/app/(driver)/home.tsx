@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -328,13 +328,7 @@ export default function DriverHomeScreen() {
               <QuickAction icon="Package" label="Order parts" onPress={() => router.push({ pathname: "/(driver)/order-parts", params: { component: "brake" } })} />
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(300).springify()} style={{ flex: 1 }}>
-              <QuickAction
-                icon="ShieldCheck"
-                label="Insurance"
-                onPress={() =>
-                  Alert.alert("Insurance", "Insurance services are coming soon.")
-                }
-              />
+              <QuickAction icon="ShieldCheck" label="Insurance" onPress={() => router.push('/(insurance)')} />
             </Animated.View>
           </View>
         </View>
