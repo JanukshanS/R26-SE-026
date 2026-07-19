@@ -1,0 +1,14 @@
+Car-capable TFLite (Step 1 – pick/export)
+
+File: ssd_mobilenet_v1_coco_metadata.tflite
+Source: TensorFlow Hub (lite-model/ssd_mobilenet_v1/1/metadata/2)
+Approx size: ~4.2 MB
+
+Classes: MS COCO detection (90 entry label map; includes "car").
+TensorFlow COCO category id for car: 3 (see mscoco_label_map.pbtxt in this folder).
+
+Notes:
+- This is the SSD MobileNet v1 path from your plan (YOLOv8n/SSD MobileNet). It is a standard, mobile-friendly detector with embedded TFLite metadata.
+- For a YOLOv8n .tflite specifically, use the Docker exporter in ml/yolov8-export/ on Linux (Ultralytics export is unreliable on Apple Silicon + current PyPI stacks).
+
+YOLOv8n class order (80 classes) for future YOLO weights: see coco80.txt (car = line index 2, 0-based).

@@ -29,6 +29,17 @@ class Settings(BaseSettings):
         return bool(self.database_url and self.database_url.strip())
 
     @property
+    def effective_database_url(self) -> Optional[str]:
+        """URL for psycopg (libpq). Strips SQLAlchemy driver prefixes like ``+asyncpg``."""
+        raw = (self.database_url or "").strip()
+        if not raw:
+            return None
+        for prefix in ("postgresql+asyncpg://", "postgres+asyncpg://"):
+            if raw.startswith(prefix):
+                return "postgresql://" + raw[len(prefix) :]
+        return raw
+
+    @property
     def r2_configured(self) -> bool:
         return bool(
             self.r2_access_key_id
