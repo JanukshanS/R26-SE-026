@@ -23,6 +23,7 @@ import {
 } from '@/features/third-party/storage/third-party-store';
 import { clearAllPhotoGps } from '@/lib/photo-gps-store';
 import { clearPersistedClaimUploadSuccess } from '@/lib/claim-upload-dedupe';
+import { clearUploadProgress } from '@/lib/claim-upload-progress-store';
 
 /**
  * Clears all data from a completed claim so the app is ready for a new one.
@@ -46,6 +47,7 @@ export async function clearAllClaimData(): Promise<void> {
     // Clear GPS entries and upload tracking
     clearAllPhotoGps(),
     clearPersistedClaimUploadSuccess(),
+    clearUploadProgress(),
 
     // Clear location metadata for all 3 steps
     clearInsurerCallMeta(),

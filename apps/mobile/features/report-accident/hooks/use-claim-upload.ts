@@ -207,6 +207,7 @@ export function useClaimUpload(
             };
             await saveClaimantProfile(claimant);
             await uploadFullClaimBundleToBackend({
+              uploadKey,
               insurerCallMeta,
               guidedCaptureEntryMeta,
               onGuidedProgress: (p) => { if (!cancelled) setPhotosUploadPercent(p); },

@@ -7,6 +7,11 @@ import { loadDrivingLicenceState } from '@/features/driving-licence/storage/driv
 import { loadGuidedCaptureStoreState } from '@/features/guided-capture/storage/guided-capture-store';
 import { HEIGHT_STEPS } from '@/features/guided-capture/types';
 import { loadThirdPartyState } from '@/features/third-party/storage/third-party-store';
+import {
+  clearUploadProgress,
+  loadUploadProgress,
+  saveUploadProgress,
+} from '@/lib/claim-upload-progress-store';
 import { loadPhotoGps } from '@/lib/photo-gps-store';
 
 /** Guided-capture walkaround photo URIs in stop/height order (matches how they were captured). */
@@ -207,12 +212,76 @@ async function postOriginalMedia(
   }
 }
 
+type CombinedUploadItem = {
+  slot: FraudMediaSlot;
+  photoSlot: 'walkaround' | 'user-verification' | 'third-party';
+};
+
 /**
- * Creates a capture session, uploads guided walkaround photos, then fraud-validation media
- * (licence + third-party images, then drunk-test video when present; same session, continuing `photo_index`),
- * then completes. `POST /complete` runs only after all uploads.
+ * Reuses a previously-started capture session for this exact photo bundle if one exists and
+ * the server confirms it's still accepting uploads; otherwise starts a fresh one. This is what
+ * lets an interrupted upload (e.g. app killed mid-upload) resume instead of restarting from 0.
+ */
+async function resolveCaptureSession(
+  base: string,
+  uploadKey: string,
+  createPayload: Record<string, unknown>,
+  totalItems: number,
+  signal: AbortSignal | undefined
+): Promise<{ captureId: string; resumeIndex: number; alreadyComplete: boolean }> {
+  const existing = await loadUploadProgress(uploadKey);
+  if (existing) {
+    try {
+      const statusRes = await fetch(`${base}/captures/${existing.captureId}/status`, { signal });
+      if (statusRes.ok) {
+        const statusJson = (await statusRes.json()) as { status?: string };
+        if (statusJson.status === 'uploading') {
+          return {
+            captureId: existing.captureId,
+            resumeIndex: Math.min(existing.nextIndex, totalItems),
+            alreadyComplete: false,
+          };
+        }
+        // Status moved past "uploading" (e.g. POST .../complete already succeeded in a
+        // prior attempt, but the app was killed before the local success flag was written).
+        // Nothing left to upload — the caller should treat this as already done.
+        await clearUploadProgress();
+        return { captureId: existing.captureId, resumeIndex: totalItems, alreadyComplete: true };
+      }
+    } catch {
+      // Network error checking status — fall through and start a fresh capture below.
+    }
+  }
+
+  const createRes = await fetch(`${base}/captures`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(createPayload),
+    signal,
+  });
+  if (!createRes.ok) {
+    const text = await createRes.text();
+    throw new Error(`Create capture failed (${createRes.status}): ${text.slice(0, 200)}`);
+  }
+  const capture = (await createRes.json()) as { id: string };
+  await saveUploadProgress({ uploadKey, captureId: capture.id, nextIndex: 0 });
+  return { captureId: capture.id, resumeIndex: 0, alreadyComplete: false };
+}
+
+/**
+ * Creates (or resumes) a capture session, uploads guided walkaround photos, then
+ * fraud-validation media (licence + third-party images, then drunk-test video when present;
+ * same session, continuing `photo_index`), then completes. `POST /complete` runs only after
+ * all uploads. Progress is persisted after every photo so an interrupted upload (e.g. the app
+ * is killed) resumes from where it stopped on the next attempt instead of starting over.
  */
 export async function uploadFullClaimBundleToBackend(options: {
+  /** Same key used to gate re-submission — also identifies which photo bundle any saved
+   * resume progress belongs to (a different bundle means the old progress no longer applies). */
+  uploadKey: string;
   report: ReportPayload;
   claimant: ClaimantPayload;
   insurerCallMeta?: InsurerCallMeta | null;
@@ -241,7 +310,13 @@ export async function uploadFullClaimBundleToBackend(options: {
   const userVerificationSlots = await collectUserVerificationSlots();
   const thirdPartySlots = await collectThirdPartySlots();
 
-  options.onGuidedProgress(2);
+  const guidedTotal = guidedUris.length;
+  const combined: CombinedUploadItem[] = [
+    ...guidedUris.map((uri): CombinedUploadItem => ({ slot: { uri }, photoSlot: 'walkaround' })),
+    ...userVerificationSlots.map((slot): CombinedUploadItem => ({ slot, photoSlot: 'user-verification' })),
+    ...thirdPartySlots.map((slot): CombinedUploadItem => ({ slot, photoSlot: 'third-party' })),
+  ];
+  const fraudTotal = combined.length - guidedTotal;
 
   const displayLocal = options.report.capturedAtDisplayLocal?.trim();
   const createPayload: Record<string, unknown> = {
@@ -267,46 +342,55 @@ export async function uploadFullClaimBundleToBackend(options: {
     guided_capture_start_location_label: options.guidedCaptureEntryMeta?.locationLabel ?? null,
   };
 
-  const createRes = await fetch(`${base}/captures`, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(createPayload),
-    signal: options.signal,
-  });
-  if (!createRes.ok) {
-    const text = await createRes.text();
-    throw new Error(`Create capture failed (${createRes.status}): ${text.slice(0, 200)}`);
-  }
-  const capture = (await createRes.json()) as { id: string };
-  const captureId = capture.id;
+  const { captureId, resumeIndex, alreadyComplete } = await resolveCaptureSession(
+    base,
+    options.uploadKey,
+    createPayload,
+    combined.length,
+    options.signal
+  );
 
-  const guidedTotal = guidedUris.length;
-  for (let i = 0; i < guidedTotal; i++) {
-    const uri = guidedUris[i]!;
-    await postOriginalMedia(base, captureId, i, { uri }, 'walkaround', options.signal);
+  if (alreadyComplete) {
+    options.onGuidedProgress(100);
+    options.onFraudProgress(100);
+    options.onGuidedWalkaroundUploadsComplete?.();
+    options.onFraudValidationMediaUploadsComplete?.();
+    return { captureId };
+  }
+
+  // Reflect anything already uploaded in a prior attempt immediately, rather than
+  // replaying the whole progress bar from 0.
+  if (resumeIndex >= guidedTotal) {
+    options.onGuidedProgress(100);
+    options.onGuidedWalkaroundUploadsComplete?.();
+  } else {
+    options.onGuidedProgress(resumeIndex === 0 ? 2 : 5 + Math.round((resumeIndex / guidedTotal) * 95));
+  }
+
+  for (let i = resumeIndex; i < guidedTotal; i++) {
+    const { slot } = combined[i]!;
+    await postOriginalMedia(base, captureId, i, slot, 'walkaround', options.signal);
+    await saveUploadProgress({ uploadKey: options.uploadKey, captureId, nextIndex: i + 1 });
     const pct = 5 + Math.round(((i + 1) / guidedTotal) * 95);
     options.onGuidedProgress(pct);
   }
-  options.onGuidedProgress(100);
-  options.onGuidedWalkaroundUploadsComplete?.();
+  if (resumeIndex < guidedTotal) {
+    options.onGuidedProgress(100);
+    options.onGuidedWalkaroundUploadsComplete?.();
+  }
 
-  options.onFraudProgress(0);
-  const fraudTotal = userVerificationSlots.length + thirdPartySlots.length;
   if (fraudTotal === 0) {
     options.onFraudProgress(100);
   } else {
-    let idx = guidedTotal;
-    let done = 0;
-    for (const slot of userVerificationSlots) {
-      await postOriginalMedia(base, captureId, idx++, slot, 'user-verification', options.signal);
-      options.onFraudProgress(Math.round((++done / fraudTotal) * 100));
-    }
-    for (const slot of thirdPartySlots) {
-      await postOriginalMedia(base, captureId, idx++, slot, 'third-party', options.signal);
-      options.onFraudProgress(Math.round((++done / fraudTotal) * 100));
+    const fraudResumeIndex = Math.max(resumeIndex, guidedTotal);
+    const doneBefore = fraudResumeIndex - guidedTotal;
+    options.onFraudProgress(doneBefore === 0 ? 0 : Math.round((doneBefore / fraudTotal) * 100));
+    for (let i = fraudResumeIndex; i < combined.length; i++) {
+      const { slot, photoSlot } = combined[i]!;
+      await postOriginalMedia(base, captureId, i, slot, photoSlot, options.signal);
+      await saveUploadProgress({ uploadKey: options.uploadKey, captureId, nextIndex: i + 1 });
+      const done = i + 1 - guidedTotal;
+      options.onFraudProgress(Math.round((done / fraudTotal) * 100));
     }
     options.onFraudProgress(100);
   }
@@ -320,6 +404,7 @@ export async function uploadFullClaimBundleToBackend(options: {
     const text = await completeRes.text();
     throw new Error(`Complete failed (${completeRes.status}): ${text.slice(0, 200)}`);
   }
+  await clearUploadProgress();
 
   return { captureId };
 }
