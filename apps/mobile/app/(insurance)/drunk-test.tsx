@@ -176,33 +176,45 @@ export default function DrunkTestScreen() {
     setVideoUri(null);
   };
 
+  // Guards against a second tap while the previous IntentLauncher/Linking call is still
+  // in flight — Android rejects a second startActivityAsync before the first returns a
+  // result ("activity is already started"), which otherwise surfaces as an uncaught error.
+  const isOpeningVideoRef = useRef(false);
+
   const playSavedVideo = useCallback(async () => {
-    if (!videoUri) {
+    if (!videoUri || isOpeningVideoRef.current) {
       return;
     }
-    const localInfo = await FileSystem.getInfoAsync(videoUri);
-    if (!localInfo.exists) {
-      Alert.alert('Video not found', 'Saved video is missing. Please record again.');
-      return;
+    isOpeningVideoRef.current = true;
+    try {
+      const localInfo = await FileSystem.getInfoAsync(videoUri);
+      if (!localInfo.exists) {
+        Alert.alert('Video not found', 'Saved video is missing. Please record again.');
+        return;
+      }
+      const uriToOpen =
+        Platform.OS === 'android' && videoUri.startsWith('file://')
+          ? await FileSystem.getContentUriAsync(videoUri)
+          : videoUri;
+      if (Platform.OS === 'android') {
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: uriToOpen,
+          flags: 1,
+          type: 'video/*',
+        });
+        return;
+      }
+      const canOpen = await Linking.canOpenURL(uriToOpen);
+      if (!canOpen) {
+        Alert.alert('Unable to play video', 'No app available to open the saved video on this device.');
+        return;
+      }
+      await Linking.openURL(uriToOpen);
+    } catch {
+      // Best-effort: e.g. a rapid double-tap racing the same launch, or no video app installed.
+    } finally {
+      isOpeningVideoRef.current = false;
     }
-    const uriToOpen =
-      Platform.OS === 'android' && videoUri.startsWith('file://')
-        ? await FileSystem.getContentUriAsync(videoUri)
-        : videoUri;
-    if (Platform.OS === 'android') {
-      await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-        data: uriToOpen,
-        flags: 1,
-        type: 'video/*',
-      });
-      return;
-    }
-    const canOpen = await Linking.canOpenURL(uriToOpen);
-    if (!canOpen) {
-      Alert.alert('Unable to play video', 'No app available to open the saved video on this device.');
-      return;
-    }
-    await Linking.openURL(uriToOpen);
   }, [videoUri]);
 
   if (!permission) {
