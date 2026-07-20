@@ -81,6 +81,17 @@ function findNextIncompleteSlot(
   return null;
 }
 
+/** Where to resume posing given the current photos — first incomplete required slot, or
+ * the next extra stop past whatever's already captured if all required slots are filled. */
+function computeResumePhase(photos: StopPhoto[], stopCount: number): FlowPhase {
+  const next = findNextIncompleteSlot(photos, stopCount);
+  if (next) {
+    return { kind: 'posing', stopIndex: next.stopIndex, heightStep: next.heightStep };
+  }
+  const maxStopIndex = photos.reduce((m, p) => Math.max(m, p.stopIndex), stopCount - 1);
+  return { kind: 'posing', stopIndex: maxStopIndex + 1, heightStep: HEIGHT_STEPS[0] };
+}
+
 export function useGuidedCapture(
   cameraRef: RefObject<CameraView | null>,
   options: UseGuidedCaptureOptions = {}
@@ -138,16 +149,7 @@ export function useGuidedCapture(
         const state = await loadGuidedCaptureStoreState();
         if (cancelled) return;
         setPhotos(state.photos);
-        const next = findNextIncompleteSlot(state.photos, stopCount);
-        if (next) {
-          setPhase({ kind: 'posing', stopIndex: next.stopIndex, heightStep: next.heightStep });
-        } else {
-          // All required stops are already done (e.g. reopening the screen after finishing) —
-          // continue straight into the next *extra* stop instead of defaulting back to Stop 1,
-          // which would silently overwrite the first photo.
-          const maxStopIndex = state.photos.reduce((m, p) => Math.max(m, p.stopIndex), stopCount - 1);
-          setPhase({ kind: 'posing', stopIndex: maxStopIndex + 1, heightStep: HEIGHT_STEPS[0] });
-        }
+        setPhase(computeResumePhase(state.photos, stopCount));
         hydratedStoreRef.current = true;
       } finally {
         if (!cancelled) {
@@ -293,18 +295,27 @@ export function useGuidedCapture(
     setPhase({ kind: 'posing', stopIndex, heightStep });
   }, []);
 
-  const onDeleteStop = useCallback((stopIndex: number) => {
-    setPhotos((list) => {
-      const toDelete = list.filter((p) => p.stopIndex === stopIndex);
-      if (toDelete.length === 0) {
-        return list;
-      }
-      const uris = toDelete.map((p) => p.uri);
-      void deleteGuidedCapturePhotos(uris);
-      void deletePhotoGpsEntries(uris);
-      return list.filter((p) => p.stopIndex !== stopIndex);
-    });
-  }, []);
+  const onDeleteStop = useCallback(
+    (stopIndex: number) => {
+      setPhotos((list) => {
+        const toDelete = list.filter((p) => p.stopIndex === stopIndex);
+        if (toDelete.length === 0) {
+          return list;
+        }
+        const uris = toDelete.map((p) => p.uri);
+        void deleteGuidedCapturePhotos(uris);
+        void deletePhotoGpsEntries(uris);
+        const remaining = list.filter((p) => p.stopIndex !== stopIndex);
+        // Deleting a stop can leave `phase` pointing at a slot that no longer has (or never
+        // had) photos backing it — e.g. deleting every stop down to 0 while phase was still
+        // sitting on stop 13 from an earlier "extra" stop. Recompute where to resume instead
+        // of leaving it stale.
+        setPhase(computeResumePhase(remaining, stopCount));
+        return remaining;
+      });
+    },
+    [stopCount]
+  );
 
   const resetEnabled = photos.length > 0;
 

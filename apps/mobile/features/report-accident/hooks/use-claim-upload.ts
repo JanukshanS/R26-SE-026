@@ -75,10 +75,14 @@ export function useClaimUpload(
           const parsed = reportedAtIso ? new Date(reportedAtIso) : null;
           const recordedAt = parsed && Number.isFinite(parsed.getTime()) ? parsed : new Date();
 
-          // Skip GPS entirely if this upload key was already completed.
+          // Once a claim has been successfully submitted from this device, it stays locked —
+          // deleting/retaking individual photos afterward must NOT trigger a fresh re-upload.
+          // (Deliberately not comparing against the current uploadKey: retaken photos get new
+          // file URIs, which would change the key and defeat this lock. Starting over for real
+          // requires an explicit Reset / Start New Claim, which clears the persisted success key.)
           if (uploadKey) {
             const persistedSuccessKey = await getPersistedSuccessfulClaimUploadKey();
-            if (!cancelled && persistedSuccessKey === uploadKey) {
+            if (!cancelled && persistedSuccessKey != null) {
               photosUploadedForKeyRef.current = uploadKey;
               setPhotosUploadPercent(100);
               setPhotosUploadComplete(true);
@@ -94,7 +98,7 @@ export function useClaimUpload(
               }
               return;
             }
-            if (!cancelled && photosUploadedForKeyRef.current === uploadKey) {
+            if (!cancelled && photosUploadedForKeyRef.current != null) {
               setPhotosUploadPercent(100);
               setPhotosUploadComplete(true);
               setFraudValidationPercent(100);
