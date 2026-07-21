@@ -17,9 +17,13 @@ export const BORDER_LIGHT = '#d0d0d0';
 export const GRAY_LIGHT = '#e0e0e0';
 export const GRAY_LIGHTER = '#e8e8e8';
 export const DANGER_RED = '#c62828';
+/** Soft tint of DANGER_RED — dialog icon-circle backgrounds for destructive actions. */
+export const DANGER_RED_SOFT = 'rgba(198, 40, 40, 0.12)';
 
 export const CAPTURE_ACTION_BLUE = '#f97316';
 export const CAPTURE_ACTION_BLUE_DISABLED = 'rgba(209, 209, 209, 0.76)';
+/** Soft tint of CAPTURE_ACTION_BLUE — dialog icon-circle backgrounds for reset/retry actions. */
+export const CAPTURE_ACTION_BLUE_SOFT = 'rgba(249, 115, 22, 0.14)';
 
 /** Panel behind controls / modals (same family as overlay card). */
 export const CAPTURE_PANEL_BORDER = 'rgb(15, 72, 157)';

@@ -15,6 +15,8 @@ import {
   saveDrunkTestState,
 } from '@/features/drunk-test/storage/drunk-test-store';
 import {
+  CAPTURE_ACTION_BLUE,
+  CAPTURE_RESET_CANCEL_BORDER,
   INSURANCE_BORDER,
   INSURANCE_CAMERA_PLACEHOLDER_BG,
   INSURANCE_CTA_LINK,
@@ -281,6 +283,7 @@ export default function DrunkTestScreen() {
         title="Retake Video"
         message="Clear the current drunk test video and record again?"
         confirmLabel="Retake"
+        icon="Video"
         onCancel={() => setIsResetDialogVisible(false)}
         onConfirm={() => {
           setIsResetDialogVisible(false);
@@ -350,39 +353,46 @@ export default function DrunkTestScreen() {
           ) : null}
         </View>
 
-        {!hasVideo ? (
+        <View style={styles.buttonRow}>
           <Pressable
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.primaryButtonPressed,
-              (isRecording ||
+            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+            onPress={() => router.replace('/(insurance)')}>
+            <Text style={styles.backButtonText}>Back</Text>
+          </Pressable>
+          {!hasVideo ? (
+            <Pressable
+              style={({ pressed }) => [
+                styles.primaryButton,
+                pressed && styles.primaryButtonPressed,
+                (isRecording ||
+                  !isCameraReady ||
+                  Platform.OS === 'web' ||
+                  (Platform.OS === 'android' && !micPermission?.granted)) &&
+                  styles.buttonDisabled,
+              ]}
+              onPress={() => void startRecording()}
+              disabled={
+                isRecording ||
                 !isCameraReady ||
                 Platform.OS === 'web' ||
-                (Platform.OS === 'android' && !micPermission?.granted)) &&
-                styles.buttonDisabled,
-            ]}
-            onPress={() => void startRecording()}
-            disabled={
-              isRecording ||
-              !isCameraReady ||
-              Platform.OS === 'web' ||
-              (Platform.OS === 'android' && !micPermission?.granted)
-            }>
-            {isRecording ? (
-              <ActivityIndicator color={WHITE} />
-            ) : (
-              <Text style={styles.primaryButtonText}>
-                {!isCameraReady ? 'Preparing camera…' : Platform.OS === 'web' ? 'Video (device only)' : 'Take Video'}
-              </Text>
-            )}
-          </Pressable>
-        ) : (
-          <Pressable
-            style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
-            onPress={() => setIsResetDialogVisible(true)}>
-            <Text style={styles.primaryButtonText}>Retake</Text>
-          </Pressable>
-        )}
+                (Platform.OS === 'android' && !micPermission?.granted)
+              }>
+              {isRecording ? (
+                <ActivityIndicator color={WHITE} />
+              ) : (
+                <Text style={styles.primaryButtonText}>
+                  {!isCameraReady ? 'Preparing camera…' : Platform.OS === 'web' ? 'Video (device only)' : 'Take Video'}
+                </Text>
+              )}
+            </Pressable>
+          ) : (
+            <Pressable
+              style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
+              onPress={() => setIsResetDialogVisible(true)}>
+              <Text style={styles.primaryButtonText}>Retake</Text>
+            </Pressable>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -532,15 +542,38 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '600',
   },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    maxWidth: 400,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  backButton: {
+    flex: 1,
+    backgroundColor: WHITE,
+    borderWidth: 1,
+    borderColor: CAPTURE_RESET_CANCEL_BORDER,
+    borderRadius: 8,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonPressed: {
+    opacity: 0.88,
+  },
+  backButtonText: {
+    color: CAPTURE_ACTION_BLUE,
+    fontSize: 17,
+    fontWeight: '700',
+  },
   primaryButton: {
+    flex: 1,
     backgroundColor: INSURANCE_PRIMARY,
     borderRadius: 10,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    maxWidth: 400,
-    alignSelf: 'center',
-    width: '100%',
   },
   primaryButtonPressed: {
     opacity: 0.92,
