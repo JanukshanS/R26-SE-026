@@ -19,6 +19,8 @@ import { isElm327Paired, isRealBleSupported, pairElm327Async, unpairElm327 } fro
 import { haptics } from "@lib/haptics";
 import { useVehicle } from "@lib/vehicleContext";
 import { useHardwareBack } from "@lib/useHardwareBack";
+import { useIncompleteUploadStatus } from "@/features/report-accident/hooks/use-incomplete-upload-status";
+import { ClaimUploadReminderModal } from "@/features/report-accident/components/claim-upload-reminder-modal";
 
 const BOTTOM_SCROLL_PADDING = 112;
 
@@ -38,6 +40,7 @@ export default function DriverHomeScreen() {
   const bottomReserve = BOTTOM_SCROLL_PADDING + insets.bottom;
 
   const { user, logout, selectedVehicle, vehicles, selectVehicle } = useVehicle();
+  const incompleteUpload = useIncompleteUploadStatus();
 
   // Home is the post-auth root: block the Android back button so it can never
   // pop back to the welcome/login screen. The only way off home is Log out.
@@ -328,7 +331,24 @@ export default function DriverHomeScreen() {
               <QuickAction icon="Package" label="Order parts" onPress={() => router.push({ pathname: "/(driver)/order-parts", params: { component: "brake" } })} />
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(300).springify()} style={{ flex: 1 }}>
-              <QuickAction icon="ShieldCheck" label="Insurance" onPress={() => router.push('/(insurance)')} />
+              <QuickAction
+                icon="ShieldCheck"
+                label="Insurance"
+                badge={incompleteUpload != null}
+                onPress={() => {
+                  if (incompleteUpload) {
+                    router.push({
+                      pathname: "/(insurance)/upload-accident-details",
+                      params: {
+                        uploadKey: incompleteUpload.uploadKey,
+                        reportedAtIso: incompleteUpload.reportedAtIso,
+                      },
+                    });
+                    return;
+                  }
+                  router.push("/(insurance)");
+                }}
+              />
             </Animated.View>
           </View>
         </View>
@@ -577,6 +597,8 @@ export default function DriverHomeScreen() {
           </View>
         </View>
       </Modal>
+
+      <ClaimUploadReminderModal />
     </View>
   );
 }

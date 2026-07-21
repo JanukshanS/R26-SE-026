@@ -28,6 +28,7 @@ import {
   loadReportAccidentEntryMeta,
   saveReportAccidentEntryMeta,
 } from '@/features/report-accident/storage/report-accident-entry-store';
+import { useIncompleteUploadStatus } from '@/features/report-accident/hooks/use-incomplete-upload-status';
 import { INSURER_PHONE_TEL } from '@/lib/constants';
 import { computeClaimBundleUploadKey, isClaimReportSubmittedLocked } from '@/lib/claim-upload-dedupe';
 import { formatGeocodedLine } from '@/lib/format-geocoded-line';
@@ -174,6 +175,7 @@ export default function InsuranceHomeScreen() {
   const [drunkTestComplete, setDrunkTestComplete] = useState(false);
   const [thirdPartyComplete, setThirdPartyComplete] = useState(false);
   const [claimReportLocked, setClaimReportLocked] = useState(false);
+  const incompleteUpload = useIncompleteUploadStatus();
 
   useFocusEffect(
     useCallback(() => {
@@ -379,6 +381,10 @@ export default function InsuranceHomeScreen() {
               Tap the button above to review upload progress (no new upload). For a new incident, open Guided Capture and
               use Reset capture, then complete the steps again.
             </Text>
+          ) : incompleteUpload ? (
+            <Text style={styles.reportIncompleteHint}>
+              {`Your last upload stopped at ${incompleteUpload.percent}% — tap Report Accident to resume.`}
+            </Text>
           ) : null}
         </ScrollView>
 
@@ -582,6 +588,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: COLORS.textMuted,
+    textAlign: 'center',
+  },
+  reportIncompleteHint: {
+    marginTop: 12,
+    fontSize: 14,
+    lineHeight: 20,
+    color: COLORS.reportBg,
+    fontWeight: '600',
     textAlign: 'center',
   },
 });

@@ -10,6 +10,11 @@ export type ClaimUploadProgress = {
   captureId: string;
   /** Next combined photo index (guided walkaround, then fraud-validation media) to upload. */
   nextIndex: number;
+  /** Total combined item count — lets a percent be computed from this file alone. */
+  totalItems: number;
+  /** Same value the Upload Accident Details screen needs as a route param, so a reminder
+   * notification tapped after a cold start can deep-link there without losing it. */
+  reportedAtIso: string;
 };
 
 export async function saveUploadProgress(progress: ClaimUploadProgress): Promise<void> {
@@ -31,14 +36,22 @@ export async function loadUploadProgress(uploadKey: string): Promise<ClaimUpload
     if (
       typeof parsed.uploadKey !== 'string' ||
       typeof parsed.captureId !== 'string' ||
-      typeof parsed.nextIndex !== 'number'
+      typeof parsed.nextIndex !== 'number' ||
+      typeof parsed.totalItems !== 'number' ||
+      typeof parsed.reportedAtIso !== 'string'
     ) {
       return null;
     }
     if (parsed.uploadKey !== uploadKey) {
       return null;
     }
-    return { uploadKey: parsed.uploadKey, captureId: parsed.captureId, nextIndex: parsed.nextIndex };
+    return {
+      uploadKey: parsed.uploadKey,
+      captureId: parsed.captureId,
+      nextIndex: parsed.nextIndex,
+      totalItems: parsed.totalItems,
+      reportedAtIso: parsed.reportedAtIso,
+    };
   } catch {
     return null;
   }

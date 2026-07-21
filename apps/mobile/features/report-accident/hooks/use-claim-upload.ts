@@ -23,9 +23,11 @@ export type UseClaimUploadResult = {
   locationLine: string;
   timestampLine: string;
   locationLoading: boolean;
-  photosUploadPercent: number;
+  /** null while the resumed upload's real starting point is still being resolved (show a spinner). */
+  photosUploadPercent: number | null;
   photosUploadComplete: boolean;
-  fraudValidationPercent: number;
+  /** null while the resumed upload's real starting point is still being resolved (show a spinner). */
+  fraudValidationPercent: number | null;
   fraudValidationComplete: boolean;
 };
 
@@ -38,9 +40,9 @@ export function useClaimUpload(
   const [locationLine, setLocationLine] = useState<string>('Getting location…');
   const [timestampLine, setTimestampLine] = useState<string>('');
   const [locationLoading, setLocationLoading] = useState(true);
-  const [photosUploadPercent, setPhotosUploadPercent] = useState(0);
+  const [photosUploadPercent, setPhotosUploadPercent] = useState<number | null>(null);
   const [photosUploadComplete, setPhotosUploadComplete] = useState(false);
-  const [fraudValidationPercent, setFraudValidationPercent] = useState(0);
+  const [fraudValidationPercent, setFraudValidationPercent] = useState<number | null>(null);
   const [fraudValidationComplete, setFraudValidationComplete] = useState(false);
 
   const photosUploadedForKeyRef = useRef<string | null>(null);
@@ -187,9 +189,12 @@ export function useClaimUpload(
             return;
           }
 
-          setPhotosUploadPercent(0);
+          // null (not 0) — the real resumed starting point isn't known yet until
+          // uploadFullClaimBundleToBackend resolves the capture session; the UI shows a
+          // spinner in the meantime instead of a misleading "0%".
+          setPhotosUploadPercent(null);
           setPhotosUploadComplete(false);
-          setFraudValidationPercent(0);
+          setFraudValidationPercent(null);
           setFraudValidationComplete(false);
           guidedWalkaroundUploadsDoneRef.current = false;
           fraudValidationMediaUploadsDoneRef.current = false;

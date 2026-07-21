@@ -45,10 +45,12 @@ function ProgressRow({
   complete,
 }: {
   label: string;
-  percent: number;
+  /** null while the real starting point (e.g. after resuming) is still being resolved. */
+  percent: number | null;
   complete: boolean;
 }) {
-  const pct = complete ? 100 : Math.max(0, Math.min(100, Math.round(percent)));
+  const resolving = !complete && percent == null;
+  const pct = complete ? 100 : Math.max(0, Math.min(100, Math.round(percent ?? 0)));
   const showDone = complete;
   return (
     <View style={styles.progressRow}>
@@ -61,9 +63,13 @@ function ProgressRow({
         />
         <Text style={styles.progressLabel}>{label}</Text>
       </View>
-      <Text style={[styles.progressPercent, !showDone && styles.progressPercentPending]}>
-        {showDone ? '100%' : `${pct}%`}
-      </Text>
+      {resolving ? (
+        <ActivityIndicator size="small" color={COLORS.textMuted} style={styles.progressSpinner} />
+      ) : (
+        <Text style={[styles.progressPercent, !showDone && styles.progressPercentPending]}>
+          {showDone ? '100%' : `${pct}%`}
+        </Text>
+      )}
     </View>
   );
 }
@@ -287,6 +293,9 @@ const styles = StyleSheet.create({
   },
   progressPercentPending: {
     color: COLORS.textMuted,
+  },
+  progressSpinner: {
+    marginRight: 9,
   },
   detailCard: {
     marginTop: 20,
