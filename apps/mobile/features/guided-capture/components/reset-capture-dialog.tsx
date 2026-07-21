@@ -7,10 +7,12 @@ import {
   View,
 } from 'react-native';
 
+import { Icon, type IconName } from '@components/ui/icon';
 import {
   BLACK,
   BORDER_LIGHT,
   CAPTURE_ACTION_BLUE,
+  CAPTURE_ACTION_BLUE_SOFT,
   CAPTURE_RESET_CANCEL_BORDER,
   CAPTURE_SURFACE_WHITE,
   CAPTURE_TEXT_WHITE,
@@ -31,6 +33,7 @@ type ResetCaptureDialogProps = {
   message?: string;
   cancelLabel?: string;
   confirmLabel?: string;
+  icon?: IconName;
 };
 
 export function ResetCaptureDialog({
@@ -41,6 +44,7 @@ export function ResetCaptureDialog({
   message = 'Clear all captured photos and start over?',
   cancelLabel = 'Cancel',
   confirmLabel = 'Yes',
+  icon = 'RotateCcw',
 }: ResetCaptureDialogProps) {
   const overlaySize = useCaptureModalOverlaySize();
 
@@ -64,6 +68,9 @@ export function ResetCaptureDialog({
           <CaptureModalBackdrop width={overlaySize.width} height={overlaySize.height} />
           <Pressable style={styles.backdropPressable} onPress={onCancel}>
             <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.iconCircle}>
+                <Icon name={icon} size={32} color={CAPTURE_ACTION_BLUE} />
+              </View>
               <Text style={styles.title}>{title}</Text>
               <Text style={styles.message}>{message}</Text>
               <View style={styles.actions}>
@@ -110,6 +117,16 @@ const styles = StyleSheet.create({
     width: '100%',
     borderColor: BORDER_LIGHT,
   },
+  iconCircle: {
+    alignSelf: 'center',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: CAPTURE_ACTION_BLUE_SOFT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
   title: {
     color: BLACK,
     fontSize: 22,
@@ -132,7 +149,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 5,
+    borderRadius: 8,
     backgroundColor: WHITE,
     borderWidth: 1,
     borderColor: CAPTURE_RESET_CANCEL_BORDER,
@@ -142,7 +159,7 @@ const styles = StyleSheet.create({
   confirmButton: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 5,
+    borderRadius: 8,
     backgroundColor: CAPTURE_ACTION_BLUE,
     borderWidth: 2,
     borderColor: CAPTURE_ACTION_BLUE,

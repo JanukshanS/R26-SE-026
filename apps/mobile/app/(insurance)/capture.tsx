@@ -23,6 +23,8 @@ import {
   CAPTURE_SURFACE_WHITE,
   CAPTURE_TEXT_WHITE,
   CAPTURE_THUMBNAIL_BG,
+  DANGER_RED,
+  DANGER_RED_SOFT,
   GRAY_900,
 } from '@/features/guided-capture/capture-ui-theme';
 import {
@@ -271,6 +273,9 @@ export default function GuidedCaptureScreen() {
             {deleteConfirmStopIndex != null ? (
               <View style={styles.deleteConfirmScrim}>
                 <View style={styles.deleteConfirmCard}>
+                  <View style={styles.deleteConfirmIconCircle}>
+                    <Ionicons name="trash-outline" size={30} color={DANGER_RED} />
+                  </View>
                   <Text style={styles.deleteConfirmTitle}>Delete Stop</Text>
                   <Text style={styles.deleteConfirmMessage}>
                     {`Delete all photos for Stop ${deleteConfirmStopIndex + 1}? This can't be undone.`}
@@ -471,11 +476,21 @@ const styles = StyleSheet.create({
   },
   deleteConfirmCard: {
     backgroundColor: CAPTURE_SURFACE_WHITE,
-    borderRadius: 15,
+    borderRadius: 10,
     padding: 20,
     borderWidth: 1,
-    width: '100%',
+    width: '104%',
     borderColor: BORDER_LIGHT,
+  },
+  deleteConfirmIconCircle: {
+    alignSelf: 'center',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: DANGER_RED_SOFT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
   deleteConfirmTitle: {
     color: BLACK,
@@ -499,7 +514,7 @@ const styles = StyleSheet.create({
   deleteConfirmCancelBtn: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 5,
+    borderRadius: 8,
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: CAPTURE_RESET_CANCEL_BORDER,

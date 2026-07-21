@@ -19,6 +19,8 @@ import {
 import { snapAndSavePhotoGps } from '@/lib/snap-photo-gps';
 import { appendUniqueUri } from '@/lib/uri-utils';
 import {
+  CAPTURE_ACTION_BLUE,
+  CAPTURE_RESET_CANCEL_BORDER,
   INSURANCE_BORDER,
   INSURANCE_CAMERA_PLACEHOLDER_BG,
   INSURANCE_CTA_LINK,
@@ -285,16 +287,27 @@ export default function ThirdPartyDetailsScreen() {
           ) : null}
         </View>
 
-        <Pressable
-          style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed, isTakingPhoto && styles.buttonDisabled]}
-          onPress={() => void onTakePhoto()}
-          disabled={isTakingPhoto}>
-          {isTakingPhoto ? (
-            <ActivityIndicator color={WHITE} />
-          ) : (
-            <Text style={styles.primaryButtonText}>{primaryLabel}</Text>
-          )}
-        </Pressable>
+        <View style={styles.buttonRow}>
+          <Pressable
+            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+            onPress={() => router.replace('/(insurance)')}>
+            <Text style={styles.backButtonText}>Back</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed && styles.primaryButtonPressed,
+              isTakingPhoto && styles.buttonDisabled,
+            ]}
+            onPress={() => void onTakePhoto()}
+            disabled={isTakingPhoto}>
+            {isTakingPhoto ? (
+              <ActivityIndicator color={WHITE} />
+            ) : (
+              <Text style={styles.primaryButtonText}>{primaryLabel}</Text>
+            )}
+          </Pressable>
+        </View>
 
         <Pressable
           style={({ pressed }) => [
@@ -419,16 +432,39 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+    maxWidth: 400,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  backButton: {
+    flex: 1,
+    backgroundColor: WHITE,
+    borderWidth: 1,
+    borderColor: CAPTURE_RESET_CANCEL_BORDER,
+    borderRadius: 8,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonPressed: {
+    opacity: 0.88,
+  },
+  backButtonText: {
+    color: CAPTURE_ACTION_BLUE,
+    fontSize: 17,
+    fontWeight: '700',
+  },
   primaryButton: {
+    flex: 1,
     backgroundColor: INSURANCE_PRIMARY,
     borderRadius: 10,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
-    maxWidth: 400,
-    alignSelf: 'center',
-    width: '100%',
   },
   primaryButtonPressed: {
     opacity: 0.92,
