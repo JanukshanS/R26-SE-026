@@ -7,6 +7,9 @@ import "@lib/supabase";
 import "react-native-reanimated";
 
 export default function RootLayout() {
+  // Supabase restores any persisted session on its own (imported above), so
+  // there's nothing to warm here — guests proceed immediately, and a restored
+  // session fills in via onAuthStateChange inside the (driver) provider.
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
