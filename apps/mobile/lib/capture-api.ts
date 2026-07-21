@@ -225,6 +225,7 @@ type CombinedUploadItem = {
 async function resolveCaptureSession(
   base: string,
   uploadKey: string,
+  reportedAtIso: string,
   createPayload: Record<string, unknown>,
   totalItems: number,
   signal: AbortSignal | undefined
@@ -267,7 +268,7 @@ async function resolveCaptureSession(
     throw new Error(`Create capture failed (${createRes.status}): ${text.slice(0, 200)}`);
   }
   const capture = (await createRes.json()) as { id: string };
-  await saveUploadProgress({ uploadKey, captureId: capture.id, nextIndex: 0 });
+  await saveUploadProgress({ uploadKey, captureId: capture.id, nextIndex: 0, totalItems, reportedAtIso });
   return { captureId: capture.id, resumeIndex: 0, alreadyComplete: false };
 }
 
@@ -345,6 +346,7 @@ export async function uploadFullClaimBundleToBackend(options: {
   const { captureId, resumeIndex, alreadyComplete } = await resolveCaptureSession(
     base,
     options.uploadKey,
+    options.report.capturedAtIso,
     createPayload,
     combined.length,
     options.signal
@@ -370,7 +372,13 @@ export async function uploadFullClaimBundleToBackend(options: {
   for (let i = resumeIndex; i < guidedTotal; i++) {
     const { slot } = combined[i]!;
     await postOriginalMedia(base, captureId, i, slot, 'walkaround', options.signal);
-    await saveUploadProgress({ uploadKey: options.uploadKey, captureId, nextIndex: i + 1 });
+    await saveUploadProgress({
+      uploadKey: options.uploadKey,
+      captureId,
+      nextIndex: i + 1,
+      totalItems: combined.length,
+      reportedAtIso: options.report.capturedAtIso,
+    });
     const pct = 5 + Math.round(((i + 1) / guidedTotal) * 95);
     options.onGuidedProgress(pct);
   }
@@ -388,7 +396,13 @@ export async function uploadFullClaimBundleToBackend(options: {
     for (let i = fraudResumeIndex; i < combined.length; i++) {
       const { slot, photoSlot } = combined[i]!;
       await postOriginalMedia(base, captureId, i, slot, photoSlot, options.signal);
-      await saveUploadProgress({ uploadKey: options.uploadKey, captureId, nextIndex: i + 1 });
+      await saveUploadProgress({
+        uploadKey: options.uploadKey,
+        captureId,
+        nextIndex: i + 1,
+        totalItems: combined.length,
+        reportedAtIso: options.report.capturedAtIso,
+      });
       const done = i + 1 - guidedTotal;
       options.onFraudProgress(Math.round((done / fraudTotal) * 100));
     }
