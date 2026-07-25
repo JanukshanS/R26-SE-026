@@ -16,6 +16,8 @@ export interface User {
   // Set once a provider account is linked to its dispatch provider record.
   providerId?: string | null;
   location?: string;
+  licenceNumber?: string;
+  nicNumber?: string;
 }
 
 export interface Vehicle {
@@ -31,6 +33,9 @@ export interface Vehicle {
   fuelType: "petrol" | "diesel" | "hybrid" | "electric";
   isDefault: boolean;
   createdAt: string;
+  // Insurance is per-vehicle (a driver's two cars can have different insurers/policies).
+  insuranceProvider?: string;
+  insurancePolicyNumber?: string;
 }
 
 export type VehicleInput = Omit<Vehicle, "_id" | "userId" | "createdAt">;
@@ -57,6 +62,8 @@ interface VehicleRow {
   fuel_type: string;
   is_default: boolean;
   created_at: string;
+  insurance_provider: string | null;
+  insurance_policy_number: string | null;
 }
 
 function mapVehicle(r: VehicleRow): Vehicle {
@@ -73,6 +80,8 @@ function mapVehicle(r: VehicleRow): Vehicle {
     fuelType: (r.fuel_type as Vehicle["fuelType"]) ?? "petrol",
     isDefault: r.is_default,
     createdAt: r.created_at,
+    insuranceProvider: r.insurance_provider ?? undefined,
+    insurancePolicyNumber: r.insurance_policy_number ?? undefined,
   };
 }
 
@@ -87,6 +96,9 @@ function toRow(data: Partial<VehicleInput>): Record<string, unknown> {
   if (data.currentMileage !== undefined) row.current_mileage = data.currentMileage;
   if (data.fuelType !== undefined) row.fuel_type = data.fuelType;
   if (data.isDefault !== undefined) row.is_default = data.isDefault;
+  if (data.insuranceProvider !== undefined) row.insurance_provider = data.insuranceProvider || null;
+  if (data.insurancePolicyNumber !== undefined)
+    row.insurance_policy_number = data.insurancePolicyNumber || null;
   return row;
 }
 
@@ -167,6 +179,8 @@ interface ProfileRow {
   role: string;
   provider_id: string | null;
   location: string | null;
+  licence_number: string | null;
+  nic_number: string | null;
 }
 
 /** Compose the app `User` from the auth session + the profile row. */
@@ -189,6 +203,8 @@ export async function getMyUser(): Promise<User | null> {
     phone: p?.phone ?? undefined,
     providerId: p?.provider_id ?? null,
     location: p?.location ?? undefined,
+    licenceNumber: p?.licence_number ?? undefined,
+    nicNumber: p?.nic_number ?? undefined,
   };
 }
 
@@ -197,6 +213,8 @@ export interface ProfileUpdate {
   phone?: string;
   location?: string;
   providerId?: string | null;
+  licenceNumber?: string;
+  nicNumber?: string;
 }
 
 export async function updateMyProfile(patch: ProfileUpdate): Promise<User> {
@@ -206,6 +224,8 @@ export async function updateMyProfile(patch: ProfileUpdate): Promise<User> {
   if (patch.phone !== undefined) row.phone = patch.phone || null;
   if (patch.location !== undefined) row.location = patch.location || null;
   if (patch.providerId !== undefined) row.provider_id = patch.providerId;
+  if (patch.licenceNumber !== undefined) row.licence_number = patch.licenceNumber || null;
+  if (patch.nicNumber !== undefined) row.nic_number = patch.nicNumber || null;
   const { error } = await supabase.from("profiles").update(row).eq("id", userId);
   if (error) throw new VehicleApiError(error.message);
   const user = await getMyUser();
