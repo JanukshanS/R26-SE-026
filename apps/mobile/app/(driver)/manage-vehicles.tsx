@@ -16,12 +16,14 @@ import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
 import type { VehicleInput } from "@lib/vehicleApi";
 import type { Vehicle } from "@lib/vehicleApi";
+import { INSURANCE_PROVIDERS } from "@lib/insuranceProviders";
 
 const FUEL_TYPES = ["petrol", "diesel", "hybrid", "electric"] as const;
 
 const EMPTY_FORM: Partial<VehicleInput> = {
   make: "", model: "", year: undefined, plateNumber: "",
   nickname: "", color: "", currentMileage: 0, fuelType: "petrol",
+  insuranceProvider: "", insurancePolicyNumber: "",
 };
 
 export default function ManageVehiclesScreen() {
@@ -48,6 +50,8 @@ export default function ManageVehiclesScreen() {
       plateNumber: v.plateNumber, nickname: v.nickname ?? "",
       color: v.color ?? "", currentMileage: v.currentMileage,
       fuelType: v.fuelType,
+      insuranceProvider: v.insuranceProvider ?? "",
+      insurancePolicyNumber: v.insurancePolicyNumber ?? "",
     });
     setError("");
     setShowForm(true);
@@ -271,6 +275,45 @@ export default function ManageVehiclesScreen() {
                     ))}
                   </View>
                 </View>
+
+                {/* Insurance provider selector — per-vehicle, since a driver's
+                    two cars can be insured with different providers/policies. */}
+                <View style={{ gap: spacing.xs }}>
+                  <Text style={{ ...typography.caption, color: palette.textMuted }}>Insurance Provider</Text>
+                  <View style={{ flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" }}>
+                    {INSURANCE_PROVIDERS.map((name) => (
+                      <Pressable
+                        key={name}
+                        onPress={() => setForm((f) => ({ ...f, insuranceProvider: name }))}
+                        style={{
+                          paddingHorizontal: spacing.md,
+                          paddingVertical: spacing.sm,
+                          borderRadius: radii.pill,
+                          borderWidth: 1.5,
+                          borderColor: form.insuranceProvider === name ? palette.brand : palette.border,
+                          backgroundColor: form.insuranceProvider === name ? palette.brandSoft : "transparent",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            ...typography.caption,
+                            color: form.insuranceProvider === name ? palette.brand : palette.textMuted,
+                            fontWeight: "600",
+                          }}
+                        >
+                          {name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+                <Field
+                  label="Insurance Policy Number"
+                  value={form.insurancePolicyNumber ?? ""}
+                  onChangeText={(v) => setForm((f) => ({ ...f, insurancePolicyNumber: v }))}
+                  placeholder="ALCI-254-VP"
+                  autoCapitalize="characters"
+                />
 
                 {error ? (
                   <Text style={{ ...typography.caption, color: palette.danger }}>{error}</Text>

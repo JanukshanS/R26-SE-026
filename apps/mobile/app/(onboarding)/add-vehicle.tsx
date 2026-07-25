@@ -39,7 +39,9 @@ export default function AddVehicleScreen() {
         currentMileage: 0,
         isDefault: true,
       });
-      router.replace("/(driver)/home");
+      // Insurer/policy are captured next and attached to this vehicle (not the
+      // profile) so a driver with a second car can give it a different insurer.
+      router.replace("/(onboarding)/add-insurer");
     } catch (err) {
       setError((err as Error).message ?? "Couldn't save your vehicle.");
     } finally {
