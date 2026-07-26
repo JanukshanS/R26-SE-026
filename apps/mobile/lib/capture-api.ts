@@ -165,6 +165,13 @@ export type ClaimantPayload = {
   licenceNumber: string;
 };
 
+/** The claim's vehicle (make + model, its insurance policy number, and plate/reg number if set). */
+export type VehiclePayload = {
+  model: string;
+  policyNumber?: string;
+  plateNumber?: string;
+};
+
 export type ReportPayload = {
   /** ISO-8601 UTC (matches “Captured and submitted” moment). */
   capturedAtIso: string;
@@ -285,6 +292,9 @@ export async function uploadFullClaimBundleToBackend(options: {
   uploadKey: string;
   report: ReportPayload;
   claimant: ClaimantPayload;
+  /** The vehicle this claim is for — its insurance provider/policy can differ
+   * per vehicle, so this comes from the vehicle record, not the claimant. */
+  vehicle?: VehiclePayload;
   insurerCallMeta?: InsurerCallMeta | null;
   guidedCaptureEntryMeta?: GuidedCaptureEntryMeta | null;
   onGuidedProgress: (percent: number) => void;
@@ -324,6 +334,9 @@ export async function uploadFullClaimBundleToBackend(options: {
     claimant_name: options.claimant.fullName.trim() || null,
     claimant_nic: options.claimant.nic.trim() || null,
     claimant_licence_number: options.claimant.licenceNumber.trim() || null,
+    vehicle_model: options.vehicle?.model.trim() || null,
+    policy_number: options.vehicle?.policyNumber?.trim() || null,
+    vehicle_reg_no: options.vehicle?.plateNumber?.trim() || null,
     report_captured_at: options.report.capturedAtIso,
     report_captured_at_display_local: displayLocal || null,
     report_gps_lat: options.report.gpsLat,

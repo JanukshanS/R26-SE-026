@@ -62,11 +62,16 @@ def build_photo_object_metadata(
         "capture-id": _ascii_meta_value(str(capture.get("id", ""))),
         "photo-index": str(int(photo_index)),
         "asset-kind": _ascii_meta_value(asset_kind),
-        "claimant-name": _ascii_meta_value(_PLACEHOLDER_CLAIMANT_NAME),
-        "claimant-nic": _ascii_meta_value(_PLACEHOLDER_CLAIMANT_NIC),
-        "claimant-licence": _ascii_meta_value(_PLACEHOLDER_CLAIMANT_LICENCE),
-        "vehicle-model": _ascii_meta_value(_PLACEHOLDER_VEHICLE_MODEL),
-        "policy-number": _ascii_meta_value(_PLACEHOLDER_POLICY_NUMBER),
+        "claimant-name": _ascii_meta_value(capture.get("claimant_name") or _PLACEHOLDER_CLAIMANT_NAME),
+        "claimant-nic": _ascii_meta_value(capture.get("claimant_nic") or _PLACEHOLDER_CLAIMANT_NIC),
+        "claimant-licence": _ascii_meta_value(capture.get("claimant_licence_number") or _PLACEHOLDER_CLAIMANT_LICENCE),
+        "vehicle-model": _ascii_meta_value(capture.get("vehicle_model") or _PLACEHOLDER_VEHICLE_MODEL),
+        "policy-number": _ascii_meta_value(capture.get("policy_number") or _PLACEHOLDER_POLICY_NUMBER),
+        # No placeholder fallback here — the Insurer Dashboard only shows this field
+        # when the key is present at all (`if metadata.get("vehicle-reg-no")`), and
+        # falls back to its own UI placeholder otherwise, so an empty value is
+        # correctly dropped by this function's final `!= ""` filter below.
+        "vehicle-reg-no": _ascii_meta_value(capture.get("vehicle_reg_no")),
         "photo-gps-lat": _num_str(gps_lat),
         "photo-gps-lng": _num_str(gps_lng),
         "photo-gps-accuracy": _num_str(gps_accuracy),

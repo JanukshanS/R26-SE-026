@@ -48,6 +48,9 @@ class CaptureRepository:
                     "ALTER TABLE captures ADD COLUMN IF NOT EXISTS claimant_name TEXT NULL",
                     "ALTER TABLE captures ADD COLUMN IF NOT EXISTS claimant_nic TEXT NULL",
                     "ALTER TABLE captures ADD COLUMN IF NOT EXISTS claimant_licence_number TEXT NULL",
+                    "ALTER TABLE captures ADD COLUMN IF NOT EXISTS vehicle_model TEXT NULL",
+                    "ALTER TABLE captures ADD COLUMN IF NOT EXISTS policy_number TEXT NULL",
+                    "ALTER TABLE captures ADD COLUMN IF NOT EXISTS vehicle_reg_no TEXT NULL",
                     "ALTER TABLE captures ADD COLUMN IF NOT EXISTS report_captured_at TIMESTAMPTZ NULL",
                     "ALTER TABLE captures ADD COLUMN IF NOT EXISTS report_gps_lat DOUBLE PRECISION NULL",
                     "ALTER TABLE captures ADD COLUMN IF NOT EXISTS report_gps_lng DOUBLE PRECISION NULL",
@@ -127,6 +130,9 @@ class CaptureRepository:
         claimant_name: Optional[str] = None,
         claimant_nic: Optional[str] = None,
         claimant_licence_number: Optional[str] = None,
+        vehicle_model: Optional[str] = None,
+        policy_number: Optional[str] = None,
+        vehicle_reg_no: Optional[str] = None,
         report_captured_at: Optional[datetime] = None,
         report_captured_at_display_local: Optional[str] = None,
         report_gps_lat: Optional[float] = None,
@@ -153,6 +159,7 @@ class CaptureRepository:
                     INSERT INTO captures (
                         id, status,
                         claimant_name, claimant_nic, claimant_licence_number,
+                        vehicle_model, policy_number, vehicle_reg_no,
                         report_captured_at, report_captured_at_display_local,
                         report_gps_lat, report_gps_lng, report_location_label,
                         insurer_call_at, insurer_call_captured_at_display_local,
@@ -163,9 +170,10 @@ class CaptureRepository:
                         guided_capture_start_gps_lng, guided_capture_start_location_permission,
                         guided_capture_start_location_label
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id, status, created_at, completed_at,
                               claimant_name, claimant_nic, claimant_licence_number,
+                              vehicle_model, policy_number, vehicle_reg_no,
                               report_captured_at, report_captured_at_display_local,
                               report_gps_lat, report_gps_lng, report_location_label,
                               insurer_call_at, insurer_call_captured_at_display_local,
@@ -179,6 +187,7 @@ class CaptureRepository:
                     (
                         capture_id, "uploading",
                         claimant_name, claimant_nic, claimant_licence_number,
+                        vehicle_model, policy_number, vehicle_reg_no,
                         report_captured_at, report_captured_at_display_local,
                         report_gps_lat, report_gps_lng, report_location_label,
                         insurer_call_at, insurer_call_captured_at_display_local,
@@ -203,6 +212,7 @@ class CaptureRepository:
                     """
                     SELECT id, status, created_at, completed_at,
                            claimant_name, claimant_nic, claimant_licence_number,
+                           vehicle_model, policy_number, vehicle_reg_no,
                            report_captured_at, report_captured_at_display_local,
                            report_gps_lat, report_gps_lng, report_location_label,
                            insurer_call_at, insurer_call_captured_at_display_local,
