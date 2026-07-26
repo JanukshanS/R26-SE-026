@@ -12,6 +12,9 @@ class CreateCaptureRequest(BaseModel):
     claimant_name: Optional[str] = Field(default=None, max_length=200)
     claimant_nic: Optional[str] = Field(default=None, max_length=32)
     claimant_licence_number: Optional[str] = Field(default=None, max_length=64)
+    vehicle_model: Optional[str] = Field(default=None, max_length=200)
+    policy_number: Optional[str] = Field(default=None, max_length=64)
+    vehicle_reg_no: Optional[str] = Field(default=None, max_length=32)
     report_captured_at: Optional[datetime] = None
     report_captured_at_display_local: Optional[str] = Field(
         default=None,

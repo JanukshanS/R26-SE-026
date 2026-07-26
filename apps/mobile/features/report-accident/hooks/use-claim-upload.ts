@@ -16,6 +16,7 @@ import {
 } from '@/lib/claim-upload-dedupe';
 import { formatGeocodedLine } from '@/lib/format-geocoded-line';
 import { formatTimestamp } from '@/lib/format-timestamp';
+import { getMyUser, getVehicles } from '@/lib/vehicleApi';
 
 type ClaimantData = { fullName: string; nic: string; licenceNumber: string };
 
@@ -200,21 +201,45 @@ export function useClaimUpload(
           fraudValidationMediaUploadsDoneRef.current = false;
 
           try {
-            const [saved, insurerCallMeta, guidedCaptureEntryMeta] = await Promise.all([
+            const [saved, insurerCallMeta, guidedCaptureEntryMeta, vehicles, profileUser] = await Promise.all([
               loadClaimantProfile(),
               loadInsurerCallMeta(),
               loadGuidedCaptureEntryMeta(),
+              // Guest/unauthenticated sessions get [] back (RLS-filtered), not a thrown
+              // error — vehicle stays undefined below and the backend falls back to
+              // its own placeholders, same as before this vehicle info existed.
+              getVehicles().catch(() => []),
+              // The signed-in driver's name/NIC/licence live on their Supabase profile
+              // (set via Add Insurer) — that's the real source of truth; the local
+              // claimant-profile-store below only exists as a guest-mode fallback
+              // (there's no in-app form that ever writes to it directly).
+              getMyUser().catch(() => null),
             ]);
             const claimant = {
-              fullName: (claimantRef.current.fullName || saved.fullName).trim(),
-              nic: (claimantRef.current.nic || saved.nic).trim(),
-              licenceNumber: (claimantRef.current.licenceNumber || saved.licenceNumber).trim(),
+              fullName: (profileUser?.name || claimantRef.current.fullName || saved.fullName).trim(),
+              nic: (profileUser?.nicNumber || claimantRef.current.nic || saved.nic).trim(),
+              licenceNumber: (
+                profileUser?.licenceNumber ||
+                claimantRef.current.licenceNumber ||
+                saved.licenceNumber
+              ).trim(),
             };
             await saveClaimantProfile(claimant);
+            // Insurer/policy number can differ per vehicle, so they come from the
+            // driver's default vehicle (same selection rule as add-insurer.tsx),
+            // not from the claimant profile.
+            const targetVehicle = vehicles.find((v) => v.isDefault) ?? vehicles[0];
             await uploadFullClaimBundleToBackend({
               uploadKey,
               insurerCallMeta,
               guidedCaptureEntryMeta,
+              vehicle: targetVehicle
+                ? {
+                    model: `${targetVehicle.make} ${targetVehicle.model}`.trim(),
+                    policyNumber: targetVehicle.insurancePolicyNumber,
+                    plateNumber: targetVehicle.plateNumber,
+                  }
+                : undefined,
               onGuidedProgress: (p) => { if (!cancelled) setPhotosUploadPercent(p); },
               onFraudProgress: (p) => { if (!cancelled) setFraudValidationPercent(p); },
               onGuidedWalkaroundUploadsComplete: () => {
