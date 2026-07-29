@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Dict, Generator, Optional, cast
+from typing import Any, Dict, Generator, List, Optional, cast
 from uuid import UUID as PyUUID
 from uuid import uuid4
 
@@ -228,6 +228,24 @@ class CaptureRepository:
                     (capture_id,),
                 )
                 return cast(Optional[Dict[str, Any]], _serialize_db_row(cur.fetchone()))
+
+    def list_captures_by_nic(self, nic: str) -> List[Dict[str, object]]:
+        """A driver's claim history — summary columns only, newest first."""
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, status, created_at,
+                           vehicle_model, policy_number, vehicle_reg_no,
+                           report_location_label, report_captured_at_display_local
+                    FROM captures
+                    WHERE claimant_nic = %s
+                    ORDER BY created_at DESC
+                    """,
+                    (nic,),
+                )
+                rows = cur.fetchall()
+        return [cast(Dict[str, Any], _serialize_db_row(row)) for row in rows]
 
     def get_photo_row(
         self,
