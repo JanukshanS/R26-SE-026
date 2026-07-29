@@ -87,3 +87,16 @@ class CaptureStatusResponse(BaseModel):
     enhancement_complete: bool = Field(
         description="True when every original has a matching enhanced row (same photo_index).",
     )
+
+
+class ClaimSummary(BaseModel):
+    """One row of a driver's claim history, listed by claimant NIC."""
+
+    id: str
+    status: str
+    created_at: datetime
+    vehicle_model: Optional[str] = None
+    policy_number: Optional[str] = None
+    vehicle_reg_no: Optional[str] = None
+    report_location_label: Optional[str] = None
+    report_captured_at_display_local: Optional[str] = None

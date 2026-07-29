@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 from uuid import uuid4
 
 from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, UploadFile, status
@@ -12,6 +12,7 @@ from app.r2_metadata import build_parent_folder_name, build_photo_object_metadat
 from app.schemas import (
     CaptureResponse,
     CaptureStatusResponse,
+    ClaimSummary,
     CompleteCaptureResponse,
     CreateCaptureRequest,
     PhotoUploadResponse,
@@ -400,3 +401,13 @@ def capture_status(
         originals_meet_minimum=originals_meet_minimum,
         enhancement_complete=enhancement_complete,
     )
+
+
+@app.get("/claims", response_model=List[ClaimSummary])
+def list_my_claims(
+    nic: str,
+    repository: CaptureRepository = Depends(get_capture_repository),
+) -> List[ClaimSummary]:
+    """A driver's claim history, listed by claimant NIC — used by the mobile app's My Claims screen."""
+    rows = repository.list_captures_by_nic(nic)
+    return [ClaimSummary.model_validate(row) for row in rows]
