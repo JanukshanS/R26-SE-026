@@ -5,7 +5,8 @@
 #   geo-intelligence      http://localhost:5001  (FastAPI)
 #   predictive-maintenance http://localhost:5000 (FastAPI)
 #   dashboard-web         http://localhost:3000  (Next.js)
-#   mobile (Expo web)     http://localhost:8081  (Expo/React Native)
+#   mobile (Expo web)     http://localhost:8090  (Expo/React Native)
+#   mobile (Expo dev server, real QR — separate visible window) port 8081
 #
 # NOT started here: dispatch and claims-privacy. Both need a running
 # Postgres (dispatch also needs Redis) which this script doesn't manage.
@@ -102,11 +103,22 @@ echo "== dashboard-web =="
 PIDS+=("$!")
 
 echo "== mobile (Expo web) =="
-[ -d "$MOBILE_DIR/node_modules" ] || (cd "$MOBILE_DIR" && npm install)
-[ -f "$MOBILE_DIR/.env" ] || cp "$MOBILE_DIR/.env.example" "$MOBILE_DIR/.env"
+# Mobile switched from npm to pnpm at some point (pnpm-lock.yaml vs
+# package-lock.json) — detect which this checkout uses instead of hardcoding.
+if [ -f "$MOBILE_DIR/pnpm-lock.yaml" ]; then
+  MOBILE_PKG_MGR=pnpm
+else
+  MOBILE_PKG_MGR=npm
+fi
+[ -d "$MOBILE_DIR/node_modules" ] || (cd "$MOBILE_DIR" && "$MOBILE_PKG_MGR" install)
+[ -f "$MOBILE_DIR/.env" ] || { [ -f "$MOBILE_DIR/.env.example" ] && cp "$MOBILE_DIR/.env.example" "$MOBILE_DIR/.env"; }
 (
   cd "$MOBILE_DIR" || exit 1
-  exec npx expo start --web
+  # Pinned off the default 8081 so it never races the QR-window instance
+  # below for that port — both used to default to 8081, and whichever lost
+  # the race silently landed on 8082, which broke `adb reverse` (hardcoded
+  # to 8081) since it was tunneling the wrong instance's port.
+  exec npx expo start --web --port 8090
 ) > "$LOG_DIR/mobile-web.log" 2>&1 &
 PIDS+=("$!")
 
@@ -115,7 +127,81 @@ echo "Waiting for services to come up (logs in $LOG_DIR)..."
 wait_for geo-intelligence "http://localhost:5001/v1/health" 60
 wait_for predictive-maintenance "http://localhost:5000/health" 60
 wait_for dashboard-web "http://localhost:3000" 60
-wait_for mobile-web "http://localhost:8081" 90
+wait_for mobile-web "http://localhost:8090" 90
+
+echo
+echo "== mobile (Expo dev server — real QR, for Expo Go / a dev-client build) =="
+# `npx expo start --web` above runs headless (output piped to a log file), so
+# its QR code never renders. QR codes need a real TTY, so this launches a
+# separate, visible terminal window instead. Not managed by this script's
+# cleanup — close that window yourself when you're done with it.
+
+# Find adb even before a shell restart has picked up winget's PATH change.
+if ! command -v adb >/dev/null 2>&1; then
+  ADB_CANDIDATE="$(find "$LOCALAPPDATA/Microsoft/WinGet/Packages" -maxdepth 2 -iname "platform-tools" -type d 2>/dev/null | head -1)"
+  [ -n "$ADB_CANDIDATE" ] && export PATH="$ADB_CANDIDATE:$PATH"
+fi
+
+USB_DEVICE=""
+if command -v adb >/dev/null 2>&1; then
+  USB_DEVICE="$(adb devices 2>/dev/null | awk '$2=="device"{print $1; exit}')"
+fi
+
+WIN_MOBILE_DIR="$(cygpath -w "$MOBILE_DIR")"
+QR_BAT="$LOG_DIR/run-expo-qr.bat"
+
+if [ -n "$USB_DEVICE" ]; then
+  # A device is connected and authorized over USB — tunnel through the cable
+  # instead of the LAN. This sidesteps router AP/client isolation (common on
+  # mesh/shared Wi-Fi) that blocks phone<->laptop traffic even on one SSID.
+  echo "  USB device detected ($USB_DEVICE) — using adb reverse instead of Wi-Fi."
+  adb reverse tcp:8081 tcp:8081 >/dev/null 2>&1
+  adb reverse tcp:5000 tcp:5000 >/dev/null 2>&1
+  adb reverse tcp:5001 tcp:5001 >/dev/null 2>&1
+  # Expo CLI does its OWN `adb devices` check (to decide "press a" should use
+  # the USB-reversed localhost vs falling back to exp://<lan-ip>) — but this
+  # window is a separate cmd.exe process that won't have adb on PATH unless
+  # we put it there ourselves, since it doesn't inherit this script's PATH
+  # exports. Without it, Expo CLI silently can't see the device and falls
+  # back to the LAN IP even though the phone IS connected over USB.
+  ADB_DIR="$(dirname "$(command -v adb)")"
+  WIN_ADB_DIR="$(cygpath -w "$ADB_DIR")"
+  cat > "$QR_BAT" <<BATEOF
+@echo off
+set "PATH=$WIN_ADB_DIR;%PATH%"
+cd /d "$WIN_MOBILE_DIR"
+set "EXPO_PUBLIC_MAINTENANCE_URL=http://localhost:5000"
+set "EXPO_PUBLIC_API_URL=http://localhost:8000"
+npx expo start
+BATEOF
+  echo "  Opened a new terminal window — press 'a' there to open on the connected device over USB."
+else
+  LAN_IP="$(node -e "console.log(Object.values(require('os').networkInterfaces()).flat().filter(i=>i&&i.family==='IPv4'&&!i.internal).map(i=>i.address)[0]||'')" 2>/dev/null)"
+  if [ -n "$LAN_IP" ]; then
+    echo "  No USB device found — falling back to Wi-Fi. LAN IP: $LAN_IP"
+    echo "  Note: if your phone can't reach $LAN_IP (ERR_ADDRESS_UNREACHABLE), your router likely"
+    echo "  isolates Wi-Fi clients from each other — plug the phone in via USB and re-run instead."
+  else
+    echo "  Could not auto-detect a LAN IP — set EXPO_PUBLIC_MAINTENANCE_URL/EXPO_PUBLIC_API_URL yourself if a real device can't reach localhost."
+  fi
+  # Write a real .bat file instead of nesting quotes through
+  # bash -> cmd.exe //c -> start -> cmd //k (that path breaks: `start`'s own
+  # argument parsing mangles nested quotes/spaces long before cmd /k sees them,
+  # which is what threw "filename, directory name, or volume label syntax is
+  # incorrect" — cd /d received a truncated path). A .bat file sidesteps all of
+  # that: each line is parsed once, normally, by the same cmd.exe that runs it.
+  cat > "$QR_BAT" <<BATEOF
+@echo off
+cd /d "$WIN_MOBILE_DIR"
+set "EXPO_PUBLIC_MAINTENANCE_URL=http://$LAN_IP:5000"
+set "EXPO_PUBLIC_API_URL=http://$LAN_IP:8000"
+npx expo start
+BATEOF
+  echo "  Opened a new terminal window — scan the QR code it prints with Expo Go, or press 'a' once a dev-client build is installed on your phone."
+fi
+
+WIN_QR_BAT="$(cygpath -w "$QR_BAT")"
+cmd.exe //c start "Expo Dev Server (scan QR here)" "$WIN_QR_BAT"
 
 cat <<EOF
 
@@ -123,7 +209,8 @@ Kaduna.lk dev stack is running:
   geo-intelligence       http://localhost:5001/docs
   predictive-maintenance http://localhost:5000/docs
   dashboard-web          http://localhost:3000
-  mobile (Expo web)      http://localhost:8081
+  mobile (Expo web)      http://localhost:8090
+  mobile (Expo dev server, real QR) — see the separate terminal window
 
 Not started (need Postgres, dispatch also needs Redis):
   dispatch          components/dispatch      (port 3001)

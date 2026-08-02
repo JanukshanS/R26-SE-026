@@ -1,40 +1,48 @@
 /**
  * ============================================================================
- * ELM327 Service — facade over a REAL BLE reader with a SIMULATION fallback
+ * ELM327 Service — facade over REAL Bluetooth readers with a SIMULATION fallback
  * ============================================================================
  *
  * Public entry point for the rest of the app. Callers (`home.tsx`,
- * `(emergency)/context.tsx`) import everything from here and never need to
- * know whether the readings came from a physical ELM327 dongle over Bluetooth
- * or from the on-device simulation.
+ * `(emergency)/context.tsx`, `tripRecorder.ts`) import everything from here
+ * and never need to know whether readings came from a physical ELM327 over
+ * BLE, over classic Bluetooth, or from the on-device simulation.
  *
- * Routing rule (decided once, at runtime):
- *   - If the native `react-native-ble-plx` module is actually present AND the
- *     scan/connect/handshake succeeds → use the REAL reader (`elm327.ble.ts`).
- *   - Otherwise — web, Expo Go (native module can't load), no Bluetooth
- *     adapter, no dongle found, or any connect/read failure → transparently
- *     use the SIMULATION (`elm327.sim.ts`). Every existing screen keeps
- *     working unchanged; the demo never breaks.
+ * Routing rule (decided once per pairing attempt, at runtime):
+ *   1. If the native `react-native-ble-plx` module is present AND a BLE
+ *      ELM327-looking device is found and connects → use BLE (`elm327.ble.ts`).
+ *   2. Otherwise, if `react-native-bluetooth-classic` is present AND an
+ *      already-bonded ELM327-looking device connects → use classic Bluetooth
+ *      (`elm327.classic.ts`). Most cheap "Bluetooth OBD2" dongles are
+ *      actually classic (SPP), not BLE — a PIN prompt during Android pairing
+ *      is the tell. A BLE scan can never see these, so without this fallback
+ *      they'd silently and permanently read as simulated.
+ *   3. Otherwise — web, Expo Go (native modules can't load), no adapter, no
+ *      dongle found, or any connect/read failure → transparently use the
+ *      SIMULATION (`elm327.sim.ts`). Every existing screen keeps working
+ *      unchanged; the demo never breaks.
  *
  * Why a facade instead of one big file with an `if`: the simulation is the
- * fallback and stays self-contained; the BLE code is the only place that
- * `require()`s native and must be loaded defensively. Splitting them keeps
- * each readable and guarantees the native require can't leak into the
- * always-evaluated path.
+ * fallback and stays self-contained; the BLE and classic modules are the only
+ * places that `require()` native code and must be loaded defensively.
+ * Splitting them keeps each readable and guarantees a native require can't
+ * leak into the always-evaluated path.
  *
  * API COMPATIBILITY
  * -----------------
  * The synchronous `pairElm327(vehicleId)` is preserved verbatim (it pairs the
- * simulation and returns `PairingInfo` immediately — no UI churn). Real BLE
- * pairing is inherently async (scan+connect takes seconds), so it gets its own
- * `pairElm327Async(vehicleId)` which `home.tsx` awaits behind a "Connecting…"
- * state and which falls back to the sim on failure.
+ * simulation and returns `PairingInfo` immediately — no UI churn). Real
+ * pairing (BLE or classic) is inherently async (scan/lookup + connect takes
+ * seconds), so it gets its own `pairElm327Async(vehicleId)` which `home.tsx`
+ * awaits behind a "Connecting…" state and which falls back to the sim on
+ * failure.
  *
  * @author Janukshan Sivakumar - IT22635266
  */
 
 import * as sim from "./elm327.sim";
 import * as ble from "./elm327.ble";
+import * as classic from "./elm327.classic";
 
 // Re-export the shared types & constants unchanged so callers keep importing
 // them from "@lib/elm327".
@@ -45,11 +53,11 @@ import type { PairingInfo, VehicleState } from "./elm327.sim";
 export type { PairingInfo };
 
 /**
- * How the current pairing is backed. "ble" means a live dongle; "sim" means
- * the on-device fallback. Tracked so the facade routes reads correctly and so
- * teardown hits the right backend.
+ * How the current pairing is backed. "ble"/"classic" mean a live dongle over
+ * that transport; "sim" means the on-device fallback. Tracked so the facade
+ * routes reads correctly and so teardown hits the right backend.
  */
-type Backend = "ble" | "sim" | null;
+type Backend = "ble" | "classic" | "sim" | null;
 let backend: Backend = null;
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -57,12 +65,15 @@ let backend: Backend = null;
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * True if EITHER a real ELM327 is connected OR the simulation is paired.
- * `home.tsx` uses this to decide whether to show the "Connect OBD-II" modal,
- * and `(emergency)/context.tsx` to label the expected triage tier.
+ * True if EITHER a real ELM327 is connected (either transport) OR the
+ * simulation is paired. `home.tsx` uses this to decide whether to show the
+ * "Connect OBD-II" modal, and `(emergency)/context.tsx` to label the
+ * expected triage tier.
  */
 export function isElm327Paired(): boolean {
-  return backend === "ble" ? ble.isConnected() : sim.isPaired();
+  if (backend === "ble") return ble.isConnected();
+  if (backend === "classic") return classic.isConnected();
+  return sim.isPaired();
 }
 
 /**
@@ -71,8 +82,9 @@ export function isElm327Paired(): boolean {
  * synthesized condition). For the simulation it's the synthesized handle.
  */
 export function getPairing(): Readonly<PairingInfo> | null {
-  // Real-BLE pairing also records a sim-shaped PairingInfo (with the real MAC)
-  // so this getter stays uniform for callers; see pairElm327Async.
+  // Real pairing (either transport) also records a sim-shaped PairingInfo
+  // (with the real MAC/source) so this getter stays uniform for callers;
+  // see pairElm327Async.
   return sim.getPairing();
 }
 
@@ -96,8 +108,8 @@ export function getCurrentState(): VehicleState | null {
 /**
  * SYNCHRONOUS pairing — pairs the SIMULATION and returns immediately. Kept for
  * backwards compatibility and as the guaranteed-instant path. `home.tsx` now
- * prefers `pairElm327Async` (which tries the real dongle first), but anything
- * that needs a synchronous PairingInfo can still call this.
+ * prefers `pairElm327Async` (which tries the real transports first), but
+ * anything that needs a synchronous PairingInfo can still call this.
  */
 export function pairElm327(vehicleId: string): PairingInfo {
   const info = sim.pair(vehicleId);
@@ -106,45 +118,68 @@ export function pairElm327(vehicleId: string): PairingInfo {
 }
 
 /**
- * ASYNC pairing — tries the REAL ELM327 over BLE first; on any failure
- * (BLE unavailable, no dongle, connect/handshake error) transparently falls
- * back to the simulation so pairing never hard-fails the user. Returns the
+ * ASYNC pairing — tries BLE first, then classic Bluetooth, then falls back
+ * to the simulation so pairing never hard-fails the user. Returns the
  * `PairingInfo` either way.
  *
- * `home.tsx` awaits this behind a "Connecting…" state. On a successful BLE
+ * `home.tsx` awaits this behind a "Connecting…" state. On a successful real
  * connect, `isElm327Paired()` returns true and reads flow from the dongle.
  *
  * @throws never — always resolves (real or simulated).
  */
 export async function pairElm327Async(vehicleId: string): Promise<PairingInfo> {
-  // No native BLE here (web / Expo Go / no adapter) → straight to sim.
-  if (!ble.isBleAvailable()) {
-    return pairElm327(vehicleId);
+  console.log(`[ELM327:Facade] pairElm327Async — bleAvailable=${ble.isBleAvailable()} classicAvailable=${classic.isClassicAvailable()}`);
+
+  if (ble.isBleAvailable()) {
+    try {
+      const { mac, name } = await ble.connect();
+      console.log(`[ELM327:Facade] BLE connected: ${name ?? mac}`);
+      return recordRealPairing(vehicleId, "ble", mac, name);
+    } catch (e) {
+      console.log(`[ELM327:Facade] BLE connect failed, trying classic next: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
-  try {
-    const { mac } = await ble.connect();
-    // Record a uniform PairingInfo carrying the REAL device MAC so getPairing()
-    // and the home modal behave identically to the sim path. Reads, however,
-    // are routed to BLE via `backend`.
-    const info = sim.pair(vehicleId);
-    (info as { mac: string }).mac = mac;
-    backend = "ble";
-    return info;
-  } catch {
-    // Scan/connect/handshake failed — fall back to the simulation so the user
-    // still gets a working (simulated) OBD session instead of a dead end.
-    return pairElm327(vehicleId);
+  if (classic.isClassicAvailable()) {
+    try {
+      const { mac, name } = await classic.connect();
+      console.log(`[ELM327:Facade] Classic connected: ${name ?? mac}`);
+      return recordRealPairing(vehicleId, "classic", mac, name);
+    } catch (e) {
+      console.log(`[ELM327:Facade] Classic connect failed, falling back to simulation: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
+
+  console.log(`[ELM327:Facade] Falling back to simulation.`);
+  return pairElm327(vehicleId);
 }
 
 /**
- * Whether the current runtime can even attempt a real BLE connection
- * (false on web and in Expo Go). `home.tsx` can use this to tailor copy
- * ("Pair OBD-II" vs "Pair (simulated)") if desired — optional.
+ * Record a uniform PairingInfo carrying the REAL device MAC/name/source so
+ * getPairing() and the home modal behave identically regardless of which
+ * transport actually connected. Reads are routed by `backend`.
+ */
+function recordRealPairing(
+  vehicleId: string,
+  via: "ble" | "classic",
+  mac: string,
+  name: string | null
+): PairingInfo {
+  const info = sim.pair(vehicleId);
+  (info as { mac: string }).mac = mac;
+  (info as { source: string }).source = via;
+  (info as { deviceName?: string }).deviceName = name ?? undefined;
+  backend = via;
+  return info;
+}
+
+/**
+ * Whether the current runtime can even attempt a real connection (BLE or
+ * classic) — false on web and in Expo Go. `home.tsx` can use this to tailor
+ * copy ("Pair OBD-II" vs "Pair (simulated)") if desired — optional.
  */
 export function isRealBleSupported(): boolean {
-  return ble.isBleAvailable();
+  return ble.isBleAvailable() || classic.isClassicAvailable();
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -152,15 +187,14 @@ export function isRealBleSupported(): boolean {
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Drop the pairing. Tears down a live BLE connection if there is one, and
- * always clears the simulation handle. Fire-and-forget on the BLE disconnect
- * so the signature stays synchronous (matches the previous contract; callers
- * like `home.tsx`'s Log out don't await it).
+ * Drop the pairing. Tears down a live connection (either transport) if
+ * there is one, and always clears the simulation handle. Fire-and-forget on
+ * the real disconnect so the signature stays synchronous (matches the
+ * previous contract; callers like `home.tsx`'s Log out don't await it).
  */
 export function unpairElm327(): void {
-  if (backend === "ble") {
-    void ble.disconnect();
-  }
+  if (backend === "ble") void ble.disconnect();
+  if (backend === "classic") void classic.disconnect();
   sim.unpair();
   backend = null;
 }
@@ -177,6 +211,10 @@ export function unpairElm327(): void {
  * If a real BLE read fails mid-session (e.g. the dongle drops), we degrade to
  * a simulated read rather than returning null — the emergency flow keeps a
  * Tier-2 payload instead of silently dropping to Tier-1.
+ *
+ * NOTE: classic Bluetooth doesn't implement this triage-shaped read yet
+ * (only the trip-recorder's `readRawObdPids` below) — a classic-paired
+ * session reads simulated data here until that's added.
  */
 export async function readObdFromElm327(
   incidentId?: string
@@ -195,4 +233,27 @@ export async function readObdFromElm327(
   }
 
   return sim.readObd(incidentId);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Raw PID read (predictive-maintenance trip recorder)
+// ─────────────────────────────────────────────────────────────────────────
+
+export type { RawObdPids } from "./elm327.ble";
+
+/**
+ * Read raw Mode 01 PIDs for trip logging (`tripRecorder.ts`) — a different
+ * shape from `readObdFromElm327`'s triage data. Returns null when there's no
+ * live dongle connected (either transport); the trip recorder falls back to
+ * its own synthetic generator per-field in that case, same pattern as the
+ * triage path falling back to `elm327.sim.ts`.
+ */
+export async function readRawObdPids(): Promise<ble.RawObdPids | null> {
+  try {
+    if (backend === "ble" && ble.isConnected()) return await ble.readObdRaw();
+    if (backend === "classic" && classic.isConnected()) return await classic.readObdRaw();
+  } catch {
+    return null;
+  }
+  return null;
 }

@@ -4,8 +4,10 @@ import { router } from "expo-router";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Badge } from "@components/ui/badge";
+import { BottomNavBar } from "@components/ui/bottom-nav-bar";
 import { Card } from "@components/ui/card";
-import { Icon, type IconName } from "@components/ui/icon";
+import { Icon } from "@components/ui/icon";
+import { ObdSourceBadge } from "@components/ui/obd-source-badge";
 import { QuickAction } from "@components/ui/quick-action";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
@@ -16,24 +18,13 @@ import {
   type VehicleHealthResponse,
 } from "@lib/maintenanceApi";
 import { isElm327Paired, isRealBleSupported, pairElm327Async, unpairElm327 } from "@lib/elm327";
-import { haptics } from "@lib/haptics";
 import { useVehicle } from "@lib/vehicleContext";
 import { useHardwareBack } from "@lib/useHardwareBack";
+import { isTripActive, startTrip } from "@lib/tripRecorder";
 import { useIncompleteUploadStatus } from "@/features/report-accident/hooks/use-incomplete-upload-status";
 import { ClaimUploadReminderModal } from "@/features/report-accident/components/claim-upload-reminder-modal";
 
 const BOTTOM_SCROLL_PADDING = 112;
-
-type TabDef = { key: string; label: string; icon: IconName };
-
-const TABS_LEFT: TabDef[] = [
-  { key: "home", label: "Home", icon: "House" },
-  { key: "maintenance", label: "Maintenance", icon: "Wrench" },
-];
-const TABS_RIGHT: TabDef[] = [
-  { key: "store", label: "Store", icon: "Store" },
-  { key: "profile", label: "Profile", icon: "User" },
-];
 
 export default function DriverHomeScreen() {
   const insets = useSafeAreaInsets();
@@ -55,6 +46,11 @@ export default function DriverHomeScreen() {
   // (Expo Go, web, Bluetooth off, or nothing found) — so we don't need an
   // error branch here; we just close the modal once it settles.
   const [pairingObd, setPairingObd] = useState(false);
+  // Set once pairElm327Async resolves, so the modal can show exactly what
+  // happened (real dongle vs simulated fallback) instead of just closing
+  // silently — the user has no other way to know which one they got.
+  const [pairResult, setPairResult] = useState<{ source: "ble" | "classic" | "sim"; deviceName?: string } | null>(null);
+  const isRealPairResult = pairResult?.source === "ble" || pairResult?.source === "classic";
 
   const vehicleId = selectedVehicle?.plateNumber ?? "CBD-3742";
   const vehicleLabel = selectedVehicle
@@ -68,10 +64,10 @@ export default function DriverHomeScreen() {
       // back to the on-device simulation if none is reachable. Persists for
       // the session so subsequent triage submissions read live OBD telemetry
       // and run at Tier-2 (OBD-enhanced) on the dispatch backend.
-      await pairElm327Async(vehicleId);
+      const info = await pairElm327Async(vehicleId);
+      setPairResult({ source: info.source, deviceName: info.deviceName });
     } finally {
       setPairingObd(false);
-      setShowObd(false);
     }
   }, [vehicleId]);
 
@@ -285,6 +281,10 @@ export default function DriverHomeScreen() {
           </Card>
         </Pressable>
 
+        {/* Trip recorder card */}
+        <ObdSourceBadge />
+        <TripCard vehicleId={vehicleId} driverId={user?._id ?? "guest"} />
+
         <View style={{ gap: spacing.md }}>
           <Text style={{ ...typography.h3, color: palette.text }}>Quick Actions</Text>
           <View style={{ flexDirection: "row", gap: spacing.md }}>
@@ -385,7 +385,7 @@ export default function DriverHomeScreen() {
         </Pressable>
       </Screen>
 
-      <BottomNavBar />
+      <BottomNavBar activeTab="home" />
 
       {/* Vehicle picker modal */}
       <Modal visible={showVehiclePicker} transparent animationType="slide">
@@ -516,17 +516,29 @@ export default function DriverHomeScreen() {
                 width: 64,
                 height: 64,
                 borderRadius: 32,
-                backgroundColor: palette.brandSoft,
+                backgroundColor: pairResult
+                  ? isRealPairResult ? palette.successSoft : palette.warningSoft
+                  : palette.brandSoft,
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <Icon name="Plug" size={32} color={palette.brand} />
+              <Icon
+                name={
+                  pairResult
+                    ? isRealPairResult ? "BluetoothConnected" : "FlaskConical"
+                    : "Plug"
+                }
+                size={32}
+                color={pairResult ? (isRealPairResult ? palette.success : palette.warning) : palette.brand}
+              />
             </View>
 
             <View style={{ gap: spacing.sm, alignItems: "center" }}>
               <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
-                Connect OBD-II
+                {pairResult
+                  ? isRealPairResult ? "Connected!" : "Using Simulated Data"
+                  : "Connect OBD-II"}
               </Text>
               <Text
                 style={{
@@ -536,13 +548,17 @@ export default function DriverHomeScreen() {
                   lineHeight: 22,
                 }}
               >
-                {pairingObd
+                {pairResult
+                  ? isRealPairResult
+                    ? `Connected to ${pairResult.deviceName || "your ELM327 adapter"} (${pairResult.source === "ble" ? "BLE" : "classic Bluetooth"}). Trips will use live sensor data from your car.`
+                    : "No physical adapter was reachable, so this session will use realistic simulated OBD-II data instead of your car's real sensors."
+                  : pairingObd
                   ? "Scanning for your OBD-II adapter over Bluetooth…"
                   : "Pair an OBD-II adapter to let the app read live data from your vehicle and track its real health."}
               </Text>
               {/* In Expo Go / web the native Bluetooth module isn't loaded, so
                   pairing uses a realistic on-device simulation instead. */}
-              {!isRealBleSupported() && !pairingObd && (
+              {!pairResult && !isRealBleSupported() && !pairingObd && (
                 <Text
                   style={{ ...typography.micro, color: palette.textMuted, textAlign: "center" }}
                 >
@@ -551,49 +567,67 @@ export default function DriverHomeScreen() {
               )}
             </View>
 
-            <View style={{ flexDirection: "row", gap: spacing.md, width: "100%" }}>
+            {pairResult ? (
               <Pressable
-                disabled={pairingObd}
                 onPress={() => {
-                  // User chose not to connect a sensor — vehicle is "manual",
-                  // triage will run at Tier-1 (questionnaire only).
                   setShowObd(false);
+                  setPairResult(null);
                 }}
                 style={({ pressed }) => ({
-                  flex: 1,
+                  width: "100%",
                   borderRadius: radii.lg,
                   paddingVertical: spacing.md + 2,
                   alignItems: "center",
-                  borderWidth: 1.5,
-                  borderColor: palette.border,
-                  backgroundColor: pressed ? palette.homeBackground : "transparent",
-                  opacity: pairingObd ? 0.5 : 1,
-                })}
-              >
-                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Skip</Text>
-              </Pressable>
-
-              <Pressable
-                disabled={pairingObd}
-                onPress={handlePairObd}
-                style={({ pressed }) => ({
-                  flex: 1,
-                  borderRadius: radii.lg,
-                  paddingVertical: spacing.md + 2,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: spacing.sm,
                   backgroundColor: pressed ? palette.brandPressed : palette.brand,
-                  opacity: pairingObd ? 0.85 : 1,
                 })}
               >
-                {pairingObd && <ActivityIndicator size="small" color={palette.textOnBrand} />}
-                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-                  {pairingObd ? "Connecting…" : "Pair OBD-II"}
-                </Text>
+                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Continue</Text>
               </Pressable>
-            </View>
+            ) : (
+              <View style={{ flexDirection: "row", gap: spacing.md, width: "100%" }}>
+                <Pressable
+                  disabled={pairingObd}
+                  onPress={() => {
+                    // User chose not to connect a sensor — vehicle is "manual",
+                    // triage will run at Tier-1 (questionnaire only).
+                    setShowObd(false);
+                  }}
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    borderRadius: radii.lg,
+                    paddingVertical: spacing.md + 2,
+                    alignItems: "center",
+                    borderWidth: 1.5,
+                    borderColor: palette.border,
+                    backgroundColor: pressed ? palette.homeBackground : "transparent",
+                    opacity: pairingObd ? 0.5 : 1,
+                  })}
+                >
+                  <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Skip</Text>
+                </Pressable>
+
+                <Pressable
+                  disabled={pairingObd}
+                  onPress={handlePairObd}
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    borderRadius: radii.lg,
+                    paddingVertical: spacing.md + 2,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: spacing.sm,
+                    backgroundColor: pressed ? palette.brandPressed : palette.brand,
+                    opacity: pairingObd ? 0.85 : 1,
+                  })}
+                >
+                  {pairingObd && <ActivityIndicator size="small" color={palette.textOnBrand} />}
+                  <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
+                    {pairingObd ? "Connecting…" : "Pair OBD-II"}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -624,132 +658,64 @@ function HealthAlertPill({ text, danger = true }: { text: string; danger?: boole
   );
 }
 
-function BottomNavBar() {
-  const insets = useSafeAreaInsets();
+function TripCard({ vehicleId, driverId }: { vehicleId: string; driverId: string }) {
+  const [tripActive, setTripActive] = useState(isTripActive());
+
+  function handlePress() {
+    if (tripActive) {
+      router.push("/(driver)/active-trip");
+      return;
+    }
+    if (!isElm327Paired()) {
+      router.push("/(driver)/home");
+      return;
+    }
+    startTrip(vehicleId, driverId);
+    setTripActive(true);
+    router.push("/(driver)/active-trip");
+  }
+
   return (
-    <View
-      style={{
-        position: "absolute",
-        left: 0,
-        right: 0,
-        bottom: 0,
-        paddingBottom: insets.bottom,
-        backgroundColor: palette.surface,
-        borderTopWidth: 1,
-        borderTopColor: palette.border,
-        ...Platform.select({
-          ios: { shadowColor: "#000", shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 4 },
-          android: { elevation: 12 },
-        }),
-      }}
+    <Pressable
+      onPress={handlePress}
+      style={({ pressed }) => ({
+        backgroundColor: pressed ? palette.homeBackground : palette.surface,
+        borderRadius: radii.lg,
+        padding: spacing.lg,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: spacing.md,
+        borderWidth: 1.5,
+        borderColor: tripActive ? palette.success : palette.brand,
+      })}
     >
       <View
         style={{
-          flexDirection: "row",
+          width: 44,
+          height: 44,
+          borderRadius: radii.md,
+          backgroundColor: tripActive ? palette.successSoft : palette.brandSoft,
           alignItems: "center",
-          justifyContent: "space-around",
-          paddingVertical: spacing.sm,
-          paddingHorizontal: spacing.xs,
+          justifyContent: "center",
         }}
       >
-        {TABS_LEFT.map((tab) => (
-          <TabItem key={tab.key} tab={tab} active={tab.key === "home"} />
-        ))}
-        <EmergencyCenterButton />
-        {TABS_RIGHT.map((tab) => (
-          <TabItem key={tab.key} tab={tab} active={false} />
-        ))}
+        <Icon
+          name={tripActive ? "Activity" : "Play"}
+          size={20}
+          color={tripActive ? palette.success : palette.brand}
+        />
       </View>
-    </View>
-  );
-}
-
-function EmergencyCenterButton() {
-  return (
-    <Pressable
-      onPress={() => {
-        haptics.press();
-        router.push("/(emergency)/safety-check");
-      }}
-      style={({ pressed }) => ({
-        opacity: pressed ? 0.88 : 1,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: palette.brand,
-        alignItems: "center",
-        justifyContent: "center",
-        marginTop: -28,
-        ...Platform.select({
-          ios: { shadowColor: palette.brand, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10 },
-          android: { elevation: 6 },
-        }),
-      })}
-    >
-      <Icon name="Siren" size={26} color={palette.textOnBrand} />
-    </Pressable>
-  );
-}
-
-function TabItem({ tab, active }: { tab: TabDef; active: boolean }) {
-  const { user } = useVehicle();
-  const initials = user?.name
-    .split(" ")
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
-  return (
-    <Pressable
-      onPress={() => {
-        haptics.select();
-        if (tab.key === "maintenance") router.push("/(driver)/health");
-        if (tab.key === "store") router.push("/(driver)/order-parts");
-        if (tab.key === "profile") router.push("/(driver)/profile");
-      }}
-      style={({ pressed }) => ({
-        alignItems: "center",
-        justifyContent: "center",
-        paddingVertical: spacing.sm,
-        paddingHorizontal: spacing.xs,
-        gap: 2,
-        minWidth: 62,
-        opacity: pressed ? 0.85 : 1,
-      })}
-    >
-      {tab.key === "profile" && user ? (
-        <View
-          style={{
-            width: 24,
-            height: 24,
-            borderRadius: 12,
-            backgroundColor: palette.brand,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Text style={{ fontSize: 9, fontWeight: "700", color: palette.textOnBrand }}>
-            {initials}
-          </Text>
-        </View>
-      ) : (
-        <Icon name={tab.icon} size={22} color={active ? palette.brand : palette.textMuted} />
-      )}
-      <Text
-        style={{
-          ...typography.micro,
-          fontSize: 10,
-          fontWeight: "600",
-          color: active ? palette.brand : palette.textMuted,
-          textAlign: "center",
-        }}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.85}
-      >
-        {tab.label}
-      </Text>
+      <View style={{ flex: 1 }}>
+        <Text style={{ ...typography.bodyStrong, color: palette.text }}>
+          {tripActive ? "Trip in progress" : "Record a Trip"}
+        </Text>
+        <Text style={{ ...typography.caption, color: palette.textMuted }}>
+          {tripActive
+            ? "OBD & sensor data being collected — tap to view"
+            : "Collect OBD + sensor data to update vehicle health"}
+        </Text>
+      </View>
+      <Icon name="ChevronRight" size={18} color={palette.textMuted} />
     </Pressable>
   );
 }

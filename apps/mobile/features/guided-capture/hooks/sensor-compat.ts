@@ -24,7 +24,7 @@ function subscribeViaEventEmitter<T>(
   try {
     const mod = requireOptionalNativeModule(moduleName);
     if (!mod) return NOOP_SUB;
-    const emitter = new EventEmitter(mod as Parameters<typeof EventEmitter>[0]);
+    const emitter = new EventEmitter(mod as ConstructorParameters<typeof EventEmitter>[0]);
     return (emitter as unknown as { addListener: (name: string, cb: (d: T) => void) => Subscription })
       .addListener(eventName, listener);
   } catch {

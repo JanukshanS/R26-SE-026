@@ -3,11 +3,11 @@
  * ELM327 Service — REAL Bluetooth (BLE) OBD-II reader
  * ============================================================================
  *
- * Talks to a physical ELM327 BLE dongle over `react-native-ble-plx`, runs the
- * standard ELM327 AT init handshake, queries Mode 01 PIDs, and parses the hex
- * into the same `TriageOBDData` shape the simulation produces. The facade
- * (`elm327.ts`) only ever reaches this module when the native BLE stack is
- * actually present — otherwise it uses `elm327.sim.ts`.
+ * Talks to a physical ELM327 BLE dongle over `react-native-ble-plx`. The AT
+ * handshake, Mode 01 PID queries, and hex parsing are shared with the classic
+ * Bluetooth transport (`elm327.classic.ts`) via `elm327.protocol.ts` — this
+ * file only implements the BLE-specific transport (scan, connect, GATT
+ * write/notify) and hands it a `sendCommand` function.
  *
  * WHY THIS MUST BE LOADED DEFENSIVELY
  * -----------------------------------
@@ -18,8 +18,8 @@
  * import of this file. So we `require()` it lazily inside a try/catch and
  * construct the manager defensively; any failure (module missing, constructor
  * throws, adapter off) flips `bleAvailable` to false and the facade falls
- * back to the simulation. Real BLE only comes alive in a dev/standalone build
- * where the native module is linked.
+ * back to classic Bluetooth, then the simulation. Real BLE only comes alive
+ * in a dev/standalone build where the native module is linked.
  *
  * WHAT A GENERIC OBD-II PORT CAN AND CANNOT GIVE US
  * -------------------------------------------------
@@ -38,6 +38,14 @@
 
 import { Platform } from "react-native";
 import type { TriageOBDData, VehicleState } from "./elm327.sim";
+import {
+  discoverSupportedPids,
+  queryPid as protocolQueryPid,
+  readObdRawGeneric,
+  runInitHandshake,
+  sanitizeForLog,
+  type RawObdPids,
+} from "./elm327.protocol";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Minimal structural types for the dynamically-required native module
@@ -257,6 +265,13 @@ interface BleLink {
   rxBuffer:   string;
   /** Resolver waiting for the next `>`-terminated response, if any. */
   waiter:     ((data: string) => void) | null;
+  /**
+   * Mode 01 PIDs (decimal) this ECU actually answers, from querying 0100/0140
+   * right after connect. `null` means discovery itself failed (e.g. adapter
+   * didn't answer either support query) — in that case we fall back to
+   * trying every target PID directly rather than skipping all of them.
+   */
+  supportedPids: Set<number> | null;
 }
 
 let link: BleLink | null = null;
@@ -273,6 +288,7 @@ export function isConnected(): boolean {
 const SCAN_TIMEOUT_MS    = 12_000; // time to find any ELM327-looking device
 const CONNECT_TIMEOUT_MS = 10_000;
 const PROMPT_TIMEOUT_MS  = 4_000;  // per AT/PID command, wait for `>`
+const LOG_TAG = "[ELM327:BLE]";
 
 /**
  * An ELM327 advertises under a handful of names ("OBDII", "OBD II", "Vlink",
@@ -386,7 +402,8 @@ async function pickSerialCharacteristic(device: BleDevice): Promise<{
 /**
  * Full connect path: scan → connect → discover → wire notifications → run the
  * ELM327 AT init handshake. On ANY failure we clean up and throw, so the
- * facade can fall back to the simulation. Resolves with the device MAC/id.
+ * facade can fall back to classic Bluetooth, then the simulation. Resolves
+ * with the device MAC/id.
  */
 export async function connect(): Promise<{ mac: string; name: string | null }> {
   const manager = getManager();
@@ -423,6 +440,7 @@ export async function connect(): Promise<{ mac: string; name: string | null }> {
     sub: undefined as unknown as BleSubscription, // set just below
     rxBuffer: "",
     waiter: null,
+    supportedPids: null,
   };
 
   newLink.sub = connected.monitorCharacteristicForService(
@@ -444,11 +462,26 @@ export async function connect(): Promise<{ mac: string; name: string | null }> {
   link = newLink;
 
   try {
-    await runInitHandshake();
+    await runInitHandshake(sendCommand, LOG_TAG);
   } catch (e) {
     // Init failed — tear the half-open link down so we cleanly fall back.
     await disconnect();
     throw e;
+  }
+
+  // Discover which Mode 01 PIDs this ECU actually answers (0100 covers
+  // PIDs 01-20, 0140 covers 41-60 — together they cover every PID our
+  // 8-field read needs, including 0142 which lives in the second range).
+  // Best-effort: if discovery itself fails, leave supportedPids null so
+  // readObdRaw() falls back to trying every target PID directly, same as
+  // before this existed.
+  try {
+    newLink.supportedPids = await discoverSupportedPids(sendCommand, LOG_TAG);
+    const list = [...newLink.supportedPids].sort((a, b) => a - b).map((p) => "0x" + p.toString(16).padStart(2, "0"));
+    console.log(`${LOG_TAG} PID support discovered: [${list.join(",")}]`);
+  } catch (e) {
+    console.log(`${LOG_TAG} PID support discovery failed (will try every target PID directly): ${e instanceof Error ? e.message : String(e)}`);
+    newLink.supportedPids = null;
   }
 
   return { mac: connected.id, name: connected.name };
@@ -466,6 +499,7 @@ function sendCommand(cmd: string): Promise<string> {
   const l = link;
   if (!l) return Promise.reject(new Error("Not connected."));
 
+  console.log(`${LOG_TAG} TX ${cmd}`);
   const payload = asciiToBase64(`${cmd}\r`);
 
   const wait = new Promise<string>((resolve) => {
@@ -482,90 +516,20 @@ function sendCommand(cmd: string): Promise<string> {
     write.then(() => wait),
     PROMPT_TIMEOUT_MS,
     `cmd ${cmd}`
-  ).catch((e) => {
+  ).then((resp) => {
+    console.log(`${LOG_TAG} RX ${cmd} -> "${sanitizeForLog(resp)}"`);
+    return resp;
+  }).catch((e) => {
     // Drop a stale waiter so the next command starts clean.
     if (l.waiter) l.waiter = null;
+    console.log(`${LOG_TAG} TIMEOUT/ERROR ${cmd} -> ${e instanceof Error ? e.message : String(e)}`);
     throw e;
   });
 }
 
-/**
- * Standard ELM327 bring-up. Each line is ASCII + `\r`, terminated by `>`.
- *   ATZ   — reset (slow; give it room)
- *   ATE0  — echo off (so responses aren't prefixed with the command)
- *   ATL0  — linefeeds off
- *   ATS0  — spaces off (compact hex)
- *   ATSP0 — automatic protocol detection
- * We tolerate individual command hiccups except ATZ; a dongle that won't
- * reset isn't usable.
- */
-async function runInitHandshake(): Promise<void> {
-  await sendCommand("ATZ");                 // must succeed
-  for (const cmd of ["ATE0", "ATL0", "ATS0", "ATSP0"]) {
-    try { await sendCommand(cmd); } catch { /* non-fatal: keep going */ }
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Mode 01 PID query + parse
-// ─────────────────────────────────────────────────────────────────────────
-
-/**
- * Parse an ELM327 Mode 01 response into its data bytes. For a request `01XX`
- * the positive response starts with `41 XX` then the data bytes. With ATS0
- * (spaces off) a response looks like `410C1AF8`. We locate the `41XX` marker
- * and return the bytes after it. Returns null if the response is an error
- * ("NO DATA", "?", "SEARCHING", "UNABLE TO CONNECT") or doesn't match.
- */
-function parsePidBytes(pid: string, raw: string): number[] | null {
-  // Normalize: strip prompt, whitespace, echoes; uppercase hex only.
-  const cleaned = raw
-    .toUpperCase()
-    .replace(/[\r\n>]/g, " ")
-    .replace(/\s+/g, "");
-  if (
-    cleaned.includes("NODATA") ||
-    cleaned.includes("UNABLE") ||
-    cleaned.includes("SEARCHING") ||
-    cleaned.includes("STOPPED") ||
-    cleaned.includes("ERROR") ||
-    cleaned.includes("?")
-  ) {
-    return null;
-  }
-
-  const marker = `41${pid.slice(2).toUpperCase()}`; // e.g. "010C" → "410C"
-  const idx = cleaned.indexOf(marker);
-  if (idx === -1) return null;
-
-  const hex = cleaned.slice(idx + marker.length);
-  if (hex.length < 2 || hex.length % 2 !== 0) {
-    // Trim a trailing odd nibble defensively, then re-check.
-    const even = hex.slice(0, hex.length - (hex.length % 2));
-    if (even.length < 2) return null;
-    return splitBytes(even);
-  }
-  return splitBytes(hex);
-}
-
-function splitBytes(hex: string): number[] {
-  const bytes: number[] = [];
-  for (let i = 0; i < hex.length; i += 2) {
-    const b = parseInt(hex.slice(i, i + 2), 16);
-    if (Number.isNaN(b)) break;
-    bytes.push(b);
-  }
-  return bytes;
-}
-
-/** Query one PID, returning its data bytes (or null on no-data/timeout). */
-async function queryPid(pid: string): Promise<number[] | null> {
-  try {
-    const raw = await sendCommand(pid);
-    return parsePidBytes(pid, raw);
-  } catch {
-    return null; // timeout / write failure — treat as unavailable PID
-  }
+/** Query one PID via the shared protocol logic, tagged for BLE in the logs. */
+function queryPid(pid: string): Promise<number[] | null> {
+  return protocolQueryPid(sendCommand, pid, LOG_TAG);
 }
 
 /**
@@ -637,6 +601,19 @@ export async function readObd(): Promise<TriageOBDData | null> {
   return out as TriageOBDData;
 }
 
+/**
+ * Read the Mode 01 PIDs the trip recorder needs. Returns null only if there's
+ * no live link at all; individual PIDs that don't answer are simply omitted
+ * from the result rather than failing the whole read.
+ */
+export async function readObdRaw(): Promise<RawObdPids | null> {
+  if (!link) {
+    console.log(`${LOG_TAG} readObdRaw: no live link — skipping (caller falls back to synthetic)`);
+    return null;
+  }
+  return readObdRawGeneric(sendCommand, link.supportedPids, LOG_TAG);
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Teardown
 // ─────────────────────────────────────────────────────────────────────────
@@ -652,3 +629,4 @@ export async function disconnect(): Promise<void> {
 
 // Re-export the shared types for the facade's convenience.
 export type { TriageOBDData, VehicleState };
+export type { RawObdPids };
