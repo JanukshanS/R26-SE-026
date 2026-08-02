@@ -105,6 +105,17 @@ export interface PairingInfo {
   pairedAt:   number;
   vehicleId:  string;
   state:      VehicleState;
+  /**
+   * "ble"/"classic" = a real ELM327 is connected (over that transport) and
+   * readings are genuine telemetry. "sim" = the on-device simulation (no
+   * dongle, neither transport available, or the real connect attempt
+   * failed). Defaults to "sim" here; the facade (`elm327.ts`) overwrites
+   * this after a successful real connect, same pattern it already uses to
+   * overwrite `mac` with the real device id.
+   */
+  source: "ble" | "classic" | "sim";
+  /** Advertised device name, e.g. "VEEPEAK OBDII" — real connections only. */
+  deviceName?: string;
 }
 
 let pairing: PairingInfo | null = null;
@@ -151,6 +162,7 @@ export function pair(vehicleId: string): PairingInfo {
     pairedAt:  Date.now(),
     vehicleId,
     state:     forcedState ?? pickState(),
+    source:    "sim",
   };
   lastReadIncidentId = null;
   return pairing;

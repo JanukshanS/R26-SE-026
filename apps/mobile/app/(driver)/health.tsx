@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import Svg, { Circle } from "react-native-svg";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BottomNavBar, NAV_BAR_HEIGHT } from "@components/ui/bottom-nav-bar";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import {
+  ALERT_THRESHOLD_PCT,
   FALLBACK_HEALTH,
   getVehicleHealth,
   rulToLabel,
@@ -15,34 +18,99 @@ import {
 import { useVehicle } from "@lib/vehicleContext";
 
 const COMPONENT_META: Record<ComponentKey, { label: string; icon: string }> = {
-  engine: { label: "Engine Oil", icon: "Gauge" },
-  brake: { label: "Brake Pads", icon: "Disc" },
+  engine: { label: "Engine", icon: "Gauge" },
+  brake: { label: "Brakes", icon: "Disc" },
   tire: { label: "Tyres", icon: "Circle" },
   battery: { label: "Battery", icon: "Battery" },
 };
 
-const COMPONENT_ORDER: ComponentKey[] = ["brake", "engine", "tire", "battery"];
+// Left column: engine, tire — Right column: brake, battery
+const LEFT_COL: ComponentKey[] = ["engine", "tire"];
+const RIGHT_COL: ComponentKey[] = ["brake", "battery"];
+
+function healthColor(pct: number): string {
+  if (pct >= 75) return palette.success;
+  if (pct >= 50) return palette.warning;
+  return palette.danger;
+}
+
+/** Ring/text color for a component — "No data" gets a neutral color, not a
+ * false "danger" red from its placeholder 0% score. */
+function statusColor(c: { status: string; health_pct: number }): string {
+  return c.status === "No data" ? palette.textMuted : healthColor(c.health_pct);
+}
+
+function RingProgress({
+  pct,
+  size,
+  thickness,
+  color,
+}: {
+  pct: number;
+  size: number;
+  thickness: number;
+  color: string;
+}) {
+  const r = (size - thickness) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circumference = 2 * Math.PI * r;
+  const filled = circumference * Math.min(pct / 100, 1);
+
+  return (
+    <Svg width={size} height={size} style={{ transform: [{ rotate: "-90deg" }] }}>
+      <Circle cx={cx} cy={cy} r={r} stroke={palette.border} strokeWidth={thickness} fill="none" />
+      <Circle
+        cx={cx}
+        cy={cy}
+        r={r}
+        stroke={color}
+        strokeWidth={thickness}
+        fill="none"
+        strokeDasharray={[circumference, circumference]}
+        strokeDashoffset={circumference - filled}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
 
 export default function HealthScreen() {
   const insets = useSafeAreaInsets();
   const { selectedVehicle } = useVehicle();
-  const [data, setData] = useState<VehicleHealthResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-
   const vehicleId = selectedVehicle?.plateNumber ?? "CBD-3742";
   const vehicleLabel = selectedVehicle
     ? selectedVehicle.nickname || `${selectedVehicle.make} ${selectedVehicle.model}`
     : "Toyota Aqua";
 
+  const [data, setData] = useState<VehicleHealthResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
   useEffect(() => {
     setLoading(true);
+    setError(false);
+    setData(null);
     getVehicleHealth(vehicleId)
       .then(setData)
-      .catch(() => setData(FALLBACK_HEALTH))
+      .catch(() => {
+        setData(FALLBACK_HEALTH);
+        setError(true);
+      })
       .finally(() => setLoading(false));
   }, [vehicleId]);
 
   const health = data ?? FALLBACK_HEALTH;
+  const noData = health.overall_status === "No data";
+  const overallColor = statusColor({ status: health.overall_status, health_pct: health.overall_health_pct });
+  const allKeys: ComponentKey[] = ["engine", "brake", "tire", "battery"];
+  // Only flag components that have crossed the alert threshold (< 35%).
+  // "No data" (no trips yet) is not an alert — Fair (50–74%) is also normal.
+  const alertKeys = allKeys.filter(
+    (k) =>
+      health.components[k].status !== "No data" &&
+      health.components[k].health_pct < ALERT_THRESHOLD_PCT
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
@@ -65,131 +133,230 @@ export default function HealthScreen() {
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={{ ...typography.h3, color: palette.text }}>Vehicle Health</Text>
+          <Text style={{ ...typography.caption, color: palette.textMuted }}>{vehicleId}</Text>
         </View>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.xs,
-            paddingHorizontal: spacing.md,
-            paddingVertical: 5,
-            borderRadius: radii.md,
-            backgroundColor: palette.brandSoft,
-          }}
-        >
-          <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "700" }}>
-            {vehicleLabel}
-          </Text>
-        </View>
+        {loading ? (
+          <ActivityIndicator size="small" color={palette.brand} />
+        ) : error ? (
+          <OfflineBadge />
+        ) : (
+          <View
+            style={{
+              paddingHorizontal: spacing.md,
+              paddingVertical: 5,
+              borderRadius: radii.md,
+              backgroundColor: palette.brandSoft,
+            }}
+          >
+            <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "700" }}>
+              {vehicleLabel}
+            </Text>
+          </View>
+        )}
       </View>
 
       <ScrollView
         contentContainerStyle={{
           padding: spacing.lg,
           gap: spacing.md,
-          paddingBottom: insets.bottom + spacing.xxxl,
+          paddingBottom: insets.bottom + NAV_BAR_HEIGHT + spacing.lg,
         }}
       >
-        {/* Overall health card */}
+        {/* ── Overall health ring card ── */}
         <View
           style={{
             backgroundColor: palette.surface,
             borderRadius: radii.lg,
-            padding: spacing.lg,
-            borderLeftWidth: 4,
-            borderLeftColor: palette.brand,
+            paddingVertical: spacing.xl,
+            paddingHorizontal: spacing.lg,
+            alignItems: "center",
             gap: spacing.md,
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <Text style={{ ...typography.bodyStrong, color: palette.text }}>Vehicle Health</Text>
+          {/* Large ring */}
+          <View style={{ width: 160, height: 160 }}>
             {loading ? (
-              <ActivityIndicator size="small" color={palette.brand} />
+              <View
+                style={{
+                  width: 160,
+                  height: 160,
+                  borderRadius: 80,
+                  borderWidth: 14,
+                  borderColor: palette.border,
+                  opacity: 0.35,
+                }}
+              />
             ) : (
-              <StatusBadge status={health.overall_status} />
+              <>
+                <RingProgress
+                  pct={noData ? 100 : health.overall_health_pct}
+                  size={160}
+                  thickness={14}
+                  color={noData ? palette.border : overallColor}
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 2,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 38,
+                      fontWeight: "800",
+                      color: overallColor,
+                      lineHeight: 42,
+                    }}
+                  >
+                    {noData ? "—" : `${Math.round(health.overall_health_pct)}%`}
+                  </Text>
+                  <Text style={{ ...typography.caption, color: palette.textMuted, fontWeight: "600" }}>
+                    {health.overall_status}
+                  </Text>
+                </View>
+              </>
             )}
           </View>
 
-          <Text
-            style={{
-              fontSize: 52,
-              fontWeight: "700",
-              color: health.overall_status === "No data"
-                ? palette.textMuted
-                : healthColor(health.overall_health_pct),
-              lineHeight: 56,
-            }}
-          >
-            {health.overall_status === "No data"
-              ? "—"
-              : `${Math.round(health.overall_health_pct)}%`}
-          </Text>
+          {/* Trip stats row */}
+          {!loading && !error && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+              <Icon name="Route" size={13} color={palette.textMuted} />
+              <Text style={{ ...typography.caption, color: palette.textMuted }}>
+                {health.trip_count} trip{health.trip_count !== 1 ? "s" : ""} ·{" "}
+                {Math.round(health.total_mileage_km).toLocaleString()} km total
+              </Text>
+            </View>
+          )}
 
-          {/* Alert pills */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: spacing.sm }}
-          >
-            {health.overall_status === "No data" ? (
-              <NeutralPill text="No trips recorded yet — drive to assess" />
+          {/* Status pills */}
+          {!loading &&
+            (noData ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: spacing.xs,
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.sm,
+                  borderRadius: radii.pill,
+                  backgroundColor: palette.surfaceMuted,
+                }}
+              >
+                <Icon name="Info" size={13} color={palette.textMuted} />
+                <Text style={{ ...typography.caption, color: palette.textMuted, fontWeight: "500" }}>
+                  No trips recorded yet — drive to assess
+                </Text>
+              </View>
+            ) : alertKeys.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: spacing.sm }}
+              >
+                {alertKeys.map((k) => (
+                  <AlertPill
+                    key={k}
+                    text={`${COMPONENT_META[k].label}: ${rulToLabel(health.components[k])}`}
+                  />
+                ))}
+              </ScrollView>
             ) : (
-              COMPONENT_ORDER.filter(
-                (k) =>
-                  health.components[k].status !== "Good" &&
-                  health.components[k].status !== "No data"
-              ).map((k) => (
-                <AlertPill
-                  key={k}
-                  text={`${COMPONENT_META[k].label}: ${rulToLabel(health.components[k])}`}
-                />
-              ))
-            )}
-          </ScrollView>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: spacing.xs,
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.sm,
+                  borderRadius: radii.pill,
+                  backgroundColor: palette.successSoft,
+                }}
+              >
+                <Icon name="CheckCircle" size={13} color={palette.success} />
+                <Text style={{ ...typography.caption, color: palette.success, fontWeight: "500" }}>
+                  All components healthy
+                </Text>
+              </View>
+            ))}
         </View>
 
-        {/* Component rows */}
-        <View
-          style={{
-            backgroundColor: palette.surface,
-            borderRadius: radii.lg,
-            overflow: "hidden",
-          }}
-        >
-          {COMPONENT_ORDER.map((key, idx) => (
-            <ComponentRow
-              key={key}
-              componentKey={key}
-              component={health.components[key]}
-              label={COMPONENT_META[key].label}
-              icon={COMPONENT_META[key].icon as any}
-              isLast={idx === COMPONENT_ORDER.length - 1}
-            />
-          ))}
+        {/* ── Component health 2×2 grid ── */}
+        <Text style={{ ...typography.bodyStrong, color: palette.text }}>Component Health</Text>
+
+        <View style={{ flexDirection: "row", gap: spacing.md }}>
+          <View style={{ flex: 1, gap: spacing.md }}>
+            {LEFT_COL.map((key) =>
+              loading ? (
+                <ComponentCardSkeleton key={key} />
+              ) : (
+                <ComponentCard
+                  key={key}
+                  componentKey={key}
+                  component={health.components[key]}
+                  label={COMPONENT_META[key].label}
+                />
+              )
+            )}
+          </View>
+          <View style={{ flex: 1, gap: spacing.md }}>
+            {RIGHT_COL.map((key) =>
+              loading ? (
+                <ComponentCardSkeleton key={key} />
+              ) : (
+                <ComponentCard
+                  key={key}
+                  componentKey={key}
+                  component={health.components[key]}
+                  label={COMPONENT_META[key].label}
+                />
+              )
+            )}
+          </View>
         </View>
+
+        {/* ── Navigation rows ── */}
+        <NavRow
+          icon="Activity"
+          title="Trip Behaviour"
+          subtitle="Braking, cornering & driving patterns"
+          onPress={() =>
+            router.push({ pathname: "/(driver)/trip-summary", params: { vehicleId } })
+          }
+        />
+        <NavRow
+          icon="ClipboardList"
+          title="Service Records"
+          subtitle="View history & log new service events"
+          onPress={() =>
+            router.push({ pathname: "/(driver)/service-records", params: { vehicleId } })
+          }
+        />
       </ScrollView>
+
+      <BottomNavBar activeTab="maintenance" />
     </View>
   );
 }
 
-function ComponentRow({
+function ComponentCard({
   componentKey,
   component,
   label,
-  icon,
-  isLast,
 }: {
   componentKey: ComponentKey;
   component: ComponentHealth;
   label: string;
-  icon: any;
-  isLast: boolean;
 }) {
-  const color =
-    component.status === "No data"
-      ? palette.textMuted
-      : healthColor(component.health_pct);
+  const color = statusColor(component);
   const rul = rulToLabel(component);
+  const isAlert = component.status !== "Good" && component.status !== "No data";
 
   return (
     <Pressable
@@ -200,77 +367,140 @@ function ComponentRow({
         })
       }
       style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.md,
-        gap: spacing.md,
         backgroundColor: pressed ? palette.homeBackground : palette.surface,
-        borderBottomWidth: isLast ? 0 : 1,
-        borderBottomColor: palette.border,
+        borderRadius: radii.lg,
+        padding: spacing.md,
+        alignItems: "center",
+        gap: spacing.sm,
+        borderWidth: 1,
+        borderColor: isAlert ? `${color}44` : palette.border,
       })}
     >
-      <Icon name={icon} size={20} color={color} />
-
-      <View style={{ flex: 1, gap: spacing.xs }}>
-        <Text style={{ ...typography.bodyStrong, color: palette.text }}>{label}</Text>
+      {/* Mini ring */}
+      <View style={{ width: 72, height: 72 }}>
+        <RingProgress
+          pct={component.status === "No data" ? 100 : component.health_pct}
+          size={72}
+          thickness={7}
+          color={component.status === "No data" ? palette.border : color}
+        />
         <View
           style={{
-            height: 6,
-            borderRadius: radii.pill,
-            backgroundColor: palette.border,
-            overflow: "hidden",
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          <View
-            style={{
-              width: `${component.health_pct}%`,
-              height: "100%",
-              borderRadius: radii.pill,
-              backgroundColor: color,
-            }}
-          />
+          <Text style={{ fontSize: 14, fontWeight: "700", color, lineHeight: 17 }}>
+            {component.status === "No data" ? "—" : `${Math.round(component.health_pct)}%`}
+          </Text>
         </View>
       </View>
 
-      <View style={{ alignItems: "flex-end", gap: 2 }}>
-        <Text
-          style={{
-            ...typography.caption,
-            color,
-            fontWeight: "600",
-          }}
-        >
-          {rul}
+      <View style={{ alignItems: "center", gap: 3 }}>
+        <Text style={{ ...typography.caption, color: palette.text, fontWeight: "600" }}>
+          {label}
         </Text>
+        <Text style={{ fontSize: 11, color, fontWeight: "500" }}>{rul}</Text>
       </View>
-
-      <Icon name="ChevronRight" size={16} color={palette.textMuted} />
     </Pressable>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { bg: string; text: string }> = {
-    Good: { bg: palette.successSoft, text: palette.success },
-    Fair: { bg: palette.warningSoft, text: palette.warning },
-    Poor: { bg: palette.dangerSoft, text: palette.danger },
-    Critical: { bg: palette.dangerSoft, text: palette.danger },
-    "No data": { bg: palette.surfaceMuted, text: palette.textMuted },
-  };
-  const colors = map[status] ?? { bg: palette.surfaceMuted, text: palette.textMuted };
+function ComponentCardSkeleton() {
   return (
     <View
       style={{
+        backgroundColor: palette.surface,
+        borderRadius: radii.lg,
+        padding: spacing.md,
+        alignItems: "center",
+        gap: spacing.sm,
+        borderWidth: 1,
+        borderColor: palette.border,
+      }}
+    >
+      <View
+        style={{
+          width: 72,
+          height: 72,
+          borderRadius: 36,
+          borderWidth: 7,
+          borderColor: palette.border,
+          opacity: 0.35,
+        }}
+      />
+      <View style={{ height: 13, width: 56, borderRadius: 4, backgroundColor: palette.border, opacity: 0.5 }} />
+      <View style={{ height: 11, width: 40, borderRadius: 4, backgroundColor: palette.border, opacity: 0.35 }} />
+    </View>
+  );
+}
+
+function NavRow({
+  icon,
+  title,
+  subtitle,
+  onPress,
+}: {
+  icon: string;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        backgroundColor: pressed ? palette.homeBackground : palette.surface,
+        borderRadius: radii.lg,
+        padding: spacing.lg,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: spacing.md,
+        borderWidth: 1,
+        borderColor: palette.border,
+      })}
+    >
+      <View
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: radii.md,
+          backgroundColor: palette.brandSoft,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Icon name={icon as any} size={20} color={palette.brand} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ ...typography.bodyStrong, color: palette.text }}>{title}</Text>
+        <Text style={{ ...typography.caption, color: palette.textMuted }}>{subtitle}</Text>
+      </View>
+      <Icon name="ChevronRight" size={18} color={palette.textMuted} />
+    </Pressable>
+  );
+}
+
+function OfflineBadge() {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
         paddingHorizontal: spacing.md,
         paddingVertical: 4,
         borderRadius: radii.pill,
-        backgroundColor: colors.bg,
+        backgroundColor: palette.warningSoft,
       }}
     >
-      <Text style={{ ...typography.caption, color: colors.text, fontWeight: "600" }}>
-        {status}
-      </Text>
+      <Icon name="WifiOff" size={12} color={palette.warning} />
+      <Text style={{ ...typography.caption, color: palette.warning, fontWeight: "600" }}>Offline</Text>
     </View>
   );
 }
@@ -294,29 +524,4 @@ function AlertPill({ text }: { text: string }) {
       <Text style={{ ...typography.caption, color: palette.danger, fontWeight: "500" }}>{text}</Text>
     </View>
   );
-}
-
-function NeutralPill({ text }: { text: string }) {
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        gap: spacing.xs,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        borderRadius: radii.pill,
-        backgroundColor: palette.surfaceMuted,
-      }}
-    >
-      <Icon name="Info" size={13} color={palette.textMuted} />
-      <Text style={{ ...typography.caption, color: palette.textMuted, fontWeight: "500" }}>{text}</Text>
-    </View>
-  );
-}
-
-function healthColor(pct: number): string {
-  if (pct >= 75) return palette.success;
-  if (pct >= 50) return palette.warning;
-  return palette.danger;
 }
