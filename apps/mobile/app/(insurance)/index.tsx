@@ -29,7 +29,8 @@ import {
   saveReportAccidentEntryMeta,
 } from '@/features/report-accident/storage/report-accident-entry-store';
 import { useIncompleteUploadStatus } from '@/features/report-accident/hooks/use-incomplete-upload-status';
-import { INSURER_PHONE_TEL } from '@/lib/constants';
+import { findInsuranceCompany, type InsuranceCompany } from '@/lib/insuranceCompaniesApi';
+import { getVehicles } from '@/lib/vehicleApi';
 import { computeClaimBundleUploadKey, isClaimReportSubmittedLocked } from '@/lib/claim-upload-dedupe';
 import { formatGeocodedLine } from '@/lib/format-geocoded-line';
 import { formatTimestamp } from '@/lib/format-timestamp';
@@ -175,7 +176,35 @@ export default function InsuranceHomeScreen() {
   const [drunkTestComplete, setDrunkTestComplete] = useState(false);
   const [thirdPartyComplete, setThirdPartyComplete] = useState(false);
   const [claimReportLocked, setClaimReportLocked] = useState(false);
+  const [insuranceCompany, setInsuranceCompany] = useState<InsuranceCompany | null>(null);
   const incompleteUpload = useIncompleteUploadStatus();
+
+  // The "Need to call ___ Insurance?" button reflects the driver's own
+  // default vehicle's insurer — this screen sits outside VehicleProvider
+  // (only mounted in (driver)/_layout.tsx), so it fetches directly, same
+  // pattern as use-claim-upload.ts.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void (async () => {
+        try {
+          const vehicles = await getVehicles();
+          const target = vehicles.find((v) => v.isDefault) ?? vehicles[0];
+          if (!target?.insuranceProvider) {
+            if (!cancelled) setInsuranceCompany(null);
+            return;
+          }
+          const company = await findInsuranceCompany(target.insuranceProvider);
+          if (!cancelled) setInsuranceCompany(company);
+        } catch {
+          if (!cancelled) setInsuranceCompany(null);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -250,6 +279,9 @@ export default function InsuranceHomeScreen() {
   };
 
   const onCallInsurer = async () => {
+    if (!insuranceCompany) {
+      return;
+    }
     try {
       // Android-only: shows the native "Location Accuracy" dialog when device
       // location / high-accuracy mode isn't already on. No-op on iOS.
@@ -263,12 +295,12 @@ export default function InsuranceHomeScreen() {
       const meta = await captureLocationSnapshot();
       await saveInsurerCallMeta(meta);
       if (__DEV__) {
-        console.log('[Allianz call — time & location at tap]', meta);
+        console.log(`[${insuranceCompany.appName} call — time & location at tap]`, meta);
       }
     }
 
     try {
-      await Linking.openURL(INSURER_PHONE_TEL);
+      await Linking.openURL(insuranceCompany.phoneTel);
     } catch {
       Alert.alert('Call your insurer', 'Use the phone number on your insurance card or policy document.');
     }
@@ -325,9 +357,11 @@ export default function InsuranceHomeScreen() {
             )}
           </View>
 
-          <Pressable style={({ pressed }) => [styles.callInsurerBtn, pressed && styles.callInsurerPressed]} onPress={onCallInsurer}>
-            <Text style={styles.callInsurerText}>Need to call Allianz Insurance ?</Text>
-          </Pressable>
+          {insuranceCompany ? (
+            <Pressable style={({ pressed }) => [styles.callInsurerBtn, pressed && styles.callInsurerPressed]} onPress={onCallInsurer}>
+              <Text style={styles.callInsurerText}>{`Need to call ${insuranceCompany.appName}?`}</Text>
+            </Pressable>
+          ) : null}
 
           <View style={styles.stepsSection}>
             <StepRow number={1} title="Stay safe first" caption="Move away from the traffic" showDivider />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,7 +16,7 @@ import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
 import type { VehicleInput } from "@lib/vehicleApi";
 import type { Vehicle } from "@lib/vehicleApi";
-import { INSURANCE_PROVIDERS } from "@lib/insuranceProviders";
+import { listInsuranceCompanies, type InsuranceCompany } from "@lib/insuranceCompaniesApi";
 
 const FUEL_TYPES = ["petrol", "diesel", "hybrid", "electric"] as const;
 
@@ -35,6 +35,19 @@ export default function ManageVehiclesScreen() {
   const [form, setForm] = useState<Partial<VehicleInput>>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [companies, setCompanies] = useState<InsuranceCompany[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listInsuranceCompanies()
+      .then((list) => {
+        if (!cancelled) setCompanies(list);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function openAdd() {
     setEditingVehicle(null);
@@ -281,7 +294,7 @@ export default function ManageVehiclesScreen() {
                 <View style={{ gap: spacing.xs }}>
                   <Text style={{ ...typography.caption, color: palette.textMuted }}>Insurance Provider</Text>
                   <View style={{ flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" }}>
-                    {INSURANCE_PROVIDERS.map((name) => (
+                    {companies.map(({ companyName: name }) => (
                       <Pressable
                         key={name}
                         onPress={() => setForm((f) => ({ ...f, insuranceProvider: name }))}

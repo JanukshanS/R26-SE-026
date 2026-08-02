@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,7 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { InsuranceBottomTabBar, type InsuranceTabId } from '@/components/insurance-bottom-tab-bar';
-import { INSURER_PHONE_TEL } from '@/lib/constants';
+import { findInsuranceCompany, type InsuranceCompany } from '@/lib/insuranceCompaniesApi';
+import { getVehicles } from '@/lib/vehicleApi';
 import { loadClaimantProfile } from '@/features/claimant/storage/claimant-profile-store';
 import { useClaimUpload } from '@/features/report-accident/hooks/use-claim-upload';
 import { formatTimestamp } from '@/lib/format-timestamp';
@@ -118,9 +120,39 @@ export default function UploadAccidentDetailsScreen() {
 
   const claimComplete = photosUploadComplete && fraudValidationComplete;
 
+  const [insuranceCompany, setInsuranceCompany] = useState<InsuranceCompany | null>(null);
+
+  // Same as (insurance)/index.tsx: this screen sits outside VehicleProvider,
+  // so the driver's default vehicle (and its insurer) is fetched directly.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void (async () => {
+        try {
+          const vehicles = await getVehicles();
+          const target = vehicles.find((v) => v.isDefault) ?? vehicles[0];
+          if (!target?.insuranceProvider) {
+            if (!cancelled) setInsuranceCompany(null);
+            return;
+          }
+          const company = await findInsuranceCompany(target.insuranceProvider);
+          if (!cancelled) setInsuranceCompany(company);
+        } catch {
+          if (!cancelled) setInsuranceCompany(null);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
+
   const onCallInsurer = async () => {
+    if (!insuranceCompany) {
+      return;
+    }
     try {
-      await Linking.openURL(INSURER_PHONE_TEL);
+      await Linking.openURL(insuranceCompany.phoneTel);
     } catch {
       Alert.alert('Call your insurer', 'Use the phone number on your insurance card or policy document.');
     }
@@ -200,11 +232,13 @@ export default function UploadAccidentDetailsScreen() {
             <Text style={styles.insuranceRowStatus}>Pending</Text>
           </Pressable>
 
-          <Pressable
-            style={({ pressed }) => [styles.callInsurerBtn, pressed && styles.callInsurerPressed]}
-            onPress={onCallInsurer}>
-            <Text style={styles.callInsurerText}>Need to call Allianz Insurance ?</Text>
-          </Pressable>
+          {insuranceCompany ? (
+            <Pressable
+              style={({ pressed }) => [styles.callInsurerBtn, pressed && styles.callInsurerPressed]}
+              onPress={onCallInsurer}>
+              <Text style={styles.callInsurerText}>{`Need to call ${insuranceCompany.appName}?`}</Text>
+            </Pressable>
+          ) : null}
 
           {claimComplete && (
             <Pressable

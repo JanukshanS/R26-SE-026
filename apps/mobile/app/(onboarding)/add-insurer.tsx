@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@components/ui/button";
@@ -11,11 +11,13 @@ import { Screen } from "@components/ui/screen";
 import { TextField } from "@components/ui/text-input";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { getVehicles, updateMyProfile, updateVehicle } from "@lib/vehicleApi";
-import { INSURANCE_PROVIDERS } from "@lib/insuranceProviders";
+import { listInsuranceCompanies, type InsuranceCompany } from "@lib/insuranceCompaniesApi";
 
 export default function AddInsurerScreen() {
   const insets = useSafeAreaInsets();
-  const [provider, setProvider] = useState(INSURANCE_PROVIDERS[0]);
+  const [companies, setCompanies] = useState<InsuranceCompany[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(true);
+  const [provider, setProvider] = useState("");
   const [showProviderPicker, setShowProviderPicker] = useState(false);
   const [policy, setPolicy] = useState("");
   const [licence, setLicence] = useState("");
@@ -23,8 +25,33 @@ export default function AddInsurerScreen() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    void listInsuranceCompanies()
+      .then((list) => {
+        if (cancelled) return;
+        setCompanies(list);
+        setProvider((prev) => prev || list[0]?.companyName || "");
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function handleSave() {
     setError("");
+    if (!provider.trim()) {
+      setError(
+        companiesLoading
+          ? "Still loading insurance providers — please wait a moment and try again."
+          : "Please select your insurance provider."
+      );
+      return;
+    }
     setSubmitting(true);
     try {
       // Licence/NIC belong to the driver (profiles); insurer/policy belong to a
@@ -101,7 +128,13 @@ export default function AddInsurerScreen() {
           }}
           onPress={() => setShowProviderPicker(true)}
         >
-          <Text style={{ color: palette.text, ...typography.body }}>{provider}</Text>
+          {companiesLoading ? (
+            <ActivityIndicator size="small" color={palette.textMuted} />
+          ) : (
+            <Text style={{ color: palette.text, ...typography.body }}>
+              {provider || "Select your insurance provider"}
+            </Text>
+          )}
           <Icon name="ChevronDown" size={18} color={palette.textMuted} />
         </Pressable>
       </View>
@@ -177,9 +210,20 @@ export default function AddInsurerScreen() {
               </Pressable>
             </View>
 
+            {companiesLoading ? (
+              <View style={{ paddingVertical: spacing.xxl, alignItems: "center" }}>
+                <ActivityIndicator size="small" color={palette.brand} />
+              </View>
+            ) : companies.length === 0 ? (
+              <View style={{ paddingVertical: spacing.xxl, alignItems: "center" }}>
+                <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
+                  Could not load insurance providers. Check your connection and try again.
+                </Text>
+              </View>
+            ) : (
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={{ gap: spacing.sm }}>
-                {INSURANCE_PROVIDERS.map((name) => (
+                {companies.map(({ companyName: name }) => (
                   <Pressable
                     key={name}
                     onPress={() => {
@@ -207,6 +251,7 @@ export default function AddInsurerScreen() {
                 ))}
               </View>
             </ScrollView>
+            )}
           </Pressable>
         </Pressable>
       </Modal>

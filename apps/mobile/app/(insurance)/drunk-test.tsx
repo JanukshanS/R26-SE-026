@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { useRouter } from 'expo-router';
@@ -33,13 +33,14 @@ import {
   INSURANCE_VIDEO_TILE_SUBTEXT,
   WHITE,
 } from '@/features/guided-capture/capture-ui-theme';
+import { getMyUser } from '@/lib/vehicleApi';
 
 /** Matches on-screen “Recording N seconds left” and `recordAsync.maxDuration`. */
 const RECORD_DURATION_SEC = 40;
 
-const READ_ALOUD_SCRIPT =
-  'My name is (Full Name). Licence number (Licence Number). I am driving a (Vehicle Type). Today is (Date). The time is (Time), and I am at (Location). I am recording this after the accident to confirm I am conscious and not under the influence of alcohol or drugs. The accident happened because (brief description).'
-  
+const READ_ALOUD_SCRIPT_TEMPLATE =
+  'My name is (Full Name). Licence number (Licence Number). I am driving a (Vehicle Type). Today is (Date). The time is (Time), and I am at (Location). I am recording this after the accident to confirm I am conscious and not under the influence of alcohol or drugs. The accident happened because (brief description).';
+
 const DRUNK_TEST_VIDEO_DIR = (FileSystem.documentDirectory ?? '') + 'drunk-test-videos/';
 
 function getVideoExtension(uri: string): string {
@@ -74,6 +75,28 @@ export default function DrunkTestScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [isResetDialogVisible, setIsResetDialogVisible] = useState(false);
+  const [licenceNumber, setLicenceNumber] = useState<string | null>(null);
+
+  // useFocusEffect (not useEffect) so the licence number refreshes if the
+  // driver sets/edits it elsewhere (e.g. Add Insurer) and comes back here.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void getMyUser()
+        .then((u) => {
+          if (!cancelled) setLicenceNumber(u?.licenceNumber ?? null);
+        })
+        .catch(() => {});
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
+
+  const readAloudScript = READ_ALOUD_SCRIPT_TEMPLATE.replace(
+    '(Licence Number)',
+    licenceNumber ? licenceNumber : '(Licence Number)'
+  );
 
   const hasVideo = videoUri !== null;
 
@@ -318,7 +341,7 @@ export default function DrunkTestScreen() {
         {!hasVideo ? (
           <View style={styles.readAloudBox}>
             <ScrollView style={styles.readAloudScroll} nestedScrollEnabled showsVerticalScrollIndicator>
-              <Text style={styles.readAloudText}>{READ_ALOUD_SCRIPT}</Text>
+              <Text style={styles.readAloudText}>{readAloudScript}</Text>
             </ScrollView>
           </View>
         ) : null}
