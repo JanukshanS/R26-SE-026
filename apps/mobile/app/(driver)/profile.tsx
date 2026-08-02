@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -8,10 +8,12 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
+import { listMyClaims } from "@lib/claims-api";
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -24,6 +26,23 @@ export default function ProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [claimsCount, setClaimsCount] = useState<number | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void listMyClaims()
+        .then((claims) => {
+          if (!cancelled) setClaimsCount(claims.length);
+        })
+        .catch(() => {
+          if (!cancelled) setClaimsCount(null);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
 
   if (!user) {
     return (
@@ -299,6 +318,45 @@ export default function ProfileScreen() {
               {vehicles.length === 0
                 ? "No vehicles added"
                 : `${vehicles.length} vehicle${vehicles.length > 1 ? "s" : ""} registered`}
+            </Text>
+          </View>
+          <Icon name="ChevronRight" size={18} color={palette.textMuted} />
+        </Pressable>
+
+        {/* Claims summary */}
+        <Pressable
+          onPress={() => router.push("/(driver)/my-claims")}
+          style={({ pressed }) => ({
+            backgroundColor: pressed ? palette.homeBackground : palette.surface,
+            borderRadius: radii.lg,
+            padding: spacing.lg,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: spacing.md,
+            borderWidth: 1,
+            borderColor: palette.border,
+          })}
+        >
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: radii.md,
+              backgroundColor: palette.brandSoft,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Icon name="FileText" size={22} color={palette.brand} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ ...typography.bodyStrong, color: palette.text }}>Claims</Text>
+            <Text style={{ ...typography.caption, color: palette.textMuted }}>
+              {claimsCount === null
+                ? "View your claims"
+                : claimsCount === 0
+                  ? "No claims yet"
+                  : `${claimsCount} claim${claimsCount > 1 ? "s" : ""} submitted`}
             </Text>
           </View>
           <Icon name="ChevronRight" size={18} color={palette.textMuted} />

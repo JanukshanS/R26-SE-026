@@ -10,6 +10,11 @@ import { supabase } from "@lib/supabase";
 import * as authApi from "@lib/authApi";
 import * as vehicleApi from "@lib/vehicleApi";
 import type { User, Vehicle } from "@lib/vehicleApi";
+import { clearAllClaimData } from "@lib/clear-claim-data";
+import {
+  loadLastAuthenticatedUserId,
+  saveLastAuthenticatedUserId,
+} from "@lib/last-authenticated-user-store";
 
 interface ProfilePatch {
   name?: string;
@@ -86,8 +91,29 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
   // with the restored session on mount (INITIAL_SESSION), then on every
   // sign-in / sign-out / token refresh. Guests simply end up with user=null.
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       setToken(session?.access_token ?? null);
+
+      // Report Accident's in-progress state (guided capture photos, the
+      // "already submitted" lock, etc.) lives in local on-device storage,
+      // not scoped to any user id — so it silently carries over to whoever
+      // uses the app next. Detect a genuine identity switch (not just a
+      // relaunch/token refresh for the *same* user) and wipe it then, the
+      // same reset "Start New Claim" already does.
+      const currentId = session?.user.id ?? "guest";
+      void loadLastAuthenticatedUserId().then(async (lastId) => {
+        const shouldClear = lastId !== null && lastId !== currentId;
+        if (__DEV__) {
+          console.log("[auth identity check]", { event, lastId, currentId, shouldClear });
+        }
+        if (shouldClear) {
+          await clearAllClaimData().catch((err) => {
+            if (__DEV__) console.log("[auth identity check] clearAllClaimData failed", err);
+          });
+        }
+        await saveLastAuthenticatedUserId(currentId);
+      });
+
       if (!session) {
         setUser(null);
         setVehicles([]);

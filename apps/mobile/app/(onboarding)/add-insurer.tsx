@@ -1,32 +1,104 @@
-import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
+import { ErrorState } from "@components/ui/error-state";
 import { HeaderBar } from "@components/ui/header-bar";
 import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { TextField } from "@components/ui/text-input";
 import { palette, radii, spacing, typography } from "@theme/index";
+import { getVehicles, updateMyProfile, updateVehicle } from "@lib/vehicleApi";
+import { listInsuranceCompanies, type InsuranceCompany } from "@lib/insuranceCompaniesApi";
 
 export default function AddInsurerScreen() {
-  const [provider, setProvider] = useState("Allianz Insurance Lanka Limited");
+  const insets = useSafeAreaInsets();
+  const [companies, setCompanies] = useState<InsuranceCompany[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(true);
+  const [provider, setProvider] = useState("");
+  const [showProviderPicker, setShowProviderPicker] = useState(false);
   const [policy, setPolicy] = useState("");
   const [licence, setLicence] = useState("");
   const [nic, setNic] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listInsuranceCompanies()
+      .then((list) => {
+        if (cancelled) return;
+        setCompanies(list);
+        setProvider((prev) => prev || list[0]?.companyName || "");
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleSave() {
+    setError("");
+    if (!provider.trim()) {
+      setError(
+        companiesLoading
+          ? "Still loading insurance providers — please wait a moment and try again."
+          : "Please select your insurance provider."
+      );
+      return;
+    }
+    setSubmitting(true);
+    try {
+      // Licence/NIC belong to the driver (profiles); insurer/policy belong to a
+      // specific vehicle (a driver's two cars can have different insurers), so
+      // they're attached to whichever vehicle was just created in the previous
+      // Add Vehicle step (its default one) rather than stored on the profile.
+      await updateMyProfile({
+        licenceNumber: licence.trim(),
+        nicNumber: nic.trim(),
+      });
+      const vehicles = await getVehicles();
+      const target = vehicles.find((v) => v.isDefault) ?? vehicles[0];
+      if (target) {
+        await updateVehicle(target._id, {
+          insuranceProvider: provider,
+          insurancePolicyNumber: policy.trim(),
+        });
+      }
+      router.replace("/(driver)/home");
+    } catch (err) {
+      setError((err as Error).message ?? "Couldn't save your insurer details.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <Screen
       footer={
         <>
           <Button
-            title="Done"
-            onPress={() => router.push("/(onboarding)/add-account")}
+            title={submitting ? "Saving…" : "Done"}
+            disabled={submitting}
+            onPress={handleSave}
           />
           <Button
             title="Skip"
             variant="secondary"
-            onPress={() => router.push("/(onboarding)/add-account")}
+            disabled={submitting}
+            onPress={() => router.replace("/(driver)/home")}
+          />
+          {/* Frictionless: never block entry — continue as a guest. */}
+          <Button
+            title="Continue as guest"
+            variant="ghost"
+            disabled={submitting}
+            onPress={() => router.replace("/(driver)/home")}
           />
         </>
       }
@@ -54,9 +126,15 @@ export default function AddInsurerScreen() {
             alignItems: "center",
             justifyContent: "space-between",
           }}
-          onPress={() => setProvider("Allianz Insurance Lanka Limited")}
+          onPress={() => setShowProviderPicker(true)}
         >
-          <Text style={{ color: palette.text, ...typography.body }}>{provider}</Text>
+          {companiesLoading ? (
+            <ActivityIndicator size="small" color={palette.textMuted} />
+          ) : (
+            <Text style={{ color: palette.text, ...typography.body }}>
+              {provider || "Select your insurance provider"}
+            </Text>
+          )}
           <Icon name="ChevronDown" size={18} color={palette.textMuted} />
         </Pressable>
       </View>
@@ -83,7 +161,9 @@ export default function AddInsurerScreen() {
         keyboardType="numbers-and-punctuation"
       />
 
-      <Card variant="muted">
+      {error ? <ErrorState title="Couldn't save insurer details" message={error} /> : null}
+
+      {/* <Card variant="muted">
         <Text style={{ ...typography.bodyStrong, color: palette.text }}>
           Register Vehicle Photos
         </Text>
@@ -96,7 +176,85 @@ export default function AddInsurerScreen() {
           size="md"
           onPress={() => {}}
         />
-      </Card>
+      </Card> */}
+
+      {/* Insurance provider picker — same bottom-sheet pattern as the Home vehicle picker. */}
+      <Modal visible={showProviderPicker} transparent animationType="slide">
+        <Pressable
+          style={{ flex: 1, backgroundColor: palette.overlay, justifyContent: "flex-end" }}
+          onPress={() => setShowProviderPicker(false)}
+        >
+          <Pressable
+            style={{
+              backgroundColor: palette.surface,
+              borderTopLeftRadius: radii.xl,
+              borderTopRightRadius: radii.xl,
+              paddingTop: spacing.lg,
+              paddingHorizontal: spacing.lg,
+              paddingBottom: insets.bottom + spacing.lg,
+              gap: spacing.md,
+              maxHeight: "70%",
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>
+                Select Insurance Provider
+              </Text>
+              <Pressable
+                onPress={() => setShowProviderPicker(false)}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
+                <Icon name="X" size={20} color={palette.textMuted} />
+              </Pressable>
+            </View>
+
+            {companiesLoading ? (
+              <View style={{ paddingVertical: spacing.xxl, alignItems: "center" }}>
+                <ActivityIndicator size="small" color={palette.brand} />
+              </View>
+            ) : companies.length === 0 ? (
+              <View style={{ paddingVertical: spacing.xxl, alignItems: "center" }}>
+                <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
+                  Could not load insurance providers. Check your connection and try again.
+                </Text>
+              </View>
+            ) : (
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={{ gap: spacing.sm }}>
+                {companies.map(({ companyName: name }) => (
+                  <Pressable
+                    key={name}
+                    onPress={() => {
+                      setProvider(name);
+                      setShowProviderPicker(false);
+                    }}
+                    style={({ pressed }) => ({
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: spacing.md,
+                      padding: spacing.md,
+                      borderRadius: radii.lg,
+                      backgroundColor: pressed ? palette.homeBackground : palette.surface,
+                      borderWidth: 1.5,
+                      borderColor: provider === name ? palette.brand : palette.border,
+                    })}
+                  >
+                    <Text style={{ ...typography.body, color: palette.text, flex: 1 }}>
+                      {name}
+                    </Text>
+                    {provider === name && (
+                      <Icon name="CheckCircle" size={18} color={palette.brand} />
+                    )}
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }

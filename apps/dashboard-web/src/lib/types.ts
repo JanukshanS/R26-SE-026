@@ -76,6 +76,18 @@ export interface WhatIfInput {
   dayOfWeek: number;
 }
 
+export interface ValidationData {
+  points: { x: number; y: number }[];
+  n: number;
+  fit: { slope: number; intercept: number };
+  xLabel: string;
+  yLabel: string;
+  rDeployed: number;
+  rFitted: number;
+  cvFitted: number;
+  note: string;
+}
+
 export interface DispatchVariant {
   spearmanCostVsScore: number;
   headlineN: number;

@@ -1,0 +1,2 @@
+original_weights,optimised_weights,original_r,optimised_r,rf_r,gb_r
+"{'CLF': np.float64(0.25), 'TVF': np.float64(0.25), 'TF': np.float64(0.2), 'LF': np.float64(0.15), 'ISF': np.float64(0.15)}","{'CLF': np.float64(0.5), 'TVF': np.float64(0.05), 'TF': np.float64(0.05000000000000003), 'LF': np.float64(0.22048456834858202), 'ISF': np.float64(0.17951543165141803)}",0.5517897102996266,0.9034948382242174,0.9954226190580631,0.9954327051003093

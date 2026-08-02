@@ -36,10 +36,16 @@ cd components/geo-intelligence
 | `GET`  | `/v1/hotspots` | Precomputed Colombo hotspot clusters |
 | `GET`  | `/v1/stats` | Precomputed dataset stats |
 
+**Error responses:** score routes return **400** when `lanes_blocked > total_lanes`
+(`{ "detail": "lanes_blocked cannot exceed total_lanes" }`). `/v1/hotspots` and
+`/v1/stats` return **503** when their JSON dataset is missing. v0.1 uses FastAPI
+`{ detail }` bodies, not the platform error envelope.
+
 `incident_type` accepts the public vocabulary (`major_accident`, `minor_accident`,
-`engine_failure`, `flat_tire`, `fuel_empty`, `battery_dead`, …); `major_accident`/
-`minor_accident` are aliased to the model's canonical `accident_major`/`accident_minor`
-keys so they resolve to the correct severity rather than the default.
+`engine_failure`, `flat_tire`, `fuel_empty`, `battery_dead`, `lockout`, `overheating`,
+`other`); `major_accident`/`minor_accident` are aliased to the model's canonical
+`accident_major`/`accident_minor` keys so they resolve to the correct severity rather
+than the default. `lockout` and `other` use default ISF 0.5.
 
 ## Example
 

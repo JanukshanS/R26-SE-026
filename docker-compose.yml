@@ -10,9 +10,12 @@ services:
       - "3001:3001"
     environment:
       - DATABASE_URL=postgresql://kaduna:kaduna_dev@postgres:5432/dispatch_db
+      - REDIS_URL=redis://redis:6379
+      - GEO_INTELLIGENCE_URL=http://geo-intelligence-service:5001
     depends_on:
       - postgres
       - redis
+      - geo-intelligence-service
 
   # 2. Predictive Maintenance Service
   predictive-service:
@@ -25,8 +28,15 @@ services:
   geo-intelligence-service:
     build:
       context: ./components/geo-intelligence
+      dockerfile: Dockerfile
     ports:
       - "5001:5001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/v1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
 
   # Shared Infrastructure
   postgres:

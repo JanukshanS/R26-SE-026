@@ -2,7 +2,8 @@ openapi: 3.1.0
 info:
   title: Kaduna.lk — Geo-Intelligence Service
   description: Traffic-impact intelligence for Sri Lankan roads. Scores incidents on a 1–10 priority scale;
-    serves precomputed hotspot clusters for the Colombo metropolitan area.
+    serves precomputed hotspot clusters for the Colombo metropolitan area. v0.1 error bodies use FastAPI
+    `{ detail }`; not yet platform standard envelope.
   contact:
     name: Asath M M
     email: it22633422@my.sliit.lk
@@ -40,6 +41,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ScoreResponse'
+        '400':
+          description: Business rule violation (lanes_blocked exceeds total_lanes)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPErrorDetail'
+              example:
+                detail: lanes_blocked cannot exceed total_lanes
         '422':
           description: Validation Error
           content:
@@ -68,6 +77,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UncertaintyResponse'
+        '400':
+          description: Business rule violation (lanes_blocked exceeds total_lanes)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPErrorDetail'
+              example:
+                detail: lanes_blocked cannot exceed total_lanes
         '422':
           description: Validation Error
           content:
@@ -98,6 +115,14 @@ paths:
                 additionalProperties: true
                 type: object
                 title: Response Score Timeline V1 Score Timeline Post
+        '400':
+          description: Business rule violation (lanes_blocked exceeds total_lanes)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPErrorDetail'
+              example:
+                detail: lanes_blocked cannot exceed total_lanes
         '422':
           description: Validation Error
           content:
@@ -120,6 +145,14 @@ paths:
                   $ref: '#/components/schemas/HotspotCluster'
                 type: array
                 title: Response Hotspots V1 Hotspots Get
+        '503':
+          description: Hotspot dataset unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPErrorDetail'
+              example:
+                detail: hotspot dataset not available
   /v1/stats:
     get:
       tags:
@@ -135,8 +168,25 @@ paths:
                 additionalProperties: true
                 type: object
                 title: Response Stats V1 Stats Get
+        '503':
+          description: Stats dataset unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPErrorDetail'
+              example:
+                detail: stats dataset not available
 components:
   schemas:
+    HTTPErrorDetail:
+      type: object
+      required:
+      - detail
+      properties:
+        detail:
+          type: string
+      description: FastAPI-native error body; platform `{ error: { code, message } }` envelope deferred to v0.2
+      title: HTTPErrorDetail
     HTTPValidationError:
       properties:
         detail:
@@ -169,6 +219,7 @@ components:
       - weights
       title: HealthResponse
     HotspotCluster:
+      description: Enriched cluster metadata from DBSCAN pipeline; optional fields for backward compatibility.
       properties:
         cluster_id:
           type: integer
@@ -188,6 +239,25 @@ components:
         composite_risk:
           type: number
           title: Composite Risk
+        road_type:
+          type: string
+          title: Road Type
+          example: motorway
+        incident_type:
+          type: string
+          title: Incident Type
+          example: accident_major
+        peak_hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+          title: Peak Hour
+          example: 17
+        radius_m:
+          type: number
+          minimum: 0
+          title: Radius M
+          example: 920.9
       type: object
       required:
       - cluster_id
@@ -210,7 +280,8 @@ components:
         road_type:
           type: string
           title: Road Type
-          description: 'One of: motorway, trunk, primary, secondary, tertiary, residential'
+          description: 'One of: motorway, trunk, primary, secondary, tertiary, residential, living_street,
+            unclassified'
           example: primary
         total_lanes:
           type: integer
@@ -228,8 +299,13 @@ components:
           type: string
           title: Incident Type
           description: 'One of: major_accident, minor_accident, engine_failure, flat_tire, fuel_empty,
-            battery_dead, lockout, other'
+            battery_dead, lockout, overheating, other'
           example: engine_failure
+          x-incident-aliases:
+            major_accident: accident_major
+            minor_accident: accident_minor
+            lockout: default ISF 0.5
+            other: default ISF 0.5
         hour:
           type: integer
           maximum: 23.0
@@ -298,7 +374,8 @@ components:
         road_type:
           type: string
           title: Road Type
-          description: 'One of: motorway, trunk, primary, secondary, tertiary, residential'
+          description: 'One of: motorway, trunk, primary, secondary, tertiary, residential, living_street,
+            unclassified'
           example: primary
         total_lanes:
           type: integer
@@ -316,8 +393,13 @@ components:
           type: string
           title: Incident Type
           description: 'One of: major_accident, minor_accident, engine_failure, flat_tire, fuel_empty,
-            battery_dead, lockout, other'
+            battery_dead, lockout, overheating, other'
           example: engine_failure
+          x-incident-aliases:
+            major_accident: accident_major
+            minor_accident: accident_minor
+            lockout: default ISF 0.5
+            other: default ISF 0.5
         hour:
           type: integer
           maximum: 23.0

@@ -6,12 +6,21 @@ import type { Incident, HotspotCluster, Blackspot, Stats, ModelConfig } from "@/
 import StatsPanel from "@/components/StatsPanel";
 import IncidentPanel from "@/components/IncidentPanel";
 import WhatIfSimulator from "@/components/WhatIfSimulator";
+import ValidationPanel from "@/components/ValidationPanel";
 import DispatchPanel from "@/components/DispatchPanel";
 import { fetchLiveIncidents } from "@/lib/liveData";
+import { fetchHotspots, fetchStats, fetchGeoHealth, type DataSource } from "@/lib/geoData";
 
 const Map = dynamic(() => import("@/components/Map"), { ssr: false });
 
-type Tab = "stats" | "whatif" | "dispatch";
+type Tab = "stats" | "whatif" | "validation" | "dispatch";
+
+const TAB_LABELS: Record<Tab, string> = {
+  stats: "Statistics",
+  whatif: "What-If",
+  validation: "Validation",
+  dispatch: "Dispatch",
+};
 
 export default function Home() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -25,23 +34,42 @@ export default function Home() {
   const [layers, setLayers] = useState({ incidents: true, hotspots: true, heatmap: true, blackspots: true });
   const [live, setLive] = useState<Incident[]>([]);
   const [liveOn, setLiveOn] = useState(false);
+  const [dataSource, setDataSource] = useState<DataSource>("static");
+  const [geoOk, setGeoOk] = useState(false);
 
   useEffect(() => {
     Promise.all([
       fetch("/data/incidents.json").then((r) => r.json()),
-      fetch("/data/hotspots.json").then((r) => r.json()),
-      fetch("/data/stats.json").then((r) => r.json()),
+      fetchHotspots(),
+      fetchStats(),
       fetch("/data/model.json").then((r) => r.json()),
       fetch("/data/blackspots.json")
         .then((r) => r.json())
         .catch(() => [] as Blackspot[]),
-    ]).then(([inc, hot, st, mod, bs]) => {
+    ]).then(([inc, hotResult, statsResult, mod, bs]) => {
       setIncidents(inc);
-      setHotspots(hot);
-      setStats(st);
+      setHotspots(hotResult.data);
+      setStats(statsResult.data);
       setModel(mod);
       setBlackspots(bs);
+      setDataSource(
+        hotResult.source === "api" && statsResult.source === "api" ? "api" : "static"
+      );
     });
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const check = async () => {
+      const health = await fetchGeoHealth();
+      if (active) setGeoOk(health.ok);
+    };
+    check();
+    const h = setInterval(check, 30000);
+    return () => {
+      active = false;
+      clearInterval(h);
+    };
   }, []);
 
   // Live overlay: poll the dispatch service for freshly-reported incidents, each
@@ -112,6 +140,31 @@ export default function Home() {
         <div className="flex items-center gap-2">
           <span
             className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
+              dataSource === "api"
+                ? "border-orange-500/50 bg-orange-500/10 text-orange-600"
+                : "border-[var(--border)] text-[var(--text-muted)]"
+            }`}
+            title={
+              dataSource === "api"
+                ? "Hotspots and stats loaded from geo-intelligence API"
+                : "Geo API unreachable — showing static dataset"
+            }
+          >
+            {dataSource === "api" ? "API" : "Static"}
+          </span>
+          <span
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
+              geoOk
+                ? "border-blue-500/50 bg-blue-500/10 text-blue-600"
+                : "border-[var(--border)] text-[var(--text-muted)]"
+            }`}
+            title={geoOk ? "Geo-intelligence service is healthy" : "Geo service offline"}
+          >
+            <span className={`w-2 h-2 rounded-full ${geoOk ? "bg-blue-500" : "bg-[var(--text-muted)]"}`} />
+            {geoOk ? "Geo OK" : "Geo offline"}
+          </span>
+          <span
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
               liveOn
                 ? "border-green-500/50 bg-green-500/10 text-green-600"
                 : "border-[var(--border)] text-[var(--text-muted)]"
@@ -163,28 +216,25 @@ export default function Home() {
         {/* Sidebar */}
         <aside className="w-80 bg-[var(--surface)] border-r border-[var(--border)] flex flex-col overflow-hidden">
           <div className="flex border-b border-[var(--border)]">
-            {(["stats", "whatif", "dispatch"] as const).map((t) => (
+            {(["stats", "whatif", "validation", "dispatch"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`flex-1 py-2 text-xs font-medium uppercase tracking-wider transition-colors ${
+                className={`flex-1 py-2 text-[11px] font-medium uppercase tracking-wider transition-colors ${
                   tab === t
                     ? "text-orange-500 border-b-2 border-orange-500"
                     : "text-[var(--text-muted)] hover:text-[var(--text)]"
                 }`}
               >
-                {t === "stats" ? "Statistics" : t === "whatif" ? "What-If" : "Dispatch"}
+                {TAB_LABELS[t]}
               </button>
             ))}
           </div>
           <div className="flex-1 overflow-y-auto p-3">
-            {tab === "stats" ? (
-              <StatsPanel stats={stats} />
-            ) : tab === "whatif" ? (
-              <WhatIfSimulator model={model} />
-            ) : (
-              <DispatchPanel />
-            )}
+            {tab === "stats" && <StatsPanel stats={stats} />}
+            {tab === "whatif" && <WhatIfSimulator model={model} />}
+            {tab === "validation" && <ValidationPanel />}
+            {tab === "dispatch" && <DispatchPanel />}
           </div>
         </aside>
 

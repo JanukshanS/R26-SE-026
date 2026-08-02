@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,6 +21,8 @@ import { isElm327Paired, isRealBleSupported, pairElm327Async, unpairElm327 } fro
 import { useVehicle } from "@lib/vehicleContext";
 import { useHardwareBack } from "@lib/useHardwareBack";
 import { isTripActive, startTrip } from "@lib/tripRecorder";
+import { useIncompleteUploadStatus } from "@/features/report-accident/hooks/use-incomplete-upload-status";
+import { ClaimUploadReminderModal } from "@/features/report-accident/components/claim-upload-reminder-modal";
 
 const BOTTOM_SCROLL_PADDING = 112;
 
@@ -29,6 +31,7 @@ export default function DriverHomeScreen() {
   const bottomReserve = BOTTOM_SCROLL_PADDING + insets.bottom;
 
   const { user, logout, selectedVehicle, vehicles, selectVehicle } = useVehicle();
+  const incompleteUpload = useIncompleteUploadStatus();
 
   // Home is the post-auth root: block the Android back button so it can never
   // pop back to the welcome/login screen. The only way off home is Log out.
@@ -331,9 +334,20 @@ export default function DriverHomeScreen() {
               <QuickAction
                 icon="ShieldCheck"
                 label="Insurance"
-                onPress={() =>
-                  Alert.alert("Insurance", "Insurance services are coming soon.")
-                }
+                badge={incompleteUpload != null}
+                onPress={() => {
+                  if (incompleteUpload) {
+                    router.push({
+                      pathname: "/(insurance)/upload-accident-details",
+                      params: {
+                        uploadKey: incompleteUpload.uploadKey,
+                        reportedAtIso: incompleteUpload.reportedAtIso,
+                      },
+                    });
+                    return;
+                  }
+                  router.push("/(insurance)");
+                }}
               />
             </Animated.View>
           </View>
@@ -617,6 +631,8 @@ export default function DriverHomeScreen() {
           </View>
         </View>
       </Modal>
+
+      <ClaimUploadReminderModal />
     </View>
   );
 }
