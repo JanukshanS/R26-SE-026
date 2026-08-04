@@ -12,6 +12,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import {
   BLACK,
@@ -41,7 +42,7 @@ import { ResetCaptureDialog } from '@/features/guided-capture/components/reset-c
 import { STOP_TRANSITION_TARGET_DEG } from '@/features/guided-capture/constants';
 import { useGuidedCapture } from '@/features/guided-capture/hooks/use-guided-capture';
 import { useStopTransition } from '@/features/guided-capture/hooks/use-stop-transition';
-import { tiltHintFor } from '@/features/guided-capture/tilt-status';
+import { captureStatusFor } from '@/features/guided-capture/tilt-status';
 import { HEIGHT_STEPS } from '@/features/guided-capture/types';
 
 export default function GuidedCaptureScreen() {
@@ -57,7 +58,6 @@ export default function GuidedCaptureScreen() {
     totalPhotosExpected,
     isRetake,
     pitchDeg,
-    tiltAligned,
     shutterUnlocked,
     isCapturing,
     statusMessage,
@@ -109,6 +109,8 @@ export default function GuidedCaptureScreen() {
     onTargetReached: onMoveNextConfirmed,
   });
 
+  const captureStatus = phase.kind === 'aiming' ? captureStatusFor(pitchDeg, phase.heightStep) : 'aligning';
+
   if (!permission) {
     return (
       <View style={styles.center}>
@@ -139,31 +141,36 @@ export default function GuidedCaptureScreen() {
       />
 
       {phase.kind === 'posing' ? (
-        <PoseIllustration
-          heightStep={phase.heightStep}
-          stopIndex={phase.stopIndex}
-          stopCount={Math.max(stopCount, phase.stopIndex + 1)}
-          isRetake={isRetake}
-          onReady={onPoseReady}
-        />
+        <Animated.View style={styles.phaseFill} entering={FadeIn.duration(220)} exiting={FadeOut.duration(150)}>
+          <PoseIllustration
+            heightStep={phase.heightStep}
+            stopIndex={phase.stopIndex}
+            stopCount={Math.max(stopCount, phase.stopIndex + 1)}
+            isRetake={isRetake}
+            onReady={onPoseReady}
+          />
+        </Animated.View>
       ) : null}
 
       {phase.kind === 'moveNext' ? (
-        <OrbitProgress
-          completedStopIndex={phase.completedStopIndex}
-          stopCount={stopCount}
-          progress01={stopTransitionProgress01}
-          onManualContinue={onMoveNextConfirmed}
-        />
+        <Animated.View style={styles.phaseFill} entering={FadeIn.duration(220)} exiting={FadeOut.duration(150)}>
+          <OrbitProgress
+            completedStopIndex={phase.completedStopIndex}
+            stopCount={stopCount}
+            progress01={stopTransitionProgress01}
+            onManualContinue={onMoveNextConfirmed}
+          />
+        </Animated.View>
       ) : null}
 
       {phase.kind === 'aiming' ? (
-        <>
+        <Animated.View style={styles.phaseFill} entering={FadeIn.duration(220)} exiting={FadeOut.duration(150)}>
           <CameraView style={styles.camera} facing="back" ref={cameraRef} />
-          <GuidanceBoundary tiltAligned={tiltAligned} tiltHint={tiltHintFor(pitchDeg, phase.heightStep)} />
+          <GuidanceBoundary status={captureStatus} />
           <CaptureOverlay
             capturedCount={photos.length}
             totalExpected={totalPhotosExpected}
+            status={captureStatus}
             statusMessage={statusMessage}
             submitEnabled={submitEnabled}
             autoCaptureEnabled={autoCaptureEnabled}
@@ -178,7 +185,7 @@ export default function GuidedCaptureScreen() {
             isCapturing={isCapturing}
             onCapture={() => void onCapture()}
           />
-        </>
+        </Animated.View>
       ) : null}
 
       <Modal
@@ -314,6 +321,9 @@ const styles = StyleSheet.create({
     backgroundColor: CAPTURE_SCREEN_BG,
   },
   camera: {
+    flex: 1,
+  },
+  phaseFill: {
     flex: 1,
   },
   permissionButton: {

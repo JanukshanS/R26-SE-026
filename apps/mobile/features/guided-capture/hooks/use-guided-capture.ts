@@ -107,7 +107,7 @@ export function useGuidedCapture(
   const [isCapturing, setIsCapturing] = useState(false);
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Align camera and hold steady.');
-  const [autoCaptureEnabled, setAutoCaptureEnabled] = useState(false);
+  const [autoCaptureEnabled, setAutoCaptureEnabled] = useState(true);
   const [isResetDialogVisible, setIsResetDialogVisible] = useState(false);
   const [isStoreHydrated, setIsStoreHydrated] = useState(false);
 

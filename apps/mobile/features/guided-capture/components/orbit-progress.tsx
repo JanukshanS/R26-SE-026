@@ -1,14 +1,21 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Rect } from 'react-native-svg';
+import { useEffect, useRef } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Ellipse, Line, Rect } from 'react-native-svg';
+import Animated, {
+  useAnimatedProps,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
+import { CaptureButton } from '@/features/guided-capture/components/capture-button';
+import { StopProgressLabel } from '@/features/guided-capture/components/stop-progress-label';
 import {
-  CAPTURE_ACTION_BLUE,
-  CAPTURE_ARC_CAR_FILL,
-  CAPTURE_ARC_CAR_ROOF,
+  CAPTURE_ARC_CAR_LINE,
   CAPTURE_ARC_DOT_DONE,
   CAPTURE_ARC_DOT_TARGET,
   CAPTURE_ARC_DOT_UPCOMING,
-  CAPTURE_TEXT_WHITE,
   GRAY_900,
   WHITE,
 } from '@/features/guided-capture/capture-ui-theme';
@@ -28,6 +35,8 @@ const CENTER_X = SIZE / 2;
 const CENTER_Y = SIZE * 0.66;
 const RADIUS = SIZE * 0.42;
 
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
 /** Angle (radians) for dot index i, sweeping a semicircle from 180° (left) to 0° (right). */
 function angleForIndex(i: number, stopCount: number): number {
   if (stopCount <= 1) return Math.PI / 2;
@@ -41,7 +50,117 @@ function pointForAngle(angle: number): { x: number; y: number } {
   };
 }
 
-/** Static "walk to the next dot" progress: an arc of dots around a top-down car icon. */
+/** One arc dot: pulsing glow while it's the walking target, a quick "pop" flash the moment
+ * it flips from target/upcoming to done. */
+function OrbitDot({
+  x,
+  y,
+  isDone,
+  isTarget,
+}: {
+  x: number;
+  y: number;
+  isDone: boolean;
+  isTarget: boolean;
+}) {
+  const wasDoneRef = useRef(isDone);
+  const flash = useSharedValue(0);
+  const glowPulse = useSharedValue(0);
+
+  useEffect(() => {
+    if (isDone && !wasDoneRef.current) {
+      flash.value = 0;
+      flash.value = withTiming(1, { duration: 380 });
+    }
+    wasDoneRef.current = isDone;
+  }, [isDone, flash]);
+
+  useEffect(() => {
+    if (isTarget) {
+      glowPulse.value = withRepeat(
+        withSequence(withTiming(1, { duration: 650 }), withTiming(0, { duration: 650 })),
+        -1,
+        true
+      );
+    } else {
+      glowPulse.value = withTiming(0, { duration: 200 });
+    }
+  }, [isTarget, glowPulse]);
+
+  const glowProps = useAnimatedProps(() => ({
+    r: 12 + glowPulse.value * 7,
+    fillOpacity: isTarget ? 0.18 + glowPulse.value * 0.22 : 0,
+  }));
+
+  const flashProps = useAnimatedProps(() => ({
+    r: 7 + (1 - flash.value) * 7,
+    fillOpacity: (1 - flash.value) * 0.85,
+  }));
+
+  const baseRadius = isTarget ? 10 : 7;
+  const fill = isDone ? CAPTURE_ARC_DOT_DONE : isTarget ? CAPTURE_ARC_DOT_TARGET : WHITE;
+  const stroke = isDone || isTarget ? fill : CAPTURE_ARC_DOT_UPCOMING;
+
+  return (
+    <>
+      {isTarget ? (
+        <AnimatedCircle cx={x} cy={y} fill={CAPTURE_ARC_DOT_TARGET} animatedProps={glowProps} />
+      ) : null}
+      <Circle cx={x} cy={y} r={baseRadius} fill={fill} stroke={stroke} strokeWidth={2} />
+      <AnimatedCircle cx={x} cy={y} fill={WHITE} animatedProps={flashProps} />
+    </>
+  );
+}
+
+/** Thin-outline top-down car icon, matching the "Guided capture camera angles" intro diagram. */
+function CarIcon() {
+  return (
+    <>
+      <Rect
+        x={CENTER_X - 22}
+        y={CENTER_Y - 40}
+        width={44}
+        height={80}
+        rx={16}
+        fill={WHITE}
+        stroke={CAPTURE_ARC_CAR_LINE}
+        strokeWidth={2.5}
+      />
+      <Rect
+        x={CENTER_X - 14}
+        y={CENTER_Y - 24}
+        width={28}
+        height={20}
+        rx={5}
+        fill="none"
+        stroke={CAPTURE_ARC_CAR_LINE}
+        strokeWidth={2}
+      />
+      <Rect
+        x={CENTER_X - 14}
+        y={CENTER_Y + 12}
+        width={28}
+        height={16}
+        rx={5}
+        fill="none"
+        stroke={CAPTURE_ARC_CAR_LINE}
+        strokeWidth={2}
+      />
+      <Line
+        x1={CENTER_X}
+        y1={CENTER_Y - 22}
+        x2={CENTER_X}
+        y2={CENTER_Y + 26}
+        stroke={CAPTURE_ARC_CAR_LINE}
+        strokeWidth={1.5}
+      />
+      <Ellipse cx={CENTER_X - 24} cy={CENTER_Y - 18} rx={4} ry={6} fill={WHITE} stroke={CAPTURE_ARC_CAR_LINE} strokeWidth={2} />
+      <Ellipse cx={CENTER_X + 24} cy={CENTER_Y - 18} rx={4} ry={6} fill={WHITE} stroke={CAPTURE_ARC_CAR_LINE} strokeWidth={2} />
+    </>
+  );
+}
+
+/** "Walk to the next dot" progress: an arc of dots around a top-down car icon. */
 export function OrbitProgress({
   stopCount,
   completedStopIndex,
@@ -59,44 +178,16 @@ export function OrbitProgress({
 
   return (
     <View style={styles.root}>
-      <Text style={styles.stopLabel}>{`Stop ${targetIndex + 1} of ${stopCount}`}</Text>
+      <StopProgressLabel stopIndex={targetIndex} stopCount={stopCount} />
       <Text style={styles.title}>Keep walking to the next stop</Text>
 
       <Svg width={SIZE} height={SIZE}>
-        {/* Top-down car icon */}
-        <Rect
-          x={CENTER_X - 22}
-          y={CENTER_Y - 38}
-          width={44}
-          height={76}
-          rx={14}
-          fill={CAPTURE_ARC_CAR_FILL}
-        />
-        <Rect
-          x={CENTER_X - 13}
-          y={CENTER_Y - 20}
-          width={26}
-          height={40}
-          rx={6}
-          fill={CAPTURE_ARC_CAR_ROOF}
-        />
+        <CarIcon />
 
         {Array.from({ length: stopCount }, (_, i) => {
           const { x, y } = pointForAngle(angleForIndex(i, stopCount));
-          const isDone = i <= completedStopIndex;
-          const isTarget = i === targetIndex;
-          const fill = isDone ? CAPTURE_ARC_DOT_DONE : isTarget ? CAPTURE_ARC_DOT_TARGET : WHITE;
-          const stroke = isDone || isTarget ? fill : CAPTURE_ARC_DOT_UPCOMING;
           return (
-            <Circle
-              key={i}
-              cx={x}
-              cy={y}
-              r={isTarget ? 10 : 7}
-              fill={fill}
-              stroke={stroke}
-              strokeWidth={2}
-            />
+            <OrbitDot key={i} x={x} y={y} isDone={i <= completedStopIndex} isTarget={i === targetIndex} />
           );
         })}
 
@@ -104,14 +195,13 @@ export function OrbitProgress({
         <Circle cx={marker.x} cy={marker.y} r={5} fill={CAPTURE_ARC_DOT_DONE} />
       </Svg>
 
-      <Pressable
-        style={({ pressed }) => [styles.manualBtn, pressed && styles.manualBtnPressed]}
+      <CaptureButton
+        title="I'm in position"
         onPress={onManualContinue}
-        hitSlop={12}
-        accessibilityRole="button"
-        accessibilityLabel="I'm in position">
-        <Text style={styles.manualBtnText}>I&apos;m in position</Text>
-      </Pressable>
+        variant="secondary"
+        fullWidth={false}
+        accessibilityLabel="I'm in position"
+      />
     </View>
   );
 }
@@ -123,36 +213,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    gap: 8,
-  },
-  stopLabel: {
-    color: GRAY_900,
-    fontSize: 14,
-    fontWeight: '600',
+    gap: 10,
   },
   title: {
     color: GRAY_900,
     fontSize: 22,
     fontWeight: '800',
-    marginBottom: 12,
-  },
-  manualBtn: {
-    marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    borderRadius: 5,
-    backgroundColor: CAPTURE_ACTION_BLUE,
-    borderWidth: 2,
-    borderColor: CAPTURE_ACTION_BLUE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  manualBtnPressed: {
-    opacity: 0.88,
-  },
-  manualBtnText: {
-    color: CAPTURE_TEXT_WHITE,
-    fontWeight: '800',
-    fontSize: 15,
+    marginBottom: 8,
   },
 });
