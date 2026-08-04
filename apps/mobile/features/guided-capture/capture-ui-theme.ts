@@ -68,8 +68,9 @@ export const CAPTURE_ARC_DOT_DONE = CAPTURE_ACTION_BLUE;
 export const CAPTURE_ARC_DOT_TARGET = 'rgba(0, 219, 126, 0.9)';
 export const CAPTURE_ARC_DOT_UPCOMING = 'rgba(17, 17, 17, 0.25)';
 export const CAPTURE_ARC_TRACK = 'rgba(17, 17, 17, 0.12)';
-export const CAPTURE_ARC_CAR_FILL = '#c9c9c9';
-export const CAPTURE_ARC_CAR_ROOF = '#9e9e9e';
+/** Thin outline color for the top-down car icon (line-art style, matching the
+ * "Guided capture camera angles" intro screen's diagram). */
+export const CAPTURE_ARC_CAR_LINE = '#333333';
 
 /** Sweep direction UI */
 export const SWEEP_CUE_BG = '#90b08d';
@@ -93,6 +94,31 @@ export const CAPTURE_BORDER_SUBTLE = '#555555';
 
 /** Reset Capture dialog — cancel button border (distinct from CAPTURE_ACTION_BLUE). */
 export const CAPTURE_RESET_CANCEL_BORDER = '#ff8801ff';
+
+/**
+ * Status pill (camera overlay) — grey "aligning" -> pulsing orange "almost"
+ * -> green "steady" (which also triggers auto-capture). "almost" reuses
+ * CAPTURE_ACTION_BLUE and "steady" reuses CAPTURE_VALID_BORDER so the pill
+ * stays visually tied to the flow's existing accent/success colors.
+ */
+export const CAPTURE_STATUS_ALIGNING_BG = 'rgba(17, 17, 17, 0.55)';
+export const CAPTURE_STATUS_PULSE_TINT = 'rgba(249, 115, 22, 0.3)';
+
+/** Progress ring (camera overlay) track — subtle on the dark camera preview. */
+export const CAPTURE_PROGRESS_RING_TRACK = 'rgba(255, 255, 255, 0.28)';
+
+/** Viewfinder vignette — darkens outside the frame without a hard boundary line. */
+export const CAPTURE_VIGNETTE_TINT = 'rgba(0, 0, 0, 0.55)';
+
+/**
+ * Guided Capture typography scale. One label size (chips, pills, captions)
+ * and one headline size (screen titles, "Ready" prompts) — every hardcoded
+ * font size in this flow's components should trace back to one of these.
+ */
+export const CAPTURE_TYPE_LABEL_SIZE = 13;
+export const CAPTURE_TYPE_LABEL_WEIGHT = '600' as const;
+export const CAPTURE_TYPE_HEADLINE_SIZE = 20;
+export const CAPTURE_TYPE_HEADLINE_WEIGHT = '700' as const;
 
 /* ------------------------------------------------------------------ */
 /* Insurance flow — Home, Driving Licence, User Verification (drunk    */

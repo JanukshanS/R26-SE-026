@@ -1,8 +1,14 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Image, StyleSheet, Text, View } from 'react-native';
+import { useVideoPlayer, VideoView } from 'expo-video';
 
+import { CaptureButton } from '@/features/guided-capture/components/capture-button';
+import { StopProgressLabel } from '@/features/guided-capture/components/stop-progress-label';
 import {
   CAPTURE_ACTION_BLUE,
+  CAPTURE_ACTION_BLUE_SOFT,
+  CAPTURE_TYPE_HEADLINE_SIZE,
+  CAPTURE_TYPE_HEADLINE_WEIGHT,
   GRAY_900,
   WHITE,
 } from '@/features/guided-capture/capture-ui-theme';
@@ -26,24 +32,40 @@ const POSE_INSTRUCTIONS: Record<HeightStep, string> = {
   waist: 'Hold the phone upright at waist height.',
 };
 
+/** Distance the reference photos show — kept as real text so it isn't only baked into the image pixels. */
+const POSE_DISTANCE_LABEL = 'Stand about 1.5m from the vehicle';
+
+type PoseMedia = { type: 'image'; source: number } | { type: 'video'; source: number };
+
 type PoseIllustrationProps = {
   heightStep: HeightStep;
   stopIndex: number;
   stopCount: number;
   isRetake: boolean;
   onReady: () => void;
+  /** Defaults to the built-in reference photo for `heightStep`. Pass a video source later
+   * (`{ type: 'video', source }`) to swap in a looping reference clip with a data-only change. */
+  media?: PoseMedia;
 };
 
-/** Static pose image + fade/scale-in shown before each phocto. */
+/** Pose reference (image or, later, video) + fade/scale-in shown before each photo. */
 export function PoseIllustration({
   heightStep,
   stopIndex,
   stopCount,
   isRetake,
   onReady,
+  media,
 }: PoseIllustrationProps) {
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.92)).current;
+  const resolvedMedia: PoseMedia = media ?? { type: 'image', source: POSE_IMAGES[heightStep] };
+  const videoSource = resolvedMedia.type === 'video' ? resolvedMedia.source : null;
+  const player = useVideoPlayer(videoSource, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
 
   useEffect(() => {
     opacity.setValue(0);
@@ -56,23 +78,24 @@ export function PoseIllustration({
 
   return (
     <View style={styles.root}>
-      <Text style={styles.stopLabel}>
-        {isRetake ? 'Retake photo' : `Stop ${stopIndex + 1} of ${stopCount}`}
-      </Text>
+      {isRetake ? (
+        <View style={styles.retakePill}>
+          <Text style={styles.retakeText}>Retake photo</Text>
+        </View>
+      ) : (
+        <StopProgressLabel stopIndex={stopIndex} stopCount={stopCount} heightStep={heightStep} />
+      )}
       <Text style={styles.title}>{POSE_TITLES[heightStep]}</Text>
-      <Animated.Image
-        source={POSE_IMAGES[heightStep]}
-        style={[styles.image, { opacity, transform: [{ scale }] }]}
-        resizeMode="contain"
-      />
+      <Animated.View style={[styles.mediaWrap, { opacity, transform: [{ scale }] }]}>
+        {resolvedMedia.type === 'video' ? (
+          <VideoView player={player} style={styles.image} contentFit="contain" nativeControls={false} />
+        ) : (
+          <Image source={resolvedMedia.source} style={styles.image} resizeMode="contain" />
+        )}
+      </Animated.View>
+      <Text style={styles.distanceLabel}>{POSE_DISTANCE_LABEL}</Text>
       <Text style={styles.instruction}>{POSE_INSTRUCTIONS[heightStep]}</Text>
-      <Pressable
-        style={({ pressed }) => [styles.readyButton, pressed && styles.readyButtonPressed]}
-        onPress={onReady}
-        accessibilityRole="button"
-        accessibilityLabel="Ready to aim">
-        <Text style={styles.readyButtonText}>Ready</Text>
-      </Pressable>
+      <CaptureButton title="Ready" onPress={onReady} accessibilityLabel="Ready to aim" />
     </View>
   );
 }
@@ -84,41 +107,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    gap: 12,
+    gap: 10,
   },
-  stopLabel: {
-    color: GRAY_900,
-    fontSize: 14,
+  retakePill: {
+    alignSelf: 'center',
+    backgroundColor: CAPTURE_ACTION_BLUE_SOFT,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  retakeText: {
+    color: CAPTURE_ACTION_BLUE,
+    fontSize: 13,
     fontWeight: '600',
   },
   title: {
     color: GRAY_900,
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: CAPTURE_TYPE_HEADLINE_SIZE,
+    fontWeight: CAPTURE_TYPE_HEADLINE_WEIGHT,
   },
-  image: {
+  mediaWrap: {
     width: 280,
     height: 280,
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  distanceLabel: {
+    color: CAPTURE_ACTION_BLUE,
+    fontSize: 14,
+    fontWeight: '600',
   },
   instruction: {
     color: GRAY_900,
     fontSize: 16,
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 8,
-  },
-  readyButton: {
-    backgroundColor: CAPTURE_ACTION_BLUE,
-    borderRadius: 10,
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-  },
-  readyButtonPressed: {
-    opacity: 0.85,
-  },
-  readyButtonText: {
-    color: WHITE,
-    fontSize: 17,
-    fontWeight: '700',
+    marginBottom: 4,
   },
 });
