@@ -359,6 +359,14 @@ export function useGuidedCapture(
 
   const totalPhotosExpected = stopCount * HEIGHT_STEPS.length;
 
+  // Once every required photo is captured, stop auto-firing the shutter — further time spent
+  // aiming (e.g. reviewing "extra" stops) shouldn't keep taking photos automatically.
+  useEffect(() => {
+    if (photos.length >= totalPhotosExpected) {
+      setAutoCaptureEnabled(false);
+    }
+  }, [photos.length, totalPhotosExpected]);
+
   return {
     phase,
     photos,
