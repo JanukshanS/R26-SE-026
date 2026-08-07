@@ -7,7 +7,10 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 
+import { Icon } from '@components/ui/icon';
+import { CaptureButton } from '@/features/guided-capture/components/capture-button';
 import { ResetCaptureDialog } from '@/features/guided-capture/components/reset-capture-dialog';
 import {
   deleteDrunkTestVideo,
@@ -16,15 +19,16 @@ import {
 } from '@/features/drunk-test/storage/drunk-test-store';
 import {
   CAPTURE_ACTION_BLUE,
-  CAPTURE_RESET_CANCEL_BORDER,
+  CAPTURE_ACTION_BLUE_SOFT,
+  CAPTURE_REC_BADGE_BG,
+  CAPTURE_TYPE_HEADLINE_SIZE,
+  CAPTURE_TYPE_HEADLINE_WEIGHT,
+  GRAY_900,
   INSURANCE_BORDER,
   INSURANCE_CAMERA_PLACEHOLDER_BG,
   INSURANCE_CTA_LINK,
   INSURANCE_PERMISSION_BLUE,
-  INSURANCE_PRIMARY,
-  INSURANCE_RECORDING_BAR_BG,
   INSURANCE_SCREEN_BG,
-  INSURANCE_SCRIPT_BOX_BG,
   INSURANCE_SHADOW_COLOR,
   INSURANCE_TEXT,
   INSURANCE_TEXT_DIM,
@@ -59,6 +63,21 @@ async function persistRecordedVideo(sourceUri: string): Promise<string> {
   const destInfo = await FileSystem.getInfoAsync(destUri);
   if (!destInfo.exists) throw new Error('Stored video file was not created.');
   return destUri;
+}
+
+/** Pulsing red dot shown next to "Recording" while active. */
+function RecordingDot() {
+  const pulse = useSharedValue(0);
+
+  useEffect(() => {
+    pulse.value = withRepeat(withSequence(withTiming(1, { duration: 500 }), withTiming(0, { duration: 500 })), -1, true);
+  }, [pulse]);
+
+  const dotStyle = useAnimatedStyle(() => ({
+    opacity: 0.45 + pulse.value * 0.55,
+  }));
+
+  return <Animated.View style={[styles.recordingDot, dotStyle]} />;
 }
 
 export default function DrunkTestScreen() {
@@ -101,7 +120,7 @@ export default function DrunkTestScreen() {
   const hasVideo = videoUri !== null;
 
   const headline = hasVideo
-    ? 'User Verification Test video captured'
+    ? 'All set — review your video below.'
     : 'Tap Take Video and Read this aloud facing the camera';
 
   const clearCountdownTimer = useCallback(() => {
@@ -299,6 +318,22 @@ export default function DrunkTestScreen() {
 
   const recordWithMic = true;
 
+  const takeVideoDisabled =
+    isRecording ||
+    !isCameraReady ||
+    Platform.OS === 'web' ||
+    (Platform.OS === 'android' && !micPermission?.granted);
+
+  const primaryTitle = isRecording
+    ? ' '
+    : hasVideo
+      ? 'Continue'
+      : !isCameraReady
+        ? 'Preparing camera…'
+        : Platform.OS === 'web'
+          ? 'Video (device only)'
+          : 'Take Video';
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
       <ResetCaptureDialog
@@ -357,64 +392,55 @@ export default function DrunkTestScreen() {
           />
           {isRecording && remainingSeconds !== null ? (
             <View style={styles.recordingBar} pointerEvents="none">
+              <View style={styles.recordingBadgeRow}>
+                <RecordingDot />
+                <Text style={styles.recordingBadgeText}>Recording</Text>
+              </View>
+              <Text style={styles.recordingBarText}>{remainingSeconds}s left</Text>
               <Text style={styles.recordingBarHint}>Stay in frame till the countdown finishes.</Text>
-              <Text style={styles.recordingBarText}>
-                Recording {remainingSeconds} seconds left
-              </Text>
             </View>
           ) : null}
           {hasVideo ? (
             <View style={styles.cornerAnchor}>
-              <Pressable
-                style={({ pressed }) => [styles.cornerPreviewTile, pressed && styles.pressed]}
-                accessibilityLabel="Play saved video"
-                onPress={() => void playSavedVideo()}>
-                <Text style={styles.cornerVideoLabel}>Play</Text>
-                <Text style={styles.cornerVideoSub}>{RECORD_DURATION_SEC}s clip</Text>
-              </Pressable>
+              <View style={styles.cornerPreviewTile}>
+                <Pressable
+                  style={({ pressed }) => [StyleSheet.absoluteFill, pressed && styles.pressed]}
+                  accessibilityLabel="Play saved video"
+                  onPress={() => void playSavedVideo()}>
+                  <View style={styles.cornerPreviewTileContent}>
+                    <Text style={styles.cornerVideoLabel}>Play</Text>
+                    <Text style={styles.cornerVideoSub}>{RECORD_DURATION_SEC}s clip</Text>
+                  </View>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [styles.retakeBadge, pressed && styles.retakeBadgePressed]}
+                  onPress={() => setIsResetDialogVisible(true)}
+                  hitSlop={12}
+                  accessibilityRole="button"
+                  accessibilityLabel="Retake video">
+                  <Icon name="RotateCcw" size={12} color={CAPTURE_ACTION_BLUE} />
+                </Pressable>
+              </View>
             </View>
           ) : null}
         </View>
 
         <View style={styles.buttonRow}>
-          <Pressable
-            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
-            onPress={() => router.replace('/(insurance)')}>
-            <Text style={styles.backButtonText}>Back</Text>
-          </Pressable>
-          {!hasVideo ? (
-            <Pressable
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && styles.primaryButtonPressed,
-                (isRecording ||
-                  !isCameraReady ||
-                  Platform.OS === 'web' ||
-                  (Platform.OS === 'android' && !micPermission?.granted)) &&
-                  styles.buttonDisabled,
-              ]}
-              onPress={() => void startRecording()}
-              disabled={
-                isRecording ||
-                !isCameraReady ||
-                Platform.OS === 'web' ||
-                (Platform.OS === 'android' && !micPermission?.granted)
-              }>
-              {isRecording ? (
-                <ActivityIndicator color={WHITE} />
-              ) : (
-                <Text style={styles.primaryButtonText}>
-                  {!isCameraReady ? 'Preparing camera…' : Platform.OS === 'web' ? 'Video (device only)' : 'Take Video'}
-                </Text>
-              )}
-            </Pressable>
-          ) : (
-            <Pressable
-              style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
-              onPress={() => setIsResetDialogVisible(true)}>
-              <Text style={styles.primaryButtonText}>Retake</Text>
-            </Pressable>
-          )}
+          <View style={styles.primaryButtonWrap}>
+            <CaptureButton
+              title={primaryTitle}
+              variant="primary"
+              disabled={hasVideo ? false : takeVideoDisabled}
+              onPress={() => {
+                if (hasVideo) {
+                  router.replace('/(insurance)');
+                } else {
+                  void startRecording();
+                }
+              }}
+            />
+            {isRecording ? <ActivityIndicator style={styles.buttonSpinner} color={WHITE} /> : null}
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -426,7 +452,6 @@ const COLORS = {
   textMuted: INSURANCE_TEXT_MUTED,
   screen: INSURANCE_SCREEN_BG,
   border: INSURANCE_BORDER,
-  scriptBg: INSURANCE_SCRIPT_BOX_BG,
 };
 
 const styles = StyleSheet.create({
@@ -439,11 +464,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 28,
+    paddingBottom: 8,
+    gap: 5,
   },
   header: {
-    marginBottom: 5,
-    paddingTop: 45,
+    paddingTop: 8,
   },
   headerBack: {
     flexDirection: 'row',
@@ -467,11 +492,18 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   headline: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: CAPTURE_TYPE_HEADLINE_SIZE,
+    fontWeight: CAPTURE_TYPE_HEADLINE_WEIGHT,
     color: COLORS.text,
-    lineHeight: 30,
-    marginBottom: 10,
+    lineHeight: 28,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: COLORS.textMuted,
+    lineHeight: 22,
+    marginBottom: 8,
   },
   readAloudBox: {
     width: '100%',
@@ -479,10 +511,9 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 12,
+    borderRadius: 15,
     padding: 15,
-    backgroundColor: COLORS.scriptBg,
-    marginBottom: 10,
+    backgroundColor: CAPTURE_ACTION_BLUE_SOFT,
   },
   readAloudScroll: {
     maxHeight: 200,
@@ -498,13 +529,12 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     alignSelf: 'center',
     aspectRatio: 1,
-    borderRadius: 12,
+    borderRadius: 15,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: INSURANCE_CAMERA_PLACEHOLDER_BG,
     position: 'relative',
-    marginBottom: 10,
   },
   camera: {
     flex: 1,
@@ -517,8 +547,25 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     alignItems: 'center',
-    backgroundColor: INSURANCE_RECORDING_BAR_BG,
+    backgroundColor: 'rgba(255, 255, 255, 0.60)',
+    gap: 4,
+  },
+  recordingBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
+  },
+  recordingDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: CAPTURE_REC_BADGE_BG,
+  },
+  recordingBadgeText: {
+    color: CAPTURE_REC_BADGE_BG,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   recordingBarHint: {
     fontSize: 13,
@@ -529,7 +576,7 @@ const styles = StyleSheet.create({
   recordingBarText: {
     color: COLORS.text,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'center',
   },
   cornerAnchor: {
@@ -540,19 +587,42 @@ const styles = StyleSheet.create({
   cornerPreviewTile: {
     width: 80,
     height: 80,
-    borderRadius: 5,
+    borderRadius: 8,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: WHITE,
+    borderWidth: 1,
+    borderColor: GRAY_900,
     backgroundColor: INSURANCE_VIDEO_TILE_BG,
+    position: 'relative',
+    shadowColor: INSURANCE_SHADOW_COLOR,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  cornerPreviewTileContent: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
+  },
+  retakeBadge: {
+    position: 'absolute',
+    bottom: 3,
+    right: 3,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: WHITE,
     shadowColor: INSURANCE_SHADOW_COLOR,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
+    shadowRadius: 2,
+    elevation: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retakeBadgePressed: {
+    opacity: 0.8,
   },
   cornerVideoLabel: {
     color: WHITE,
@@ -572,42 +642,16 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
   },
-  backButton: {
-    flex: 1,
-    backgroundColor: WHITE,
-    borderWidth: 1,
-    borderColor: CAPTURE_RESET_CANCEL_BORDER,
-    borderRadius: 8,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+  primaryButtonWrap: {
+    width: '100%',
+    position: 'relative',
   },
-  backButtonPressed: {
-    opacity: 0.88,
-  },
-  backButtonText: {
-    color: CAPTURE_ACTION_BLUE,
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  primaryButton: {
-    flex: 1,
-    backgroundColor: INSURANCE_PRIMARY,
-    borderRadius: 10,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButtonPressed: {
-    opacity: 0.92,
-  },
-  primaryButtonText: {
-    color: WHITE,
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  buttonDisabled: {
-    opacity: 0.7,
+  buttonSpinner: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
   pressed: {
     opacity: 0.65,

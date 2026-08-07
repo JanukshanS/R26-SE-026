@@ -6,6 +6,8 @@ import { useMemo, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Icon } from '@components/ui/icon';
+import { CaptureButton } from '@/features/guided-capture/components/capture-button';
 import { ResetCaptureDialog } from '@/features/guided-capture/components/reset-capture-dialog';
 import { prepareImageForZeroDce } from '@/features/low-light/prepare-image-for-zero-dce';
 import {
@@ -20,11 +22,16 @@ import { snapAndSavePhotoGps } from '@/lib/snap-photo-gps';
 import { appendUniqueUri } from '@/lib/uri-utils';
 import {
   CAPTURE_ACTION_BLUE,
-  CAPTURE_RESET_CANCEL_BORDER,
+  CAPTURE_ACTION_BLUE_SOFT,
+  CAPTURE_TYPE_HEADLINE_SIZE,
+  CAPTURE_TYPE_HEADLINE_WEIGHT,
+  CAPTURE_TYPE_LABEL_SIZE,
+  CAPTURE_TYPE_LABEL_WEIGHT,
+  CAPTURE_VALID_BORDER,
+  GRAY_900,
   INSURANCE_BORDER,
   INSURANCE_CAMERA_PLACEHOLDER_BG,
   INSURANCE_CTA_LINK,
-  INSURANCE_PRESSED_SURFACE_FAINT,
   INSURANCE_PRIMARY,
   INSURANCE_SCREEN_BG,
   INSURANCE_SHADOW_COLOR,
@@ -34,6 +41,37 @@ import {
   INSURANCE_THUMBNAIL_BG,
   WHITE,
 } from '@/features/guided-capture/capture-ui-theme';
+
+const STEP_INDEX: Record<ThirdPartyCaptureStep, number> = { driverFront: 0, driverBack: 1, revenue: 2 };
+const STEP_LABELS: Record<ThirdPartyCaptureStep, string> = {
+  driverFront: 'Driver Licence (Front)',
+  driverBack: 'Driver Licence (Back)',
+  revenue: 'Revenue Licence',
+};
+const STEP_SHORT_LABELS: Record<ThirdPartyCaptureStep, string> = {
+  driverFront: 'Front',
+  driverBack: 'Back',
+  revenue: 'Revenue',
+};
+
+/** Small "Step N of M" pill, local to this screen only — same visual system as the Driving
+ * Licence flow's step pill, kept self-contained rather than shared to leave the Guided Capture
+ * flow's own components untouched. */
+function StepProgressPill({ step, completed }: { step: ThirdPartyCaptureStep; completed: boolean }) {
+  if (completed) {
+    return (
+      <View style={[styles.stepPill, styles.stepPillDone]}>
+        <Icon name="Check" size={13} color={WHITE} />
+        <Text style={[styles.stepPillText, styles.stepPillDoneText]}>Done</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={styles.stepPill}>
+      <Text style={styles.stepPillText}>{`Step ${STEP_INDEX[step] + 1} of 3 • ${STEP_LABELS[step]}`}</Text>
+    </View>
+  );
+}
 
 export default function ThirdPartyDetailsScreen() {
   const router = useRouter();
@@ -48,7 +86,12 @@ export default function ThirdPartyDetailsScreen() {
   const [notApplicable, setNotApplicable] = useState(false);
   const [libraryUris, setLibraryUris] = useState<string[]>([]);
   const [isTakingPhoto, setIsTakingPhoto] = useState(false);
-  const [isResetDialogVisible, setIsResetDialogVisible] = useState(false);
+  const [retakeConfirmTarget, setRetakeConfirmTarget] = useState<ThirdPartyCaptureStep | null>(null);
+  // Facing is always 'back' on this screen and the CameraView below is never remounted
+  // (no `key`), so this only needs to flip true once, the first time the camera signals
+  // ready — calling takePictureAsync before that throws "Camera is not ready yet", which is
+  // what was surfacing as "Capture failed. Please try again." on later steps.
+  const [isCameraReady, setIsCameraReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,7 +132,7 @@ export default function ThirdPartyDetailsScreen() {
 
   const headline = useMemo(() => {
     if (allImagesCaptured) {
-      return 'All images Captured';
+      return 'All set — review your photos below.';
     }
     if (step === 'driverFront') {
       return "Take an image of the 3rd party vehicle's Driver Licence.";
@@ -103,25 +146,33 @@ export default function ThirdPartyDetailsScreen() {
   const hasAnyPhoto =
     driverLicenceFrontUri != null || driverLicenceBackUri != null || revenueLicenceUri != null;
 
-  const restartFromBeginning = () => {
-    const urisToDelete = [...libraryUris];
-    setDriverLicenceFrontUri(null);
-    setDriverLicenceBackUri(null);
-    setRevenueLicenceUri(null);
-    setLibraryUris([]);
-    setStep('driverFront');
-    setNotApplicable(false);
-    void deleteThirdPartyPhotos(urisToDelete);
+  /** Retake a single already-captured document: clear just that slot and its file, leave the
+   * others untouched, and reopen the camera on that step — same pattern as the Driving
+   * Licence flow's per-thumbnail retake. */
+  const retakeStep = (target: ThirdPartyCaptureStep) => {
+    const uriToDelete =
+      target === 'driverFront'
+        ? driverLicenceFrontUri
+        : target === 'driverBack'
+          ? driverLicenceBackUri
+          : revenueLicenceUri;
+    if (target === 'driverFront') {
+      setDriverLicenceFrontUri(null);
+    } else if (target === 'driverBack') {
+      setDriverLicenceBackUri(null);
+    } else {
+      setRevenueLicenceUri(null);
+    }
+    if (uriToDelete) {
+      setLibraryUris((prev) => prev.filter((u) => u !== uriToDelete));
+      void deleteThirdPartyPhotos([uriToDelete]);
+    }
+    setStep(target);
   };
 
   const onTakePhoto = async () => {
-    if (allImagesCaptured) {
-      setIsResetDialogVisible(true);
-      return;
-    }
-
     const cam = cameraRef.current;
-    if (!cam || isTakingPhoto) {
+    if (!cam || isTakingPhoto || !isCameraReady) {
       return;
     }
     try {
@@ -192,7 +243,11 @@ export default function ThirdPartyDetailsScreen() {
     );
   };
 
-  const primaryLabel = allImagesCaptured ? 'Retake' : 'Take Photo';
+  const primaryLabel = allImagesCaptured ? 'Continue' : 'Take Photo';
+  // Hides the "Not Applicable" option once any document is captured, rather than leaving a
+  // dead, greyed-out button on screen — the underlying guard (onNotApplicable's early return
+  // when hasAnyPhoto) is unchanged; this only affects whether we render it at all.
+  const showNotApplicable = !hasAnyPhoto && !notApplicable;
 
   if (!permission) {
     return (
@@ -222,16 +277,44 @@ export default function ThirdPartyDetailsScreen() {
     );
   }
 
+  const renderCornerThumb = (uri: string, target: ThirdPartyCaptureStep) => (
+    <View style={styles.cornerThumbWrap}>
+      <View style={styles.cornerPreviewTile} accessibilityLabel={`${STEP_LABELS[target]} preview`}>
+        <Image source={{ uri }} style={styles.cornerPreviewImage} resizeMode="cover" />
+        <Pressable
+          style={({ pressed }) => [styles.retakeBadge, pressed && styles.retakeBadgePressed]}
+          onPress={() => setRetakeConfirmTarget(target)}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel={`Retake ${STEP_LABELS[target].toLowerCase()}`}>
+          <Icon name="RotateCcw" size={12} color={CAPTURE_ACTION_BLUE} />
+        </Pressable>
+      </View>
+      <View style={styles.cornerThumbLabelPill}>
+        <Text style={styles.cornerThumbLabelText}>{STEP_SHORT_LABELS[target]}</Text>
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
       <ResetCaptureDialog
-        visible={isResetDialogVisible}
-        onCancel={() => setIsResetDialogVisible(false)}
+        visible={retakeConfirmTarget != null}
+        title="Retake Photo"
+        message={
+          retakeConfirmTarget
+            ? `Clear the captured ${STEP_LABELS[retakeConfirmTarget]} photo and take it again?`
+            : ''
+        }
+        confirmLabel="Retake"
+        onCancel={() => setRetakeConfirmTarget(null)}
         onConfirm={() => {
-          setIsResetDialogVisible(false);
-          restartFromBeginning();
+          const target = retakeConfirmTarget;
+          setRetakeConfirmTarget(null);
+          if (target) {
+            retakeStep(target);
+          }
         }}
-        message="Clear all third-party photos and start again?"
       />
       <ScrollView
         style={styles.scroll}
@@ -256,75 +339,60 @@ export default function ThirdPartyDetailsScreen() {
           )}
         </View>
 
+        <StepProgressPill step={step} completed={allImagesCaptured} />
+
         <Text style={styles.headline}>{headline}</Text>
         <Text style={styles.subtitle}>This step is required by the insurance company for all third-party cases.</Text>
 
         <View style={styles.cameraFrame}>
-          <CameraView key={step} ref={cameraRef} style={styles.cameraFill} facing="back" />
+          <CameraView
+            ref={cameraRef}
+            style={styles.cameraFill}
+            facing="back"
+            onCameraReady={() => setIsCameraReady(true)}
+          />
           {step === 'driverBack' && driverLicenceFrontUri ? (
-            <View style={styles.cornerAnchor}>
-              <View style={styles.cornerPreviewTile} accessibilityLabel="3rd party driver licence front preview">
-                <Image source={{ uri: driverLicenceFrontUri }} style={styles.cornerPreviewImage} resizeMode="cover" />
-              </View>
-            </View>
+            <View style={styles.cornerAnchor}>{renderCornerThumb(driverLicenceFrontUri, 'driverFront')}</View>
           ) : null}
           {step === 'revenue' && driverLicenceFrontUri && driverLicenceBackUri ? (
             <View style={styles.cornerAnchor}>
               <View style={styles.cornerThumbsRow}>
-                <View style={styles.cornerPreviewTile} accessibilityLabel="3rd party driver licence back preview">
-                  <Image source={{ uri: driverLicenceBackUri }} style={styles.cornerPreviewImage} resizeMode="cover" />
-                </View>
-                <View style={styles.cornerPreviewTile} accessibilityLabel="3rd party driver licence front preview">
-                  <Image source={{ uri: driverLicenceFrontUri }} style={styles.cornerPreviewImage} resizeMode="cover" />
-                </View>
-                {revenueLicenceUri ? (
-                  <View style={styles.cornerPreviewTile} accessibilityLabel="3rd party revenue licence preview">
-                    <Image source={{ uri: revenueLicenceUri }} style={styles.cornerPreviewImage} resizeMode="cover" />
-                  </View>
-                ) : null}
+                {renderCornerThumb(driverLicenceBackUri, 'driverBack')}
+                {renderCornerThumb(driverLicenceFrontUri, 'driverFront')}
+                {revenueLicenceUri ? renderCornerThumb(revenueLicenceUri, 'revenue') : null}
               </View>
             </View>
           ) : null}
         </View>
 
         <View style={styles.buttonRow}>
-          <Pressable
-            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
-            onPress={() => router.replace('/(insurance)')}>
-            <Text style={styles.backButtonText}>Back</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.primaryButtonPressed,
-              isTakingPhoto && styles.buttonDisabled,
-            ]}
-            onPress={() => void onTakePhoto()}
-            disabled={isTakingPhoto}>
-            {isTakingPhoto ? (
-              <ActivityIndicator color={WHITE} />
-            ) : (
-              <Text style={styles.primaryButtonText}>{primaryLabel}</Text>
-            )}
-          </Pressable>
+          <View style={styles.primaryButtonWrap}>
+            <CaptureButton
+              title={isTakingPhoto ? ' ' : primaryLabel}
+              variant="primary"
+              disabled={isTakingPhoto || (!allImagesCaptured && !isCameraReady)}
+              onPress={() => {
+                if (allImagesCaptured) {
+                  router.replace('/(insurance)');
+                } else {
+                  void onTakePhoto();
+                }
+              }}
+            />
+            {isTakingPhoto ? <ActivityIndicator style={styles.buttonSpinner} color={WHITE} /> : null}
+          </View>
         </View>
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.secondaryButton,
-            pressed && styles.secondaryButtonPressed,
-            hasAnyPhoto || notApplicable ? styles.secondaryButtonDisabled : null,
-          ]}
-          onPress={onNotApplicable}
-          disabled={hasAnyPhoto || notApplicable}>
-          <Text
-            style={[
-              styles.secondaryButtonText,
-              hasAnyPhoto || notApplicable ? styles.secondaryButtonTextDisabled : null,
-            ]}>
-            Not Applicable
-          </Text>
-        </Pressable>
+        {showNotApplicable ? (
+          <Pressable
+            style={({ pressed }) => [styles.notApplicableWrap, pressed && styles.pressed]}
+            onPress={onNotApplicable}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Not applicable — no third-party vehicle or documents">
+            <Text style={styles.notApplicableText}>Not Applicable</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -348,9 +416,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 28,
+    gap: 14,
   },
   header: {
-    marginBottom: 20,
     paddingTop: 50,
   },
   headerBack: {
@@ -374,31 +442,55 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     flexShrink: 0,
   },
+  stepPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'center',
+    backgroundColor: CAPTURE_ACTION_BLUE_SOFT,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  stepPillDone: {
+    backgroundColor: CAPTURE_VALID_BORDER,
+  },
+  stepPillText: {
+    color: CAPTURE_ACTION_BLUE,
+    fontSize: CAPTURE_TYPE_LABEL_SIZE,
+    fontWeight: CAPTURE_TYPE_LABEL_WEIGHT,
+  },
+  stepPillDoneText: {
+    color: WHITE,
+  },
   headline: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: CAPTURE_TYPE_HEADLINE_SIZE,
+    fontWeight: CAPTURE_TYPE_HEADLINE_WEIGHT,
     color: COLORS.text,
-    lineHeight: 30,
-    marginBottom: 10,
+    lineHeight: 28,
+    marginTop: 2,
   },
   subtitle: {
     fontSize: 16,
     color: COLORS.textMuted,
     lineHeight: 22,
-    marginBottom: 15
   },
   cameraFrame: {
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
     aspectRatio: 1,
-    borderRadius: 12,
+    borderRadius: 15,
     borderWidth: 1,
     borderColor: COLORS.border,
     overflow: 'hidden',
     backgroundColor: INSURANCE_CAMERA_PLACEHOLDER_BG,
     position: 'relative',
-    marginBottom: 24,
+    shadowColor: INSURANCE_SHADOW_COLOR,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   cameraFill: {
     width: '100%',
@@ -411,16 +503,31 @@ const styles = StyleSheet.create({
   },
   cornerThumbsRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     gap: 8,
+  },
+  cornerThumbWrap: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  cornerThumbLabelPill: {
+    backgroundColor: 'rgba(17, 17, 17, 0.6)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  cornerThumbLabelText: {
+    color: WHITE,
+    fontSize: 11,
+    fontWeight: '600',
   },
   cornerPreviewTile: {
     width: 72,
     height: 72,
     borderRadius: 8,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: WHITE,
+    borderWidth: 1,
+    borderColor: GRAY_900,
     backgroundColor: INSURANCE_THUMBNAIL_BG,
     shadowColor: INSURANCE_SHADOW_COLOR,
     shadowOffset: { width: 0, height: 1 },
@@ -432,76 +539,52 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  retakeBadge: {
+    position: 'absolute',
+    bottom: 3,
+    right: 3,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: WHITE,
+    shadowColor: INSURANCE_SHADOW_COLOR,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retakeBadgePressed: {
+    opacity: 0.8,
+  },
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 12,
     maxWidth: 400,
     alignSelf: 'center',
     width: '100%',
   },
-  backButton: {
-    flex: 1,
-    backgroundColor: WHITE,
-    borderWidth: 1,
-    borderColor: CAPTURE_RESET_CANCEL_BORDER,
-    borderRadius: 8,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backButtonPressed: {
-    opacity: 0.88,
-  },
-  backButtonText: {
-    color: CAPTURE_ACTION_BLUE,
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  primaryButton: {
-    flex: 1,
-    backgroundColor: INSURANCE_PRIMARY,
-    borderRadius: 10,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButtonPressed: {
-    opacity: 0.92,
-  },
-  primaryButtonText: {
-    color: WHITE,
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  secondaryButton: {
-    backgroundColor: WHITE,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    maxWidth: 400,
-    alignSelf: 'center',
+  primaryButtonWrap: {
     width: '100%',
+    position: 'relative',
   },
-  secondaryButtonPressed: {
-    backgroundColor: INSURANCE_PRESSED_SURFACE_FAINT,
+  buttonSpinner: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
-  secondaryButtonDisabled: {
-    opacity: 0.45,
+  notApplicableWrap: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
-  secondaryButtonText: {
-    color: COLORS.text,
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  secondaryButtonTextDisabled: {
-    color: COLORS.textMuted,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
+  notApplicableText: {
+    color: INSURANCE_CTA_LINK,
+    fontSize: 15,
+    fontWeight: '600',
   },
   pressed: {
     opacity: 0.65,

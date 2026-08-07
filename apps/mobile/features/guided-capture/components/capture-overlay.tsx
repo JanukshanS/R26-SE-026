@@ -1,8 +1,9 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CaptureOverflowMenu } from '@/features/guided-capture/components/capture-overflow-menu';
 import { ProgressRing } from '@/features/guided-capture/components/progress-ring';
 import { StatusPill } from '@/features/guided-capture/components/status-pill';
+import { CAPTURE_ACTION_BLUE, CAPTURE_TEXT_WHITE } from '@/features/guided-capture/capture-ui-theme';
 import type { CaptureStatus } from '@/features/guided-capture/tilt-status';
 
 type CaptureOverlayProps = {
@@ -32,11 +33,23 @@ export function CaptureOverlay({
   onResetCapture,
 }: CaptureOverlayProps) {
   const showBackInsteadOfReset = capturedCount === 0;
+  const allCaptured = totalExpected > 0 && capturedCount >= totalExpected;
 
   return (
     <View style={styles.overlay} pointerEvents="box-none">
       <View style={styles.topRow}>
-        <ProgressRing current={capturedCount} total={totalExpected} />
+        <View style={styles.progressGroup}>
+          <ProgressRing current={capturedCount} total={totalExpected} />
+          {allCaptured ? (
+            <Pressable
+              style={({ pressed }) => [styles.submitButton, pressed && styles.submitButtonPressed]}
+              onPress={onSubmitPhotos}
+              accessibilityRole="button"
+              accessibilityLabel="Submit photos">
+              <Text style={styles.submitButtonText}>View and Submit</Text>
+            </Pressable>
+          ) : null}
+        </View>
         <CaptureOverflowMenu
           showBackInsteadOfReset={showBackInsteadOfReset}
           onBackPress={onBackPress}
@@ -69,6 +82,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  progressGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  submitButton: {
+    marginLeft: 15,
+    backgroundColor: CAPTURE_ACTION_BLUE,
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitButtonPressed: {
+    opacity: 0.88,
+  },
+  submitButtonText: {
+    color: CAPTURE_TEXT_WHITE,
+    fontSize: 15,
+    fontWeight: '700',
   },
   statusRow: {
     marginTop: 14,

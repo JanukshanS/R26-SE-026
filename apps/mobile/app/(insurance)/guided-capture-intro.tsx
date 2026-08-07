@@ -73,32 +73,13 @@ export default function GuidedCaptureIntroScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        {hasRequiredPhotos ? (
-          <View style={styles.footerRow}>
-            <Pressable
-              style={({ pressed }) => [styles.backBtn, pressed && styles.backPressed]}
-              onPress={() => router.back()}
-              accessibilityRole="button"
-              accessibilityLabel="Go back">
-              <Text style={styles.backBtnText}>Back</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.nextBtn, styles.nextBtnFlex, pressed && styles.nextPressed]}
-              onPress={() => router.push('/(insurance)/capture')}
-              accessibilityRole="button"
-              accessibilityLabel="Continue to camera">
-              <Text style={styles.nextBtnText}>Next</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <Pressable
-            style={({ pressed }) => [styles.nextBtn, pressed && styles.nextPressed]}
-            onPress={() => router.push('/(insurance)/capture')}
-            accessibilityRole="button"
-            accessibilityLabel="Continue to camera">
-            <Text style={styles.nextBtnText}>Next</Text>
-          </Pressable>
-        )}
+        <Pressable
+          style={({ pressed }) => [styles.nextBtn, pressed && styles.nextPressed]}
+          onPress={() => router.push('/(insurance)/capture')}
+          accessibilityRole="button"
+          accessibilityLabel="Continue to camera">
+          <Text style={styles.nextBtnText}>Next</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -189,10 +170,6 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     backgroundColor: '#ffffff',
   },
-  footerRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
   nextBtn: {
     backgroundColor: ORANGE,
     borderRadius: 14,
@@ -200,32 +177,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  nextBtnFlex: {
-    flex: 1,
-  },
   nextPressed: {
     opacity: 0.92,
   },
   nextBtnText: {
     color: '#ffffff',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  backBtn: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: ORANGE,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backPressed: {
-    backgroundColor: '#fff3ea',
-  },
-  backBtnText: {
-    color: ORANGE,
     fontSize: 17,
     fontWeight: '700',
   },
