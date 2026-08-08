@@ -21,6 +21,8 @@ interface ProfilePatch {
   phone?: string;
   location?: string;
   providerId?: string | null;
+  licenceNumber?: string;
+  nicNumber?: string;
 }
 
 interface VehicleContextValue {

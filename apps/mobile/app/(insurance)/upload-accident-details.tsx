@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { InsuranceBottomTabBar, type InsuranceTabId } from '@/components/insurance-bottom-tab-bar';
 import { findInsuranceCompany, type InsuranceCompany } from '@/lib/insuranceCompaniesApi';
-import { getVehicles } from '@/lib/vehicleApi';
+import { getVehicleById, getVehicles } from '@/lib/vehicleApi';
 import { loadClaimantProfile } from '@/features/claimant/storage/claimant-profile-store';
 import { useClaimUpload } from '@/features/report-accident/hooks/use-claim-upload';
 import { formatTimestamp } from '@/lib/format-timestamp';
@@ -78,7 +78,11 @@ function ProgressRow({
 
 export default function UploadAccidentDetailsScreen() {
   const router = useRouter();
-  const { uploadKey, reportedAtIso } = useLocalSearchParams<{ uploadKey?: string; reportedAtIso?: string }>();
+  const { uploadKey, reportedAtIso, vehicleId } = useLocalSearchParams<{
+    uploadKey?: string;
+    reportedAtIso?: string;
+    vehicleId?: string;
+  }>();
 
   const [claimantName, setClaimantName] = useState('');
   const [claimantNic, setClaimantNic] = useState('');
@@ -121,30 +125,53 @@ export default function UploadAccidentDetailsScreen() {
   const claimComplete = photosUploadComplete && fraudValidationComplete;
 
   const [insuranceCompany, setInsuranceCompany] = useState<InsuranceCompany | null>(null);
+  const [vehicleMissingInsurer, setVehicleMissingInsurer] = useState(false);
 
-  // Same as (insurance)/index.tsx: this screen sits outside VehicleProvider,
-  // so the driver's default vehicle (and its insurer) is fetched directly.
+  // Same as (insurance)/index.tsx: this screen sits outside VehicleProvider, so the SPECIFIC
+  // vehicle the driver had selected on Home (passed in as `vehicleId`) is fetched directly.
+  // Falls back to the default/first vehicle only when no vehicleId was passed.
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       void (async () => {
         try {
-          const vehicles = await getVehicles();
-          const target = vehicles.find((v) => v.isDefault) ?? vehicles[0];
-          if (!target?.insuranceProvider) {
-            if (!cancelled) setInsuranceCompany(null);
+          let target;
+          if (vehicleId) {
+            target = await getVehicleById(vehicleId);
+          } else {
+            const vehicles = await getVehicles();
+            target = vehicles.find((v) => v.isDefault) ?? vehicles[0] ?? null;
+          }
+          if (!target) {
+            if (!cancelled) {
+              setInsuranceCompany(null);
+              setVehicleMissingInsurer(false);
+            }
+            return;
+          }
+          if (!target.insuranceProvider) {
+            if (!cancelled) {
+              setInsuranceCompany(null);
+              setVehicleMissingInsurer(true);
+            }
             return;
           }
           const company = await findInsuranceCompany(target.insuranceProvider);
-          if (!cancelled) setInsuranceCompany(company);
+          if (!cancelled) {
+            setInsuranceCompany(company);
+            setVehicleMissingInsurer(false);
+          }
         } catch {
-          if (!cancelled) setInsuranceCompany(null);
+          if (!cancelled) {
+            setInsuranceCompany(null);
+            setVehicleMissingInsurer(false);
+          }
         }
       })();
       return () => {
         cancelled = true;
       };
-    }, [])
+    }, [vehicleId])
   );
 
   const onCallInsurer = async () => {
@@ -223,7 +250,7 @@ export default function UploadAccidentDetailsScreen() {
               {timestampLine || (locationLoading ? '…' : formatTimestamp(new Date()))}
             </Text>
             <Text style={styles.detailFooter}>
-              GPS + Timestamp signed. You can close the App - Do not disconnect from Internet. We'll notify you.
+              GPS + Timestamp signed. You can close the App - Do not disconnect from Internet. We&apos;ll notify you.
             </Text>
           </View>
 
@@ -238,6 +265,13 @@ export default function UploadAccidentDetailsScreen() {
               onPress={onCallInsurer}>
               <Text style={styles.callInsurerText}>{`Need to call ${insuranceCompany.appName}?`}</Text>
             </Pressable>
+          ) : vehicleMissingInsurer ? (
+            <View style={styles.noInsurerHint}>
+              <Text style={styles.noInsurerHintText}>
+                No insurance company saved for this vehicle. Add it in My Vehicles → Edit → Add
+                insurance company → Save changes.
+              </Text>
+            </View>
           ) : null}
 
           {claimComplete && (
@@ -421,6 +455,20 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: COLORS.text,
+  },
+  noInsurerHint: {
+    backgroundColor: COLORS.screen,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  noInsurerHintText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: COLORS.textMuted,
+    textAlign: 'center',
   },
   newClaimBtnMargin: {
     marginTop: 12,

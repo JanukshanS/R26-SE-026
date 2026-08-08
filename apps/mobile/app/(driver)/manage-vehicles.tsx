@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
@@ -28,14 +28,23 @@ const EMPTY_FORM: Partial<VehicleInput> = {
 
 export default function ManageVehiclesScreen() {
   const insets = useSafeAreaInsets();
-  const { user, vehicles, vehiclesLoading, selectedVehicle, selectVehicle, addVehicle, editVehicle, removeVehicle, setDefault, logout } = useVehicle();
+  const { user, vehicles, vehiclesLoading, selectedVehicle, selectVehicle, addVehicle, editVehicle, removeVehicle, setDefault, updateMe, logout } = useVehicle();
+  const { editVehicleId } = useLocalSearchParams<{ editVehicleId?: string }>();
 
   const [showForm, setShowForm] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [form, setForm] = useState<Partial<VehicleInput>>(EMPTY_FORM);
+  // Licence/NIC are profile-level (one per driver, not per vehicle) — shown here for
+  // convenience so a driver who skipped them during onboarding can complete them while
+  // editing any vehicle, same as the insurance fields below.
+  const [licenceNumber, setLicenceNumber] = useState("");
+  const [nicNumber, setNicNumber] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [companies, setCompanies] = useState<InsuranceCompany[]>([]);
+  const [reminderVisible, setReminderVisible] = useState(false);
+  const [missingLabels, setMissingLabels] = useState<string[]>([]);
+  const autoOpenedForId = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +57,32 @@ export default function ManageVehiclesScreen() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      setLicenceNumber(user.licenceNumber ?? "");
+      setNicNumber(user.nicNumber ?? "");
+    }
+  }, [user]);
+
+  // Arriving from Home's Insurance button with a specific vehicle missing required
+  // details: auto-open that vehicle's edit form and explain what's missing.
+  useEffect(() => {
+    if (!editVehicleId || vehiclesLoading || autoOpenedForId.current === editVehicleId) return;
+    const target = vehicles.find((v) => v._id === editVehicleId);
+    if (!target) return;
+    autoOpenedForId.current = editVehicleId;
+    openEdit(target);
+    const missing: string[] = [];
+    if (!target.insuranceProvider) missing.push("Your insurance provider");
+    if (!target.insurancePolicyNumber) missing.push("Your insurance policy number");
+    if (!user?.licenceNumber) missing.push("Your Driving Licence Number");
+    if (!user?.nicNumber) missing.push("NIC Number");
+    if (missing.length > 0) {
+      setMissingLabels(missing);
+      setReminderVisible(true);
+    }
+  }, [editVehicleId, vehicles, vehiclesLoading, user]);
 
   function openAdd() {
     setEditingVehicle(null);
@@ -83,6 +118,7 @@ export default function ManageVehiclesScreen() {
       } else {
         await addVehicle(form);
       }
+      await updateMe({ licenceNumber: licenceNumber.trim(), nicNumber: nicNumber.trim() });
       setShowForm(false);
     } catch (err: any) {
       setError(err.message ?? "Failed to save vehicle");
@@ -163,7 +199,7 @@ export default function ManageVehiclesScreen() {
           <View style={{ alignItems: "center", paddingTop: 60, gap: spacing.md }}>
             <Icon name="Car" size={48} color={palette.border} />
             <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
-              No vehicles yet. Tap "Add" to register your first vehicle.
+              No vehicles yet. Tap &quot;Add&quot; to register your first vehicle.
             </Text>
           </View>
         ) : (
@@ -327,6 +363,22 @@ export default function ManageVehiclesScreen() {
                   placeholder="ALCI-254-VP"
                   autoCapitalize="characters"
                 />
+                {/* Profile-level (one per driver) — same value regardless of which
+                    vehicle is being edited, kept here so it can be completed later
+                    if it was skipped during onboarding. */}
+                <Field
+                  label="Your Driving Licence Number"
+                  value={licenceNumber}
+                  onChangeText={setLicenceNumber}
+                  placeholder="B4818153"
+                  autoCapitalize="characters"
+                />
+                <Field
+                  label="NIC Number"
+                  value={nicNumber}
+                  onChangeText={setNicNumber}
+                  placeholder="200221458936"
+                />
 
                 {error ? (
                   <Text style={{ ...typography.caption, color: palette.danger }}>{error}</Text>
@@ -351,6 +403,86 @@ export default function ManageVehiclesScreen() {
               <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
                 {editingVehicle ? "Save Changes" : "Add Vehicle"}
               </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Shown when redirected here from Home's Insurance button because required
+          details were missing — names the specific fields still needed, in orange. */}
+      <Modal visible={reminderVisible} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: palette.overlay,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: spacing.xl,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: palette.surface,
+              borderRadius: radii.xl,
+              padding: spacing.xl,
+              gap: spacing.lg,
+              width: "100%",
+              alignItems: "center",
+            }}
+          >
+            {/* Same icon-circle treatment as the Connect OBD-II popup, for visual consistency. */}
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: palette.brandSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="ShieldAlert" size={32} color={palette.brand} />
+            </View>
+
+            <View style={{ gap: spacing.sm, alignItems: "center" }}>
+              <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
+                Complete your insurance details
+              </Text>
+              <Text
+                style={{
+                  ...typography.body,
+                  color: palette.textMuted,
+                  textAlign: "center",
+                  lineHeight: 22,
+                }}
+              >
+                Please fill in the following before you can use Insurance features for this
+                vehicle:
+              </Text>
+            </View>
+
+            <View style={{ gap: spacing.xs, alignSelf: "stretch" }}>
+              {missingLabels.map((label) => (
+                <Text
+                  key={label}
+                  style={{ ...typography.bodyStrong, color: palette.brand, textAlign: "center" }}
+                >
+                  {`• ${label}`}
+                </Text>
+              ))}
+            </View>
+
+            <Pressable
+              onPress={() => setReminderVisible(false)}
+              style={({ pressed }) => ({
+                width: "100%",
+                backgroundColor: pressed ? palette.brandPressed : palette.brand,
+                borderRadius: radii.lg,
+                paddingVertical: spacing.md + 2,
+                alignItems: "center",
+              })}
+            >
+              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Got it</Text>
             </Pressable>
           </View>
         </View>

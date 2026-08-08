@@ -57,6 +57,16 @@ export default function DriverHomeScreen() {
   ? (selectedVehicle.nickname || `${selectedVehicle.make} ${selectedVehicle.model}`)
   : "Toyota Aqua";
 
+  // Insurance provider/policy live on the vehicle; licence/NIC live on the profile — all
+  // four are required before the Insurance flow is usable for the selected vehicle.
+  const missingInsuranceDetails = Boolean(
+    selectedVehicle &&
+      (!selectedVehicle.insuranceProvider ||
+        !selectedVehicle.insurancePolicyNumber ||
+        !user?.licenceNumber ||
+        !user?.nicNumber)
+  );
+
   const handlePairObd = useCallback(async () => {
     setPairingObd(true);
     try {
@@ -334,19 +344,32 @@ export default function DriverHomeScreen() {
               <QuickAction
                 icon="ShieldCheck"
                 label="Insurance"
-                badge={incompleteUpload != null}
+                badge={incompleteUpload != null || missingInsuranceDetails}
                 onPress={() => {
+                  // Send the driver to complete missing details instead of letting them into
+                  // a flow that can't call/identify an insurer yet.
+                  if (missingInsuranceDetails && selectedVehicle) {
+                    router.push({
+                      pathname: "/(driver)/manage-vehicles",
+                      params: { editVehicleId: selectedVehicle._id },
+                    });
+                    return;
+                  }
                   if (incompleteUpload) {
                     router.push({
                       pathname: "/(insurance)/upload-accident-details",
                       params: {
                         uploadKey: incompleteUpload.uploadKey,
                         reportedAtIso: incompleteUpload.reportedAtIso,
+                        vehicleId: selectedVehicle?._id,
                       },
                     });
                     return;
                   }
-                  router.push("/(insurance)");
+                  router.push({
+                    pathname: "/(insurance)",
+                    params: { vehicleId: selectedVehicle?._id },
+                  });
                 }}
               />
             </Animated.View>

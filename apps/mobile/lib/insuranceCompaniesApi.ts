@@ -33,13 +33,17 @@ export async function listInsuranceCompanies(): Promise<InsuranceCompany[]> {
   return (data as InsuranceCompanyRow[]).map(mapCompany);
 }
 
-/** Looks up a single company by its exact stored name (a vehicle's `insurance_provider`). */
+/** Looks up a single company by its stored name (a vehicle's `insurance_provider`).
+ * Case-insensitive exact match (`ilike` with no wildcards) — the name is always picked from
+ * `listInsuranceCompanies()` by both save paths, but this avoids a silent "no insurer found"
+ * if a stored value ever differs only in case. */
 export async function findInsuranceCompany(companyName: string): Promise<InsuranceCompany | null> {
-  if (!companyName.trim()) return null;
+  const trimmed = companyName.trim();
+  if (!trimmed) return null;
   const { data, error } = await supabase
     .from('insurance_companies')
     .select('*')
-    .eq('company_name', companyName)
+    .ilike('company_name', trimmed)
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data ? mapCompany(data as InsuranceCompanyRow) : null;

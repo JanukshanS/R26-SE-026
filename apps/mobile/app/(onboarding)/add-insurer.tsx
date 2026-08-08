@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
@@ -10,11 +10,12 @@ import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { TextField } from "@components/ui/text-input";
 import { palette, radii, spacing, typography } from "@theme/index";
-import { getVehicles, updateMyProfile, updateVehicle } from "@lib/vehicleApi";
+import { updateMyProfile, updateVehicle } from "@lib/vehicleApi";
 import { listInsuranceCompanies, type InsuranceCompany } from "@lib/insuranceCompaniesApi";
 
 export default function AddInsurerScreen() {
   const insets = useSafeAreaInsets();
+  const { vehicleId } = useLocalSearchParams<{ vehicleId?: string }>();
   const [companies, setCompanies] = useState<InsuranceCompany[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(true);
   const [provider, setProvider] = useState("");
@@ -54,21 +55,21 @@ export default function AddInsurerScreen() {
     }
     setSubmitting(true);
     try {
-      // Licence/NIC belong to the driver (profiles); insurer/policy belong to a
-      // specific vehicle (a driver's two cars can have different insurers), so
-      // they're attached to whichever vehicle was just created in the previous
-      // Add Vehicle step (its default one) rather than stored on the profile.
+      // Licence/NIC belong to the driver (profiles); insurer/policy belong to a specific
+      // vehicle (a driver's two cars can have different insurers), so they're attached to
+      // the vehicle id passed in from the previous Add Vehicle step — never re-derived by
+      // guessing "the default vehicle", which could resolve to a different, older vehicle.
       await updateMyProfile({
         licenceNumber: licence.trim(),
         nicNumber: nic.trim(),
       });
-      const vehicles = await getVehicles();
-      const target = vehicles.find((v) => v.isDefault) ?? vehicles[0];
-      if (target) {
-        await updateVehicle(target._id, {
+      if (vehicleId) {
+        await updateVehicle(vehicleId, {
           insuranceProvider: provider,
           insurancePolicyNumber: policy.trim(),
         });
+      } else if (__DEV__) {
+        console.warn("add-insurer: no vehicleId param — insurer was not attached to any vehicle.");
       }
       router.replace("/(driver)/home");
     } catch (err) {
