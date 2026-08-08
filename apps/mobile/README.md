@@ -2,6 +2,19 @@
 
 Expo (React Native) cross-platform app for the Kaduna.lk platform. Serves stranded drivers, fleet managers, roadside-assistance providers, and the guided photo-capture flow used by the claims-privacy component.
 
+## Environment
+
+Copy `.env.example` to `.env` and fill in the Supabase URL, publishable key and
+API URL, then start with `npx expo start -c` — Metro inlines `EXPO_PUBLIC_*`
+values at bundle time and caches them.
+
+EAS cloud builds do not read `.env`. Register the same three variables once per
+profile:
+
+```bash
+eas env:create --environment production --name EXPO_PUBLIC_SUPABASE_URL --value https://...
+```
+
 ## Stack
 
 - Expo SDK 54
