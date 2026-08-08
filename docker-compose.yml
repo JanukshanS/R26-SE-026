@@ -54,6 +54,17 @@ services:
       - predictive-maintenance
       - claims-privacy
 
+# Supabase's direct database endpoint (db.<ref>.supabase.co) resolves to IPv6
+# only. Compose networks are IPv4-only unless asked otherwise, so without this
+# dispatch and claims-privacy cannot reach Postgres even on an IPv6 host.
+# Requires "ipv6": true and "ip6tables": true in the daemon's daemon.json.
+networks:
+  default:
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: fd00:beef:cafe::/64
+
 volumes:
   predictive-data:
   caddy-data:
