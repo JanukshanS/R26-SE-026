@@ -52,14 +52,18 @@ export async function getAccessToken(): Promise<string | null> {
 }
 
 /**
- * Authorization header for the claims backend, which rejects unauthenticated
- * requests with 401. Only the header — never set Content-Type alongside
- * FormData or React Native drops the multipart boundary.
+ * Authorization header for the backend services, all of which reject
+ * unauthenticated requests with 401. Shared by the claims, dispatch and
+ * maintenance clients, so the error stays generic — screens surface this
+ * message verbatim.
+ *
+ * Only the header — never set Content-Type alongside FormData or React Native
+ * drops the multipart boundary.
  */
 export async function authHeaders(): Promise<Record<string, string>> {
   const token = await getAccessToken();
   if (!token) {
-    throw new Error('You need to be signed in to upload a claim.');
+    throw new Error('You need to be signed in. Sign in and try again.');
   }
   return { Authorization: `Bearer ${token}` };
 }
