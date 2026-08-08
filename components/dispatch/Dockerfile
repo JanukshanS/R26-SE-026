@@ -8,7 +8,9 @@ RUN apk add --no-cache openssl curl
 
 WORKDIR /app
 
-COPY package*.json ./
+# .npmrc carries legacy-peer-deps, without which npm ci fails on a
+# devDependency-only peer conflict. See the comment in that file.
+COPY package*.json .npmrc ./
 RUN npm ci
 
 COPY . .
