@@ -342,7 +342,9 @@ export default function DrivingLicencePhotoScreen() {
               disabled={isTakingPhoto || (!allImagesCaptured && !isCameraReady)}
               onPress={() => {
                 if (allImagesCaptured) {
-                  router.replace('/(insurance)');
+                  // dismissTo, not replace — returns to the existing Insurance screen
+                  // instead of stacking a new duplicate on top of it.
+                  router.dismissTo('/(insurance)');
                 } else {
                   void takePhoto();
                 }

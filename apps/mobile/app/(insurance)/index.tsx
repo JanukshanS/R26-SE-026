@@ -31,6 +31,7 @@ import {
 import { useIncompleteUploadStatus } from '@/features/report-accident/hooks/use-incomplete-upload-status';
 import { findInsuranceCompany, type InsuranceCompany } from '@/lib/insuranceCompaniesApi';
 import { getVehicleById, getVehicles } from '@/lib/vehicleApi';
+import { loadSelectedVehicleId } from '@/lib/selected-vehicle-store';
 import { computeClaimBundleUploadKey, isClaimReportSubmittedLocked } from '@/lib/claim-upload-dedupe';
 import { formatGeocodedLine } from '@/lib/format-geocoded-line';
 import { formatTimestamp } from '@/lib/format-timestamp';
@@ -172,6 +173,13 @@ export default function InsuranceHomeScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const { vehicleId } = useLocalSearchParams<{ vehicleId?: string }>();
+  // The vehicleId route param is a one-time snapshot from whenever this screen was
+  // pushed from Home. If the driver switches vehicles on Home and then starts a
+  // second claim without leaving Insurance (e.g. via Guided Capture's Reset capture
+  // instead of Home → Insurance again), that snapshot goes stale. The persisted
+  // store (updated live by selectVehicle) is refreshed every focus and takes
+  // precedence; the route param remains the fallback for a first-ever entry.
+  const [effectiveVehicleId, setEffectiveVehicleId] = useState<string | undefined>(vehicleId);
   const [guidedMeetsMinimum, setGuidedMeetsMinimum] = useState(false);
   const [licenceComplete, setLicenceComplete] = useState(false);
   const [drunkTestComplete, setDrunkTestComplete] = useState(false);
@@ -191,9 +199,14 @@ export default function InsuranceHomeScreen() {
       let cancelled = false;
       void (async () => {
         try {
+          const persistedId = await loadSelectedVehicleId();
+          const resolvedVehicleId = persistedId ?? vehicleId;
+          if (!cancelled) {
+            setEffectiveVehicleId(resolvedVehicleId);
+          }
           let target;
-          if (vehicleId) {
-            target = await getVehicleById(vehicleId);
+          if (resolvedVehicleId) {
+            target = await getVehicleById(resolvedVehicleId);
           } else {
             const vehicles = await getVehicles();
             target = vehicles.find((v) => v.isDefault) ?? vehicles[0] ?? null;
@@ -346,7 +359,7 @@ export default function InsuranceHomeScreen() {
       const uploadKey = await computeClaimBundleUploadKey();
       router.push({
         pathname: '/(insurance)/upload-accident-details',
-        params: { uploadKey, reportedAtIso },
+        params: { uploadKey, reportedAtIso, vehicleId: effectiveVehicleId },
       });
     })();
   };
