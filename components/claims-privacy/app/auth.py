@@ -13,6 +13,7 @@ not identity.
 
 import logging
 from functools import lru_cache
+from typing import Optional
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -45,7 +46,7 @@ def _unauthenticated(detail: str) -> HTTPException:
 
 
 def current_user_id(
-    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
     settings: Settings = Depends(get_settings),
 ) -> str:
     """Verify the bearer token and return the Supabase user id.
