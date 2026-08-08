@@ -22,20 +22,51 @@ scikit-learn models on first use, roughly 250 MB resident for the four models
 `/predict/best` needs and closer to 1 GB if `/predict/rf` and `/predict/gb` are
 both exercised.
 
+## Current deployment
+
+Contabo VPS, 6 vCPU / 12 GB, Ubuntu 24.04, at `169.58.147.190`, checkout in
+`/srv/kaduna`.
+
+`kaduna.lk`'s A records still point elsewhere, so the live hostnames use
+sslip.io, which resolves any `<anything>.169-58-147-190.sslip.io` to that IP
+and still gets real Let's Encrypt certificates:
+
+| Service | URL |
+|---|---|
+| dispatch | `https://dispatch.169-58-147-190.sslip.io` |
+| geo-intelligence | `https://geo.169-58-147-190.sslip.io` |
+| predictive-maintenance | `https://predict.169-58-147-190.sslip.io` |
+| claims-privacy | `https://claims.169-58-147-190.sslip.io` |
+
+To move to the real domain: add A records for `dispatch`, `geo`, `predict` and
+`claims` pointing at the VPS, remove `BASE_DOMAIN` from `.env`, redeploy.
+Caddy issues certificates on the first request to each hostname, so the
+records must resolve first.
+
 ## First-time setup
 
 ```bash
-# On the VPS, as a non-root user in the docker group
-sudo mkdir -p /srv/kaduna && sudo chown "$USER" /srv/kaduna
+# On the VPS
+curl -fsSL https://get.docker.com | sh
 git clone https://github.com/JanukshanS/R26-SE-026.git /srv/kaduna
 cd /srv/kaduna
-cp .env.example .env && $EDITOR .env      # Supabase URL, R2 creds, Maps key
+cp .env.example .env && $EDITOR .env      # then: chmod 600 .env
 docker compose up -d --build
 ```
 
-DNS: A records for `dispatch`, `geo`, `predict` and `claims` pointing at the
-VPS IP. Caddy issues Let's Encrypt certificates on the first request to each
-hostname, so the records must resolve before the first HTTPS call.
+**Docker needs IPv6 enabled.** Supabase's direct database endpoint
+(`db.<ref>.supabase.co`) resolves to IPv6 only. The compose network asks for
+IPv6, but the daemon has to allow it, otherwise dispatch and claims-privacy
+fail with "network is unreachable" while the same lookup works from the host:
+
+```json
+/* /etc/docker/daemon.json */
+{ "ipv6": true, "fixed-cidr-v6": "fd00:babe::/64", "ip6tables": true }
+```
+
+`systemctl restart docker` afterwards, and recreate the stack
+(`docker compose down && docker compose up -d`) so the network is rebuilt —
+an existing network keeps its old IPv4-only settings.
 
 ## Redeploying
 

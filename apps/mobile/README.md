@@ -8,7 +8,27 @@ Copy `.env.example` to `.env` and fill in the Supabase URL, publishable key and
 API URL, then start with `npx expo start -c` — Metro inlines `EXPO_PUBLIC_*`
 values at bundle time and caches them.
 
-EAS cloud builds do not read `.env`. Register the same three variables once per
+## Building a sideloadable APK
+
+```bash
+# .env must already point at the target backend — Metro inlines EXPO_PUBLIC_*
+# into the bundle during this build, so changing it afterwards does nothing.
+cd android
+JAVA_HOME=<path-to-jdk-21> ./gradlew assembleRelease
+# -> app/build/outputs/apk/release/app-release.apk
+```
+
+Gradle 8.14 does not accept JDK 25; use 17 or 21. Without a release keystore
+configured the APK is signed with the debug key, which is fine for sideloading
+but not for the Play Store.
+
+To confirm a built APK targets the backend you expect:
+
+```bash
+unzip -p app-release.apk assets/index.android.bundle | strings | grep -oE 'https://[a-z.-]+'
+```
+
+EAS cloud builds do not read `.env`. Register the same variables once per
 profile:
 
 ```bash
