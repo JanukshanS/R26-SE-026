@@ -433,7 +433,9 @@ export default function DrunkTestScreen() {
               disabled={hasVideo ? false : takeVideoDisabled}
               onPress={() => {
                 if (hasVideo) {
-                  router.replace('/(insurance)');
+                  // dismissTo, not replace — returns to the existing Insurance screen
+                  // instead of stacking a new duplicate on top of it.
+                  router.dismissTo('/(insurance)');
                 } else {
                   void startRecording();
                 }

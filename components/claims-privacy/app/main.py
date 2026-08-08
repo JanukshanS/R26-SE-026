@@ -203,6 +203,7 @@ async def upload_capture_photo(
     parent = build_parent_folder_name(
         capture.get("claimant_name"),  # type: ignore[arg-type]
         capture.get("claimant_nic"),   # type: ignore[arg-type]
+        capture.get("created_at"),
     )
     if photo_slot == "user-verification":
         subfolder = "step-2-fraud-validation/user-verification"
@@ -321,6 +322,7 @@ def _write_locations_to_r2(capture: dict, storage: R2Storage) -> None:
     parent = build_parent_folder_name(
         capture.get("claimant_name"),  # type: ignore[arg-type]
         capture.get("claimant_nic"),   # type: ignore[arg-type]
+        capture.get("created_at"),
     )
     storage.upload_bytes(
         key=f"{parent}/locations/locations.json",

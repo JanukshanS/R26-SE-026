@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { InsuranceBottomTabBar, type InsuranceTabId } from '@/components/insurance-bottom-tab-bar';
 import { findInsuranceCompany, type InsuranceCompany } from '@/lib/insuranceCompaniesApi';
 import { getVehicleById, getVehicles } from '@/lib/vehicleApi';
+import { loadSelectedVehicleId } from '@/lib/selected-vehicle-store';
 import { loadClaimantProfile } from '@/features/claimant/storage/claimant-profile-store';
 import { useClaimUpload } from '@/features/report-accident/hooks/use-claim-upload';
 import { formatTimestamp } from '@/lib/format-timestamp';
@@ -112,6 +113,13 @@ export default function UploadAccidentDetailsScreen() {
     };
   }, []);
 
+  // The vehicleId route param is a one-time snapshot from whenever this screen was pushed
+  // (from (insurance)/index.tsx's Report Accident, Home's incomplete-upload resume, or the
+  // reminder modal). If the driver switched vehicles on Home since then, that snapshot is
+  // stale — the persisted store (updated live by selectVehicle) takes precedence, refreshed
+  // every focus, so the upload always targets the vehicle actually selected right now.
+  const [effectiveVehicleId, setEffectiveVehicleId] = useState<string | undefined>(vehicleId);
+
   const {
     locationLine,
     timestampLine,
@@ -120,7 +128,7 @@ export default function UploadAccidentDetailsScreen() {
     photosUploadComplete,
     fraudValidationPercent,
     fraudValidationComplete,
-  } = useClaimUpload(uploadKey, reportedAtIso, claimantHydrated, claimantRef);
+  } = useClaimUpload(uploadKey, reportedAtIso, claimantHydrated, claimantRef, effectiveVehicleId);
 
   const claimComplete = photosUploadComplete && fraudValidationComplete;
 
@@ -128,16 +136,22 @@ export default function UploadAccidentDetailsScreen() {
   const [vehicleMissingInsurer, setVehicleMissingInsurer] = useState(false);
 
   // Same as (insurance)/index.tsx: this screen sits outside VehicleProvider, so the SPECIFIC
-  // vehicle the driver had selected on Home (passed in as `vehicleId`) is fetched directly.
-  // Falls back to the default/first vehicle only when no vehicleId was passed.
+  // vehicle the driver had selected on Home is fetched directly rather than read from context.
+  // Falls back to the default/first vehicle only when neither the store nor the route param
+  // has a vehicleId.
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       void (async () => {
         try {
+          const persistedId = await loadSelectedVehicleId();
+          const resolvedVehicleId = persistedId ?? vehicleId;
+          if (!cancelled) {
+            setEffectiveVehicleId(resolvedVehicleId);
+          }
           let target;
-          if (vehicleId) {
-            target = await getVehicleById(vehicleId);
+          if (resolvedVehicleId) {
+            target = await getVehicleById(resolvedVehicleId);
           } else {
             const vehicles = await getVehicles();
             target = vehicles.find((v) => v.isDefault) ?? vehicles[0] ?? null;
@@ -191,12 +205,18 @@ export default function UploadAccidentDetailsScreen() {
     } catch {
       // best-effort — navigate even if cleanup partially fails
     }
-    router.replace('/(insurance)');
+    // dismissTo, not replace — returns to the existing Insurance screen instead of
+    // stacking a new duplicate on top of it (same fix as the 4 step-completion screens).
+    router.dismissTo(
+      effectiveVehicleId
+        ? { pathname: '/(insurance)', params: { vehicleId: effectiveVehicleId } }
+        : '/(insurance)'
+    );
   };
 
   const onTabPress = (tab: InsuranceTabId) => {
     if (tab === 'home') {
-      router.push('/(insurance)');
+      router.dismissTo('/(insurance)');
       return;
     }
     Alert.alert('Coming soon', 'This section will be added in a future update.');

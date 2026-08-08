@@ -89,7 +89,10 @@ export default function GuidedCaptureScreen() {
 
   const onSubmitFinal = () => {
     onClosePreview();
-    router.replace('/(insurance)');
+    // dismissTo (not replace/push) pops back to the existing Insurance screen already
+    // in the stack instead of stacking a new instance on top of it — otherwise each
+    // completed step leaves a phantom duplicate that "< Insurance" has to click through.
+    router.dismissTo('/(insurance)');
   };
 
   const [deleteConfirmStopIndex, setDeleteConfirmStopIndex] = useState<number | null>(null);

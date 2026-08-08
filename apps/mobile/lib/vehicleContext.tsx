@@ -15,6 +15,7 @@ import {
   loadLastAuthenticatedUserId,
   saveLastAuthenticatedUserId,
 } from "@lib/last-authenticated-user-store";
+import { saveSelectedVehicleId } from "@lib/selected-vehicle-store";
 
 interface ProfilePatch {
   name?: string;
@@ -238,6 +239,15 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
     await refreshVehicles();
   };
 
+  // Persisted (not just in-memory) so screens outside VehicleProvider — the
+  // (insurance) route group — can read the CURRENT selection instead of a
+  // route param snapshot that goes stale once the driver starts a second
+  // claim without navigating back through Home.
+  const selectVehicle = (vehicle: Vehicle) => {
+    setSelectedVehicle(vehicle);
+    void saveSelectedVehicleId(vehicle._id);
+  };
+
   return (
     <VehicleContext.Provider
       value={{
@@ -258,7 +268,7 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
         vehiclesLoading,
         vehicleError,
         selectedVehicle,
-        selectVehicle: setSelectedVehicle,
+        selectVehicle,
         refreshVehicles,
         addVehicle,
         editVehicle,

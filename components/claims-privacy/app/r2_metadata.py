@@ -14,13 +14,38 @@ _PLACEHOLDER_VEHICLE_MODEL = "UNKNOWN"
 _PLACEHOLDER_POLICY_NUMBER = "UNKNOWN"
 
 
-def build_parent_folder_name(name: Optional[str], nic: Optional[str]) -> str:
-    """Return the R2 parent folder, e.g. 'Jane Doe - 000000000000'."""
+def _format_folder_timestamp(created_at: Optional[Any]) -> str:
+    """Render a capture's created_at as an R2-key-safe timestamp segment."""
+    if isinstance(created_at, datetime):
+        dt = created_at
+    elif isinstance(created_at, str) and created_at:
+        try:
+            dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        except ValueError:
+            return ""
+    else:
+        return ""
+    return dt.strftime("%Y-%m-%dT%H-%M-%SZ")
+
+
+def build_parent_folder_name(
+    name: Optional[str], nic: Optional[str], created_at: Optional[Any] = None
+) -> str:
+    """Return the R2 parent folder, e.g. 'Jane Doe - 000000000000 - 2026-08-08T14-32-05Z'.
+
+    The timestamp (the capture's own created_at) makes every capture's folder unique,
+    so a claimant filing a second claim doesn't upload into the same folder as their
+    first — without it, every claim from the same name+NIC shared one top-level folder.
+    """
     resolved_name = name.strip() if name else _PLACEHOLDER_CLAIMANT_NAME
     resolved_nic = nic.strip() if nic else _PLACEHOLDER_CLAIMANT_NIC
     safe_name = re.sub(r"[/\\]", "-", resolved_name)
     safe_nic = re.sub(r"[/\\]", "-", resolved_nic)
-    return f"{safe_name} - {safe_nic}"
+    folder = f"{safe_name} - {safe_nic}"
+    ts = _format_folder_timestamp(created_at)
+    if ts:
+        folder = f"{folder} - {ts}"
+    return folder
 
 
 def _ascii_meta_value(value: Optional[str], max_len: int = 900) -> str:

@@ -36,7 +36,11 @@ export function useClaimUpload(
   uploadKey: string | undefined,
   reportedAtIso: string | undefined,
   claimantHydrated: boolean,
-  claimantRef: React.MutableRefObject<ClaimantData>
+  claimantRef: React.MutableRefObject<ClaimantData>,
+  /** The vehicle this claim is for (route param, set when the driver picks a vehicle on Home).
+   * Without this, every claim silently uploaded against the default/first vehicle regardless
+   * of which vehicle was actually selected for that specific claim. */
+  vehicleId?: string
 ): UseClaimUploadResult {
   const [locationLine, setLocationLine] = useState<string>('Getting location…');
   const [timestampLine, setTimestampLine] = useState<string>('');
@@ -226,9 +230,12 @@ export function useClaimUpload(
             };
             await saveClaimantProfile(claimant);
             // Insurer/policy number can differ per vehicle, so they come from the
-            // driver's default vehicle (same selection rule as add-insurer.tsx),
-            // not from the claimant profile.
-            const targetVehicle = vehicles.find((v) => v.isDefault) ?? vehicles[0];
+            // specific vehicle this claim was started for (vehicleId), not a guessed
+            // default — otherwise every claim silently attaches to the same vehicle
+            // regardless of which one was actually selected for it.
+            const targetVehicle = vehicleId
+              ? vehicles.find((v) => v._id === vehicleId) ?? vehicles.find((v) => v.isDefault) ?? vehicles[0]
+              : vehicles.find((v) => v.isDefault) ?? vehicles[0];
             await uploadFullClaimBundleToBackend({
               uploadKey,
               insurerCallMeta,
@@ -299,7 +306,7 @@ export function useClaimUpload(
       return () => {
         cancelled = true;
       };
-    }, [uploadKey, claimantHydrated, claimantRef, reportedAtIso])
+    }, [uploadKey, claimantHydrated, claimantRef, reportedAtIso, vehicleId])
   );
 
   return {
