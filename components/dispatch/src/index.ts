@@ -22,6 +22,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { config } from './config';
+import { requireUser } from './middleware/auth';
 import { logger } from './utils/logger';
 import { prisma } from './utils/prisma';
 
@@ -77,10 +78,12 @@ app.get('/health', async (_req: Request, res: Response) => {
 });
 
 // ── API Routes ──
-app.use('/api/v1/incidents', incidentRouter);
-app.use('/api/v1/triage', triageRouter);
-app.use('/api/v1/providers', providerRouter);
-app.use('/api/v1/dispatch', dispatchRouter);
+// All of them require a verified Supabase token; /health above stays open so
+// the container healthcheck can reach it without credentials.
+app.use('/api/v1/incidents', requireUser, incidentRouter);
+app.use('/api/v1/triage', requireUser, triageRouter);
+app.use('/api/v1/providers', requireUser, providerRouter);
+app.use('/api/v1/dispatch', requireUser, dispatchRouter);
 
 // ── 404 Handler ──
 app.use((_req: Request, res: Response) => {

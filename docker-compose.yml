@@ -6,6 +6,7 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DISPATCH_DATABASE_URL:?set DISPATCH_DATABASE_URL in .env}
+      SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
       GEO_INTELLIGENCE_URL: http://geo-intelligence:5001
       PREDICTIVE_MAINTENANCE_URL: http://predictive-maintenance:5000
     depends_on:
@@ -15,11 +16,14 @@ services:
   geo-intelligence:
     build: ./components/geo-intelligence
     restart: unless-stopped
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
 
   predictive-maintenance:
     build: ./components/predictive-maintenance
     restart: unless-stopped
     environment:
+      SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
       PREDICTIVE_DATABASE_URL: sqlite:////app/data/predictive.db
     volumes:
       - predictive-data:/app/data

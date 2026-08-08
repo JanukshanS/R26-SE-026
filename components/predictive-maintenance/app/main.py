@@ -6,9 +6,10 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional
 
 import joblib
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.auth import require_user
 from app.database import Base, engine
 from app.routers.ingest import router as ingest_router
 from app.routers.predict import router as predict_router
@@ -49,6 +50,10 @@ class _ModelRegistry:
 
     def __len__(self) -> int:
         return len(self._available)
+
+    def available(self) -> list[str]:
+        """Model keys that can be served, without loading any of them."""
+        return list(self._available)
 
 
 def _load_all_models() -> _ModelRegistry:
@@ -112,15 +117,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(ingest_router, tags=["Ingest"])
-app.include_router(predict_router, tags=["Predict"])
+app.include_router(ingest_router, tags=["Ingest"], dependencies=[Depends(require_user)])
+app.include_router(predict_router, tags=["Predict"], dependencies=[Depends(require_user)])
 
 
 @app.get("/health", tags=["Health"])
 def health_check():
-    models = getattr(app.state, "models", {})
+    registry = getattr(app.state, "models", None)
     best = getattr(app.state, "best_models", {})
-    loaded = [k for k, v in models.items() if v is not None]
+    # Models load on first use, so this reports what can be served rather than
+    # what is resident in memory.
+    loaded = registry.available() if registry is not None else []
     return {
         "status": "ok",
         "models_loaded": loaded,

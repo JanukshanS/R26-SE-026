@@ -3,3 +3,4 @@ uvicorn[standard]>=0.32
 pydantic>=2.9
 numpy>=1.26
 pandas>=2.2
+PyJWT[crypto]>=2.9

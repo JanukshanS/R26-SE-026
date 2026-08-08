@@ -3,6 +3,7 @@
 // Incident shape. Any failure returns an empty list so the static dataset (loaded
 // separately) still renders — the dashboard never goes blank.
 import { mapServiceTypeToIncidentType } from "./geo-service-mapping";
+import { authHeaders } from "./supabase";
 import type { Incident } from "./types";
 
 const DISPATCH_URL = process.env.NEXT_PUBLIC_DISPATCH_URL ?? "http://localhost:3001";
@@ -28,7 +29,7 @@ async function scoreOne(inc: DispatchIncident): Promise<Incident | null> {
   try {
     const res = await fetch(`${GEO_URL}/v1/score`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify({
         latitude: inc.latitude,
         longitude: inc.longitude,
@@ -75,7 +76,9 @@ async function scoreOne(inc: DispatchIncident): Promise<Incident | null> {
 /** Recent live incidents from dispatch, each scored by geo. [] on any failure. */
 export async function fetchLiveIncidents(): Promise<Incident[]> {
   try {
-    const res = await fetch(`${DISPATCH_URL}/api/v1/incidents?limit=15`);
+    const res = await fetch(`${DISPATCH_URL}/api/v1/incidents?limit=15`, {
+      headers: await authHeaders(),
+    });
     if (!res.ok) return [];
     const body = await res.json();
     const list: DispatchIncident[] = body?.data?.incidents ?? [];

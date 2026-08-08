@@ -17,10 +17,22 @@ Migrated from `RP/dashboard/` on 2026-05-10. Theme aligned with the mobile app (
 
 ```bash
 cd apps/dashboard-web
+cp .env.example .env.local   # fill in before the first run
 pnpm install
 pnpm dev      # http://localhost:3000
 pnpm build    # production build
 ```
+
+## Environment and sign-in
+
+`NEXT_PUBLIC_*` values are inlined into the browser bundle at build time, so
+they must be present for `pnpm build` too, not just at runtime — a deploy that
+forgets them fails the build rather than shipping a broken page.
+
+The dashboard is behind a Supabase sign-in gate because geo-intelligence and
+dispatch now reject unauthenticated requests. Any authenticated Supabase user
+gets in; there is no operator role check yet. Signed out, the panels fall back
+to the bundled static JSON in `public/data/` rather than erroring.
 
 ## Theme tokens
 
