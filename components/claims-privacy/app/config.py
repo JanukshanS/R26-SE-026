@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     # --- PostgreSQL (SQLAlchemy / async drivers use this URL) ---
     database_url: Optional[str] = None
 
+    # --- Supabase Auth (bearer-token verification) ---
+    # Project URL only, e.g. https://abcdefgh.supabase.co — the JWKS endpoint
+    # publishes the public keys, so no secret is needed to verify tokens.
+    supabase_url: Optional[str] = None
+    supabase_jwt_audience: str = "authenticated"
+
     # --- Cloudflare R2 (S3-compatible API) ---
     r2_account_id: Optional[str] = None
     r2_access_key_id: Optional[str] = None
@@ -38,6 +44,22 @@ class Settings(BaseSettings):
             if raw.startswith(prefix):
                 return "postgresql://" + raw[len(prefix) :]
         return raw
+
+    @property
+    def auth_configured(self) -> bool:
+        return bool(self.supabase_url and self.supabase_url.strip())
+
+    @property
+    def _supabase_base(self) -> str:
+        return (self.supabase_url or "").strip().rstrip("/")
+
+    @property
+    def jwks_url(self) -> str:
+        return f"{self._supabase_base}/auth/v1/.well-known/jwks.json"
+
+    @property
+    def jwt_issuer(self) -> str:
+        return f"{self._supabase_base}/auth/v1"
 
     @property
     def r2_configured(self) -> bool:

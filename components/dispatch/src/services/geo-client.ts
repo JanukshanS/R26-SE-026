@@ -6,7 +6,7 @@
  * rather than a flat default. Never throws to the caller: returns null on any
  * failure so dispatch degrades gracefully when geo is unreachable.
  */
-import { mapServiceTypeToIncidentType } from '../../../../contracts/geo-service-mapping';
+import { mapServiceTypeToIncidentType } from '../contracts/geo-service-mapping';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { ServiceTypeProbabilities } from '../types';
@@ -21,6 +21,12 @@ export interface GeoScoreContext {
   latitude: number;
   longitude: number;
   probabilities?: ServiceTypeProbabilities;
+  /**
+   * The caller's `Authorization` header, forwarded verbatim. Geo-intelligence
+   * requires a bearer token, and passing the caller's through means this
+   * service holds no credentials of its own.
+   */
+  authorization?: string;
 }
 
 export async function fetchTrafficImpactScore(ctx: GeoScoreContext): Promise<number | null> {
@@ -44,7 +50,10 @@ export async function fetchTrafficImpactScore(ctx: GeoScoreContext): Promise<num
   try {
     const res = await fetch(`${config.geoIntelligenceUrl}/v1/score`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(ctx.authorization ? { Authorization: ctx.authorization } : {}),
+      },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(2000),
     });

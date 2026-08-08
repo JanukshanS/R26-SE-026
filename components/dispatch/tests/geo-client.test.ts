@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   mapServiceTypeToIncidentType,
   SERVICE_TO_INCIDENT_TYPE,
-} from "../../../contracts/geo-service-mapping";
+} from "../src/contracts/geo-service-mapping";
 
 vi.mock("../src/config", () => ({
   config: { geoIntelligenceUrl: "http://geo.test:5001" },

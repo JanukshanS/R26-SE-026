@@ -3,9 +3,16 @@ from typing import Any, Dict, List, Optional
 
 from fastapi.testclient import TestClient
 
+from app.auth import current_user_id
 from app.config import Settings
 from app.main import app, get_capture_repository, get_r2_storage, get_settings
 from app.repository import ASSET_KIND_ENHANCED, ASSET_KIND_ORIGINAL
+
+TEST_USER_ID = "11111111-1111-4111-8111-111111111111"
+
+# Overriding current_user_id keeps these tests offline: the real dependency
+# would fetch the Supabase JWKS. Token verification itself is covered by
+# test_auth.py.
 
 
 class FakeRepository:
@@ -23,6 +30,7 @@ class FakeRepository:
             "status": "uploading",
             "created_at": datetime.now(timezone.utc),
             "completed_at": None,
+            "user_id": kwargs["user_id"],
             "claimant_name": kwargs.get("claimant_name"),
             "claimant_nic": kwargs.get("claimant_nic"),
             "claimant_licence_number": kwargs.get("claimant_licence_number"),
@@ -38,6 +46,9 @@ class FakeRepository:
 
     def get_capture(self, capture_id: str) -> Optional[Dict[str, Any]]:
         return self.captures.get(capture_id)
+
+    def list_captures_by_user(self, user_id: str) -> List[Dict[str, Any]]:
+        return [r for r in self.captures.values() if r.get("user_id") == user_id]
 
     def get_photo_row(
         self,
@@ -149,9 +160,11 @@ def test_capture_create_upload_complete_and_status() -> None:
             min_capture_photos=2,
         )
 
+    app.dependency_overrides.clear()
     app.dependency_overrides[get_capture_repository] = override_repo
     app.dependency_overrides[get_r2_storage] = override_storage
     app.dependency_overrides[get_settings] = override_settings
+    app.dependency_overrides[current_user_id] = lambda: TEST_USER_ID
 
     client = TestClient(app)
 
@@ -232,6 +245,7 @@ def test_video_upload_uses_mp4_extension_when_filename_is_jpg() -> None:
     fake_repo = FakeRepository()
     fake_storage = FakeStorage()
 
+    app.dependency_overrides.clear()
     app.dependency_overrides[get_capture_repository] = lambda: fake_repo
     app.dependency_overrides[get_r2_storage] = lambda: fake_storage
     app.dependency_overrides[get_settings] = lambda: Settings(
@@ -242,6 +256,7 @@ def test_video_upload_uses_mp4_extension_when_filename_is_jpg() -> None:
         r2_endpoint_url="https://example.r2.local",
         min_capture_photos=2,
     )
+    app.dependency_overrides[current_user_id] = lambda: TEST_USER_ID
 
     client = TestClient(app)
     create_response = client.post("/captures")
@@ -257,5 +272,71 @@ def test_video_upload_uses_mp4_extension_when_filename_is_jpg() -> None:
     key = upload_vid.json()["r2_key"]
     assert key.endswith(".mp4"), key
     assert upload_vid.json()["content_type"] == "video/mp4"
+
+    app.dependency_overrides.clear()
+
+
+def _configured_settings() -> Settings:
+    return Settings(
+        database_url="postgresql://unit:test@localhost:5432/test",
+        supabase_url="https://testproject.supabase.co",
+        r2_access_key_id="k",
+        r2_secret_access_key="s",
+        r2_bucket_name="b",
+        r2_endpoint_url="https://example.r2.local",
+        min_capture_photos=2,
+    )
+
+
+def test_endpoints_reject_requests_without_a_token() -> None:
+    """No Authorization header must be 401 — FastAPI's HTTPBearer default is 403."""
+    fake_repo = FakeRepository()
+
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_capture_repository] = lambda: fake_repo
+    app.dependency_overrides[get_r2_storage] = lambda: FakeStorage()
+    app.dependency_overrides[get_settings] = _configured_settings
+
+    client = TestClient(app)
+    for method, path in (
+        ("post", "/captures"),
+        ("get", "/claims"),
+        ("get", "/captures/capture-1/status"),
+        ("post", "/captures/capture-1/complete"),
+    ):
+        response = getattr(client, method)(path)
+        assert response.status_code == 401, (method, path, response.status_code)
+        assert response.headers.get("www-authenticate") == "Bearer"
+
+    app.dependency_overrides.clear()
+
+
+def test_another_user_cannot_read_or_complete_someone_elses_capture() -> None:
+    fake_repo = FakeRepository()
+    other_user = "99999999-9999-4999-8999-999999999999"
+
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_capture_repository] = lambda: fake_repo
+    app.dependency_overrides[get_r2_storage] = lambda: FakeStorage()
+    app.dependency_overrides[get_settings] = _configured_settings
+    app.dependency_overrides[current_user_id] = lambda: TEST_USER_ID
+
+    client = TestClient(app)
+    capture_id = client.post("/captures").json()["id"]
+    assert client.get(f"/captures/{capture_id}/status").status_code == 200
+    assert len(client.get("/claims").json()) == 1
+
+    app.dependency_overrides[current_user_id] = lambda: other_user
+
+    # 404 rather than 403: the API must not confirm that this capture exists.
+    assert client.get(f"/captures/{capture_id}/status").status_code == 404
+    assert client.post(f"/captures/{capture_id}/complete").status_code == 404
+    upload = client.post(
+        f"/captures/{capture_id}/photos",
+        data={"photo_index": "0", "asset_kind": ASSET_KIND_ORIGINAL},
+        files={"photo": ("0.jpg", b"bytes", "image/jpeg")},
+    )
+    assert upload.status_code == 404
+    assert client.get("/claims").json() == []
 
     app.dependency_overrides.clear()

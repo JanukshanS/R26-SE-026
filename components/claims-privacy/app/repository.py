@@ -45,6 +45,12 @@ class CaptureRepository:
                     """
                 )
                 for ddl in (
+                    # Owner of the capture — the Supabase user id from the caller's
+                    # bearer token. Nullable because rows created before bearer auth
+                    # existed have no owner; those are unreachable by design.
+                    "ALTER TABLE captures ADD COLUMN IF NOT EXISTS user_id UUID NULL",
+                    "CREATE INDEX IF NOT EXISTS captures_user_id_created_at_idx "
+                    "ON captures (user_id, created_at DESC)",
                     "ALTER TABLE captures ADD COLUMN IF NOT EXISTS claimant_name TEXT NULL",
                     "ALTER TABLE captures ADD COLUMN IF NOT EXISTS claimant_nic TEXT NULL",
                     "ALTER TABLE captures ADD COLUMN IF NOT EXISTS claimant_licence_number TEXT NULL",
@@ -127,6 +133,7 @@ class CaptureRepository:
     def create_capture(
         self,
         *,
+        user_id: str,
         claimant_name: Optional[str] = None,
         claimant_nic: Optional[str] = None,
         claimant_licence_number: Optional[str] = None,
@@ -157,7 +164,7 @@ class CaptureRepository:
                 cur.execute(
                     """
                     INSERT INTO captures (
-                        id, status,
+                        id, status, user_id,
                         claimant_name, claimant_nic, claimant_licence_number,
                         vehicle_model, policy_number, vehicle_reg_no,
                         report_captured_at, report_captured_at_display_local,
@@ -170,8 +177,8 @@ class CaptureRepository:
                         guided_capture_start_gps_lng, guided_capture_start_location_permission,
                         guided_capture_start_location_label
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id, status, created_at, completed_at,
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id, status, created_at, completed_at, user_id,
                               claimant_name, claimant_nic, claimant_licence_number,
                               vehicle_model, policy_number, vehicle_reg_no,
                               report_captured_at, report_captured_at_display_local,
@@ -185,7 +192,7 @@ class CaptureRepository:
                               guided_capture_start_location_label
                     """,
                     (
-                        capture_id, "uploading",
+                        capture_id, "uploading", user_id,
                         claimant_name, claimant_nic, claimant_licence_number,
                         vehicle_model, policy_number, vehicle_reg_no,
                         report_captured_at, report_captured_at_display_local,
@@ -210,7 +217,7 @@ class CaptureRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT id, status, created_at, completed_at,
+                    SELECT id, status, created_at, completed_at, user_id,
                            claimant_name, claimant_nic, claimant_licence_number,
                            vehicle_model, policy_number, vehicle_reg_no,
                            report_captured_at, report_captured_at_display_local,
@@ -229,8 +236,12 @@ class CaptureRepository:
                 )
                 return cast(Optional[Dict[str, Any]], _serialize_db_row(cur.fetchone()))
 
-    def list_captures_by_nic(self, nic: str) -> List[Dict[str, object]]:
-        """A driver's claim history — summary columns only, newest first."""
+    def list_captures_by_user(self, user_id: str) -> List[Dict[str, object]]:
+        """The signed-in driver's claim history — summary columns only, newest first.
+
+        Scoped by owner rather than by claimant NIC: a NIC is caller-supplied
+        data, so filtering on it let any caller read any driver's claims.
+        """
         with self._connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -239,10 +250,10 @@ class CaptureRepository:
                            vehicle_model, policy_number, vehicle_reg_no,
                            report_location_label, report_captured_at_display_local
                     FROM captures
-                    WHERE claimant_nic = %s
+                    WHERE user_id = %s
                     ORDER BY created_at DESC
                     """,
-                    (nic,),
+                    (user_id,),
                 )
                 rows = cur.fetchall()
         return [cast(Dict[str, Any], _serialize_db_row(row)) for row in rows]

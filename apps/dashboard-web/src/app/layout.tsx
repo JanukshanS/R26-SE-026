@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import AuthGate from "@/components/AuthGate";
 
 export const metadata: Metadata = {
   title: "Kaduna.lk — Geo-Intelligence Dashboard",
@@ -16,7 +17,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           crossOrigin=""
         />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <AuthGate>{children}</AuthGate>
+      </body>
     </html>
   );
 }

@@ -103,3 +103,9 @@ docs/*.pdf
 docs/*.txt
 docs/NEV_fault_dataset.csv
 docs/synthetic_telemetry_data.csv
+
+# tsc output for the shared contract sources (the .ts files are the artefact)
+contracts/*.js
+contracts/*.js.map
+contracts/*.d.ts
+contracts/*.d.ts.map

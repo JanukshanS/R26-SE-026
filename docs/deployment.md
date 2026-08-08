@@ -62,13 +62,45 @@ Pushing to `main` runs the same script automatically via
   Dispatch is Prisma and takes `?schema=dispatch`; claims-privacy is psycopg
   and libpq rejects `?schema=` as an unknown parameter, so its URL carries no
   query string. Compose maps each to that service's own `DATABASE_URL`.
+- **`SUPABASE_URL` is the project URL and nothing else.** All four services
+  verify bearer tokens against that project's JWKS endpoint, so no key or
+  secret is involved. If it is unset a service answers 503 rather than
+  serving requests unauthenticated — compose refuses to start without it.
 - Mobile Supabase credentials are **not** here — they live in
   `apps/mobile/.env` for local runs and in EAS environment variables for cloud
   builds. See `apps/mobile/.env.example`.
 
+## Authentication
+
+Every service requires `Authorization: Bearer <supabase-access-token>` on its
+data routes. Health endpoints stay open so container healthchecks and
+`deploy.sh` can reach them without credentials.
+
+Tokens are the ES256 access tokens Supabase Auth issues. Each service fetches
+the project's public keys from `${SUPABASE_URL}/auth/v1/.well-known/jwks.json`
+and verifies signature, issuer, audience and expiry. No service holds a secret,
+and there is no gateway to misconfigure.
+
+| Caller | How it gets a token |
+|---|---|
+| mobile | existing Supabase session, attached per request |
+| dashboard-web | sign-in gate; any authenticated user, no role check yet |
+| dispatch → geo | forwards the caller's `Authorization` header verbatim |
+
+Consequences worth knowing before rollout:
+
+- **The emergency incident flow now requires sign-in.** A guest report to
+  dispatch answers 401. That is what applying one auth scheme everywhere
+  means; if guest reporting must work, dispatch needs a public route carved
+  out deliberately.
+- Any signed-in Supabase user can open the dashboard. Role-gating belongs on
+  `profiles.role` and is not implemented.
+
 ## What is not deployed here
 
-- `apps/dashboard-web` (Next.js) — host on Vercel.
+- `apps/dashboard-web` (Next.js) — host on Vercel. It needs
+  `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_KEY`, `NEXT_PUBLIC_GEO_URL`
+  and `NEXT_PUBLIC_DISPATCH_URL` set at build time; see its `.env.example`.
 - `apps/mobile` (Expo) — built and distributed through EAS.
 - Auth — Supabase Auth (GoTrue). The old `components/auth` and
   `components/vehicle-service` were removed; mobile talks to Supabase directly.

@@ -8,6 +8,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api import DATA_DIR, app
+from src.auth import require_user
+
+# These tests are about the API contract, not authentication. Overriding the
+# dependency keeps them offline — the real one fetches the Supabase JWKS.
+# Token verification itself is covered by tests/test_auth.py.
+app.dependency_overrides[require_user] = lambda: "test-user"
 
 client = TestClient(app)
 

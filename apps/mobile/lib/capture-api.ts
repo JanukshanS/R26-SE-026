@@ -1,5 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
+import { supabase } from '@/lib/supabase';
+
 import { type InsurerCallMeta } from '@/features/insurer-call/storage/insurer-call-store';
 import { type GuidedCaptureEntryMeta } from '@/features/guided-capture/storage/guided-capture-entry-store';
 import { loadDrunkTestState } from '@/features/drunk-test/storage/drunk-test-store';
@@ -36,6 +38,34 @@ export function getCaptureApiBaseUrl(): string | null {
     return null;
   }
   return raw.trim().replace(/\/$/, '');
+}
+
+/**
+ * Supabase access token for the current session, or null when signed out.
+ * Read per request rather than once per flow: a guided-capture upload can run
+ * longer than the token's one-hour lifetime, and supabase-js hands back the
+ * refreshed token here.
+ */
+export async function getAccessToken(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
+}
+
+/**
+ * Authorization header for the backend services, all of which reject
+ * unauthenticated requests with 401. Shared by the claims, dispatch and
+ * maintenance clients, so the error stays generic — screens surface this
+ * message verbatim.
+ *
+ * Only the header — never set Content-Type alongside FormData or React Native
+ * drops the multipart boundary.
+ */
+export async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getAccessToken();
+  if (!token) {
+    throw new Error('You need to be signed in. Sign in and try again.');
+  }
+  return { Authorization: `Bearer ${token}` };
 }
 
 /** Last path segment extension only (full-path `split('.').pop()` is wrong for dotted folders). */
@@ -210,6 +240,7 @@ async function postOriginalMedia(
 
   const upRes = await fetch(`${base}/captures/${captureId}/photos`, {
     method: 'POST',
+    headers: await authHeaders(),
     body: formData,
     signal,
   });
@@ -240,7 +271,10 @@ async function resolveCaptureSession(
   const existing = await loadUploadProgress(uploadKey);
   if (existing) {
     try {
-      const statusRes = await fetch(`${base}/captures/${existing.captureId}/status`, { signal });
+      const statusRes = await fetch(`${base}/captures/${existing.captureId}/status`, {
+        headers: await authHeaders(),
+        signal,
+      });
       if (statusRes.ok) {
         const statusJson = (await statusRes.json()) as { status?: string };
         if (statusJson.status === 'uploading') {
@@ -266,6 +300,7 @@ async function resolveCaptureSession(
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
+      ...(await authHeaders()),
     },
     body: JSON.stringify(createPayload),
     signal,
@@ -425,6 +460,7 @@ export async function uploadFullClaimBundleToBackend(options: {
 
   const completeRes = await fetch(`${base}/captures/${captureId}/complete`, {
     method: 'POST',
+    headers: await authHeaders(),
     signal: options.signal,
   });
   if (!completeRes.ok) {
