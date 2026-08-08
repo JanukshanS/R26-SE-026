@@ -125,6 +125,14 @@ export async function getVehicles(): Promise<Vehicle[]> {
   return (data as VehicleRow[]).map(mapVehicle);
 }
 
+/** Fetch a single vehicle by its own id — for callers that already know exactly which
+ * vehicle they mean, instead of guessing via `isDefault`/array order. */
+export async function getVehicleById(id: string): Promise<Vehicle | null> {
+  const { data, error } = await supabase.from("vehicles").select("*").eq("id", id).maybeSingle();
+  if (error) throw new VehicleApiError(error.message);
+  return data ? mapVehicle(data as VehicleRow) : null;
+}
+
 export async function createVehicle(data: Partial<VehicleInput>): Promise<Vehicle> {
   const userId = await currentUserId();
   const row = unwrap(
@@ -163,11 +171,17 @@ export async function setDefaultVehicle(id: string): Promise<Vehicle> {
 
 /** Keep a single default per user: clear is_default on every row except `keepId`. */
 async function clearOtherDefaults(userId: string, keepId: string): Promise<void> {
-  await supabase
+  const { error } = await supabase
     .from("vehicles")
     .update({ is_default: false })
     .eq("user_id", userId)
     .neq("id", keepId);
+  // Not fatal to the caller (the new/edited vehicle's own row already saved), but a silent
+  // failure here leaves a stale vehicle also flagged is_default — surfacing it at least makes
+  // that failure visible instead of quietly corrupting the "single default vehicle" invariant.
+  if (error) {
+    console.error("clearOtherDefaults failed:", error.message);
+  }
 }
 
 // ── Profile (the public.profiles row, 1:1 with auth.users) ───────────────────

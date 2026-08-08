@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
-import { type Href, useRouter } from 'expo-router';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,7 +30,7 @@ import {
 } from '@/features/report-accident/storage/report-accident-entry-store';
 import { useIncompleteUploadStatus } from '@/features/report-accident/hooks/use-incomplete-upload-status';
 import { findInsuranceCompany, type InsuranceCompany } from '@/lib/insuranceCompaniesApi';
-import { getVehicles } from '@/lib/vehicleApi';
+import { getVehicleById, getVehicles } from '@/lib/vehicleApi';
 import { computeClaimBundleUploadKey, isClaimReportSubmittedLocked } from '@/lib/claim-upload-dedupe';
 import { formatGeocodedLine } from '@/lib/format-geocoded-line';
 import { formatTimestamp } from '@/lib/format-timestamp';
@@ -171,39 +171,63 @@ function StatusPill({ status }: { status: TaskStatus }) {
 export default function InsuranceHomeScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const { vehicleId } = useLocalSearchParams<{ vehicleId?: string }>();
   const [guidedMeetsMinimum, setGuidedMeetsMinimum] = useState(false);
   const [licenceComplete, setLicenceComplete] = useState(false);
   const [drunkTestComplete, setDrunkTestComplete] = useState(false);
   const [thirdPartyComplete, setThirdPartyComplete] = useState(false);
   const [claimReportLocked, setClaimReportLocked] = useState(false);
   const [insuranceCompany, setInsuranceCompany] = useState<InsuranceCompany | null>(null);
+  const [vehicleMissingInsurer, setVehicleMissingInsurer] = useState(false);
   const incompleteUpload = useIncompleteUploadStatus();
 
-  // The "Need to call ___ Insurance?" button reflects the driver's own
-  // default vehicle's insurer — this screen sits outside VehicleProvider
-  // (only mounted in (driver)/_layout.tsx), so it fetches directly, same
-  // pattern as use-claim-upload.ts.
+  // The "Need to call ___ Insurance?" button reflects the SPECIFIC vehicle the driver had
+  // selected on Home (passed in as `vehicleId`) — this screen sits outside VehicleProvider
+  // (only mounted in (driver)/_layout.tsx), so it can't read that selection from context and
+  // fetches directly instead, same pattern as use-claim-upload.ts. Falls back to the
+  // default/first vehicle only when no vehicleId was passed (e.g. a stale deep link).
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       void (async () => {
         try {
-          const vehicles = await getVehicles();
-          const target = vehicles.find((v) => v.isDefault) ?? vehicles[0];
-          if (!target?.insuranceProvider) {
-            if (!cancelled) setInsuranceCompany(null);
+          let target;
+          if (vehicleId) {
+            target = await getVehicleById(vehicleId);
+          } else {
+            const vehicles = await getVehicles();
+            target = vehicles.find((v) => v.isDefault) ?? vehicles[0] ?? null;
+          }
+          if (!target) {
+            if (!cancelled) {
+              setInsuranceCompany(null);
+              setVehicleMissingInsurer(false);
+            }
+            return;
+          }
+          if (!target.insuranceProvider) {
+            if (!cancelled) {
+              setInsuranceCompany(null);
+              setVehicleMissingInsurer(true);
+            }
             return;
           }
           const company = await findInsuranceCompany(target.insuranceProvider);
-          if (!cancelled) setInsuranceCompany(company);
+          if (!cancelled) {
+            setInsuranceCompany(company);
+            setVehicleMissingInsurer(false);
+          }
         } catch {
-          if (!cancelled) setInsuranceCompany(null);
+          if (!cancelled) {
+            setInsuranceCompany(null);
+            setVehicleMissingInsurer(false);
+          }
         }
       })();
       return () => {
         cancelled = true;
       };
-    }, [])
+    }, [vehicleId])
   );
 
   useFocusEffect(
@@ -361,6 +385,13 @@ export default function InsuranceHomeScreen() {
             <Pressable style={({ pressed }) => [styles.callInsurerBtn, pressed && styles.callInsurerPressed]} onPress={onCallInsurer}>
               <Text style={styles.callInsurerText}>{`Need to call ${insuranceCompany.appName}?`}</Text>
             </Pressable>
+          ) : vehicleMissingInsurer ? (
+            <View style={styles.noInsurerHint}>
+              <Text style={styles.noInsurerHintText}>
+                No insurance company saved for this vehicle. Add it in My Vehicles → Edit → Add
+                insurance company → Save changes.
+              </Text>
+            </View>
           ) : null}
 
           <View style={styles.stepsSection}>
@@ -491,6 +522,21 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: COLORS.text,
+  },
+  noInsurerHint: {
+    backgroundColor: COLORS.cardBg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  noInsurerHintText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: COLORS.textMuted,
+    textAlign: 'center',
   },
   stepsSection: {
     marginBottom: 10,

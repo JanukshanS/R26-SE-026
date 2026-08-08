@@ -30,7 +30,7 @@ export default function AddVehicleScreen() {
     }
     setSubmitting(true);
     try {
-      await createVehicle({
+      const vehicle = await createVehicle({
         make: brand.trim(),
         model: model.trim(),
         year: year ? Number(year) : undefined,
@@ -39,9 +39,13 @@ export default function AddVehicleScreen() {
         currentMileage: 0,
         isDefault: true,
       });
-      // Insurer/policy are captured next and attached to this vehicle (not the
-      // profile) so a driver with a second car can give it a different insurer.
-      router.replace("/(onboarding)/add-insurer");
+      // Insurer/policy are captured next and attached to THIS vehicle by id (not the
+      // profile, and not re-derived by guessing "the default vehicle" later) so a driver
+      // with a second car can give it a different insurer without ever touching the first.
+      router.replace({
+        pathname: "/(onboarding)/add-insurer",
+        params: { vehicleId: vehicle._id },
+      });
     } catch (err) {
       setError((err as Error).message ?? "Couldn't save your vehicle.");
     } finally {
