@@ -2,6 +2,39 @@
 
 Expo (React Native) cross-platform app for the Kaduna.lk platform. Serves stranded drivers, fleet managers, roadside-assistance providers, and the guided photo-capture flow used by the claims-privacy component.
 
+## Environment
+
+Copy `.env.example` to `.env` and fill in the Supabase URL, publishable key and
+API URL, then start with `npx expo start -c` — Metro inlines `EXPO_PUBLIC_*`
+values at bundle time and caches them.
+
+## Building a sideloadable APK
+
+```bash
+# .env must already point at the target backend — Metro inlines EXPO_PUBLIC_*
+# into the bundle during this build, so changing it afterwards does nothing.
+cd android
+JAVA_HOME=<path-to-jdk-21> ./gradlew assembleRelease
+# -> app/build/outputs/apk/release/app-release.apk
+```
+
+Gradle 8.14 does not accept JDK 25; use 17 or 21. Without a release keystore
+configured the APK is signed with the debug key, which is fine for sideloading
+but not for the Play Store.
+
+To confirm a built APK targets the backend you expect:
+
+```bash
+unzip -p app-release.apk assets/index.android.bundle | strings | grep -oE 'https://[a-z.-]+'
+```
+
+EAS cloud builds do not read `.env`. Register the same variables once per
+profile:
+
+```bash
+eas env:create --environment production --name EXPO_PUBLIC_SUPABASE_URL --value https://...
+```
+
 ## Stack
 
 - Expo SDK 54

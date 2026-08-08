@@ -1,53 +1,71 @@
-version: "3.8"
-
 services:
-  # 1. Your Dispatch Service
-  dispatch-service:
-    build:
-      context: ./components/dispatch
-      dockerfile: Dockerfile
-    ports:
-      - "3001:3001"
+  dispatch:
+    build: ./components/dispatch
+    restart: unless-stopped
+    env_file: .env
     environment:
-      - DATABASE_URL=postgresql://kaduna:kaduna_dev@postgres:5432/dispatch_db
-      - REDIS_URL=redis://redis:6379
-      - GEO_INTELLIGENCE_URL=http://geo-intelligence-service:5001
+      NODE_ENV: production
+      DATABASE_URL: ${DISPATCH_DATABASE_URL:?set DISPATCH_DATABASE_URL in .env}
+      SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
+      GEO_INTELLIGENCE_URL: http://geo-intelligence:5001
+      PREDICTIVE_MAINTENANCE_URL: http://predictive-maintenance:5000
     depends_on:
-      - postgres
-      - redis
-      - geo-intelligence-service
+      geo-intelligence:
+        condition: service_healthy
 
-  # 2. Predictive Maintenance Service
-  predictive-service:
-    build:
-      context: ./components/predictive-maintenance
-    ports:
-      - "5003:5003"
-
-  # 3. Geo-Intelligence Service
-  geo-intelligence-service:
-    build:
-      context: ./components/geo-intelligence
-      dockerfile: Dockerfile
-    ports:
-      - "5001:5001"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/v1/health"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-      start_period: 15s
-
-  # Shared Infrastructure
-  postgres:
-    image: postgres:16-alpine
+  geo-intelligence:
+    build: ./components/geo-intelligence
+    restart: unless-stopped
     environment:
-      - POSTGRES_USER=kaduna
-      - POSTGRES_PASSWORD=kaduna_dev
-    ports:
-      - "5433:5432"
+      SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
 
-  redis:
-    image: redis:7-alpine
+  predictive-maintenance:
+    build: ./components/predictive-maintenance
+    restart: unless-stopped
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
+      PREDICTIVE_DATABASE_URL: sqlite:////app/data/predictive.db
+    volumes:
+      - predictive-data:/app/data
+
+  claims-privacy:
+    build: ./components/claims-privacy
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: ${CLAIMS_DATABASE_URL:?set CLAIMS_DATABASE_URL in .env}
+      SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      BASE_DOMAIN: ${BASE_DOMAIN:-kaduna.lk}
     ports:
-      - "6380:6379"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - dispatch
+      - geo-intelligence
+      - predictive-maintenance
+      - claims-privacy
+
+# Supabase's direct database endpoint (db.<ref>.supabase.co) resolves to IPv6
+# only. Compose networks are IPv4-only unless asked otherwise, so without this
+# dispatch and claims-privacy cannot reach Postgres even on an IPv6 host.
+# Requires "ipv6": true and "ip6tables": true in the daemon's daemon.json.
+networks:
+  default:
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: fd00:beef:cafe::/64
+
+volumes:
+  predictive-data:
+  caddy-data:
+  caddy-config:

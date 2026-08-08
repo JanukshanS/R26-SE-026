@@ -63,6 +63,7 @@ dispatchRouter.post('/optimize', async (req, res) => {
         latitude: incident.latitude,
         longitude: incident.longitude,
         probabilities: incident.triageResponse.probabilities as unknown as ServiceTypeProbabilities,
+        authorization: req.headers.authorization,
       });
       if (geoScore !== null) {
         trafficImpactScore = geoScore;

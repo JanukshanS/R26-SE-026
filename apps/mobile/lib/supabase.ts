@@ -6,20 +6,27 @@ import { createClient } from "@supabase/supabase-js";
 /**
  * Single Supabase client for the whole app (auth + Postgres + storage).
  *
- * URL + publishable key are public client credentials — safe to ship (Row
- * Level Security on the tables is what actually protects data), so they default
- * to the kaduna project here and can be overridden via EXPO_PUBLIC_* for other
- * environments.
+ * URL + publishable key come from EXPO_PUBLIC_* so each environment points at
+ * its own project. They are public client credentials (Row Level Security on
+ * the tables is what actually protects data), but they are not hardcoded —
+ * local runs read apps/mobile/.env, cloud builds read EAS environment
+ * variables. See apps/mobile/.env.example.
  *
  * Session storage:
  *   - native → AsyncStorage (SecureStore's 2 KB per-item limit truncates
  *     Supabase sessions; AsyncStorage is the documented Expo choice)
  *   - web    → undefined → supabase-js falls back to localStorage
  */
-const SUPABASE_URL =
-  process.env.EXPO_PUBLIC_SUPABASE_URL ?? "https://huynmjagdlkvqcmgdipk.supabase.co";
-const SUPABASE_KEY =
-  process.env.EXPO_PUBLIC_SUPABASE_KEY ?? "sb_publishable_afsnNQOy9fRKfu-5i1lWUw_AQ9vBRJO";
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.EXPO_PUBLIC_SUPABASE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  throw new Error(
+    "Missing EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_KEY. " +
+      "Copy apps/mobile/.env.example to apps/mobile/.env and fill them in, " +
+      "then restart Expo with `npx expo start -c`.",
+  );
+}
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {

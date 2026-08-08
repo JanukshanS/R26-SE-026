@@ -1,0 +1,46 @@
+# Reverse proxy + automatic TLS for the Kaduna.lk backend.
+#
+# One subdomain per service rather than path prefixes on a single host: no
+# prefix stripping, so each service's own routes (/api/v1/..., /v1/..., /docs)
+# and its OpenAPI spec stay correct with no root_path configuration.
+#
+# Hostnames are built from BASE_DOMAIN (default kaduna.lk), so the same file
+# serves the real domain and an IP-based one. Until kaduna.lk's A records point
+# at the VPS, deploys set BASE_DOMAIN=<dashed-ip>.sslip.io, which resolves to
+# the server automatically and still gets real Let's Encrypt certificates.
+#
+# DNS: point A records for dispatch, geo, predict and claims at the VPS IP,
+# then drop BASE_DOMAIN from .env to go back to the default.
+
+{
+	email admin@kaduna.lk
+}
+
+(common) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+}
+
+dispatch.{$BASE_DOMAIN:kaduna.lk} {
+	import common
+	reverse_proxy dispatch:3001
+}
+
+geo.{$BASE_DOMAIN:kaduna.lk} {
+	import common
+	reverse_proxy geo-intelligence:5001
+}
+
+predict.{$BASE_DOMAIN:kaduna.lk} {
+	import common
+	reverse_proxy predictive-maintenance:5000
+}
+
+claims.{$BASE_DOMAIN:kaduna.lk} {
+	import common
+	reverse_proxy claims-privacy:8000
+}

@@ -1,0 +1,13 @@
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+data
+*.db
+*.postman_collection.json
+generate_data.py
+generate_training_data.py
+train_models.py
+.env
+tests

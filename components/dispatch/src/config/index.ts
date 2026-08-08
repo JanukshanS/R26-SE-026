@@ -24,6 +24,11 @@ export const config = {
   // ── Redis ──
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
 
+  // ── Supabase Auth ──
+  // Project URL only; bearer tokens are verified against its JWKS endpoint,
+  // so there is no secret here. Unset means the API refuses requests.
+  supabaseUrl: (process.env.SUPABASE_URL || '').trim().replace(/\/$/, ''),
+
   // ── Google Maps ──
   googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || '',
 

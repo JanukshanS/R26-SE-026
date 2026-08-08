@@ -53,6 +53,10 @@ cd R26-SE-026
 
 Each component / app has its own `README.md` with setup and run commands; see those for stack-specific instructions.
 
+For local dev across the whole stack, run `bash start-dev.sh`. For the deployed
+backend (one VPS, Docker Compose, Caddy, Supabase), see
+[`docs/deployment.md`](docs/deployment.md).
+
 ## Workflow
 
 - Branch per task; PR into `main`

@@ -14,7 +14,8 @@
         "NSCameraUsageDescription": "Camera access is needed to capture accident photos and videos for insurance claims.",
         "NSMicrophoneUsageDescription": "Microphone access is needed to record scene video with sound.",
         "NSLocationWhenInUseUsageDescription": "Your location is saved with the time when you call your insurer so your claim record is complete."
-      }
+      },
+      "bundleIdentifier": "com.kaduna.app"
     },
     "android": {
       "package": "com.kaduna.app",

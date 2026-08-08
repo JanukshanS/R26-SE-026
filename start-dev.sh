@@ -212,16 +212,17 @@ Kaduna.lk dev stack is running:
   mobile (Expo web)      http://localhost:8090
   mobile (Expo dev server, real QR) — see the separate terminal window
 
-Not started (need Postgres, dispatch also needs Redis):
+Not started (both need a Postgres DATABASE_URL):
   dispatch          components/dispatch      (port 3001)
   claims-privacy    components/claims-privacy (port 8000)
 
 Press Ctrl+C to stop everything.
 EOF
 
-# --- To also run dispatch + claims-privacy once you have Postgres/Redis ---
-# 1. Start the databases, e.g.: docker compose up -d postgres redis
-#    (or point DATABASE_URL/REDIS_URL in each service's .env at your own instances)
+# --- To also run dispatch + claims-privacy ---
+# 1. Point DATABASE_URL in each service's .env at a Postgres instance — the
+#    team's Supabase project is the easy one (Project Settings -> Database ->
+#    Connection string, direct/5432 not the pooled 6543).
 # 2. Dispatch:
 #      cd components/dispatch && npm install && npx prisma generate && npx prisma migrate dev
 #      npm run dev

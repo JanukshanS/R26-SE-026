@@ -17,10 +17,11 @@ import os
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from .auth import require_user
 from .impact_scoring import (
     ImpactScoringModel,
     IncidentInput,
@@ -162,7 +163,7 @@ def health() -> HealthResponse:
     )
 
 
-@app.post("/v1/score", response_model=ScoreResponse, tags=["scoring"])
+@app.post("/v1/score", response_model=ScoreResponse, tags=["scoring"], dependencies=[Depends(require_user)])
 def score(req: ScoreRequest) -> ScoreResponse:
     if req.lanes_blocked > req.total_lanes:
         raise HTTPException(
@@ -201,7 +202,12 @@ class UncertaintyResponse(BaseModel):
     score_std: float
 
 
-@app.post("/v1/score/uncertainty", response_model=UncertaintyResponse, tags=["scoring"])
+@app.post(
+    "/v1/score/uncertainty",
+    response_model=UncertaintyResponse,
+    tags=["scoring"],
+    dependencies=[Depends(require_user)],
+)
 def score_uncertainty(req: ScoreRequest) -> UncertaintyResponse:
     """90% confidence band on the impact score via Monte-Carlo over the two
     genuinely uncertain inputs (incident duration, reported lanes-blocked)."""
@@ -215,7 +221,7 @@ class TimelineRequest(ScoreRequest):
     step_min: int = Field(10, ge=1, le=60, description="Sampling interval in minutes")
 
 
-@app.post("/v1/score/timeline", tags=["scoring"])
+@app.post("/v1/score/timeline", tags=["scoring"], dependencies=[Depends(require_user)])
 def score_timeline(req: TimelineRequest) -> dict:
     """Relative congestion-impact curve over time since the incident: the queue
     builds while the incident is active, then drains — a rise-then-decay profile."""
@@ -226,7 +232,12 @@ def score_timeline(req: TimelineRequest) -> dict:
     return {"minutes": grid, "impact": [round(float(v), 3) for v in curve]}
 
 
-@app.get("/v1/hotspots", response_model=List[HotspotCluster], tags=["spatial"])
+@app.get(
+    "/v1/hotspots",
+    response_model=List[HotspotCluster],
+    tags=["spatial"],
+    dependencies=[Depends(require_user)],
+)
 def hotspots() -> List[HotspotCluster]:
     path = DATA_DIR / "hotspots.json"
     if not path.exists():
@@ -235,7 +246,7 @@ def hotspots() -> List[HotspotCluster]:
     return [_hotspot_from_row(row, i) for i, row in enumerate(raw)]
 
 
-@app.get("/v1/stats", tags=["meta"])
+@app.get("/v1/stats", tags=["meta"], dependencies=[Depends(require_user)])
 def stats() -> dict:
     path = DATA_DIR / "stats.json"
     if not path.exists():

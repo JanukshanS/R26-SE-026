@@ -6,9 +6,10 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional
 
 import joblib
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.auth import require_user
 from app.database import Base, engine
 from app.routers.ingest import router as ingest_router
 from app.routers.predict import router as predict_router
@@ -19,19 +20,48 @@ _COMPONENT_SUFFIXES = ["engine_rf", "engine_gb", "brake_rf", "brake_gb",
                        "tire_rf", "tire_gb", "battery_rf", "battery_gb"]
 
 
-def _load_all_models() -> Dict[str, Any]:
-    loaded: Dict[str, Any] = {}
-    for key in _COMPONENT_SUFFIXES:
-        path = os.path.join(MODELS_DIR, f"{key}.joblib")
-        if os.path.exists(path):
-            loaded[key] = joblib.load(path)
-        else:
-            loaded[key] = None
-    n_loaded = sum(1 for v in loaded.values() if v is not None)
-    print(f"[startup] Loaded {n_loaded}/8 ML models from '{MODELS_DIR}'")
-    if n_loaded == 0:
+class _ModelRegistry:
+    """Loads a joblib model the first time it is asked for, then caches it.
+
+    The 8 model files are ~320 MB on disk and several times that once
+    deserialised, but /predict/best only ever touches 4 of them. Loading on
+    demand keeps a container that serves only /predict/best under ~300 MB
+    instead of ~1 GB, while /predict/rf and /predict/gb still work.
+
+    Exposes the same .get() and truthiness the routers already use, so it is a
+    drop-in for the dict this used to return.
+    """
+
+    def __init__(self, models_dir: str, keys: list[str]) -> None:
+        self._dir = models_dir
+        self._available = [
+            key for key in keys
+            if os.path.exists(os.path.join(models_dir, f"{key}.joblib"))
+        ]
+        self._cache: Dict[str, Any] = {}
+
+    def get(self, key: str) -> Optional[Any]:
+        if key not in self._cache:
+            if key not in self._available:
+                return None
+            print(f"[models] loading {key}.joblib")
+            self._cache[key] = joblib.load(os.path.join(self._dir, f"{key}.joblib"))
+        return self._cache[key]
+
+    def __len__(self) -> int:
+        return len(self._available)
+
+    def available(self) -> list[str]:
+        """Model keys that can be served, without loading any of them."""
+        return list(self._available)
+
+
+def _load_all_models() -> _ModelRegistry:
+    registry = _ModelRegistry(MODELS_DIR, _COMPONENT_SUFFIXES)
+    print(f"[startup] Found {len(registry)}/8 ML models in '{MODELS_DIR}' (loaded on first use)")
+    if len(registry) == 0:
         print("[startup] No models found — run train_models.py then restart the server.")
-    return loaded
+    return registry
 
 
 def _load_best_models() -> Dict[str, Any]:
@@ -87,15 +117,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(ingest_router, tags=["Ingest"])
-app.include_router(predict_router, tags=["Predict"])
+app.include_router(ingest_router, tags=["Ingest"], dependencies=[Depends(require_user)])
+app.include_router(predict_router, tags=["Predict"], dependencies=[Depends(require_user)])
 
 
 @app.get("/health", tags=["Health"])
 def health_check():
-    models = getattr(app.state, "models", {})
+    registry = getattr(app.state, "models", None)
     best = getattr(app.state, "best_models", {})
-    loaded = [k for k, v in models.items() if v is not None]
+    # Models load on first use, so this reports what can be served rather than
+    # what is resident in memory.
+    loaded = registry.available() if registry is not None else []
     return {
         "status": "ok",
         "models_loaded": loaded,

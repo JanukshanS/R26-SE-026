@@ -3,6 +3,8 @@
 // pattern in liveData.ts — the dashboard never blanks when geo is down.
 import type { HotspotCluster, Stats } from "./types";
 
+import { authHeaders } from "./supabase";
+
 const GEO_URL = process.env.NEXT_PUBLIC_GEO_URL ?? "http://localhost:5001";
 const FETCH_TIMEOUT_MS = 3000;
 
@@ -30,7 +32,11 @@ async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Respon
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    return await fetch(url, {
+      ...init,
+      headers: { ...(init?.headers ?? {}), ...(await authHeaders()) },
+      signal: controller.signal,
+    });
   } finally {
     clearTimeout(timer);
   }

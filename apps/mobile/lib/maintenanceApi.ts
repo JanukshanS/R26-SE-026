@@ -1,5 +1,7 @@
 import { Platform } from "react-native";
 
+import { authHeaders } from "@lib/capture-api";
+
 const BASE_URL =
   process.env.EXPO_PUBLIC_MAINTENANCE_URL ??
   (Platform.OS === "android" ? "http://10.0.2.2:5000" : "http://localhost:5000");
@@ -110,7 +112,7 @@ export async function getVehicleHealth(vehicleId: string): Promise<VehicleHealth
   try {
     const res = await fetch(
       `${BASE_URL}/vehicle/${encodeURIComponent(vehicleId)}/health`,
-      { signal }
+      { headers: await authHeaders(), signal }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return normalizeHealth(await res.json(), vehicleId);
@@ -221,7 +223,7 @@ export async function logService(vehicleId: string, data: ServiceRecordCreate): 
   try {
     const res = await fetch(`${BASE_URL}/vehicle/${encodeURIComponent(vehicleId)}/service`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify({ ...data, km_on_component: data.km_on_component ?? 0 }),
       signal,
     });
@@ -240,7 +242,7 @@ export async function getLatestServices(vehicleId: string): Promise<LatestServic
   try {
     const res = await fetch(
       `${BASE_URL}/vehicle/${encodeURIComponent(vehicleId)}/services/latest`,
-      { signal }
+      { headers: await authHeaders(), signal }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
@@ -254,7 +256,7 @@ export async function getServiceHistory(vehicleId: string): Promise<ServiceRecor
   try {
     const res = await fetch(
       `${BASE_URL}/vehicle/${encodeURIComponent(vehicleId)}/services`,
-      { signal }
+      { headers: await authHeaders(), signal }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
@@ -327,7 +329,7 @@ export async function submitTrip(batch: TripBatch): Promise<TripMetricsResponse>
   try {
     const res = await fetch(`${BASE_URL}/process-trip`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify(batch),
       signal,
     });
@@ -373,7 +375,10 @@ export interface VehicleTripSummary {
 export async function getVehicleTripSummary(vehicleId: string): Promise<VehicleTripSummary | null> {
   const { signal, cancel } = timeoutSignal(6000);
   try {
-    const res = await fetch(`${BASE_URL}/vehicles/summary`, { signal });
+    const res = await fetch(`${BASE_URL}/vehicles/summary`, {
+      headers: await authHeaders(),
+      signal,
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const all: VehicleTripSummary[] = await res.json();
     return all.find((s) => s.vehicle_id === vehicleId) ?? null;

@@ -18,6 +18,8 @@
 
 import { Platform } from "react-native";
 
+import { authHeaders } from "@lib/capture-api";
+
 const DEFAULT_BASE_URL =
   process.env.EXPO_PUBLIC_DISPATCH_URL ??
   (Platform.OS === "android" ? "http://10.0.2.2:3001" : "http://localhost:3001");
@@ -213,6 +215,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       headers: {
         "Content-Type": "application/json",
+        ...(await authHeaders()),
         ...(init?.headers ?? {}),
       },
       signal,
