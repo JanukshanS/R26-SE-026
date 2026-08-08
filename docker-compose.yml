@@ -39,6 +39,8 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    environment:
+      BASE_DOMAIN: ${BASE_DOMAIN:-kaduna.lk}
     ports:
       - "80:80"
       - "443:443"
