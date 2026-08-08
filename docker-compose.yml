@@ -30,6 +30,7 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: ${CLAIMS_DATABASE_URL:?set CLAIMS_DATABASE_URL in .env}
+      SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
 
   caddy:
     image: caddy:2-alpine

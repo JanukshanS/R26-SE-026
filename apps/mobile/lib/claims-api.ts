@@ -1,5 +1,4 @@
-import { getCaptureApiBaseUrl } from '@/lib/capture-api';
-import { getMyUser } from '@/lib/vehicleApi';
+import { getAccessToken, getCaptureApiBaseUrl } from '@/lib/capture-api';
 
 export type ClaimSummary = {
   id: string;
@@ -37,14 +36,17 @@ function mapClaim(row: ClaimSummaryRow): ClaimSummary {
 }
 
 /**
- * The signed-in driver's claim history, newest first. Returns `[]` for a
- * guest session or a profile with no NIC set — same graceful degradation as
- * the rest of the claim-upload flow, not an error.
+ * The signed-in driver's claim history, newest first. Returns `[]` for a guest
+ * session — same graceful degradation as the rest of the claim-upload flow,
+ * not an error.
+ *
+ * Which claims come back is decided by the backend from the bearer token, so
+ * there is nothing to pass: the old `?nic=` parameter let any caller read any
+ * driver's history.
  */
 export async function listMyClaims(): Promise<ClaimSummary[]> {
-  const user = await getMyUser();
-  const nic = user?.nicNumber?.trim();
-  if (!nic) {
+  const token = await getAccessToken();
+  if (!token) {
     return [];
   }
 
@@ -60,7 +62,10 @@ export async function listMyClaims(): Promise<ClaimSummary[]> {
   const timeout = setTimeout(() => controller.abort(), 10000);
   let res: Response;
   try {
-    res = await fetch(`${base}/claims?nic=${encodeURIComponent(nic)}`, { signal: controller.signal });
+    res = await fetch(`${base}/claims`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    });
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
       throw new Error('Could not reach the server. Check EXPO_PUBLIC_API_URL and that the backend is running.');

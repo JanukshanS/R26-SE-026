@@ -47,6 +47,7 @@ Copy `.env.example` to `.env` in `components/claims-privacy/` and fill in values
 | Variable | Purpose |
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL URL (e.g. `postgresql://user:pass@host:5432/dbname`) |
+| `SUPABASE_URL` | Supabase project URL, e.g. `https://abcdefgh.supabase.co` — used to verify bearer tokens. No key or secret needed |
 | `R2_ACCOUNT_ID` | Cloudflare account ID (optional metadata; not required for S3 client) |
 | `R2_ACCESS_KEY_ID` | R2 S3 API access key |
 | `R2_SECRET_ACCESS_KEY` | R2 S3 API secret |
@@ -56,6 +57,20 @@ Copy `.env.example` to `.env` in `components/claims-privacy/` and fill in values
 | `MIN_CAPTURE_PHOTOS` | Minimum **original** photos before `POST .../complete` (default `5` in `app.config.Settings`; set in `.env` to override) |
 
 `GET /health/ready` returns `{ "postgres": bool, "r2": bool }` indicating whether each integration is configured (no secrets in the response).
+
+### Authentication
+
+Every capture and claim endpoint requires `Authorization: Bearer <supabase-access-token>`. `/health` and `/health/ready` stay open.
+
+Tokens are the ES256 access tokens Supabase Auth issues to the mobile app. The service fetches the project's public keys from `${SUPABASE_URL}/auth/v1/.well-known/jwks.json` and verifies signature, issuer, audience and expiry — there is no shared secret to distribute. With `SUPABASE_URL` unset the endpoints answer `503` rather than running unauthenticated.
+
+Ownership comes from the token, never from the request:
+
+- `captures.user_id` is set from the token's `sub` claim when a session is created.
+- Reading, uploading to, or completing a capture you do not own answers `404`, not `403` — the API does not confirm which capture ids exist.
+- `GET /claims` returns only the caller's own claims and takes no parameters. It previously accepted `?nic=`, which let any caller read any driver's history.
+
+Captures created before this existed have a `NULL` `user_id` and are unreachable.
 
 ### Pipelines (original vs enhanced)
 

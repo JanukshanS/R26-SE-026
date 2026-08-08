@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, UploadFile, status
 
+from app.auth import current_user_id
 from app.config import Settings, get_settings
 from app.repository import ASSET_KIND_ENHANCED, ASSET_KIND_ORIGINAL, CaptureRepository
 from app.r2_metadata import build_parent_folder_name, build_photo_object_metadata
@@ -83,6 +84,23 @@ def get_capture_repository(settings: Settings = Depends(get_settings)) -> Captur
     return CaptureRepository(settings.effective_database_url or "")
 
 
+def _load_owned_capture(
+    repository: CaptureRepository,
+    capture_id: str,
+    user_id: str,
+) -> dict:
+    """Fetch a capture the caller owns, or 404.
+
+    A capture owned by someone else answers 404 rather than 403 so the API does
+    not confirm which capture ids exist. Rows predating bearer auth have a NULL
+    user_id and are unreachable by the same rule.
+    """
+    capture = repository.get_capture(capture_id)
+    if not capture or str(capture.get("user_id") or "") != user_id:
+        raise HTTPException(status_code=404, detail="Capture session not found.")
+    return dict(capture)
+
+
 def get_r2_storage(settings: Settings = Depends(get_settings)) -> R2Storage:
     if not settings.r2_configured:
         raise HTTPException(
@@ -117,11 +135,13 @@ def ensure_capture_schema() -> None:
 def create_capture(
     body: Optional[CreateCaptureRequest] = Body(default=None),
     repository: CaptureRepository = Depends(get_capture_repository),
+    user_id: str = Depends(current_user_id),
 ) -> CaptureResponse:
     try:
         req = body if body is not None else CreateCaptureRequest()
         return CaptureResponse.model_validate(
             repository.create_capture(
+                user_id=user_id,
                 claimant_name=req.claimant_name,
                 claimant_nic=req.claimant_nic,
                 claimant_licence_number=req.claimant_licence_number,
@@ -173,6 +193,7 @@ async def upload_capture_photo(
     captured_at_client: Optional[datetime] = Form(None),
     repository: CaptureRepository = Depends(get_capture_repository),
     storage: R2Storage = Depends(get_r2_storage),
+    user_id: str = Depends(current_user_id),
 ) -> PhotoUploadResponse:
     if asset_kind not in (ASSET_KIND_ORIGINAL, ASSET_KIND_ENHANCED):
         raise HTTPException(
@@ -181,9 +202,7 @@ async def upload_capture_photo(
         )
     kind: AssetKind = asset_kind  # type: ignore[assignment]
 
-    capture = repository.get_capture(capture_id)
-    if not capture:
-        raise HTTPException(status_code=404, detail="Capture session not found.")
+    capture = _load_owned_capture(repository, capture_id, user_id)
     if capture["status"] != "uploading":
         raise HTTPException(status_code=409, detail="Capture session is not accepting uploads.")
 
@@ -335,10 +354,9 @@ def complete_capture(
     settings: Settings = Depends(get_settings),
     repository: CaptureRepository = Depends(get_capture_repository),
     storage: R2Storage = Depends(get_r2_storage),
+    user_id: str = Depends(current_user_id),
 ) -> CompleteCaptureResponse:
-    capture = repository.get_capture(capture_id)
-    if not capture:
-        raise HTTPException(status_code=404, detail="Capture session not found.")
+    capture = _load_owned_capture(repository, capture_id, user_id)
     if capture["status"] != "uploading":
         raise HTTPException(status_code=409, detail="Capture session is already completed.")
 
@@ -377,10 +395,9 @@ def capture_status(
     capture_id: str,
     settings: Settings = Depends(get_settings),
     repository: CaptureRepository = Depends(get_capture_repository),
+    user_id: str = Depends(current_user_id),
 ) -> CaptureStatusResponse:
-    capture = repository.get_capture(capture_id)
-    if not capture:
-        raise HTTPException(status_code=404, detail="Capture session not found.")
+    capture = _load_owned_capture(repository, capture_id, user_id)
 
     total = repository.count_photos(capture_id)
     original_count = repository.count_photos_by_kind(capture_id, ASSET_KIND_ORIGINAL)
@@ -405,9 +422,13 @@ def capture_status(
 
 @app.get("/claims", response_model=List[ClaimSummary])
 def list_my_claims(
-    nic: str,
     repository: CaptureRepository = Depends(get_capture_repository),
+    user_id: str = Depends(current_user_id),
 ) -> List[ClaimSummary]:
-    """A driver's claim history, listed by claimant NIC — used by the mobile app's My Claims screen."""
-    rows = repository.list_captures_by_nic(nic)
+    """The signed-in driver's claim history — used by the mobile app's My Claims screen.
+
+    Scoped by the bearer token's subject. There is deliberately no parameter for
+    choosing whose claims to read.
+    """
+    rows = repository.list_captures_by_user(user_id)
     return [ClaimSummary.model_validate(row) for row in rows]

@@ -62,6 +62,10 @@ Pushing to `main` runs the same script automatically via
   Dispatch is Prisma and takes `?schema=dispatch`; claims-privacy is psycopg
   and libpq rejects `?schema=` as an unknown parameter, so its URL carries no
   query string. Compose maps each to that service's own `DATABASE_URL`.
+- **`SUPABASE_URL` is the project URL and nothing else.** claims-privacy
+  verifies bearer tokens against that project's JWKS endpoint, so no key or
+  secret is involved. If it is unset the service answers 503 rather than
+  serving requests unauthenticated.
 - Mobile Supabase credentials are **not** here — they live in
   `apps/mobile/.env` for local runs and in EAS environment variables for cloud
   builds. See `apps/mobile/.env.example`.
