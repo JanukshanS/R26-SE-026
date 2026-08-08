@@ -7,7 +7,7 @@ OpenAPI 3.1 specifications and shared schema definitions that components publish
 - One file per component: `<component>.openapi.yaml`
 - Versioned routes: prefix with `/v1`, `/v2` etc.; never break a published route
 - All endpoints return JSON; error shape is `{ "error": { "code": ..., "message": ..., "details": ... } }`
-- Authentication: bearer JWT issued by the `claims-privacy` API Gateway; document required scopes per endpoint
+- Authentication: bearer JWT issued by Supabase Auth (GoTrue); document required scopes per endpoint
 - Standard headers: `X-Request-Id` (UUID, propagated through downstream calls)
 
 ## Publishing a new contract
@@ -21,9 +21,9 @@ OpenAPI 3.1 specifications and shared schema definitions that components publish
 
 | Component | File | Status |
 |---|---|---|
-| auth | `auth.openapi.yaml` | published |
 | dispatch | `dispatch.openapi.yaml` | published |
 | geo-intelligence | `geo-intelligence.openapi.yaml` | published |
 | predictive-maintenance | `predictive-maintenance.openapi.yaml` | published |
-| vehicle-service | _superseded by `auth`_ | n/a |
 | claims-privacy | _to be added_ | pending |
+| auth | _removed — replaced by Supabase Auth_ | n/a |
+| vehicle-service | _removed — replaced by Supabase Postgres_ | n/a |
