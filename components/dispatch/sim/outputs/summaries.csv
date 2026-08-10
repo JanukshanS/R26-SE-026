@@ -1,0 +1,5 @@
+strategy,n_incidents,match_rate,provider_capable_rate,re_dispatch_rate,avg_resolution_time_min,stdev_resolution_time_min
+UADO,1000,0.518,0.981,0.019,65.3692,45.9998
+GreedyNearest,1000,0.365,0.697,0.303,76.9818,54.8848
+TypeMatched,1000,0.32,0.945,0.055,66.4897,47.2667
+MultiCriteria,1000,0.32,0.94,0.06,67.5099,47.7075
