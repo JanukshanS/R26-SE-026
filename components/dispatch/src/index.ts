@@ -31,6 +31,7 @@ import { incidentRouter } from './routes/incident.routes';
 import { triageRouter } from './routes/triage.routes';
 import { providerRouter } from './routes/provider.routes';
 import { dispatchRouter } from './routes/dispatch.routes';
+import { bayesianRouter, feedbackRouter } from './routes/feedback.routes';
 
 // ── Create Express App ──
 const app = express();
@@ -81,9 +82,11 @@ app.get('/health', async (_req: Request, res: Response) => {
 // All of them require a verified Supabase token; /health above stays open so
 // the container healthcheck can reach it without credentials.
 app.use('/api/v1/incidents', requireUser, incidentRouter);
+app.use('/api/v1/incidents', requireUser, feedbackRouter);   // POST /:id/feedback
 app.use('/api/v1/triage', requireUser, triageRouter);
 app.use('/api/v1/providers', requireUser, providerRouter);
 app.use('/api/v1/dispatch', requireUser, dispatchRouter);
+app.use('/api/v1/bayesian', requireUser, bayesianRouter);    // GET priors/:key, GET stats
 
 // ── 404 Handler ──
 app.use((_req: Request, res: Response) => {
