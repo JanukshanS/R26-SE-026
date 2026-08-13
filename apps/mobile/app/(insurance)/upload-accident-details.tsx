@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { InsuranceBottomTabBar, type InsuranceTabId } from '@/components/insurance-bottom-tab-bar';
 import { findInsuranceCompany, type InsuranceCompany } from '@/lib/insuranceCompaniesApi';
 import { getVehicleById, getVehicles } from '@/lib/vehicleApi';
+import { getVehicleInsurance } from '@/lib/vehicleInsuranceApi';
 import { loadSelectedVehicleId } from '@/lib/selected-vehicle-store';
 import { loadClaimantProfile } from '@/features/claimant/storage/claimant-profile-store';
 import { useClaimUpload } from '@/features/report-accident/hooks/use-claim-upload';
@@ -163,14 +164,15 @@ export default function UploadAccidentDetailsScreen() {
             }
             return;
           }
-          if (!target.insuranceProvider) {
+          const insurance = await getVehicleInsurance(target._id);
+          if (!insurance?.insuranceProvider) {
             if (!cancelled) {
               setInsuranceCompany(null);
               setVehicleMissingInsurer(true);
             }
             return;
           }
-          const company = await findInsuranceCompany(target.insuranceProvider);
+          const company = await findInsuranceCompany(insurance.insuranceProvider);
           if (!cancelled) {
             setInsuranceCompany(company);
             setVehicleMissingInsurer(false);

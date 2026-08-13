@@ -19,6 +19,7 @@ import {
 } from "@lib/maintenanceApi";
 import { isElm327Paired, isRealBleSupported, pairElm327Async, unpairElm327 } from "@lib/elm327";
 import { useVehicle } from "@lib/vehicleContext";
+import { getVehicleInsurance, type VehicleInsurance } from "@lib/vehicleInsuranceApi";
 import { useHardwareBack } from "@lib/useHardwareBack";
 import { isTripActive, startTrip } from "@lib/tripRecorder";
 import { useIncompleteUploadStatus } from "@/features/report-accident/hooks/use-incomplete-upload-status";
@@ -57,12 +58,38 @@ export default function DriverHomeScreen() {
   ? (selectedVehicle.nickname || `${selectedVehicle.make} ${selectedVehicle.model}`)
   : "Toyota Aqua";
 
-  // Insurance provider/policy live on the vehicle; licence/NIC live on the profile — all
-  // four are required before the Insurance flow is usable for the selected vehicle.
+  // Insurance lives in its own table (vehicle_insurance), not on the vehicle row itself,
+  // so it's fetched separately whenever the selected vehicle changes. `undefined` (not yet
+  // loaded) is distinguished from `null` (loaded, no insurance saved) so the "missing
+  // details" badge doesn't flash on briefly while this is still resolving.
+  const [vehicleInsurance, setVehicleInsurance] = useState<VehicleInsurance | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!selectedVehicle) {
+      setVehicleInsurance(null);
+      return;
+    }
+    let cancelled = false;
+    setVehicleInsurance(undefined);
+    getVehicleInsurance(selectedVehicle._id)
+      .then((insurance) => {
+        if (!cancelled) setVehicleInsurance(insurance);
+      })
+      .catch(() => {
+        if (!cancelled) setVehicleInsurance(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedVehicle]);
+
+  // Licence/NIC live on the profile — all four are required before the Insurance
+  // flow is usable for the selected vehicle.
   const missingInsuranceDetails = Boolean(
     selectedVehicle &&
-      (!selectedVehicle.insuranceProvider ||
-        !selectedVehicle.insurancePolicyNumber ||
+      vehicleInsurance !== undefined &&
+      (!vehicleInsurance?.insuranceProvider ||
+        !vehicleInsurance?.insurancePolicyNumber ||
         !user?.licenceNumber ||
         !user?.nicNumber)
   );

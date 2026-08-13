@@ -31,6 +31,7 @@ import {
 import { useIncompleteUploadStatus } from '@/features/report-accident/hooks/use-incomplete-upload-status';
 import { findInsuranceCompany, type InsuranceCompany } from '@/lib/insuranceCompaniesApi';
 import { getVehicleById, getVehicles } from '@/lib/vehicleApi';
+import { getVehicleInsurance } from '@/lib/vehicleInsuranceApi';
 import { loadSelectedVehicleId } from '@/lib/selected-vehicle-store';
 import { computeClaimBundleUploadKey, isClaimReportSubmittedLocked } from '@/lib/claim-upload-dedupe';
 import { formatGeocodedLine } from '@/lib/format-geocoded-line';
@@ -218,14 +219,15 @@ export default function InsuranceHomeScreen() {
             }
             return;
           }
-          if (!target.insuranceProvider) {
+          const insurance = await getVehicleInsurance(target._id);
+          if (!insurance?.insuranceProvider) {
             if (!cancelled) {
               setInsuranceCompany(null);
               setVehicleMissingInsurer(true);
             }
             return;
           }
-          const company = await findInsuranceCompany(target.insuranceProvider);
+          const company = await findInsuranceCompany(insurance.insuranceProvider);
           if (!cancelled) {
             setInsuranceCompany(company);
             setVehicleMissingInsurer(false);

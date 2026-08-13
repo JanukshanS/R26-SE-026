@@ -17,6 +17,7 @@ import {
 import { formatGeocodedLine } from '@/lib/format-geocoded-line';
 import { formatTimestamp } from '@/lib/format-timestamp';
 import { getMyUser, getVehicles } from '@/lib/vehicleApi';
+import { getVehicleInsurance } from '@/lib/vehicleInsuranceApi';
 
 type ClaimantData = { fullName: string; nic: string; licenceNumber: string };
 
@@ -236,6 +237,11 @@ export function useClaimUpload(
             const targetVehicle = vehicleId
               ? vehicles.find((v) => v._id === vehicleId) ?? vehicles.find((v) => v.isDefault) ?? vehicles[0]
               : vehicles.find((v) => v.isDefault) ?? vehicles[0];
+            // Insurance lives in its own table (vehicle_insurance), not on the vehicle
+            // row itself, so the policy number is fetched separately.
+            const targetInsurance = targetVehicle
+              ? await getVehicleInsurance(targetVehicle._id).catch(() => null)
+              : null;
             await uploadFullClaimBundleToBackend({
               uploadKey,
               insurerCallMeta,
@@ -243,7 +249,7 @@ export function useClaimUpload(
               vehicle: targetVehicle
                 ? {
                     model: `${targetVehicle.make} ${targetVehicle.model}`.trim(),
-                    policyNumber: targetVehicle.insurancePolicyNumber,
+                    policyNumber: targetInsurance?.insurancePolicyNumber,
                     plateNumber: targetVehicle.plateNumber,
                   }
                 : undefined,
