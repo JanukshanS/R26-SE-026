@@ -14,16 +14,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
-import type { VehicleInput } from "@lib/vehicleApi";
-import type { Vehicle } from "@lib/vehicleApi";
+import type { Vehicle, VehicleInput } from "@lib/vehicleApi";
 import { listInsuranceCompanies, type InsuranceCompany } from "@lib/insuranceCompaniesApi";
+import { getVehicleInsurance, upsertVehicleInsurance } from "@lib/vehicleInsuranceApi";
 
 const FUEL_TYPES = ["petrol", "diesel", "hybrid", "electric"] as const;
 
 const EMPTY_FORM: Partial<VehicleInput> = {
   make: "", model: "", year: undefined, plateNumber: "",
   nickname: "", color: "", currentMileage: 0, fuelType: "petrol",
-  insuranceProvider: "", insurancePolicyNumber: "",
 };
 
 export default function ManageVehiclesScreen() {
@@ -39,6 +38,10 @@ export default function ManageVehiclesScreen() {
   // editing any vehicle, same as the insurance fields below.
   const [licenceNumber, setLicenceNumber] = useState("");
   const [nicNumber, setNicNumber] = useState("");
+  // Insurance lives in its own table (vehicle_insurance), not on the vehicle row itself,
+  // so it's fetched/saved separately from `form`.
+  const [insuranceProvider, setInsuranceProvider] = useState("");
+  const [insurancePolicyNumber, setInsurancePolicyNumber] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [companies, setCompanies] = useState<InsuranceCompany[]>([]);
@@ -72,37 +75,49 @@ export default function ManageVehiclesScreen() {
     const target = vehicles.find((v) => v._id === editVehicleId);
     if (!target) return;
     autoOpenedForId.current = editVehicleId;
-    openEdit(target);
-    const missing: string[] = [];
-    if (!target.insuranceProvider) missing.push("Your insurance provider");
-    if (!target.insurancePolicyNumber) missing.push("Your insurance policy number");
-    if (!user?.licenceNumber) missing.push("Your Driving Licence Number");
-    if (!user?.nicNumber) missing.push("NIC Number");
-    if (missing.length > 0) {
-      setMissingLabels(missing);
-      setReminderVisible(true);
-    }
+    void (async () => {
+      await openEdit(target);
+      const insurance = await getVehicleInsurance(target._id).catch(() => null);
+      const missing: string[] = [];
+      if (!insurance?.insuranceProvider) missing.push("Your insurance provider");
+      if (!insurance?.insurancePolicyNumber) missing.push("Your insurance policy number");
+      if (!user?.licenceNumber) missing.push("Your Driving Licence Number");
+      if (!user?.nicNumber) missing.push("NIC Number");
+      if (missing.length > 0) {
+        setMissingLabels(missing);
+        setReminderVisible(true);
+      }
+    })();
   }, [editVehicleId, vehicles, vehiclesLoading, user]);
 
   function openAdd() {
     setEditingVehicle(null);
     setForm(EMPTY_FORM);
+    setInsuranceProvider("");
+    setInsurancePolicyNumber("");
     setError("");
     setShowForm(true);
   }
 
-  function openEdit(v: Vehicle) {
+  async function openEdit(v: Vehicle) {
     setEditingVehicle(v);
     setForm({
       make: v.make, model: v.model, year: v.year,
       plateNumber: v.plateNumber, nickname: v.nickname ?? "",
       color: v.color ?? "", currentMileage: v.currentMileage,
       fuelType: v.fuelType,
-      insuranceProvider: v.insuranceProvider ?? "",
-      insurancePolicyNumber: v.insurancePolicyNumber ?? "",
     });
+    setInsuranceProvider("");
+    setInsurancePolicyNumber("");
     setError("");
     setShowForm(true);
+    try {
+      const insurance = await getVehicleInsurance(v._id);
+      setInsuranceProvider(insurance?.insuranceProvider ?? "");
+      setInsurancePolicyNumber(insurance?.insurancePolicyNumber ?? "");
+    } catch {
+      // best-effort — form still usable, just starts blank for these two fields
+    }
   }
 
   async function handleSave() {
@@ -113,11 +128,18 @@ export default function ManageVehiclesScreen() {
     setSaving(true);
     setError("");
     try {
+      let vehicleId: string;
       if (editingVehicle) {
         await editVehicle(editingVehicle._id, form);
+        vehicleId = editingVehicle._id;
       } else {
-        await addVehicle(form);
+        const vehicle = await addVehicle(form);
+        vehicleId = vehicle._id;
       }
+      await upsertVehicleInsurance(vehicleId, {
+        insuranceProvider,
+        insurancePolicyNumber,
+      });
       await updateMe({ licenceNumber: licenceNumber.trim(), nicNumber: nicNumber.trim() });
       setShowForm(false);
     } catch (err: any) {
@@ -209,7 +231,7 @@ export default function ManageVehiclesScreen() {
               vehicle={v}
               isSelected={selectedVehicle?._id === v._id}
               onSelect={() => { selectVehicle(v); router.back(); }}
-              onEdit={() => openEdit(v)}
+              onEdit={() => void openEdit(v)}
               onDelete={() => confirmDelete(v)}
               onSetDefault={() => setDefault(v._id)}
             />
@@ -333,20 +355,20 @@ export default function ManageVehiclesScreen() {
                     {companies.map(({ companyName: name }) => (
                       <Pressable
                         key={name}
-                        onPress={() => setForm((f) => ({ ...f, insuranceProvider: name }))}
+                        onPress={() => setInsuranceProvider(name)}
                         style={{
                           paddingHorizontal: spacing.md,
                           paddingVertical: spacing.sm,
                           borderRadius: radii.pill,
                           borderWidth: 1.5,
-                          borderColor: form.insuranceProvider === name ? palette.brand : palette.border,
-                          backgroundColor: form.insuranceProvider === name ? palette.brandSoft : "transparent",
+                          borderColor: insuranceProvider === name ? palette.brand : palette.border,
+                          backgroundColor: insuranceProvider === name ? palette.brandSoft : "transparent",
                         }}
                       >
                         <Text
                           style={{
                             ...typography.caption,
-                            color: form.insuranceProvider === name ? palette.brand : palette.textMuted,
+                            color: insuranceProvider === name ? palette.brand : palette.textMuted,
                             fontWeight: "600",
                           }}
                         >
@@ -358,8 +380,8 @@ export default function ManageVehiclesScreen() {
                 </View>
                 <Field
                   label="Insurance Policy Number"
-                  value={form.insurancePolicyNumber ?? ""}
-                  onChangeText={(v) => setForm((f) => ({ ...f, insurancePolicyNumber: v }))}
+                  value={insurancePolicyNumber}
+                  onChangeText={setInsurancePolicyNumber}
                   placeholder="ALCI-254-VP"
                   autoCapitalize="characters"
                 />

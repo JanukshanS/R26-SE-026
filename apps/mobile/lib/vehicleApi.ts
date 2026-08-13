@@ -33,9 +33,6 @@ export interface Vehicle {
   fuelType: "petrol" | "diesel" | "hybrid" | "electric";
   isDefault: boolean;
   createdAt: string;
-  // Insurance is per-vehicle (a driver's two cars can have different insurers/policies).
-  insuranceProvider?: string;
-  insurancePolicyNumber?: string;
 }
 
 export type VehicleInput = Omit<Vehicle, "_id" | "userId" | "createdAt">;
@@ -62,8 +59,6 @@ interface VehicleRow {
   fuel_type: string;
   is_default: boolean;
   created_at: string;
-  insurance_provider: string | null;
-  insurance_policy_number: string | null;
 }
 
 function mapVehicle(r: VehicleRow): Vehicle {
@@ -80,8 +75,6 @@ function mapVehicle(r: VehicleRow): Vehicle {
     fuelType: (r.fuel_type as Vehicle["fuelType"]) ?? "petrol",
     isDefault: r.is_default,
     createdAt: r.created_at,
-    insuranceProvider: r.insurance_provider ?? undefined,
-    insurancePolicyNumber: r.insurance_policy_number ?? undefined,
   };
 }
 
@@ -96,9 +89,6 @@ function toRow(data: Partial<VehicleInput>): Record<string, unknown> {
   if (data.currentMileage !== undefined) row.current_mileage = data.currentMileage;
   if (data.fuelType !== undefined) row.fuel_type = data.fuelType;
   if (data.isDefault !== undefined) row.is_default = data.isDefault;
-  if (data.insuranceProvider !== undefined) row.insurance_provider = data.insuranceProvider || null;
-  if (data.insurancePolicyNumber !== undefined)
-    row.insurance_policy_number = data.insurancePolicyNumber || null;
   return row;
 }
 

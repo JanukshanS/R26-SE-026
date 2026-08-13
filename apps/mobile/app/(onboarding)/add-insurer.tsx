@@ -10,7 +10,8 @@ import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { TextField } from "@components/ui/text-input";
 import { palette, radii, spacing, typography } from "@theme/index";
-import { updateMyProfile, updateVehicle } from "@lib/vehicleApi";
+import { updateMyProfile } from "@lib/vehicleApi";
+import { upsertVehicleInsurance } from "@lib/vehicleInsuranceApi";
 import { listInsuranceCompanies, type InsuranceCompany } from "@lib/insuranceCompaniesApi";
 
 export default function AddInsurerScreen() {
@@ -64,7 +65,7 @@ export default function AddInsurerScreen() {
         nicNumber: nic.trim(),
       });
       if (vehicleId) {
-        await updateVehicle(vehicleId, {
+        await upsertVehicleInsurance(vehicleId, {
           insuranceProvider: provider,
           insurancePolicyNumber: policy.trim(),
         });
