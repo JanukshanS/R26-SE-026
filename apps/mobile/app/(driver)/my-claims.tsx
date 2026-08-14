@@ -12,6 +12,8 @@ import { listMyClaims, type ClaimSummary } from "@lib/claims-api";
 function statusLabel(status: string): string {
   if (status === "uploading") return "In Progress";
   if (status === "processing") return "Submitted";
+  if (status === "pending_review") return "Pending Review";
+  if (status === "approved") return "Approved";
   return status;
 }
 
