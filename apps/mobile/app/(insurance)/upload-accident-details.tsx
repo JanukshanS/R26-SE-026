@@ -228,6 +228,15 @@ export default function UploadAccidentDetailsScreen() {
   const displayPhotosUploadComplete = isExistingClaimMode ? true : photosUploadComplete;
   const displayFraudValidationPercent = isExistingClaimMode ? 100 : fraudValidationPercent;
   const displayFraudValidationComplete = isExistingClaimMode ? true : fraudValidationComplete;
+  // Set server-side once the Insurer Dashboard's 3D pipeline finishes (captures.status
+  // -> "pending_review"). No interim progress is reported back to this app — it's a
+  // binary flip once the whole pipeline (low-light enhancement + reconstruction) is done.
+  const displayLowLightComplete =
+    existingClaim?.status === 'pending_review' || existingClaim?.status === 'approved';
+  const displayLowLightPercent = displayLowLightComplete ? 100 : 0;
+  const display3DReconstructionComplete =
+    existingClaim?.status === 'pending_review' || existingClaim?.status === 'approved';
+  const display3DReconstructionPercent = display3DReconstructionComplete ? 100 : 0;
 
   const claimComplete = isExistingClaimMode
     ? true
@@ -423,13 +432,23 @@ export default function UploadAccidentDetailsScreen() {
               percent={displayFraudValidationPercent}
               complete={displayFraudValidationComplete}
             />
-            <ProgressRow label="Low light enhancement" percent={0} complete={false} />
-            <ProgressRow label="3D Reconstruction" percent={0} complete={false} />
+            <ProgressRow
+              label="Low light enhancement"
+              percent={displayLowLightPercent}
+              complete={displayLowLightComplete}
+            />
+            <ProgressRow
+              label="3D Reconstruction"
+              percent={display3DReconstructionPercent}
+              complete={display3DReconstructionComplete}
+            />
           </View>
 
           <View style={styles.detailCard}>
             <View style={styles.detailCardHeader}>
-              <Text style={styles.detailCardHeaderLeft}>Captured and Submitted</Text>
+              <Text style={styles.detailCardHeaderLeft}>
+                {existingClaim?.status === 'approved' ? 'Approved' : 'Captured and Submitted'}
+              </Text>
             </View>
             <View style={styles.detailLocationRow}>
               {displayLocationLoading ? (
@@ -441,7 +460,13 @@ export default function UploadAccidentDetailsScreen() {
               {displayTimestampLine || (displayLocationLoading ? '…' : formatTimestamp(new Date()))}
             </Text>
             <Text style={styles.detailFooter}>
-              GPS + Timestamp signed. You can close the App - Do not disconnect from Internet. We&apos;ll notify you.
+              {existingClaim?.status === 'approved'
+                ? 'Your claim has been Approved'
+                : existingClaim?.status === 'pending_review'
+                ? 'The review process will take 1 - 2 working days'
+                : existingClaim?.status === 'processing'
+                ? "Your claim has been submitted. We're validating your photos and generating your 3D report — you'll be notified once it's ready for review."
+                : "GPS + Timestamp signed. Do not close the app and Do not disconnect from Internet. We'll notify you."}
             </Text>
           </View>
 
