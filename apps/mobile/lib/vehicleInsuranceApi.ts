@@ -26,6 +26,22 @@ function mapVehicleInsurance(r: VehicleInsuranceRow): VehicleInsurance {
   };
 }
 
+// Keyed by vehicle_id — RLS already scopes this table per-owner, so there's no
+// cross-account risk in principle (a different account could never fetch someone
+// else's vehicle_id successfully), but it's still cleared on logout for consistency
+// with getCachedMyUser(). getCachedVehicleInsurance() lets a screen seed its initial
+// render instead of a blank/placeholder state; getVehicleInsurance() still always
+// hits the network for the authoritative value and keeps the cache warm.
+const insuranceCache = new Map<string, VehicleInsurance | null>();
+
+export function getCachedVehicleInsurance(vehicleId: string): VehicleInsurance | null | undefined {
+  return insuranceCache.get(vehicleId);
+}
+
+export function clearVehicleInsuranceCache(): void {
+  insuranceCache.clear();
+}
+
 export async function getVehicleInsurance(vehicleId: string): Promise<VehicleInsurance | null> {
   const { data, error } = await supabase
     .from("vehicle_insurance")
@@ -33,7 +49,9 @@ export async function getVehicleInsurance(vehicleId: string): Promise<VehicleIns
     .eq("vehicle_id", vehicleId)
     .maybeSingle();
   if (error) throw new VehicleApiError(error.message);
-  return data ? mapVehicleInsurance(data as VehicleInsuranceRow) : null;
+  const result = data ? mapVehicleInsurance(data as VehicleInsuranceRow) : null;
+  insuranceCache.set(vehicleId, result);
+  return result;
 }
 
 export interface VehicleInsuranceInput {
@@ -56,5 +74,7 @@ export async function upsertVehicleInsurance(
     .select()
     .single();
   if (error) throw new VehicleApiError(error.message);
-  return mapVehicleInsurance(result as VehicleInsuranceRow);
+  const mapped = mapVehicleInsurance(result as VehicleInsuranceRow);
+  insuranceCache.set(vehicleId, mapped);
+  return mapped;
 }

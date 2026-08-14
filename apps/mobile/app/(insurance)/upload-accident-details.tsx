@@ -16,13 +16,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { InsuranceBottomTabBar, type InsuranceTabId } from '@/components/insurance-bottom-tab-bar';
 import { findInsuranceCompany, type InsuranceCompany } from '@/lib/insuranceCompaniesApi';
-import { getVehicleById, getVehicles } from '@/lib/vehicleApi';
+import { getVehicles } from '@/lib/vehicleApi';
 import { getVehicleInsurance } from '@/lib/vehicleInsuranceApi';
 import { loadSelectedVehicleId } from '@/lib/selected-vehicle-store';
 import { loadClaimantProfile } from '@/features/claimant/storage/claimant-profile-store';
 import { useClaimUpload } from '@/features/report-accident/hooks/use-claim-upload';
 import { formatTimestamp } from '@/lib/format-timestamp';
 import { clearAllClaimData } from '@/lib/clear-claim-data';
+import { ResetCaptureDialog } from '@/features/guided-capture/components/reset-capture-dialog';
 import {
   INSURANCE_BORDER_SOFT,
   INSURANCE_CARD_BORDER_ACCENT,
@@ -135,6 +136,11 @@ export default function UploadAccidentDetailsScreen() {
 
   const [insuranceCompany, setInsuranceCompany] = useState<InsuranceCompany | null>(null);
   const [vehicleMissingInsurer, setVehicleMissingInsurer] = useState(false);
+  // True until the insurer lookup below finishes at least once — shows a spinner in
+  // the button's place instead of a blank gap while it resolves.
+  const [resolvingInsurer, setResolvingInsurer] = useState(true);
+  const [callingInsurer, setCallingInsurer] = useState(false);
+  const [confirmingNewClaim, setConfirmingNewClaim] = useState(false);
 
   // Same as (insurance)/index.tsx: this screen sits outside VehicleProvider, so the SPECIFIC
   // vehicle the driver had selected on Home is fetched directly rather than read from context.
@@ -144,27 +150,32 @@ export default function UploadAccidentDetailsScreen() {
     useCallback(() => {
       let cancelled = false;
       void (async () => {
+        if (!cancelled) {
+          setResolvingInsurer(true);
+        }
         try {
           const persistedId = await loadSelectedVehicleId();
           const resolvedVehicleId = persistedId ?? vehicleId;
           if (!cancelled) {
             setEffectiveVehicleId(resolvedVehicleId);
           }
-          let target;
-          if (resolvedVehicleId) {
-            target = await getVehicleById(resolvedVehicleId);
-          } else {
+          // getVehicleById() isn't needed just to get an id we already have —
+          // getVehicleInsurance() takes the vehicle id directly, cutting one full
+          // network round trip off this chain.
+          let targetVehicleId = resolvedVehicleId ?? null;
+          if (!targetVehicleId) {
             const vehicles = await getVehicles();
-            target = vehicles.find((v) => v.isDefault) ?? vehicles[0] ?? null;
+            const target = vehicles.find((v) => v.isDefault) ?? vehicles[0] ?? null;
+            targetVehicleId = target?._id ?? null;
           }
-          if (!target) {
+          if (!targetVehicleId) {
             if (!cancelled) {
               setInsuranceCompany(null);
               setVehicleMissingInsurer(false);
             }
             return;
           }
-          const insurance = await getVehicleInsurance(target._id);
+          const insurance = await getVehicleInsurance(targetVehicleId);
           if (!insurance?.insuranceProvider) {
             if (!cancelled) {
               setInsuranceCompany(null);
@@ -182,6 +193,10 @@ export default function UploadAccidentDetailsScreen() {
             setInsuranceCompany(null);
             setVehicleMissingInsurer(false);
           }
+        } finally {
+          if (!cancelled) {
+            setResolvingInsurer(false);
+          }
         }
       })();
       return () => {
@@ -191,17 +206,20 @@ export default function UploadAccidentDetailsScreen() {
   );
 
   const onCallInsurer = async () => {
-    if (!insuranceCompany) {
+    if (!insuranceCompany || callingInsurer) {
       return;
     }
+    setCallingInsurer(true);
     try {
       await Linking.openURL(insuranceCompany.phoneTel);
     } catch {
       Alert.alert('Call your insurer', 'Use the phone number on your insurance card or policy document.');
+    } finally {
+      setCallingInsurer(false);
     }
   };
 
-  const onStartNewClaim = async () => {
+  const performStartNewClaim = async () => {
     try {
       await clearAllClaimData();
     } catch {
@@ -214,6 +232,10 @@ export default function UploadAccidentDetailsScreen() {
         ? { pathname: '/(insurance)', params: { vehicleId: effectiveVehicleId } }
         : '/(insurance)'
     );
+  };
+
+  const onStartNewClaim = () => {
+    setConfirmingNewClaim(true);
   };
 
   const onTabPress = (tab: InsuranceTabId) => {
@@ -281,11 +303,24 @@ export default function UploadAccidentDetailsScreen() {
             <Text style={styles.insuranceRowStatus}>Pending</Text>
           </Pressable>
 
-          {insuranceCompany ? (
+          {resolvingInsurer ? (
+            <View style={[styles.callInsurerBtn, styles.callInsurerCalling]}>
+              <ActivityIndicator size="small" color={COLORS.text} />
+            </View>
+          ) : insuranceCompany ? (
             <Pressable
-              style={({ pressed }) => [styles.callInsurerBtn, pressed && styles.callInsurerPressed]}
+              disabled={callingInsurer}
+              style={({ pressed }) => [
+                styles.callInsurerBtn,
+                pressed && styles.callInsurerPressed,
+                callingInsurer && styles.callInsurerCalling,
+              ]}
               onPress={onCallInsurer}>
-              <Text style={styles.callInsurerText}>{`Need to call ${insuranceCompany.appName}?`}</Text>
+              {callingInsurer ? (
+                <ActivityIndicator size="small" color={COLORS.text} />
+              ) : (
+                <Text style={styles.callInsurerText}>{`Need to call ${insuranceCompany.appName}?`}</Text>
+              )}
             </Pressable>
           ) : vehicleMissingInsurer ? (
             <View style={styles.noInsurerHint}>
@@ -299,7 +334,7 @@ export default function UploadAccidentDetailsScreen() {
           {claimComplete && (
             <Pressable
               style={({ pressed }) => [styles.callInsurerBtn, styles.newClaimBtnMargin, pressed && styles.callInsurerPressed]}
-              onPress={() => void onStartNewClaim()}
+              onPress={onStartNewClaim}
               accessibilityRole="button"
               accessibilityLabel="Start a new claim">
               <Text style={styles.callInsurerText}>Start New Claim</Text>
@@ -309,6 +344,19 @@ export default function UploadAccidentDetailsScreen() {
 
         <InsuranceBottomTabBar onTabPress={onTabPress} />
       </View>
+
+      <ResetCaptureDialog
+        visible={confirmingNewClaim}
+        onCancel={() => setConfirmingNewClaim(false)}
+        onConfirm={() => {
+          setConfirmingNewClaim(false);
+          void performStartNewClaim();
+        }}
+        title="Start New Claim?"
+        message="This clears your current claim progress — photos, videos and answers — so you can begin a fresh one."
+        icon="RotateCcw"
+        confirmLabel="Start New Claim"
+      />
     </SafeAreaView>
   );
 }
@@ -472,6 +520,9 @@ const styles = StyleSheet.create({
   },
   callInsurerPressed: {
     backgroundColor: INSURANCE_PRESSED_SURFACE,
+  },
+  callInsurerCalling: {
+    opacity: 0.7,
   },
   callInsurerText: {
     fontSize: 17,

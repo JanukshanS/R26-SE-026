@@ -47,6 +47,9 @@ export default function ManageVehiclesScreen() {
   const [companies, setCompanies] = useState<InsuranceCompany[]>([]);
   const [reminderVisible, setReminderVisible] = useState(false);
   const [missingLabels, setMissingLabels] = useState<string[]>([]);
+  const [confirmSaveVisible, setConfirmSaveVisible] = useState(false);
+  // Vehicle tapped in the list, awaiting confirmation before actually switching.
+  const [pendingVehicle, setPendingVehicle] = useState<Vehicle | null>(null);
   const autoOpenedForId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -120,11 +123,21 @@ export default function ManageVehiclesScreen() {
     }
   }
 
-  async function handleSave() {
+  function handleSave() {
     if (!form.make || !form.model || !form.plateNumber) {
       setError("Make, model and plate number are required.");
       return;
     }
+    // Only editing an existing vehicle's data needs confirmation — adding a
+    // brand-new vehicle has nothing to overwrite, so it saves immediately.
+    if (editingVehicle) {
+      setConfirmSaveVisible(true);
+      return;
+    }
+    void performSave();
+  }
+
+  async function performSave() {
     setSaving(true);
     setError("");
     try {
@@ -230,7 +243,13 @@ export default function ManageVehiclesScreen() {
               key={v._id}
               vehicle={v}
               isSelected={selectedVehicle?._id === v._id}
-              onSelect={() => { selectVehicle(v); router.back(); }}
+              onSelect={() => {
+                if (selectedVehicle?._id === v._id) {
+                  router.back();
+                  return;
+                }
+                setPendingVehicle(v);
+              }}
               onEdit={() => void openEdit(v)}
               onDelete={() => confirmDelete(v)}
               onSetDefault={() => setDefault(v._id)}
@@ -506,6 +525,186 @@ export default function ManageVehiclesScreen() {
             >
               <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Got it</Text>
             </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Save Changes confirmation — same icon-circle popup style as the reminder above. */}
+      <Modal visible={confirmSaveVisible} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: palette.overlay,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: spacing.xl,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: palette.surface,
+              borderRadius: radii.xl,
+              padding: spacing.xl,
+              gap: spacing.lg,
+              width: "100%",
+              alignItems: "center",
+            }}
+          >
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: palette.brandSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="Car" size={32} color={palette.brand} />
+            </View>
+
+            <View style={{ gap: spacing.sm, alignItems: "center" }}>
+              <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
+                Save Changes
+              </Text>
+              <Text
+                style={{
+                  ...typography.body,
+                  color: palette.textMuted,
+                  textAlign: "center",
+                  lineHeight: 22,
+                }}
+              >
+                Save these changes to your vehicle details?
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: spacing.md, width: "100%" }}>
+              <Pressable
+                onPress={() => setConfirmSaveVisible(false)}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  borderWidth: 1.5,
+                  borderColor: palette.border,
+                  backgroundColor: pressed ? palette.homeBackground : "transparent",
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  setConfirmSaveVisible(false);
+                  void performSave();
+                }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: pressed ? palette.brandPressed : palette.brand,
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Save</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Switch Vehicle confirmation — tapping a vehicle card in this list, same
+          icon-circle popup style as the other confirmations on this screen. */}
+      <Modal visible={pendingVehicle != null} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: palette.overlay,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: spacing.xl,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: palette.surface,
+              borderRadius: radii.xl,
+              padding: spacing.xl,
+              gap: spacing.lg,
+              width: "100%",
+              alignItems: "center",
+            }}
+          >
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: palette.brandSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="Car" size={32} color={palette.brand} />
+            </View>
+
+            <View style={{ gap: spacing.sm, alignItems: "center" }}>
+              <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
+                Switch Vehicle
+              </Text>
+              <Text
+                style={{
+                  ...typography.body,
+                  color: palette.textMuted,
+                  textAlign: "center",
+                  lineHeight: 22,
+                }}
+              >
+                {pendingVehicle
+                  ? `Switch to ${pendingVehicle.nickname || `${pendingVehicle.make} ${pendingVehicle.model}`} (${pendingVehicle.plateNumber})?`
+                  : ""}
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: spacing.md, width: "100%" }}>
+              <Pressable
+                onPress={() => setPendingVehicle(null)}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  borderWidth: 1.5,
+                  borderColor: palette.border,
+                  backgroundColor: pressed ? palette.homeBackground : "transparent",
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  if (pendingVehicle) {
+                    selectVehicle(pendingVehicle);
+                  }
+                  setPendingVehicle(null);
+                  router.back();
+                }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: pressed ? palette.brandPressed : palette.brand,
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Switch</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>

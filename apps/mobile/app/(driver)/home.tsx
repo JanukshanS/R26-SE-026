@@ -19,6 +19,7 @@ import {
 } from "@lib/maintenanceApi";
 import { isElm327Paired, isRealBleSupported, pairElm327Async, unpairElm327 } from "@lib/elm327";
 import { useVehicle } from "@lib/vehicleContext";
+import type { Vehicle } from "@lib/vehicleApi";
 import { getVehicleInsurance, type VehicleInsurance } from "@lib/vehicleInsuranceApi";
 import { useHardwareBack } from "@lib/useHardwareBack";
 import { isTripActive, startTrip } from "@lib/tripRecorder";
@@ -41,6 +42,8 @@ export default function DriverHomeScreen() {
   const [loadingHealth, setLoadingHealth] = useState(true);
   const [showObd, setShowObd] = useState(() => !isElm327Paired());
   const [showVehiclePicker, setShowVehiclePicker] = useState(false);
+  // Vehicle tapped in the picker, awaiting confirmation before actually switching.
+  const [pendingVehicle, setPendingVehicle] = useState<Vehicle | null>(null);
   // Real BLE pairing is async (scan + connect takes seconds). We show a
   // "Connecting…" state while it runs. pairElm327Async never rejects — it
   // falls back to the on-device simulation when no real dongle is reachable
@@ -487,7 +490,13 @@ export default function DriverHomeScreen() {
                 {vehicles.map((v) => (
                   <Pressable
                     key={v._id}
-                    onPress={() => { selectVehicle(v); setShowVehiclePicker(false); }}
+                    onPress={() => {
+                      if (selectedVehicle?._id === v._id) {
+                        setShowVehiclePicker(false);
+                        return;
+                      }
+                      setPendingVehicle(v);
+                    }}
                     style={({ pressed }) => ({
                       flexDirection: "row",
                       alignItems: "center",
@@ -537,6 +546,99 @@ export default function DriverHomeScreen() {
             )}
           </Pressable>
         </Pressable>
+      </Modal>
+
+      {/* Switch Vehicle confirmation — same icon-circle popup style as the
+          "Complete your insurance details" reminder on Manage Vehicles. */}
+      <Modal visible={pendingVehicle != null} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: palette.overlay,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: spacing.xl,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: palette.surface,
+              borderRadius: radii.xl,
+              padding: spacing.xl,
+              gap: spacing.lg,
+              width: "100%",
+              alignItems: "center",
+            }}
+          >
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: palette.brandSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="Car" size={32} color={palette.brand} />
+            </View>
+
+            <View style={{ gap: spacing.sm, alignItems: "center" }}>
+              <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
+                Switch Vehicle
+              </Text>
+              <Text
+                style={{
+                  ...typography.body,
+                  color: palette.textMuted,
+                  textAlign: "center",
+                  lineHeight: 22,
+                }}
+              >
+                {pendingVehicle
+                  ? `Switch to ${pendingVehicle.nickname || `${pendingVehicle.make} ${pendingVehicle.model}`} (${pendingVehicle.plateNumber})?`
+                  : ""}
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: spacing.md, width: "100%" }}>
+              <Pressable
+                onPress={() => setPendingVehicle(null)}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  borderWidth: 1.5,
+                  borderColor: palette.border,
+                  backgroundColor: pressed ? palette.homeBackground : "transparent",
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  if (pendingVehicle) {
+                    selectVehicle(pendingVehicle);
+                  }
+                  setPendingVehicle(null);
+                  setShowVehiclePicker(false);
+                }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: pressed ? palette.brandPressed : palette.brand,
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Switch</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       {/* OBD-II connect modal */}
