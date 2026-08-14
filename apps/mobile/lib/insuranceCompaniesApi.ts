@@ -29,6 +29,18 @@ function mapCompany(row: InsuranceCompanyRow): InsuranceCompany {
 // staleness/leak risk at all, since it isn't scoped to any user in the first place.
 let cachedCompanies: InsuranceCompany[] | null = null;
 
+/** Synchronous, cache-only lookup — for seeding a screen's initial state instantly
+ * (no spinner) when the list happens to already be warm. Returns undefined (not
+ * found in cache — may still exist server-side) vs null (cache warm, genuinely no
+ * such company) so callers can tell "haven't checked yet" from "checked, no match". */
+export function getCachedInsuranceCompany(companyName: string): InsuranceCompany | null | undefined {
+  if (!cachedCompanies) {
+    return undefined;
+  }
+  const trimmed = companyName.trim().toLowerCase();
+  return cachedCompanies.find((c) => c.companyName.toLowerCase() === trimmed) ?? null;
+}
+
 export async function listInsuranceCompanies(): Promise<InsuranceCompany[]> {
   const { data, error } = await supabase
     .from('insurance_companies')

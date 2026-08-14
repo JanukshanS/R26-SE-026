@@ -157,10 +157,12 @@ export const INSURANCE_CARD_BORDER_ACCENT = '#ff6b35';
 
 /** Insurance home — step badges, status pills, report button */
 export const INSURANCE_STEP_BADGE_BG = '#ffdda742';
-export const INSURANCE_PILL_INCOMPLETE_BG = '#ffebee';
-export const INSURANCE_PILL_INCOMPLETE_TEXT = DANGER_RED;
+export const INSURANCE_PILL_INCOMPLETE_BG = '#ffdda742';
+export const INSURANCE_PILL_INCOMPLETE_TEXT = '#ff6b35';
 export const INSURANCE_REPORT_BG = '#ff5c5c';
 export const INSURANCE_REPORT_DISABLED_BG = GRAY_LIGHTER;
+export const DONE_PRIMARY = '#34a910ff';
+export const DONE_BADGE_BG = '#c0ffa742';
 
 /** User Verification (drunk test) screen extras */
 export const INSURANCE_SCRIPT_BOX_BG = '#fff0e6';

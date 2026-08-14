@@ -51,6 +51,8 @@ import {
   INSURANCE_TEXT,
   INSURANCE_TEXT_MUTED,
   WHITE,
+  DONE_BADGE_BG,
+  DONE_PRIMARY,
 } from '@/features/guided-capture/capture-ui-theme';
 
 const COLORS = {
@@ -63,8 +65,8 @@ const COLORS = {
   cardBg: WHITE,
   pillIncompleteBg: INSURANCE_PILL_INCOMPLETE_BG,
   pillIncompleteText: INSURANCE_PILL_INCOMPLETE_TEXT,
-  pillDoneBg: INSURANCE_STEP_BADGE_BG,
-  pillDoneText: INSURANCE_PRIMARY,
+  pillDoneBg: DONE_BADGE_BG,
+  pillDoneText: DONE_PRIMARY,
   reportBg: INSURANCE_REPORT_BG,
   reportText: WHITE,
 };
@@ -701,7 +703,7 @@ const styles = StyleSheet.create({
   // color as the numbered step badges' text.
   callInsurerBtnGlowing: {
     borderColor: INSURANCE_PRIMARY,
-    borderWidth: 2,
+    borderWidth: 1,
   },
   callInsurerPressed: {
     backgroundColor: INSURANCE_PRESSED_SURFACE,

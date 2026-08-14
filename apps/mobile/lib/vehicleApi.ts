@@ -1,4 +1,5 @@
 import { supabase } from "@lib/supabase";
+import { getActiveSessionId } from "@lib/session-guard";
 
 /**
  * Vehicles + profile data access, backed by Supabase Postgres (RLS-protected:
@@ -106,13 +107,35 @@ function unwrap<T>({ data, error }: { data: T | null; error: { message: string }
 
 // ── Vehicles ────────────────────────────────────────────────────────────────
 
+// Same pattern as getCachedMyUser() below — populated on every successful fetch
+// (already warmed at login, since refreshVehicles() calls getVehicles()), readable
+// synchronously by screens outside VehicleProvider that would otherwise start from
+// a blank/loading state on every focus. Cleared on logout alongside the other
+// per-account caches (see vehicleContext.tsx's logout()).
+let cachedVehicles: Vehicle[] | null = null;
+
+export function getCachedVehicles(): Vehicle[] | null {
+  return cachedVehicles;
+}
+
+export function clearCachedVehicles(): void {
+  cachedVehicles = null;
+}
+
 export async function getVehicles(): Promise<Vehicle[]> {
+  const requestedFor = getActiveSessionId();
   const { data, error } = await supabase
     .from("vehicles")
     .select("*")
     .order("created_at", { ascending: true });
   if (error) throw new VehicleApiError(error.message);
-  return (data as VehicleRow[]).map(mapVehicle);
+  const vehicles = (data as VehicleRow[]).map(mapVehicle);
+  // A slower request from an account that has since logged out must not clobber a
+  // newer account's cache once it finally resolves — see session-guard.ts.
+  if (getActiveSessionId() === requestedFor) {
+    cachedVehicles = vehicles;
+  }
+  return vehicles;
 }
 
 /** Fetch a single vehicle by its own id — for callers that already know exactly which
@@ -208,6 +231,7 @@ export function clearCachedMyUser(): void {
 
 /** Compose the app `User` from the auth session + the profile row. */
 export async function getMyUser(): Promise<User | null> {
+  const requestedFor = getActiveSessionId();
   const { data: sessionData } = await supabase.auth.getSession();
   const session = sessionData.session;
   if (!session) return null;
@@ -229,7 +253,11 @@ export async function getMyUser(): Promise<User | null> {
     licenceNumber: p?.licence_number ?? undefined,
     nicNumber: p?.nic_number ?? undefined,
   };
-  cachedUser = user;
+  // A slower request from an account that has since logged out must not clobber a
+  // newer account's cache once it finally resolves — see session-guard.ts.
+  if (getActiveSessionId() === requestedFor) {
+    cachedUser = user;
+  }
   return user;
 }
 
