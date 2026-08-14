@@ -2,9 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 
 import { InsuranceBottomTabBar, type InsuranceTabId } from '@/components/insurance-bottom-tab-bar';
 import {
@@ -30,7 +31,7 @@ import {
 } from '@/features/report-accident/storage/report-accident-entry-store';
 import { useIncompleteUploadStatus } from '@/features/report-accident/hooks/use-incomplete-upload-status';
 import { findInsuranceCompany, type InsuranceCompany } from '@/lib/insuranceCompaniesApi';
-import { getVehicleById, getVehicles } from '@/lib/vehicleApi';
+import { getVehicles } from '@/lib/vehicleApi';
 import { getVehicleInsurance } from '@/lib/vehicleInsuranceApi';
 import { loadSelectedVehicleId } from '@/lib/selected-vehicle-store';
 import { computeClaimBundleUploadKey, isClaimReportSubmittedLocked } from '@/lib/claim-upload-dedupe';
@@ -188,6 +189,24 @@ export default function InsuranceHomeScreen() {
   const [claimReportLocked, setClaimReportLocked] = useState(false);
   const [insuranceCompany, setInsuranceCompany] = useState<InsuranceCompany | null>(null);
   const [vehicleMissingInsurer, setVehicleMissingInsurer] = useState(false);
+  // True until the insurer lookup below finishes at least once — was used to show a
+  // spinner in the button's place; the button now always reads the same static
+  // label, so this no longer drives a visible loading state. Kept (unused) rather
+  // than removed in case the spinner treatment is wanted back — see the commented
+  // JSX further down.
+  const [resolvingInsurer, setResolvingInsurer] = useState(true);
+  const [callingInsurer, setCallingInsurer] = useState(false);
+  // Local law requires calling the insurer before anything else — these three drive
+  // a 30s glow on the call button nudging the driver to do that first. Stops the
+  // moment any one of them becomes true: called, started taking photos, or already
+  // submitted.
+  const [hasCalledInsurer, setHasCalledInsurer] = useState(false);
+  const [hasStartedGuidedCapture, setHasStartedGuidedCapture] = useState(false);
+  const [glowTimedOut, setGlowTimedOut] = useState(false);
+  // Which task card (if any) is currently resolving its entry-location capture —
+  // used to show a spinner and block re-tapping while that resolves, so navigating
+  // away can't happen before the location write finishes (see onTaskPress).
+  const [resolvingTaskKey, setResolvingTaskKey] = useState<string | null>(null);
   const incompleteUpload = useIncompleteUploadStatus();
 
   // The "Need to call ___ Insurance?" button reflects the SPECIFIC vehicle the driver had
@@ -199,27 +218,34 @@ export default function InsuranceHomeScreen() {
     useCallback(() => {
       let cancelled = false;
       void (async () => {
+        if (!cancelled) {
+          setResolvingInsurer(true);
+        }
         try {
           const persistedId = await loadSelectedVehicleId();
           const resolvedVehicleId = persistedId ?? vehicleId;
           if (!cancelled) {
             setEffectiveVehicleId(resolvedVehicleId);
           }
-          let target;
-          if (resolvedVehicleId) {
-            target = await getVehicleById(resolvedVehicleId);
-          } else {
+          // getVehicleById() isn't needed just to get an id we already have —
+          // getVehicleInsurance() takes the vehicle id directly, cutting one full
+          // network round trip off this chain. Only the no-id fallback (a stale deep
+          // link with neither a persisted nor a route-param vehicle) still needs to
+          // list vehicles to find one.
+          let targetVehicleId = resolvedVehicleId ?? null;
+          if (!targetVehicleId) {
             const vehicles = await getVehicles();
-            target = vehicles.find((v) => v.isDefault) ?? vehicles[0] ?? null;
+            const target = vehicles.find((v) => v.isDefault) ?? vehicles[0] ?? null;
+            targetVehicleId = target?._id ?? null;
           }
-          if (!target) {
+          if (!targetVehicleId) {
             if (!cancelled) {
               setInsuranceCompany(null);
               setVehicleMissingInsurer(false);
             }
             return;
           }
-          const insurance = await getVehicleInsurance(target._id);
+          const insurance = await getVehicleInsurance(targetVehicleId);
           if (!insurance?.insuranceProvider) {
             if (!cancelled) {
               setInsuranceCompany(null);
@@ -237,6 +263,10 @@ export default function InsuranceHomeScreen() {
             setInsuranceCompany(null);
             setVehicleMissingInsurer(false);
           }
+        } finally {
+          if (!cancelled) {
+            setResolvingInsurer(false);
+          }
         }
       })();
       return () => {
@@ -248,18 +278,25 @@ export default function InsuranceHomeScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
+      // Fresh 30s window each time this screen is (re)focused, unless one of the
+      // stop conditions below is already true by the time the checks resolve.
+      setGlowTimedOut(false);
       void (async () => {
-        const [guidedState, licenceState, drunkState, thirdState, submittedLocked] = await Promise.all([
-          loadGuidedCaptureStoreState(),
-          loadDrivingLicenceState(),
-          loadDrunkTestState(),
-          loadThirdPartyState(),
-          isClaimReportSubmittedLocked(),
-        ]);
+        const [guidedState, licenceState, drunkState, thirdState, submittedLocked, insurerCallMeta] =
+          await Promise.all([
+            loadGuidedCaptureStoreState(),
+            loadDrivingLicenceState(),
+            loadDrunkTestState(),
+            loadThirdPartyState(),
+            isClaimReportSubmittedLocked(),
+            loadInsurerCallMeta(),
+          ]);
         if (cancelled) {
           return;
         }
         setGuidedMeetsMinimum(guidedState.photos.length >= DEFAULT_STOP_COUNT * HEIGHT_STEPS.length);
+        setHasStartedGuidedCapture(guidedState.photos.length > 0);
+        setHasCalledInsurer(insurerCallMeta != null);
         setLicenceComplete(isDrivingLicenceCaptureComplete(licenceState));
         setDrunkTestComplete(isDrunkTestVideoCaptured(drunkState));
         setThirdPartyComplete(isThirdPartyStepComplete(thirdState));
@@ -298,50 +335,108 @@ export default function InsuranceHomeScreen() {
   /** Grey “disabled” look after submit, but the button stays pressable to open upload progress. */
   const reportLooksSubmitted = allFlowStepsComplete && claimReportLocked;
 
-  const onTaskPress = (task: FlowTask) => {
+  // Local law requires calling the insurer before anything else — glow the call
+  // button for 30s to nudge that, unless it's already been called, the driver has
+  // already started taking photos, or the claim is already fully submitted.
+  const showGlow =
+    insuranceCompany != null &&
+    !reportLooksSubmitted &&
+    !hasCalledInsurer &&
+    !hasStartedGuidedCapture &&
+    !glowTimedOut;
+
+  useEffect(() => {
+    if (!showGlow) {
+      return;
+    }
+    const timer = setTimeout(() => setGlowTimedOut(true), 30000);
+    return () => clearTimeout(timer);
+  }, [showGlow]);
+
+  const glowPulse = useSharedValue(0);
+  useEffect(() => {
+    if (showGlow) {
+      glowPulse.value = withRepeat(
+        withSequence(withTiming(1, { duration: 700 }), withTiming(0.3, { duration: 700 })),
+        -1,
+        true
+      );
+    } else {
+      glowPulse.value = withTiming(0, { duration: 200 });
+    }
+  }, [showGlow, glowPulse]);
+
+  // A plain opacity-animated View behind the button, not native shadow properties —
+  // shadowColor/shadowOpacity/shadowRadius are iOS-only in RN, and elevation (the
+  // Android equivalent) only ever renders a plain gray shadow, not a colored one, so
+  // neither actually produced a visible orange glow on Android.
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowPulse.value,
+  }));
+
+  const onTaskPress = async (task: FlowTask) => {
     const href = task.href;
-    if (!href) {
+    if (!href || resolvingTaskKey) {
       return;
     }
     if (task.key === 'guided') {
-      void loadGuidedCaptureEntryMeta().then((existing) => {
-        if (existing) return;
-        void captureLocationSnapshot().then((meta) => {
-          void saveGuidedCaptureEntryMeta(meta);
+      // Stop the "call insurer" glow the moment the driver starts taking photos —
+      // don't wait for the next focus's persisted-state check to catch up.
+      setHasStartedGuidedCapture(true);
+      // Awaited (not fire-and-forget) — navigating away before this write finished
+      // was why the entry location sometimes went missing: the guided capture
+      // screen could already be focused, and this save would land after whatever
+      // read it first.
+      setResolvingTaskKey(task.key);
+      try {
+        const existing = await loadGuidedCaptureEntryMeta();
+        if (!existing) {
+          const meta = await captureLocationSnapshot();
+          await saveGuidedCaptureEntryMeta(meta);
           if (__DEV__) {
             console.log('[Guided Capture entry — time & location at tap]', meta);
           }
-        });
-      });
+        }
+      } finally {
+        setResolvingTaskKey(null);
+      }
     }
     router.push(href);
   };
 
   const onCallInsurer = async () => {
-    if (!insuranceCompany) {
+    if (!insuranceCompany || callingInsurer) {
       return;
     }
+    // Stop the glow immediately on tap — don't wait for the next focus's
+    // persisted-state check to catch up.
+    setHasCalledInsurer(true);
+    setCallingInsurer(true);
     try {
-      // Android-only: shows the native "Location Accuracy" dialog when device
-      // location / high-accuracy mode isn't already on. No-op on iOS.
-      await Location.enableNetworkProviderAsync();
-    } catch {
-      // User tapped "No, thanks" (or provider unavailable) — proceed with the call regardless.
-    }
-
-    const existing = await loadInsurerCallMeta();
-    if (!existing) {
-      const meta = await captureLocationSnapshot();
-      await saveInsurerCallMeta(meta);
-      if (__DEV__) {
-        console.log(`[${insuranceCompany.appName} call — time & location at tap]`, meta);
+      try {
+        // Android-only: shows the native "Location Accuracy" dialog when device
+        // location / high-accuracy mode isn't already on. No-op on iOS.
+        await Location.enableNetworkProviderAsync();
+      } catch {
+        // User tapped "No, thanks" (or provider unavailable) — proceed with the call regardless.
       }
-    }
 
-    try {
-      await Linking.openURL(insuranceCompany.phoneTel);
-    } catch {
-      Alert.alert('Call your insurer', 'Use the phone number on your insurance card or policy document.');
+      const existing = await loadInsurerCallMeta();
+      if (!existing) {
+        const meta = await captureLocationSnapshot();
+        await saveInsurerCallMeta(meta);
+        if (__DEV__) {
+          console.log(`[${insuranceCompany.appName} call — time & location at tap]`, meta);
+        }
+      }
+
+      try {
+        await Linking.openURL(insuranceCompany.phoneTel);
+      } catch {
+        Alert.alert('Call your insurer', 'Use the phone number on your insurance card or policy document.');
+      }
+    } finally {
+      setCallingInsurer(false);
     }
   };
 
@@ -396,10 +491,53 @@ export default function InsuranceHomeScreen() {
             )}
           </View>
 
+          {/* Static-label version (no spinner, always "Need to call Your Insurer") was
+              tried and reverted — restore by swapping this comment block back in:
           {insuranceCompany ? (
-            <Pressable style={({ pressed }) => [styles.callInsurerBtn, pressed && styles.callInsurerPressed]} onPress={onCallInsurer}>
-              <Text style={styles.callInsurerText}>{`Need to call ${insuranceCompany.appName}?`}</Text>
-            </Pressable>
+            <View style={styles.callInsurerGlowWrap}>
+              {showGlow ? <Animated.View style={[styles.callInsurerGlowHalo, glowStyle]} /> : null}
+              <Pressable
+                disabled={callingInsurer}
+                style={({ pressed }) => [
+                  styles.callInsurerBtn,
+                  showGlow && styles.callInsurerBtnGlowing,
+                  pressed && styles.callInsurerPressed,
+                  callingInsurer && styles.callInsurerCalling,
+                ]}
+                onPress={onCallInsurer}>
+                {callingInsurer ? (
+                  <ActivityIndicator size="small" color={COLORS.text} />
+                ) : (
+                  <Text style={styles.callInsurerText}>Need to call Your Insurer</Text>
+                )}
+              </Pressable>
+            </View>
+          ) : vehicleMissingInsurer ? ( */}
+          {resolvingInsurer ? (
+            <View style={styles.callInsurerGlowWrap}>
+              <View style={[styles.callInsurerBtn, styles.callInsurerCalling]}>
+                <ActivityIndicator size="small" color={COLORS.text} />
+              </View>
+            </View>
+          ) : insuranceCompany ? (
+            <View style={styles.callInsurerGlowWrap}>
+              {showGlow ? <Animated.View style={[styles.callInsurerGlowHalo, glowStyle]} /> : null}
+              <Pressable
+                disabled={callingInsurer}
+                style={({ pressed }) => [
+                  styles.callInsurerBtn,
+                  showGlow && styles.callInsurerBtnGlowing,
+                  pressed && styles.callInsurerPressed,
+                  callingInsurer && styles.callInsurerCalling,
+                ]}
+                onPress={onCallInsurer}>
+                {callingInsurer ? (
+                  <ActivityIndicator size="small" color={COLORS.text} />
+                ) : (
+                  <Text style={styles.callInsurerText}>{`Need to call ${insuranceCompany.appName}?`}</Text>
+                )}
+              </Pressable>
+            </View>
           ) : vehicleMissingInsurer ? (
             <View style={styles.noInsurerHint}>
               <Text style={styles.noInsurerHintText}>
@@ -424,10 +562,15 @@ export default function InsuranceHomeScreen() {
             {flowTasks.map((task) => (
               <Pressable
                 key={task.key}
+                disabled={resolvingTaskKey === task.key}
                 style={({ pressed }) => [styles.taskCard, pressed && styles.taskCardPressed]}
-                onPress={() => onTaskPress(task)}>
+                onPress={() => void onTaskPress(task)}>
                 <Text style={styles.taskTitle}>{task.title}</Text>
-                <StatusPill status={task.status} />
+                {resolvingTaskKey === task.key ? (
+                  <ActivityIndicator size="small" color={COLORS.stepBadgeText} />
+                ) : (
+                  <StatusPill status={task.status} />
+                )}
               </Pressable>
             ))}
           </View>
@@ -519,6 +662,27 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.65,
   },
+  callInsurerGlowWrap: {
+    position: 'relative',
+    // Moved here from callInsurerBtn — a child's marginBottom still counts toward
+    // this wrap's auto-computed height in RN's layout, which was inflating the
+    // wrap's box on that side only and throwing the halo's insets off-center
+    // (thinner/thicker glow on different edges instead of a uniform ring).
+    marginBottom: 10,
+  },
+  // Sits behind the button, slightly larger on every side, pulsing in opacity — a
+  // plain View instead of native shadow props, which don't render as a colored
+  // glow on Android (shadowOpacity/shadowRadius are iOS-only there). Colors match
+  // the numbered step badges (1/2/3) — light orange fill, dark orange border.
+  callInsurerGlowHalo: {
+    position: 'absolute',
+    top: -8,
+    left: -8,
+    right: -8,
+    bottom: -8,
+    borderRadius: 24,
+    backgroundColor: INSURANCE_STEP_BADGE_BG,
+  },
   callInsurerBtn: {
     backgroundColor: COLORS.cardBg,
     borderWidth: 1,
@@ -528,10 +692,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    // No marginBottom here — moved to callInsurerGlowWrap (see its comment) so the
+    // glow halo's insets stay symmetric. Branches that render callInsurerBtn
+    // without that wrap (the resolving-state view below) apply the same wrap style
+    // themselves purely for this spacing.
+  },
+  // Dark-orange border on the button itself while glowing (not the halo) — same
+  // color as the numbered step badges' text.
+  callInsurerBtnGlowing: {
+    borderColor: INSURANCE_PRIMARY,
+    borderWidth: 2,
   },
   callInsurerPressed: {
     backgroundColor: INSURANCE_PRESSED_SURFACE,
+  },
+  callInsurerCalling: {
+    opacity: 0.7,
   },
   callInsurerText: {
     fontSize: 17,

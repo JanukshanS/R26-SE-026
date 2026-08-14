@@ -187,6 +187,25 @@ interface ProfileRow {
   nic_number: string | null;
 }
 
+// Last successfully-fetched profile, kept in memory only. Screens outside
+// VehicleProvider (e.g. the (insurance) flow) re-fetch this on every focus so edits
+// made elsewhere show up promptly — but that means they otherwise start from a
+// blank/placeholder state on every visit even though the profile was almost
+// certainly already fetched once earlier in the session. getCachedMyUser() lets
+// them seed their initial render from that instead of nothing, while getMyUser()
+// still always hits the network for the authoritative value. Cleared explicitly by
+// vehicleContext.tsx's logout() — must not survive a sign-out, since a different
+// account could sign in next on the same device.
+let cachedUser: User | null = null;
+
+export function getCachedMyUser(): User | null {
+  return cachedUser;
+}
+
+export function clearCachedMyUser(): void {
+  cachedUser = null;
+}
+
 /** Compose the app `User` from the auth session + the profile row. */
 export async function getMyUser(): Promise<User | null> {
   const { data: sessionData } = await supabase.auth.getSession();
@@ -199,7 +218,7 @@ export async function getMyUser(): Promise<User | null> {
     .maybeSingle();
   if (error) throw new VehicleApiError(error.message);
   const p = data as ProfileRow | null;
-  return {
+  const user: User = {
     _id: session.user.id,
     email: session.user.email ?? "",
     name: p?.name || (session.user.user_metadata?.name as string) || "",
@@ -210,6 +229,8 @@ export async function getMyUser(): Promise<User | null> {
     licenceNumber: p?.licence_number ?? undefined,
     nicNumber: p?.nic_number ?? undefined,
   };
+  cachedUser = user;
+  return user;
 }
 
 export interface ProfileUpdate {
