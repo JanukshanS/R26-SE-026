@@ -23,6 +23,8 @@ import type { Vehicle } from "@lib/vehicleApi";
 import { getVehicleInsurance, type VehicleInsurance } from "@lib/vehicleInsuranceApi";
 import { useHardwareBack } from "@lib/useHardwareBack";
 import { isTripActive, startTrip } from "@lib/tripRecorder";
+import { getCachedClaims, listMyClaims } from "@lib/claims-api";
+import { loadDismissedClaimId } from "@lib/claim-upload-dedupe";
 import { useIncompleteUploadStatus } from "@/features/report-accident/hooks/use-incomplete-upload-status";
 import { ClaimUploadReminderModal } from "@/features/report-accident/components/claim-upload-reminder-modal";
 
@@ -44,6 +46,9 @@ export default function DriverHomeScreen() {
   const [showVehiclePicker, setShowVehiclePicker] = useState(false);
   // Vehicle tapped in the picker, awaiting confirmation before actually switching.
   const [pendingVehicle, setPendingVehicle] = useState<Vehicle | null>(null);
+  // True while the Insurance button's existing-claim check (a network call) is in
+  // flight — shown as a spinner in place of the icon so the tap doesn't feel dead.
+  const [checkingInsuranceStatus, setCheckingInsuranceStatus] = useState(false);
   // Real BLE pairing is async (scan + connect takes seconds). We show a
   // "Connecting…" state while it runs. pairElm327Async never rejects — it
   // falls back to the on-device simulation when no real dongle is reachable
@@ -375,31 +380,74 @@ export default function DriverHomeScreen() {
                 icon="ShieldCheck"
                 label="Insurance"
                 badge={incompleteUpload != null || missingInsuranceDetails}
+                loading={checkingInsuranceStatus}
                 onPress={() => {
-                  // Send the driver to complete missing details instead of letting them into
-                  // a flow that can't call/identify an insurer yet.
-                  if (missingInsuranceDetails && selectedVehicle) {
+                  void (async () => {
+                    // Send the driver to complete missing details instead of letting them into
+                    // a flow that can't call/identify an insurer yet.
+                    if (missingInsuranceDetails && selectedVehicle) {
+                      router.push({
+                        pathname: "/(driver)/manage-vehicles",
+                        params: { editVehicleId: selectedVehicle._id },
+                      });
+                      return;
+                    }
+                    if (incompleteUpload) {
+                      router.push({
+                        pathname: "/(insurance)/upload-accident-details",
+                        params: {
+                          uploadKey: incompleteUpload.uploadKey,
+                          reportedAtIso: incompleteUpload.reportedAtIso,
+                          vehicleId: selectedVehicle?._id,
+                        },
+                      });
+                      return;
+                    }
+                    // Already have a finished claim on the server (from this session, an
+                    // older one, or a different device) — go straight to its submitted
+                    // view instead of the 4-steps screen. Local files aren't needed for
+                    // this, only the backend's own record of it. Prefer the cache warmed
+                    // at login (claims-api.ts) — instant, no spinner needed. Only fall back
+                    // to a live fetch (with a spinner, since this one takes a moment) if
+                    // that cache isn't ready yet for some reason.
+                    //
+                    // But if the driver already dismissed this exact claim via "Start New
+                    // Claim", don't redirect back to it even though the server hasn't seen a
+                    // newer one yet — they may be mid-way through a new claim's steps locally.
+                    const dismissedId = await loadDismissedClaimId();
+                    const cached = getCachedClaims();
+                    if (cached) {
+                      const latest = cached[0];
+                      if (latest && latest.status !== "uploading" && latest.id !== dismissedId) {
+                        router.push({
+                          pathname: "/(insurance)/upload-accident-details",
+                          params: { existingClaimId: latest.id, vehicleId: selectedVehicle?._id },
+                        });
+                        return;
+                      }
+                    } else {
+                      setCheckingInsuranceStatus(true);
+                      try {
+                        const claims = await listMyClaims();
+                        const latest = claims[0];
+                        if (latest && latest.status !== "uploading" && latest.id !== dismissedId) {
+                          router.push({
+                            pathname: "/(insurance)/upload-accident-details",
+                            params: { existingClaimId: latest.id, vehicleId: selectedVehicle?._id },
+                          });
+                          return;
+                        }
+                      } catch {
+                        // Best-effort — fall through to the normal 4-steps flow if this check fails.
+                      } finally {
+                        setCheckingInsuranceStatus(false);
+                      }
+                    }
                     router.push({
-                      pathname: "/(driver)/manage-vehicles",
-                      params: { editVehicleId: selectedVehicle._id },
+                      pathname: "/(insurance)",
+                      params: { vehicleId: selectedVehicle?._id },
                     });
-                    return;
-                  }
-                  if (incompleteUpload) {
-                    router.push({
-                      pathname: "/(insurance)/upload-accident-details",
-                      params: {
-                        uploadKey: incompleteUpload.uploadKey,
-                        reportedAtIso: incompleteUpload.reportedAtIso,
-                        vehicleId: selectedVehicle?._id,
-                      },
-                    });
-                    return;
-                  }
-                  router.push({
-                    pathname: "/(insurance)",
-                    params: { vehicleId: selectedVehicle?._id },
-                  });
+                  })();
                 }}
               />
             </Animated.View>

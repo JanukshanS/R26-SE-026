@@ -8,6 +8,7 @@ import { loadThirdPartyState } from '@/features/third-party/storage/third-party-
 const ROOT_DIR = (FileSystem.documentDirectory ?? '') + 'claim-upload/';
 const LAST_SUCCESS_KEY_FILE = ROOT_DIR + 'last-success-bundle-key.txt';
 const LAST_SUCCESS_LOCATION_FILE = ROOT_DIR + 'last-success-location.json';
+const DISMISSED_CLAIM_ID_FILE = ROOT_DIR + 'dismissed-claim-id.txt';
 
 export type PersistedClaimLocation = {
   locationLine: string;
@@ -88,5 +89,32 @@ export async function clearPersistedClaimUploadSuccess(): Promise<void> {
     await FileSystem.deleteAsync(LAST_SUCCESS_LOCATION_FILE, { idempotent: true });
   } catch {
     // best-effort
+  }
+}
+
+/**
+ * The claims-privacy id of whichever claim the driver last dismissed via "Start New
+ * Claim" — deliberately NOT cleared by clearAllClaimData() (that runs alongside
+ * saving this, and would otherwise erase it immediately). Home's Insurance button
+ * compares this against the server's most-recent claim id: a match means that claim
+ * has already been acknowledged, so don't redirect back to its submitted view even
+ * though the server hasn't seen a newer one yet — the driver may be mid-way through
+ * a new claim's steps locally. Survives app restarts and same-account re-logins,
+ * same as the rest of this file, since it's a plain persisted file.
+ */
+export async function saveDismissedClaimId(id: string): Promise<void> {
+  await FileSystem.makeDirectoryAsync(ROOT_DIR, { intermediates: true });
+  await FileSystem.writeAsStringAsync(DISMISSED_CLAIM_ID_FILE, id);
+}
+
+export async function loadDismissedClaimId(): Promise<string | null> {
+  try {
+    await FileSystem.makeDirectoryAsync(ROOT_DIR, { intermediates: true });
+    const info = await FileSystem.getInfoAsync(DISMISSED_CLAIM_ID_FILE);
+    if (!info.exists) return null;
+    const t = (await FileSystem.readAsStringAsync(DISMISSED_CLAIM_ID_FILE)).trim();
+    return t.length > 0 ? t : null;
+  } catch {
+    return null;
   }
 }

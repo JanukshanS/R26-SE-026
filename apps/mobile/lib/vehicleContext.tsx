@@ -17,6 +17,8 @@ import {
 } from "@lib/last-authenticated-user-store";
 import { saveSelectedVehicleId } from "@lib/selected-vehicle-store";
 import { clearVehicleInsuranceCache } from "@lib/vehicleInsuranceApi";
+import { clearCachedClaims, listMyClaims } from "@lib/claims-api";
+import { setActiveSessionId, getActiveSessionId } from "@lib/session-guard";
 
 interface ProfilePatch {
   name?: string;
@@ -75,10 +77,15 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
       setSelectedVehicle(null);
       return;
     }
+    // Captured before the fetch: if a slower call from an account that has since
+    // logged out resolves after a different account has signed in, its result must
+    // not land as that new account's vehicle list — see session-guard.ts.
+    const requestedFor = getActiveSessionId();
     setVehiclesLoading(true);
     setVehicleError(null);
     try {
       const list = await vehicleApi.getVehicles();
+      if (getActiveSessionId() !== requestedFor) return;
       setVehicles(list);
       setSelectedVehicle((prev) => {
         const next = prev
@@ -95,9 +102,13 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
         return next;
       });
     } catch (err) {
-      setVehicleError((err as Error).message ?? "Could not load vehicles");
+      if (getActiveSessionId() === requestedFor) {
+        setVehicleError((err as Error).message ?? "Could not load vehicles");
+      }
     } finally {
-      setVehiclesLoading(false);
+      if (getActiveSessionId() === requestedFor) {
+        setVehiclesLoading(false);
+      }
     }
   }, []);
 
@@ -107,6 +118,11 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       setToken(session?.access_token ?? null);
+      // Stamped synchronously, before any of the async fetches below fire — the
+      // single source of truth every cache-writing fetch checks itself against so a
+      // straggling response from a since-logged-out account can't land as this (or a
+      // later) account's data. See session-guard.ts.
+      setActiveSessionId(session?.user.id ?? null);
 
       if (!session) {
         // Signing out is not an identity switch by itself — it's just the
@@ -143,8 +159,20 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
         await saveLastAuthenticatedUserId(currentId);
       });
 
-      vehicleApi.getMyUser().then(setUser).catch(() => setUser(null));
+      vehicleApi
+        .getMyUser()
+        .then((u) => {
+          if (getActiveSessionId() === currentId) setUser(u);
+        })
+        .catch(() => {
+          if (getActiveSessionId() === currentId) setUser(null);
+        });
       void refreshVehicles();
+      // Warms claims-api's cache so Home's Insurance button can read it instantly
+      // instead of paying a network round trip on every tap — see claims-api.ts.
+      // (listMyClaims() itself checks session-guard before writing its cache, so no
+      // extra guard is needed here.)
+      void listMyClaims().catch(() => {});
     });
     return () => sub.subscription.unsubscribe();
   }, [refreshVehicles]);
@@ -240,7 +268,9 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
     // listener above), so its in-memory cache wouldn't otherwise clear itself —
     // must not let it survive into a different account signing in on this device.
     vehicleApi.clearCachedMyUser();
+    vehicleApi.clearCachedVehicles();
     clearVehicleInsuranceCache();
+    clearCachedClaims();
   };
 
   const addVehicle = async (data: Partial<vehicleApi.VehicleInput>) => {

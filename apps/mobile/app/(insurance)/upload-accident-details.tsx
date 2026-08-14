@@ -15,14 +15,20 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { InsuranceBottomTabBar, type InsuranceTabId } from '@/components/insurance-bottom-tab-bar';
-import { findInsuranceCompany, type InsuranceCompany } from '@/lib/insuranceCompaniesApi';
-import { getVehicles } from '@/lib/vehicleApi';
-import { getVehicleInsurance } from '@/lib/vehicleInsuranceApi';
+import {
+  findInsuranceCompany,
+  getCachedInsuranceCompany,
+  type InsuranceCompany,
+} from '@/lib/insuranceCompaniesApi';
+import { getCachedVehicles, getVehicles } from '@/lib/vehicleApi';
+import { getCachedVehicleInsurance, getVehicleInsurance } from '@/lib/vehicleInsuranceApi';
 import { loadSelectedVehicleId } from '@/lib/selected-vehicle-store';
 import { loadClaimantProfile } from '@/features/claimant/storage/claimant-profile-store';
 import { useClaimUpload } from '@/features/report-accident/hooks/use-claim-upload';
+import { getCachedClaims, listMyClaims, type ClaimSummary } from '@/lib/claims-api';
 import { formatTimestamp } from '@/lib/format-timestamp';
 import { clearAllClaimData } from '@/lib/clear-claim-data';
+import { saveDismissedClaimId } from '@/lib/claim-upload-dedupe';
 import { ResetCaptureDialog } from '@/features/guided-capture/components/reset-capture-dialog';
 import {
   INSURANCE_BORDER_SOFT,
@@ -79,12 +85,49 @@ function ProgressRow({
   );
 }
 
+/** Cache-only resolution of a claim's insurer — claim → cached vehicles (matched by
+ * plate number, since this claim came from a per-user lookup, not per-vehicle, so it
+ * isn't necessarily the currently-selected vehicle) → cached vehicle_insurance →
+ * cached company. Returns null the moment any step isn't warm yet, so the caller
+ * knows to fall back to the async resolution instead of showing a wrong/empty state. */
+function resolveInsurerFromCacheSync(
+  claim: ClaimSummary | null
+): { company: InsuranceCompany | null; missing: boolean } | null {
+  if (!claim?.vehicleRegNo) {
+    return null;
+  }
+  const vehicles = getCachedVehicles();
+  if (!vehicles) {
+    return null;
+  }
+  const plate = claim.vehicleRegNo.trim().toLowerCase();
+  const match = vehicles.find((v) => v.plateNumber.trim().toLowerCase() === plate);
+  if (!match) {
+    return null;
+  }
+  const insurance = getCachedVehicleInsurance(match._id);
+  if (insurance === undefined) {
+    return null;
+  }
+  if (!insurance?.insuranceProvider) {
+    return { company: null, missing: true };
+  }
+  const company = getCachedInsuranceCompany(insurance.insuranceProvider);
+  if (company === undefined) {
+    return null;
+  }
+  return { company, missing: false };
+}
+
 export default function UploadAccidentDetailsScreen() {
   const router = useRouter();
-  const { uploadKey, reportedAtIso, vehicleId } = useLocalSearchParams<{
+  const { uploadKey, reportedAtIso, vehicleId, existingClaimId } = useLocalSearchParams<{
     uploadKey?: string;
     reportedAtIso?: string;
     vehicleId?: string;
+    /** Set instead of uploadKey when Home found an already-finished claim on the
+     * server and sent the driver straight here — nothing to upload, just display it. */
+    existingClaimId?: string;
   }>();
 
   const [claimantName, setClaimantName] = useState('');
@@ -132,13 +175,79 @@ export default function UploadAccidentDetailsScreen() {
     fraudValidationComplete,
   } = useClaimUpload(uploadKey, reportedAtIso, claimantHydrated, claimantRef, effectiveVehicleId);
 
-  const claimComplete = photosUploadComplete && fraudValidationComplete;
+  // existingClaimId mode: nothing local to show progress for — the claim already
+  // finished, possibly in an earlier session or on another device. Fetched from the
+  // server (the same claims-privacy record, not local files) instead of run through
+  // the upload hook above, which is why uploadKey is absent in this mode.
+  //
+  // Seeded synchronously from claims-api's cache (warmed at login, and by Home's own
+  // check right before it navigated here) so the common case shows the real location
+  // and timestamp on the very first render — no loading flash. Still confirmed with a
+  // fresh fetch below in case the cache is stale or wasn't warm yet.
+  const [existingClaim, setExistingClaim] = useState<ClaimSummary | null>(() => {
+    if (!existingClaimId) return null;
+    return getCachedClaims()?.find((c) => c.id === existingClaimId) ?? null;
+  });
+  const [loadingExistingClaim, setLoadingExistingClaim] = useState(
+    () => existingClaimId != null && existingClaim == null
+  );
 
-  const [insuranceCompany, setInsuranceCompany] = useState<InsuranceCompany | null>(null);
-  const [vehicleMissingInsurer, setVehicleMissingInsurer] = useState(false);
+  useEffect(() => {
+    if (!existingClaimId) {
+      return;
+    }
+    let cancelled = false;
+    listMyClaims()
+      .then((claims) => {
+        if (!cancelled) {
+          setExistingClaim(claims.find((c) => c.id === existingClaimId) ?? null);
+        }
+      })
+      .catch(() => {
+        // Best-effort refresh — keep whatever the cache already seeded above.
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingExistingClaim(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [existingClaimId]);
+
+  const isExistingClaimMode = existingClaimId != null;
+  const displayLocationLine = isExistingClaimMode
+    ? existingClaim?.locationLabel ?? '—'
+    : locationLine;
+  const displayTimestampLine = isExistingClaimMode
+    ? existingClaim?.capturedAtDisplayLocal ?? ''
+    : timestampLine;
+  const displayLocationLoading = isExistingClaimMode ? loadingExistingClaim : locationLoading;
+  const displayPhotosUploadPercent = isExistingClaimMode ? 100 : photosUploadPercent;
+  const displayPhotosUploadComplete = isExistingClaimMode ? true : photosUploadComplete;
+  const displayFraudValidationPercent = isExistingClaimMode ? 100 : fraudValidationPercent;
+  const displayFraudValidationComplete = isExistingClaimMode ? true : fraudValidationComplete;
+
+  const claimComplete = isExistingClaimMode
+    ? true
+    : photosUploadComplete && fraudValidationComplete;
+
+  // Existing-claim mode: try to resolve the insurer synchronously from cache (claim →
+  // cached vehicles, matched by plate number → cached vehicle_insurance → cached
+  // company) so the button shows correctly on the very first render instead of a
+  // spinner. Returns null if any step isn't cached yet — the focus effect below
+  // always still runs afterward to confirm/fill in whatever this couldn't resolve.
+  const seededInsurer = isExistingClaimMode ? resolveInsurerFromCacheSync(existingClaim) : null;
+  const [insuranceCompany, setInsuranceCompany] = useState<InsuranceCompany | null>(
+    seededInsurer?.company ?? null
+  );
+  const [vehicleMissingInsurer, setVehicleMissingInsurer] = useState(seededInsurer?.missing ?? false);
   // True until the insurer lookup below finishes at least once — shows a spinner in
   // the button's place instead of a blank gap while it resolves.
-  const [resolvingInsurer, setResolvingInsurer] = useState(true);
+  const [resolvingInsurer, setResolvingInsurer] = useState(
+    isExistingClaimMode ? seededInsurer == null : true
+  );
   const [callingInsurer, setCallingInsurer] = useState(false);
   const [confirmingNewClaim, setConfirmingNewClaim] = useState(false);
 
@@ -146,28 +255,52 @@ export default function UploadAccidentDetailsScreen() {
   // vehicle the driver had selected on Home is fetched directly rather than read from context.
   // Falls back to the default/first vehicle only when neither the store nor the route param
   // has a vehicleId.
+  //
+  // existingClaimId mode is different: the claim is historical and already tied to a
+  // specific vehicle regardless of what's selected *now* (this claim came from a
+  // per-user lookup, not per-vehicle, so "currently selected" can easily be a
+  // different vehicle entirely). Resolve it by matching the claim's own plate number
+  // instead — never the persisted/selected vehicle.
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       void (async () => {
+        if (existingClaimId && loadingExistingClaim) {
+          // Wait for the claim record itself first; this effect re-runs once that
+          // flips (see the dependency array below), so this isn't a dead end.
+          return;
+        }
         if (!cancelled) {
           setResolvingInsurer(true);
         }
         try {
-          const persistedId = await loadSelectedVehicleId();
-          const resolvedVehicleId = persistedId ?? vehicleId;
-          if (!cancelled) {
-            setEffectiveVehicleId(resolvedVehicleId);
+          let targetVehicleId: string | null;
+
+          if (existingClaimId) {
+            targetVehicleId = null;
+            const plate = existingClaim?.vehicleRegNo?.trim().toLowerCase();
+            if (plate) {
+              const vehicles = await getVehicles();
+              const match = vehicles.find((v) => v.plateNumber.trim().toLowerCase() === plate);
+              targetVehicleId = match?._id ?? null;
+            }
+          } else {
+            const persistedId = await loadSelectedVehicleId();
+            const resolvedVehicleId = persistedId ?? vehicleId;
+            if (!cancelled) {
+              setEffectiveVehicleId(resolvedVehicleId);
+            }
+            // getVehicleById() isn't needed just to get an id we already have —
+            // getVehicleInsurance() takes the vehicle id directly, cutting one full
+            // network round trip off this chain.
+            targetVehicleId = resolvedVehicleId ?? null;
+            if (!targetVehicleId) {
+              const vehicles = await getVehicles();
+              const target = vehicles.find((v) => v.isDefault) ?? vehicles[0] ?? null;
+              targetVehicleId = target?._id ?? null;
+            }
           }
-          // getVehicleById() isn't needed just to get an id we already have —
-          // getVehicleInsurance() takes the vehicle id directly, cutting one full
-          // network round trip off this chain.
-          let targetVehicleId = resolvedVehicleId ?? null;
-          if (!targetVehicleId) {
-            const vehicles = await getVehicles();
-            const target = vehicles.find((v) => v.isDefault) ?? vehicles[0] ?? null;
-            targetVehicleId = target?._id ?? null;
-          }
+
           if (!targetVehicleId) {
             if (!cancelled) {
               setInsuranceCompany(null);
@@ -202,7 +335,7 @@ export default function UploadAccidentDetailsScreen() {
       return () => {
         cancelled = true;
       };
-    }, [vehicleId])
+    }, [vehicleId, existingClaimId, existingClaim, loadingExistingClaim])
   );
 
   const onCallInsurer = async () => {
@@ -220,6 +353,20 @@ export default function UploadAccidentDetailsScreen() {
   };
 
   const performStartNewClaim = async () => {
+    // Record which claim is being dismissed *before* wiping local data, so Home's
+    // Insurance button knows not to redirect back to its submitted view even though
+    // the server won't have a newer claim until this new one is actually submitted.
+    // Re-fetched fresh (not read from cache) so this is correct even if a claim just
+    // finished uploading moments ago in this same screen session.
+    try {
+      const claims = await listMyClaims().catch(() => null);
+      const latestId = existingClaimId ?? claims?.[0]?.id ?? null;
+      if (latestId) {
+        await saveDismissedClaimId(latestId);
+      }
+    } catch {
+      // best-effort — worst case the old redirect bug resurfaces once, not fatal
+    }
     try {
       await clearAllClaimData();
     } catch {
@@ -268,13 +415,13 @@ export default function UploadAccidentDetailsScreen() {
           <View style={styles.progressBlock}>
             <ProgressRow
               label="Photos Uploaded"
-              percent={photosUploadPercent}
-              complete={photosUploadComplete}
+              percent={displayPhotosUploadPercent}
+              complete={displayPhotosUploadComplete}
             />
             <ProgressRow
               label="Fraud Validation"
-              percent={fraudValidationPercent}
-              complete={fraudValidationComplete}
+              percent={displayFraudValidationPercent}
+              complete={displayFraudValidationComplete}
             />
             <ProgressRow label="Low light enhancement" percent={0} complete={false} />
             <ProgressRow label="3D Reconstruction" percent={0} complete={false} />
@@ -285,13 +432,13 @@ export default function UploadAccidentDetailsScreen() {
               <Text style={styles.detailCardHeaderLeft}>Captured and Submitted</Text>
             </View>
             <View style={styles.detailLocationRow}>
-              {locationLoading ? (
+              {displayLocationLoading ? (
                 <ActivityIndicator size="small" color={COLORS.textMuted} style={styles.detailSpinner} />
               ) : null}
-              <Text style={styles.detailAddress}>{locationLine}</Text>
+              <Text style={styles.detailAddress}>{displayLocationLine}</Text>
             </View>
             <Text style={styles.detailTime}>
-              {timestampLine || (locationLoading ? '…' : formatTimestamp(new Date()))}
+              {displayTimestampLine || (displayLocationLoading ? '…' : formatTimestamp(new Date()))}
             </Text>
             <Text style={styles.detailFooter}>
               GPS + Timestamp signed. You can close the App - Do not disconnect from Internet. We&apos;ll notify you.

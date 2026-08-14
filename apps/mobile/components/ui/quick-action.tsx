@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { Icon, type IconName } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 
@@ -8,12 +8,16 @@ type Props = {
   onPress?: () => void;
   /** Small unread-style dot on the icon's corner — e.g. an unfinished claim upload. */
   badge?: boolean;
+  /** Swaps the icon for a spinner and ignores taps — for an action whose onPress does
+   * async work (e.g. a server check) before it can navigate anywhere. */
+  loading?: boolean;
 };
 
-export function QuickAction({ icon, label, onPress, badge }: Props) {
+export function QuickAction({ icon, label, onPress, badge, loading }: Props) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={loading ? undefined : onPress}
+      disabled={loading}
       style={({ pressed }) => ({
         flex: 1,
         alignItems: "center",
@@ -32,7 +36,11 @@ export function QuickAction({ icon, label, onPress, badge }: Props) {
           justifyContent: "center",
         }}
       >
-        <Icon name={icon} size={26} color={palette.brand} />
+        {loading ? (
+          <ActivityIndicator size="small" color={palette.brand} />
+        ) : (
+          <Icon name={icon} size={26} color={palette.brand} />
+        )}
         {badge ? (
           <View
             accessibilityElementsHidden
