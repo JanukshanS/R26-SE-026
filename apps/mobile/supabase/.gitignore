@@ -1,0 +1,4 @@
+# Supabase CLI local state — regenerated automatically by `supabase link`/`supabase db`
+# commands, machine/session-specific, never meant to be committed.
+.branches
+.temp
