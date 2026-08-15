@@ -38,9 +38,12 @@
 import { PermissionsAndroid, Platform } from "react-native";
 import {
   discoverSupportedPids,
+  readEngineSignalsGeneric,
   readObdRawGeneric,
   runInitHandshake,
   sanitizeForLog,
+  withObdLock,
+  type EngineSignals,
   type RawObdPids,
 } from "./elm327.protocol";
 
@@ -345,11 +348,22 @@ function sendCommand(cmd: string): Promise<string> {
  * live link at all; individual PIDs that don't answer are simply omitted.
  */
 export async function readObdRaw(): Promise<RawObdPids | null> {
-  if (!link) {
+  const l = link;
+  if (!l) {
     console.log(`${LOG_TAG} readObdRaw: no live link — skipping (caller falls back to synthetic)`);
     return null;
   }
-  return readObdRawGeneric(sendCommand, link.supportedPids, LOG_TAG);
+  return withObdLock("classic.readObdRaw", () => readObdRawGeneric(sendCommand, l.supportedPids, LOG_TAG));
+}
+
+/**
+ * Read engine-state signals (ATRV voltage, optionally RPM) for the engine
+ * monitor. Returns null only when there's no live link at all — an adapter
+ * that's reachable but says nothing useful still reports `adapterAlive`.
+ */
+export async function readEngineSignals(opts: { probeRpm: boolean }): Promise<EngineSignals | null> {
+  if (!link) return null;
+  return withObdLock("classic.readEngineSignals", () => readEngineSignalsGeneric(sendCommand, opts, LOG_TAG));
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -364,4 +378,4 @@ export async function disconnect(): Promise<void> {
   try { await l.device.disconnect(); } catch { /* ignore */ }
 }
 
-export type { RawObdPids };
+export type { EngineSignals, RawObdPids };

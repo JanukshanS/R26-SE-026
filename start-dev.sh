@@ -34,6 +34,13 @@ MOBILE_DIR="$ROOT_DIR/apps/mobile"
 # is too long". Keeping this one venv shallow (in $HOME) sidesteps that.
 PM_VENV="$HOME/.kaduna-pm-venv"
 
+# geo-intelligence, predictive-maintenance and dashboard-web all verify/send
+# Supabase bearer tokens now — every one of them 503s (or throws at import,
+# for the mobile/dashboard JS clients) without this. Same project as the
+# mobile app's hardcoded fallback in lib/supabase.ts.
+SUPABASE_URL="${SUPABASE_URL:-https://huynmjagdlkvqcmgdipk.supabase.co}"
+SUPABASE_KEY="${SUPABASE_KEY:-sb_publishable_afsnNQOy9fRKfu-5i1lWUw_AQ9vBRJO}"
+
 PIDS=()
 
 cleanup() {
@@ -78,6 +85,7 @@ fi
 "$GEO_DIR/.venv/Scripts/python.exe" -m pip install --quiet -r "$GEO_DIR/requirements.txt"
 (
   cd "$GEO_DIR" || exit 1
+  export SUPABASE_URL
   exec "./.venv/Scripts/python.exe" -m uvicorn src.api:app --port 5001
 ) > "$LOG_DIR/geo-intelligence.log" 2>&1 &
 PIDS+=("$!")
@@ -90,12 +98,19 @@ fi
 "$PM_VENV/Scripts/python.exe" -m pip install --quiet -r "$PM_DIR/requirements.txt"
 (
   cd "$PM_DIR" || exit 1
+  export SUPABASE_URL
   exec "$PM_VENV/Scripts/python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 5000
 ) > "$LOG_DIR/predictive-maintenance.log" 2>&1 &
 PIDS+=("$!")
 
 echo "== dashboard-web =="
-[ -d "$WEB_DIR/node_modules" ] || (cd "$WEB_DIR" && pnpm install)
+(cd "$WEB_DIR" && pnpm install)
+[ -f "$WEB_DIR/.env.local" ] || cat > "$WEB_DIR/.env.local" <<ENVEOF
+NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_KEY=$SUPABASE_KEY
+NEXT_PUBLIC_GEO_URL=http://localhost:5001
+NEXT_PUBLIC_DISPATCH_URL=http://localhost:3001
+ENVEOF
 (
   cd "$WEB_DIR" || exit 1
   exec pnpm dev
@@ -110,7 +125,7 @@ if [ -f "$MOBILE_DIR/pnpm-lock.yaml" ]; then
 else
   MOBILE_PKG_MGR=npm
 fi
-[ -d "$MOBILE_DIR/node_modules" ] || (cd "$MOBILE_DIR" && "$MOBILE_PKG_MGR" install)
+(cd "$MOBILE_DIR" && "$MOBILE_PKG_MGR" install)
 [ -f "$MOBILE_DIR/.env" ] || { [ -f "$MOBILE_DIR/.env.example" ] && cp "$MOBILE_DIR/.env.example" "$MOBILE_DIR/.env"; }
 (
   cd "$MOBILE_DIR" || exit 1

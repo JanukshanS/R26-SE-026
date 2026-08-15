@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
 import { BottomNavBar, NAV_BAR_HEIGHT } from "@components/ui/bottom-nav-bar";
 import { ObdSourceBadge } from "@components/ui/obd-source-badge";
+import { EngineStateDebug } from "@components/ui/engine-state-debug";
 import { palette, radii, spacing, typography } from "@theme/index";
 import {
   endTrip,
@@ -130,6 +131,9 @@ export default function ActiveTripScreen() {
           paddingBottom: insets.bottom + NAV_BAR_HEIGHT + 100,
         }}
       >
+        {/* Engine-state detection readout (observe-only phase) */}
+        <EngineStateDebug />
+
         {/* Elapsed time */}
         <View
           style={{

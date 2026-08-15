@@ -74,18 +74,71 @@ export async function signInWithGoogle(): Promise<void> {
     return; // browser navigates away
   }
 
+  // The redirect URI differs between Expo Go, a dev-client build and a
+  // standalone build, and Supabase silently refuses any value not on its
+  // Redirect URLs allowlist - which looks exactly like "nothing happened".
+  // Log it so the value can be copied straight into the dashboard.
+  console.log(`[auth] google sign-in redirectTo=${redirectTo}`);
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo, skipBrowserRedirect: true },
   });
-  if (error) throw new AuthApiError(error.message);
+  if (error) {
+    console.log(`[auth] signInWithOAuth failed: ${error.message}`);
+    throw new AuthApiError(error.message);
+  }
+  console.log(`[auth] provider url=${data.url?.slice(0, 120)}...`);
 
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-  if (result.type !== "success") return; // user dismissed the browser
-
-  const code = new URL(result.url).searchParams.get("code");
-  if (code) {
-    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-    if (exchangeError) throw new AuthApiError(exchangeError.message);
+  console.log(`[auth] browser closed type=${result.type}` +
+    ("url" in result ? ` url=${(result as { url: string }).url}` : ""));
+  if (result.type !== "success") {
+    console.log("[auth] no session: browser dismissed or never redirected back to the app");
+    return;
   }
+
+  const returned = (result as { url: string }).url;
+  // Supabase can hand back either ?code= (PKCE) or #access_token= (implicit),
+  // and an error comes back as ?error=/&error_description=. Handle all three
+  // instead of silently returning when it is not the one we expected.
+  const parsed = new URL(returned);
+  const err = parsed.searchParams.get("error_description") ?? parsed.searchParams.get("error");
+  if (err) {
+    console.log(`[auth] provider returned an error: ${err}`);
+    throw new AuthApiError(err);
+  }
+
+  // Implicit flow: tokens arrive in the URL fragment rather than as a code.
+  // We ask for PKCE, but accept this too - a successful login must never be
+  // thrown away just because it came back in the other shape.
+  if (parsed.hash && parsed.hash.includes("access_token")) {
+    const frag = new URLSearchParams(parsed.hash.replace(/^#/, ""));
+    const access_token = frag.get("access_token");
+    const refresh_token = frag.get("refresh_token");
+    if (access_token && refresh_token) {
+      const { error: setErr } = await supabase.auth.setSession({ access_token, refresh_token });
+      if (setErr) {
+        console.log(`[auth] setSession failed: ${setErr.message}`);
+        throw new AuthApiError(setErr.message);
+      }
+      console.log("[auth] session established (implicit flow)");
+      return;
+    }
+    console.log("[auth] fragment had access_token but no refresh_token - cannot persist a session");
+    return;
+  }
+
+  const code = parsed.searchParams.get("code");
+  if (!code) {
+    console.log(`[auth] redirect carried neither ?code= nor #access_token: "${returned}"`);
+    return;
+  }
+
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+  if (exchangeError) {
+    console.log(`[auth] code exchange failed: ${exchangeError.message}`);
+    throw new AuthApiError(exchangeError.message);
+  }
+  console.log("[auth] session established");
 }

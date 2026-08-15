@@ -33,6 +33,11 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
     storage: Platform.OS === "web" ? undefined : AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
+    // PKCE, not the implicit flow. supabase-js defaults to implicit, which
+    // returns #access_token in the redirect URL - readable by anything that
+    // can see the URL, and a poor fit for a mobile deep link. PKCE returns a
+    // short-lived ?code= that only this client can exchange.
+    flowType: "pkce",
     // Native deep links are handled manually after OAuth; only the web build
     // should auto-parse the session out of the redirect URL.
     detectSessionInUrl: Platform.OS === "web",
