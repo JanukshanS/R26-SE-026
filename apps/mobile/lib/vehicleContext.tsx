@@ -16,6 +16,9 @@ import {
   saveLastAuthenticatedUserId,
 } from "@lib/last-authenticated-user-store";
 import { saveSelectedVehicleId } from "@lib/selected-vehicle-store";
+import { clearVehicleInsuranceCache } from "@lib/vehicleInsuranceApi";
+import { clearCachedClaims, listMyClaims } from "@lib/claims-api";
+import { setActiveSessionId, getActiveSessionId } from "@lib/session-guard";
 
 interface ProfilePatch {
   name?: string;
@@ -74,19 +77,38 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
       setSelectedVehicle(null);
       return;
     }
+    // Captured before the fetch: if a slower call from an account that has since
+    // logged out resolves after a different account has signed in, its result must
+    // not land as that new account's vehicle list — see session-guard.ts.
+    const requestedFor = getActiveSessionId();
     setVehiclesLoading(true);
     setVehicleError(null);
     try {
       const list = await vehicleApi.getVehicles();
+      if (getActiveSessionId() !== requestedFor) return;
       setVehicles(list);
       setSelectedVehicle((prev) => {
-        if (prev) return list.find((v) => v._id === prev._id) ?? list.find((v) => v.isDefault) ?? list[0] ?? null;
-        return list.find((v) => v.isDefault) ?? list[0] ?? null;
+        const next = prev
+          ? list.find((v) => v._id === prev._id) ?? list.find((v) => v.isDefault) ?? list[0] ?? null
+          : list.find((v) => v.isDefault) ?? list[0] ?? null;
+        // Keep the persisted selection in sync even when it's resolved automatically
+        // (not via an explicit selectVehicle() tap) — otherwise a stale id from an
+        // earlier session/vehicle lingers forever, since only selectVehicle() used to
+        // write it. (insurance) screens read this file directly, so a stale value
+        // there shows the wrong vehicle's insurer until the user happens to re-select.
+        if (next) {
+          void saveSelectedVehicleId(next._id);
+        }
+        return next;
       });
     } catch (err) {
-      setVehicleError((err as Error).message ?? "Could not load vehicles");
+      if (getActiveSessionId() === requestedFor) {
+        setVehicleError((err as Error).message ?? "Could not load vehicles");
+      }
     } finally {
-      setVehiclesLoading(false);
+      if (getActiveSessionId() === requestedFor) {
+        setVehiclesLoading(false);
+      }
     }
   }, []);
 
@@ -96,14 +118,34 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       setToken(session?.access_token ?? null);
+      // Stamped synchronously, before any of the async fetches below fire — the
+      // single source of truth every cache-writing fetch checks itself against so a
+      // straggling response from a since-logged-out account can't land as this (or a
+      // later) account's data. See session-guard.ts.
+      setActiveSessionId(session?.user.id ?? null);
+
+      if (!session) {
+        // Signing out is not an identity switch by itself — it's just the
+        // transient gap before whoever signs in next (possibly the same
+        // person) is known. Don't touch lastAuthenticatedUserId here: doing
+        // so previously made every logout look like "real account → guest",
+        // which wiped local claim data (photos, the "already submitted"
+        // lock) even when the very same account logged back in right after.
+        setUser(null);
+        setVehicles([]);
+        setSelectedVehicle(null);
+        return;
+      }
 
       // Report Accident's in-progress state (guided capture photos, the
       // "already submitted" lock, etc.) lives in local on-device storage,
       // not scoped to any user id — so it silently carries over to whoever
-      // uses the app next. Detect a genuine identity switch (not just a
-      // relaunch/token refresh for the *same* user) and wipe it then, the
-      // same reset "Start New Claim" already does.
-      const currentId = session?.user.id ?? "guest";
+      // uses the app next. Detect a genuine identity switch — a DIFFERENT
+      // account signing in, compared against the last real account that
+      // used this device — and wipe it then, the same reset "Start New
+      // Claim" already does. Signing out and back into the SAME account
+      // must NOT trigger this.
+      const currentId = session.user.id;
       void loadLastAuthenticatedUserId().then(async (lastId) => {
         const shouldClear = lastId !== null && lastId !== currentId;
         if (__DEV__) {
@@ -117,14 +159,20 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
         await saveLastAuthenticatedUserId(currentId);
       });
 
-      if (!session) {
-        setUser(null);
-        setVehicles([]);
-        setSelectedVehicle(null);
-        return;
-      }
-      vehicleApi.getMyUser().then(setUser).catch(() => setUser(null));
+      vehicleApi
+        .getMyUser()
+        .then((u) => {
+          if (getActiveSessionId() === currentId) setUser(u);
+        })
+        .catch(() => {
+          if (getActiveSessionId() === currentId) setUser(null);
+        });
       void refreshVehicles();
+      // Warms claims-api's cache so Home's Insurance button can read it instantly
+      // instead of paying a network round trip on every tap — see claims-api.ts.
+      // (listMyClaims() itself checks session-guard before writing its cache, so no
+      // extra guard is needed here.)
+      void listMyClaims().catch(() => {});
     });
     return () => sub.subscription.unsubscribe();
   }, [refreshVehicles]);
@@ -216,6 +264,13 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
     setSelectedVehicle(null);
     setAuthError(null);
     setVehicleError(null);
+    // getMyUser() is intentionally not called during sign-out (see the auth-state
+    // listener above), so its in-memory cache wouldn't otherwise clear itself —
+    // must not let it survive into a different account signing in on this device.
+    vehicleApi.clearCachedMyUser();
+    vehicleApi.clearCachedVehicles();
+    clearVehicleInsuranceCache();
+    clearCachedClaims();
   };
 
   const addVehicle = async (data: Partial<vehicleApi.VehicleInput>) => {

@@ -20,8 +20,12 @@ import {
 } from "@lib/maintenanceApi";
 import { isElm327Paired, isRealBleSupported, pairElm327Async, unpairElm327 } from "@lib/elm327";
 import { useVehicle } from "@lib/vehicleContext";
+import type { Vehicle } from "@lib/vehicleApi";
+import { getVehicleInsurance, type VehicleInsurance } from "@lib/vehicleInsuranceApi";
 import { useHardwareBack } from "@lib/useHardwareBack";
 import { isTripActive, startTrip } from "@lib/tripRecorder";
+import { getCachedClaims, listMyClaims } from "@lib/claims-api";
+import { loadDismissedClaimId } from "@lib/claim-upload-dedupe";
 import { useIncompleteUploadStatus } from "@/features/report-accident/hooks/use-incomplete-upload-status";
 import { ClaimUploadReminderModal } from "@/features/report-accident/components/claim-upload-reminder-modal";
 
@@ -41,6 +45,11 @@ export default function DriverHomeScreen() {
   const [loadingHealth, setLoadingHealth] = useState(true);
   const [showObd, setShowObd] = useState(() => !isElm327Paired());
   const [showVehiclePicker, setShowVehiclePicker] = useState(false);
+  // Vehicle tapped in the picker, awaiting confirmation before actually switching.
+  const [pendingVehicle, setPendingVehicle] = useState<Vehicle | null>(null);
+  // True while the Insurance button's existing-claim check (a network call) is in
+  // flight — shown as a spinner in place of the icon so the tap doesn't feel dead.
+  const [checkingInsuranceStatus, setCheckingInsuranceStatus] = useState(false);
   // Real BLE pairing is async (scan + connect takes seconds). We show a
   // "Connecting…" state while it runs. pairElm327Async never rejects — it
   // falls back to the on-device simulation when no real dongle is reachable
@@ -58,12 +67,38 @@ export default function DriverHomeScreen() {
   ? (selectedVehicle.nickname || `${selectedVehicle.make} ${selectedVehicle.model}`)
   : "Toyota Aqua";
 
-  // Insurance provider/policy live on the vehicle; licence/NIC live on the profile — all
-  // four are required before the Insurance flow is usable for the selected vehicle.
+  // Insurance lives in its own table (vehicle_insurance), not on the vehicle row itself,
+  // so it's fetched separately whenever the selected vehicle changes. `undefined` (not yet
+  // loaded) is distinguished from `null` (loaded, no insurance saved) so the "missing
+  // details" badge doesn't flash on briefly while this is still resolving.
+  const [vehicleInsurance, setVehicleInsurance] = useState<VehicleInsurance | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!selectedVehicle) {
+      setVehicleInsurance(null);
+      return;
+    }
+    let cancelled = false;
+    setVehicleInsurance(undefined);
+    getVehicleInsurance(selectedVehicle._id)
+      .then((insurance) => {
+        if (!cancelled) setVehicleInsurance(insurance);
+      })
+      .catch(() => {
+        if (!cancelled) setVehicleInsurance(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedVehicle]);
+
+  // Licence/NIC live on the profile — all four are required before the Insurance
+  // flow is usable for the selected vehicle.
   const missingInsuranceDetails = Boolean(
     selectedVehicle &&
-      (!selectedVehicle.insuranceProvider ||
-        !selectedVehicle.insurancePolicyNumber ||
+      vehicleInsurance !== undefined &&
+      (!vehicleInsurance?.insuranceProvider ||
+        !vehicleInsurance?.insurancePolicyNumber ||
         !user?.licenceNumber ||
         !user?.nicNumber)
   );
@@ -349,31 +384,74 @@ export default function DriverHomeScreen() {
                 icon="ShieldCheck"
                 label="Insurance"
                 badge={incompleteUpload != null || missingInsuranceDetails}
+                loading={checkingInsuranceStatus}
                 onPress={() => {
-                  // Send the driver to complete missing details instead of letting them into
-                  // a flow that can't call/identify an insurer yet.
-                  if (missingInsuranceDetails && selectedVehicle) {
+                  void (async () => {
+                    // Send the driver to complete missing details instead of letting them into
+                    // a flow that can't call/identify an insurer yet.
+                    if (missingInsuranceDetails && selectedVehicle) {
+                      router.push({
+                        pathname: "/(driver)/manage-vehicles",
+                        params: { editVehicleId: selectedVehicle._id },
+                      });
+                      return;
+                    }
+                    if (incompleteUpload) {
+                      router.push({
+                        pathname: "/(insurance)/upload-accident-details",
+                        params: {
+                          uploadKey: incompleteUpload.uploadKey,
+                          reportedAtIso: incompleteUpload.reportedAtIso,
+                          vehicleId: selectedVehicle?._id,
+                        },
+                      });
+                      return;
+                    }
+                    // Already have a finished claim on the server (from this session, an
+                    // older one, or a different device) — go straight to its submitted
+                    // view instead of the 4-steps screen. Local files aren't needed for
+                    // this, only the backend's own record of it. Prefer the cache warmed
+                    // at login (claims-api.ts) — instant, no spinner needed. Only fall back
+                    // to a live fetch (with a spinner, since this one takes a moment) if
+                    // that cache isn't ready yet for some reason.
+                    //
+                    // But if the driver already dismissed this exact claim via "Start New
+                    // Claim", don't redirect back to it even though the server hasn't seen a
+                    // newer one yet — they may be mid-way through a new claim's steps locally.
+                    const dismissedId = await loadDismissedClaimId();
+                    const cached = getCachedClaims();
+                    if (cached) {
+                      const latest = cached[0];
+                      if (latest && latest.status !== "uploading" && latest.id !== dismissedId) {
+                        router.push({
+                          pathname: "/(insurance)/upload-accident-details",
+                          params: { existingClaimId: latest.id, vehicleId: selectedVehicle?._id },
+                        });
+                        return;
+                      }
+                    } else {
+                      setCheckingInsuranceStatus(true);
+                      try {
+                        const claims = await listMyClaims();
+                        const latest = claims[0];
+                        if (latest && latest.status !== "uploading" && latest.id !== dismissedId) {
+                          router.push({
+                            pathname: "/(insurance)/upload-accident-details",
+                            params: { existingClaimId: latest.id, vehicleId: selectedVehicle?._id },
+                          });
+                          return;
+                        }
+                      } catch {
+                        // Best-effort — fall through to the normal 4-steps flow if this check fails.
+                      } finally {
+                        setCheckingInsuranceStatus(false);
+                      }
+                    }
                     router.push({
-                      pathname: "/(driver)/manage-vehicles",
-                      params: { editVehicleId: selectedVehicle._id },
+                      pathname: "/(insurance)",
+                      params: { vehicleId: selectedVehicle?._id },
                     });
-                    return;
-                  }
-                  if (incompleteUpload) {
-                    router.push({
-                      pathname: "/(insurance)/upload-accident-details",
-                      params: {
-                        uploadKey: incompleteUpload.uploadKey,
-                        reportedAtIso: incompleteUpload.reportedAtIso,
-                        vehicleId: selectedVehicle?._id,
-                      },
-                    });
-                    return;
-                  }
-                  router.push({
-                    pathname: "/(insurance)",
-                    params: { vehicleId: selectedVehicle?._id },
-                  });
+                  })();
                 }}
               />
             </Animated.View>
@@ -464,7 +542,13 @@ export default function DriverHomeScreen() {
                 {vehicles.map((v) => (
                   <Pressable
                     key={v._id}
-                    onPress={() => { selectVehicle(v); setShowVehiclePicker(false); }}
+                    onPress={() => {
+                      if (selectedVehicle?._id === v._id) {
+                        setShowVehiclePicker(false);
+                        return;
+                      }
+                      setPendingVehicle(v);
+                    }}
                     style={({ pressed }) => ({
                       flexDirection: "row",
                       alignItems: "center",
@@ -514,6 +598,99 @@ export default function DriverHomeScreen() {
             )}
           </Pressable>
         </Pressable>
+      </Modal>
+
+      {/* Switch Vehicle confirmation — same icon-circle popup style as the
+          "Complete your insurance details" reminder on Manage Vehicles. */}
+      <Modal visible={pendingVehicle != null} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: palette.overlay,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: spacing.xl,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: palette.surface,
+              borderRadius: radii.xl,
+              padding: spacing.xl,
+              gap: spacing.lg,
+              width: "100%",
+              alignItems: "center",
+            }}
+          >
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: palette.brandSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="Car" size={32} color={palette.brand} />
+            </View>
+
+            <View style={{ gap: spacing.sm, alignItems: "center" }}>
+              <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
+                Switch Vehicle
+              </Text>
+              <Text
+                style={{
+                  ...typography.body,
+                  color: palette.textMuted,
+                  textAlign: "center",
+                  lineHeight: 22,
+                }}
+              >
+                {pendingVehicle
+                  ? `Switch to ${pendingVehicle.nickname || `${pendingVehicle.make} ${pendingVehicle.model}`} (${pendingVehicle.plateNumber})?`
+                  : ""}
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: spacing.md, width: "100%" }}>
+              <Pressable
+                onPress={() => setPendingVehicle(null)}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  borderWidth: 1.5,
+                  borderColor: palette.border,
+                  backgroundColor: pressed ? palette.homeBackground : "transparent",
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  if (pendingVehicle) {
+                    selectVehicle(pendingVehicle);
+                  }
+                  setPendingVehicle(null);
+                  setShowVehiclePicker(false);
+                }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: pressed ? palette.brandPressed : palette.brand,
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Switch</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       {/* OBD-II connect modal */}

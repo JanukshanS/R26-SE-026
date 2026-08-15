@@ -1,4 +1,5 @@
 import { getAccessToken, getCaptureApiBaseUrl } from '@/lib/capture-api';
+import { getActiveSessionId } from '@/lib/session-guard';
 
 export type ClaimSummary = {
   id: string;
@@ -35,6 +36,24 @@ function mapClaim(row: ClaimSummaryRow): ClaimSummary {
   };
 }
 
+// Populated by listMyClaims() on every call, and prefetched once at login (see
+// vehicleContext.tsx) so callers that don't need up-to-the-second freshness — e.g.
+// Home's Insurance button, which only needs "is there a finished claim" to decide
+// where to navigate — can read it instantly instead of paying a network round trip
+// on every tap. The My Claims list screen still calls listMyClaims() directly for a
+// guaranteed-fresh fetch every time it's opened; it doesn't read this cache.
+// Cleared on logout so it can never leak into a different account signing in on the
+// same device.
+let cachedClaims: ClaimSummary[] | null = null;
+
+export function getCachedClaims(): ClaimSummary[] | null {
+  return cachedClaims;
+}
+
+export function clearCachedClaims(): void {
+  cachedClaims = null;
+}
+
 /**
  * The signed-in driver's claim history, newest first. Returns `[]` for a guest
  * session — same graceful degradation as the rest of the claim-upload flow,
@@ -45,6 +64,7 @@ function mapClaim(row: ClaimSummaryRow): ClaimSummary {
  * driver's history.
  */
 export async function listMyClaims(): Promise<ClaimSummary[]> {
+  const requestedFor = getActiveSessionId();
   const token = await getAccessToken();
   if (!token) {
     return [];
@@ -78,5 +98,11 @@ export async function listMyClaims(): Promise<ClaimSummary[]> {
     throw new Error(`Failed to load claims (${res.status}).`);
   }
   const rows = (await res.json()) as ClaimSummaryRow[];
-  return rows.map(mapClaim);
+  const claims = rows.map(mapClaim);
+  // A slower request from an account that has since logged out must not clobber a
+  // newer account's cache once it finally resolves — see session-guard.ts.
+  if (getActiveSessionId() === requestedFor) {
+    cachedClaims = claims;
+  }
+  return claims;
 }
