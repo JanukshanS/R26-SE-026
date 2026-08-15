@@ -41,9 +41,12 @@ import type { TriageOBDData, VehicleState } from "./elm327.sim";
 import {
   discoverSupportedPids,
   queryPid as protocolQueryPid,
+  readEngineSignalsGeneric,
   readObdRawGeneric,
   runInitHandshake,
   sanitizeForLog,
+  withObdLock,
+  type EngineSignals,
   type RawObdPids,
 } from "./elm327.protocol";
 
@@ -540,6 +543,11 @@ function queryPid(pid: string): Promise<number[] | null> {
  */
 export async function readObd(): Promise<TriageOBDData | null> {
   if (!link) return null;
+  return withObdLock("ble.readObd", readObdUnlocked);
+}
+
+async function readObdUnlocked(): Promise<TriageOBDData | null> {
+  if (!link) return null;
 
   // Partial accumulator — only `available` is guaranteed. We fill what the
   // car answers. `as` keeps the public type stable while letting us omit the
@@ -607,11 +615,22 @@ export async function readObd(): Promise<TriageOBDData | null> {
  * from the result rather than failing the whole read.
  */
 export async function readObdRaw(): Promise<RawObdPids | null> {
-  if (!link) {
+  const l = link;
+  if (!l) {
     console.log(`${LOG_TAG} readObdRaw: no live link — skipping (caller falls back to synthetic)`);
     return null;
   }
-  return readObdRawGeneric(sendCommand, link.supportedPids, LOG_TAG);
+  return withObdLock("ble.readObdRaw", () => readObdRawGeneric(sendCommand, l.supportedPids, LOG_TAG));
+}
+
+/**
+ * Read engine-state signals (ATRV voltage, optionally RPM) for the engine
+ * monitor. Returns null only when there's no live link at all — an adapter
+ * that's reachable but says nothing useful still reports `adapterAlive`.
+ */
+export async function readEngineSignals(opts: { probeRpm: boolean }): Promise<EngineSignals | null> {
+  if (!link) return null;
+  return withObdLock("ble.readEngineSignals", () => readEngineSignalsGeneric(sendCommand, opts, LOG_TAG));
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -629,4 +648,4 @@ export async function disconnect(): Promise<void> {
 
 // Re-export the shared types for the facade's convenience.
 export type { TriageOBDData, VehicleState };
-export type { RawObdPids };
+export type { EngineSignals, RawObdPids };

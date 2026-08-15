@@ -8,6 +8,7 @@ import { BottomNavBar } from "@components/ui/bottom-nav-bar";
 import { Card } from "@components/ui/card";
 import { Icon } from "@components/ui/icon";
 import { ObdSourceBadge } from "@components/ui/obd-source-badge";
+import { EngineStateDebug } from "@components/ui/engine-state-debug";
 import { QuickAction } from "@components/ui/quick-action";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
@@ -328,6 +329,9 @@ export default function DriverHomeScreen() {
 
         {/* Trip recorder card */}
         <ObdSourceBadge />
+        {/* Engine-state detection readout — dev builds only while the
+            thresholds are still being validated against a real car. */}
+        {__DEV__ && <EngineStateDebug />}
         <TripCard vehicleId={vehicleId} driverId={user?._id ?? "guest"} />
 
         <View style={{ gap: spacing.md }}>

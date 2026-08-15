@@ -11,6 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.auth import require_user
 from app.database import Base, engine
+from app.migrations import ensure_columns
+from app.models import TripMetrics
 from app.routers.ingest import router as ingest_router
 from app.routers.predict import router as predict_router
 
@@ -91,6 +93,12 @@ def _load_metrics() -> Dict[str, Any]:
 async def lifespan(app: FastAPI):
     # Create SQLite tables
     Base.metadata.create_all(bind=engine)
+    # create_all only creates MISSING TABLES — it never adds a column to a table
+    # that already exists, and the deployed DB holds real trips that can't be
+    # regenerated (raw readings aren't persisted). See app/migrations.py.
+    added = ensure_columns(engine, TripMetrics)
+    if added:
+        print(f"[startup] schema guard added {len(added)} column(s): {', '.join(added)}")
     # Load ML models and best-model selection into app state
     app.state.models = _load_all_models()
     app.state.best_models = _load_best_models()

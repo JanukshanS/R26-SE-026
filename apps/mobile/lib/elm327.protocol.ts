@@ -32,6 +32,62 @@ export interface RawObdPids {
   intake_air_temp_c?: number;
 }
 
+/**
+ * Engine-state signals for `engineMonitor.ts`. Deliberately NOT part of
+ * `RawObdPids`: these are read on a different cadence, for a different purpose,
+ * and `voltage` comes from the ADAPTER (ATRV, OBD pin 16 — permanently live,
+ * not switched by the ignition) rather than from the ECU, so it answers even
+ * with the car fully off. That is the whole point: it's the only signal
+ * available before the engine has been started.
+ */
+export interface EngineSignals {
+  /** ATRV volts at OBD pin 16. null = the adapter answered but unparseably. */
+  voltage: number | null;
+  /**
+   * 010C RPM — only probed when `probeRpm` was requested. null means either
+   * "not probed" or "the bus is asleep / didn't answer", which are the same
+   * fact for engine-state purposes.
+   */
+  rpm: number | null;
+  /**
+   * Did the adapter reply to ATRV at all. This is the ONLY way to distinguish
+   * "engine off, adapter fine" from "adapter unreachable" — they look identical
+   * in every other signal and demand opposite handling upstream (stop the trip
+   * vs. keep recording and retry).
+   */
+  adapterAlive: boolean;
+}
+
+// ── Command serialization ──────────────────────────────────────────────────
+// Each transport's `sendCommand` stores its resolver in a SINGLE SLOT, not a
+// queue (see `waiter` in elm327.ble.ts / elm327.classic.ts): two overlapping
+// commands clobber each other's resolver and both hang until timeout. Every
+// caller used to be strictly sequential so this never bit, but the engine
+// monitor polls on its own timer, so it no longer holds. Every multi-command
+// sequence must run inside this lock.
+let chain: Promise<unknown> = Promise.resolve();
+
+export function withObdLock<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  const queuedAt = Date.now();
+  const run = chain.then(
+    // Run regardless of whether the predecessor resolved or rejected — one
+    // caller's timeout must not cancel everyone behind it.
+    () => runLogged(label, queuedAt, fn),
+    () => runLogged(label, queuedAt, fn)
+  );
+  // A rejection here must never poison the chain for subsequent callers.
+  chain = run.catch(() => {});
+  return run;
+}
+
+function runLogged<T>(label: string, queuedAt: number, fn: () => Promise<T>): Promise<T> {
+  const waited = Date.now() - queuedAt;
+  // Only worth a line when the wait was long enough to delay a poll — an
+  // 8-PID read against a dead link holds the lock for up to 32s.
+  if (waited > 2000) console.log(`[ELM327:Lock] "${label}" waited ${waited}ms for the bus`);
+  return fn();
+}
+
 export function sanitizeForLog(s: string): string {
   return s.replace(/\r/g, "\\r").replace(/\n/g, "\\n");
 }
@@ -254,4 +310,77 @@ export async function readObdRawGeneric(
   );
 
   return out;
+}
+
+// ── Engine-state signals ───────────────────────────────────────────────────
+
+/** Volts outside this range are clone garbage, not a reading. */
+const V_MIN_SANE = 4.0;
+const V_MAX_SANE = 36.0;
+
+/**
+ * Parse an ELM327 `ATRV` reply into volts. Unlike a Mode 01 response this is
+ * NOT a `41XX` frame — the adapter answers in plain text ("12.5V"), so
+ * `parsePidBytes` can't be reused. Echo may or may not be off, so the command
+ * itself can be present: "ATRV\r12.5V\r\r>".
+ */
+export function parseAdapterVoltage(raw: string, logTag: string): number | null {
+  const cleaned = raw.toUpperCase().replace(/[\r\n>]/g, " ").trim();
+  const m = cleaned.match(/(\d{1,2}(?:\.\d+)?)\s*V/);
+  if (!m) {
+    console.log(`${logTag} ATRV unparseable — raw="${sanitizeForLog(raw)}"`);
+    return null;
+  }
+  const volts = parseFloat(m[1]);
+  if (!Number.isFinite(volts) || volts < V_MIN_SANE || volts > V_MAX_SANE) {
+    console.log(`${logTag} ATRV out of range (${volts}V) — treating as garbage, raw="${sanitizeForLog(raw)}"`);
+    return null;
+  }
+  return volts;
+}
+
+/**
+ * Read the signals the engine monitor needs.
+ *
+ * ATRV is answered by the adapter itself off OBD pin 16 (permanent +12V, not
+ * switched by the ignition) with no bus transaction, so it returns in ~50ms
+ * even when the ECU is fast asleep — and it never costs the 4s bus timeout
+ * unless the link itself is dead. That's what makes a 5-second poll viable.
+ *
+ * RPM is a confirmation probe for transitions only, never a routine poll: a
+ * PID query against a sleeping bus costs a full timeout and wakes nothing.
+ *
+ * Never throws — worst case reports `adapterAlive: false`.
+ */
+export async function readEngineSignalsGeneric(
+  sendCommand: SendCommandFn,
+  opts: { probeRpm: boolean },
+  logTag: string
+): Promise<EngineSignals> {
+  let raw: string;
+  try {
+    raw = await sendCommand("ATRV");
+  } catch (e) {
+    // A THROWN sendCommand is a transport failure (timeout/write error) —
+    // i.e. the adapter is unreachable. Distinct from "answered, engine off".
+    console.log(`${logTag} ATRV failed (adapter unreachable): ${e instanceof Error ? e.message : String(e)}`);
+    return { voltage: null, rpm: null, adapterAlive: false };
+  }
+
+  // Resolved at all ⇒ the adapter is alive, even if the value won't parse.
+  const voltage = parseAdapterVoltage(raw, logTag);
+
+  let rpm: number | null = null;
+  if (opts.probeRpm) {
+    // Not gated on isPidSupported: 010C is universal, and discovery may
+    // legitimately have come back empty if it ran with the ignition off.
+    const bytes = await queryPid(sendCommand, "010C", logTag);
+    if (bytes && bytes.length >= 2) rpm = Number((((bytes[0] * 256) + bytes[1]) / 4).toFixed(0));
+  }
+
+  console.log(
+    `${logTag} engineSignals: voltage=${voltage ?? "?"}V` +
+    (opts.probeRpm ? ` rpm=${rpm ?? "no-answer"}` : " (rpm not probed)")
+  );
+  return { voltage, rpm, adapterAlive: true };
 }
