@@ -230,6 +230,35 @@ class ComponentHealth(BaseModel):
     max_lifespan_km: int
     confidence_note: str
 
+    # ── Wear baseline (additive; all None for a vehicle with no baseline) ──
+    # km this specific part has run since it went in, and the odometer reading
+    # at which that happened.
+    km_on_component: Optional[float] = None
+    install_km: Optional[float] = None
+    # How install_km was arrived at: user | inferred_schedule |
+    # inferred_original | unknown. Paired with is_estimated so the UI can
+    # never present a guess as a stated fact.
+    baseline_basis: Optional[str] = None
+    is_estimated: Optional[bool] = None
+    # Which term produced predicted_rul_km: "wear" (mileage since install) or
+    # "model" (sensor signature). Exposed because the two can disagree, and a
+    # silent flip between them would make the number look unstable for no
+    # visible reason.
+    rul_source: Optional[str] = None
+
+
+class EngineOilStatus(BaseModel):
+    """Oil is a service INTERVAL, not a component lifespan.
+
+    km_since_change is None when no oil change has ever been logged - the UI
+    must say "not recorded" rather than implying the oil is fresh.
+    """
+    interval_km: int
+    km_since_change: Optional[float] = None
+    km_remaining: Optional[float] = None
+    is_overdue: bool = False
+    last_change_odometer_km: Optional[float] = None
+
 
 class VehicleHealthResponse(BaseModel):
     vehicle_id: str
@@ -239,3 +268,96 @@ class VehicleHealthResponse(BaseModel):
     total_mileage_km: float
     components: List[ComponentHealth]
     timestamp: str
+
+    # ── Additive ──────────────────────────────────────────────────────────
+    # The real odometer (baseline + trips) vs what the app has recorded itself.
+    # total_mileage_km above now equals odometer_km when a baseline exists, so
+    # these make the difference inspectable rather than implied.
+    odometer_km: Optional[float] = None
+    baseline_odometer_km: Optional[float] = None
+    recorded_trip_km: Optional[float] = None
+    # True while too little driving has been recorded for the averages to have
+    # settled. The number is still shown - hiding it would be worse - but the UI
+    # should mark it as provisional rather than final.
+    is_provisional: Optional[bool] = None
+    min_distance_for_confidence_km: Optional[float] = None
+    vehicle_condition: Optional[str] = None      # new | used
+    engine_oil: Optional[EngineOilStatus] = None
+
+
+# ---------------------------------------------------------------------------
+# Service records and vehicle baseline
+# ---------------------------------------------------------------------------
+
+class ServiceRecordCreate(BaseModel):
+    """Matches apps/mobile/lib/maintenanceApi.ts ServiceRecordCreate verbatim,
+    plus one additive optional field.
+
+    `basis` is the whole reason the "not sure" rule lives on the server:
+      absent / "user" -> km_on_component is taken at face value. Today's
+                         add-service-record.tsx sends km_on_component: 0, which
+                         correctly means "replaced today, zero km on the part".
+      "unknown"       -> the driver said "not sure": km_on_component is IGNORED
+                         and the server infers the install point from the
+                         odometer. Without this flag the inference would have to
+                         be duplicated in TypeScript and the two would drift.
+    """
+    component: str                              # engine|brake|tire|battery|full_service
+    service_type: str
+    service_date: str
+    km_on_component: float = 0.0
+    basis: Optional[str] = Field(None, pattern="^(user|unknown)$")
+    item_name: Optional[str] = None
+    is_original: Optional[str] = Field(None, pattern="^(original|used)$")
+    garage_name: Optional[str] = None
+    cost_lkr: Optional[float] = None
+    notes: Optional[str] = None
+
+
+class ServiceRecordOut(BaseModel):
+    id: str
+    vehicle_id: str
+    component: str
+    service_type: str
+    service_date: str
+    created_at: str
+    km_on_component: float
+    odometer_km_at_service: float
+    install_km: float
+    basis: str
+    is_estimated: bool
+    resets_window: bool
+    expected_life_km_at_estimate: Optional[float] = None
+    item_name: Optional[str] = None
+    is_original: Optional[str] = None
+    garage_name: Optional[str] = None
+    cost_lkr: Optional[float] = None
+    notes: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class LatestServiceEntry(BaseModel):
+    service_type: str
+    service_date: str
+    km_on_component: float
+    resets_window: bool
+    install_km: float
+    km_on_component_now: float
+    basis: str
+    is_estimated: bool
+
+
+class VehicleBaselineUpsert(BaseModel):
+    odometer_km: float = Field(..., ge=0, le=2_000_000)
+    condition: str = Field(..., pattern="^(new|used)$")
+
+
+class VehicleBaselineOut(BaseModel):
+    vehicle_id: str
+    condition: str
+    baseline_odometer_km: float
+    odometer_km: float
+    recorded_trip_km: float
+    recorded_at: str
+    updated_at: str

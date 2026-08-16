@@ -1,0 +1,163 @@
+"""Health must never climb on its own.
+
+Reproduces what was observed in real testing: health read 56%, then 64%, then
+67%, then fell back to 52% - because it was computed from a rolling average of
+driving BEHAVIOUR, so a few gentle trips made worn parts look recovered.
+"""
+import sys
+import uuid
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.auth import require_user
+from app.baseline import MIN_DISTANCE_FOR_CONFIDENCE_KM
+from app.database import Base, get_db
+from app.main import app
+from app.routers.predict import COMPONENT_FEATURE_MAP
+
+
+class _Swinging:
+    """Stands in for the ML models, answering differently each time it is asked.
+
+    Lets the test drive health up and down on demand, which is the behaviour
+    being guarded against - no dependence on what the real .joblib files think.
+    """
+
+    def __init__(self):
+        self.rul = 20_000.0
+
+    def predict(self, X):
+        return [self.rul]
+
+
+class _Registry:
+    def __init__(self, model):
+        self._m = model
+
+    def get(self, key):
+        return self._m
+
+    def __len__(self):
+        return 8
+
+    def available(self):
+        return []
+
+
+@pytest.fixture
+def ctx(tmp_path):
+    eng = create_engine(f"sqlite:///{tmp_path/'m.db'}", connect_args={"check_same_thread": False})
+    Session = sessionmaker(bind=eng)
+    Base.metadata.create_all(eng)
+
+    def _get_db():
+        db = Session()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[require_user] = lambda: "u1"
+    model = _Swinging()
+    with TestClient(app) as c:
+        app.state.models = _Registry(model)
+        app.state.best_models = {k: {"algorithm": "rf", "r2": 0.9} for k in COMPONENT_FEATURE_MAP}
+        app.state.metrics = {}
+        yield c, model
+    app.dependency_overrides.clear()
+    eng.dispose()
+
+
+def _trip(client, vid, km_per_reading=60.0):
+    body = dict(trip_id=str(uuid.uuid4()), vehicle_id=vid, driver_id="d",
+                start_timestamp="2026-08-16T10:00:00Z",
+                obd_readings=[dict(timestamp_offset_sec=i*300, rpm=1500, speed_kmh=km_per_reading,
+                                   coolant_temp_c=90, battery_voltage_v=13.3, ltft_percent=0.0,
+                                   throttle_percent=20, engine_load_percent=40,
+                                   intake_air_temp_c=35) for i in range(5)],
+                imu_readings=[dict(timestamp_offset_sec=i*120, accel_x=0.2, accel_y=0,
+                                   accel_z=-1.0, gyro_x=0, gyro_y=0, gyro_z=0.1)
+                              for i in range(10)])
+    r = client.post("/process-trip", json=body)
+    assert r.status_code == 201, r.text
+
+
+def _brake_health(client, vid):
+    h = client.get(f"/vehicle/{vid}/health").json()
+    return {c["component"]: c for c in h["components"]}["Brake Pads"]["health_pct"]
+
+
+def test_health_never_climbs_after_gentle_driving(ctx):
+    client, model = ctx
+    V = "SWING"
+
+    _trip(client, V)
+    model.rul = 20_000.0
+    first = _brake_health(client, V)
+
+    # The driver has a gentle week; the model now says the parts will last far
+    # longer. Health must NOT go up - brake pads do not grow back.
+    model.rul = 39_000.0
+    _trip(client, V)
+    second = _brake_health(client, V)
+    assert second <= first, f"health climbed {first} -> {second}"
+
+    # Harsh driving may still push it down.
+    model.rul = 8_000.0
+    _trip(client, V)
+    third = _brake_health(client, V)
+    assert third < second
+
+    # And it stays down afterwards, even if driving improves again.
+    model.rul = 39_000.0
+    _trip(client, V)
+    assert _brake_health(client, V) <= third
+
+
+def test_replacing_a_part_does_reset_it(ctx):
+    """The clamp must not trap a car forever: fitting a new part is the one
+    thing that legitimately restores health."""
+    client, model = ctx
+    V = "RESET"
+    model.rul = 5_000.0
+    _trip(client, V)
+    worn = _brake_health(client, V)
+    assert worn < 30
+
+    client.post(f"/vehicle/{V}/service", json={
+        "component": "brake", "service_type": "replacement",
+        "service_date": "2026-08-16", "km_on_component": 0})
+
+    model.rul = 39_000.0
+    _trip(client, V)
+    assert _brake_health(client, V) > worn, "a new part must be able to raise health"
+
+
+def test_early_readings_are_flagged_provisional(ctx):
+    client, model = ctx
+    V = "EARLY"
+    _trip(client, V, km_per_reading=6.0)     # ~2 km, well under the 50 km mark
+    h = client.get(f"/vehicle/{V}/health").json()
+    assert h["is_provisional"] is True
+    assert h["min_distance_for_confidence_km"] == MIN_DISTANCE_FOR_CONFIDENCE_KM
+    assert "provisional" in h["components"][0]["confidence_note"]
+
+
+def test_short_trips_are_never_discarded(ctx):
+    """Someone driving 800 m twice a day still accumulates real wear, and
+    short-hop driving is harder on an engine than long runs. Their data must
+    count."""
+    client, model = ctx
+    V = "SHORTHOP"
+    for _ in range(6):
+        _trip(client, V, km_per_reading=4.0)   # ~1.3 km per trip
+    h = client.get(f"/vehicle/{V}/health").json()
+    assert h["trip_count"] == 6
+    assert h["total_mileage_km"] > 0

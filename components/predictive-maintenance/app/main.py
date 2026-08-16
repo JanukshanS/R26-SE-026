@@ -12,9 +12,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.auth import require_user
 from app.database import Base, engine
 from app.migrations import ensure_columns
-from app.models import TripMetrics
+from app.models import ComponentHealthFloor, ServiceRecord, TripMetrics, VehicleBaseline
 from app.routers.ingest import router as ingest_router
 from app.routers.predict import router as predict_router
+from app.routers.service import router as service_router
 
 MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models")
 
@@ -96,7 +97,7 @@ async def lifespan(app: FastAPI):
     # create_all only creates MISSING TABLES — it never adds a column to a table
     # that already exists, and the deployed DB holds real trips that can't be
     # regenerated (raw readings aren't persisted). See app/migrations.py.
-    added = ensure_columns(engine, TripMetrics)
+    added = ensure_columns(engine, TripMetrics, ServiceRecord, VehicleBaseline, ComponentHealthFloor)
     if added:
         print(f"[startup] schema guard added {len(added)} column(s): {', '.join(added)}")
     # Load ML models and best-model selection into app state
@@ -127,6 +128,7 @@ app.add_middleware(
 
 app.include_router(ingest_router, tags=["Ingest"], dependencies=[Depends(require_user)])
 app.include_router(predict_router, tags=["Predict"], dependencies=[Depends(require_user)])
+app.include_router(service_router, tags=["Service"], dependencies=[Depends(require_user)])
 
 
 @app.get("/health", tags=["Health"])

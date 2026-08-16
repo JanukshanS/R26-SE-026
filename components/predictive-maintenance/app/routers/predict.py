@@ -9,7 +9,23 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import TripMetrics
-from app.schemas import ComponentHealth, ComponentRUL, PredictionRequest, PredictionResponse, VehicleHealthResponse, VehicleRULResponse
+from app.baseline import (
+    MIN_DISTANCE_FOR_CONFIDENCE_KM,
+    TIRE_MILEAGE_TRAINING_MAX_KM,
+    apply_health_floor,
+    current_odometer_km,
+    engine_oil_state,
+    resolve_component_states,
+)
+from app.schemas import (
+    ComponentHealth,
+    ComponentRUL,
+    EngineOilStatus,
+    PredictionRequest,
+    PredictionResponse,
+    VehicleHealthResponse,
+    VehicleRULResponse,
+)
 
 router = APIRouter()
 
@@ -127,6 +143,70 @@ def vehicle_health(
       Critical  < 25%
     """
     trips = db.query(TripMetrics).filter(TripMetrics.vehicle_id == vehicle_id).all()
+
+    if not trips:
+        # No driving data yet - but a registered used car already knows plenty.
+        # Wear is derived from the odometer and the registration baseline, not
+        # from trips, so a driver who has just added a 141,000 km car should see
+        # honest component health immediately rather than an empty screen.
+        odometer_km, recorded_trip_km, baseline = current_odometer_km(db, vehicle_id)
+        if baseline is not None:
+            states = resolve_component_states(db, vehicle_id, odometer_km, baseline)
+            oil = engine_oil_state(db, vehicle_id, odometer_km)
+            comps: List[ComponentHealth] = []
+            scores: List[float] = []
+            for key, label in COMPONENT_LABELS.items():
+                state = states.get(key)
+                if state is None:
+                    # Engine: judged on how it runs, which needs trips.
+                    comps.append(ComponentHealth(
+                        component=label, health_pct=0.0, status="No data",
+                        predicted_rul_km=0.0,
+                        max_lifespan_km=COMPONENT_MAX_LIFESPAN_KM[key],
+                        confidence_note="Needs a recorded trip to assess",
+                    ))
+                    continue
+                pct = round(min(state.wear_rul_km / state.expected_life_km * 100, 100.0), 1)
+                scores.append(pct)
+                note = (f"wear-limited ({state.km_on_component:,.0f}/"
+                        f"{state.expected_life_km:,.0f} km on part)")
+                if state.is_estimated:
+                    note = "Estimated baseline - " + note
+                comps.append(ComponentHealth(
+                    component=label, health_pct=pct, status=_health_status(pct),
+                    predicted_rul_km=round(state.wear_rul_km, 1),
+                    max_lifespan_km=COMPONENT_MAX_LIFESPAN_KM[key],
+                    confidence_note=note,
+                    km_on_component=round(state.km_on_component, 1),
+                    install_km=round(state.install_km, 1),
+                    baseline_basis=state.basis,
+                    is_estimated=state.is_estimated,
+                    rul_source="wear",
+                ))
+            overall = round(float(np.mean(scores)), 1) if scores else 0.0
+            return VehicleHealthResponse(
+                vehicle_id=vehicle_id,
+                overall_health_pct=overall,
+                overall_status=_health_status(overall) if scores else "No data",
+                trip_count=0,
+                total_mileage_km=round(odometer_km, 2),
+                components=comps,
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                odometer_km=round(odometer_km, 1),
+                baseline_odometer_km=round(baseline.baseline_odometer_km, 1),
+                recorded_trip_km=round(recorded_trip_km, 2),
+                vehicle_condition=baseline.condition,
+                engine_oil=EngineOilStatus(
+                    interval_km=oil.interval_km,
+                    km_since_change=(round(oil.km_since_change, 1)
+                                     if oil.km_since_change is not None else None),
+                    km_remaining=(round(oil.km_remaining, 1)
+                                  if oil.km_remaining is not None else None),
+                    is_overdue=oil.is_overdue,
+                    last_change_odometer_km=oil.last_change_odometer_km,
+                ),
+            )
+
     if not trips:
         # No trip data yet — return a neutral "no data" health response
         no_data_component = ComponentHealth(
@@ -162,7 +242,15 @@ def vehicle_health(
 
     # Distance-weighted feature averages
     weights = np.array([t.distance_km for t in trips])
-    total_mileage = float(weights.sum())
+
+    # The REAL odometer, not just what this app has watched. total_mileage_km is
+    # fed positionally to the tyre model, and in training that column is the
+    # odometer of a vehicle that started at 0 - so summing app-recorded trips
+    # told the model "20 km" about a car with 41,000 km on its tyres.
+    odometer_km, recorded_trip_km, baseline = current_odometer_km(db, vehicle_id)
+    total_mileage = odometer_km
+    states = resolve_component_states(db, vehicle_id, odometer_km, baseline)
+    oil = engine_oil_state(db, vehicle_id, odometer_km)
 
     def wavg(vals: List[float]) -> float:
         return float(np.average(vals, weights=weights))
@@ -194,10 +282,72 @@ def vehicle_health(
         if model is None:
             raise HTTPException(status_code=503, detail=f"Model '{component}_{algo_suffix}' not found.")
 
-        X = np.array([[aggregated[f] for f in features]])
-        rul_km = round(max(float(model.predict(X)[0]), 0.0), 1)
+        # Clamp only what the MODEL sees. 150,029 km is the largest
+        # total_mileage_km in the training set; above it the Random Forest
+        # saturates and returns a confidently flat answer. Never clamp what we
+        # store or display.
+        feature_values = []
+        for f in features:
+            v = aggregated[f]
+            if f == "total_mileage_km":
+                v = min(v, TIRE_MILEAGE_TRAINING_MAX_KM)
+            feature_values.append(v)
 
-        health_pct = round(min(rul_km / max_km * 100, 100.0), 1)
+        X = np.array([feature_values])
+        model_rul_km = round(max(float(model.predict(X)[0]), 0.0), 1)
+
+        state = states.get(component)
+        if state is None:
+            # No baseline, or engine (deliberately sensor-only: engines aren't
+            # replaced on a schedule, so "km since install" has no meaning).
+            # Byte-identical to the behaviour before wear baselines existed.
+            rul_km = model_rul_km
+            health_pct = round(min(rul_km / max_km * 100, 100.0), 1)
+            note = f"{algo_label} (R²={r2_score:.4f})"
+            extra = {}
+        else:
+            # The wear term is what we KNOW (how far this part has run since it
+            # went in); the model term is what the sensors SEE (whether it's
+            # degrading faster than mileage alone implies). Whichever says
+            # "sooner" wins: an early alert is recoverable, a late one is not.
+            rul_km = round(min(state.wear_rul_km, model_rul_km), 1)
+            source = "wear" if state.wear_rul_km <= model_rul_km else "model"
+            health_pct = round(min(rul_km / state.expected_life_km * 100, 100.0), 1)
+            if source == "wear":
+                note = (
+                    f"wear-limited ({state.km_on_component:,.0f}/"
+                    f"{state.expected_life_km:,.0f} km on part)"
+                )
+                if state.is_estimated:
+                    note = "Estimated baseline - " + note
+            else:
+                note = f"sensor-limited - {algo_label} (R²={r2_score:.4f})"
+            extra = {
+                "km_on_component": round(state.km_on_component, 1),
+                "install_km": round(state.install_km, 1),
+                "baseline_basis": state.basis,
+                "is_estimated": state.is_estimated,
+                "rul_source": source,
+            }
+
+        # Parts do not heal. Health used to be a read-out of recent driving
+        # style, so a few gentle trips pushed it UP - 56 then 64 then 67 - which
+        # told the driver their worn parts had recovered. Clamp to the worst
+        # reading ever seen; only fitting a new part clears it.
+        health_pct, rul_km, clamped = apply_health_floor(
+            db, vehicle_id, component, health_pct, rul_km
+        )
+        if clamped:
+            note = note + " - held at the worst reading so far"
+
+        # Early on, a single trip moves the averages a lot. Show the number but
+        # say it is still settling rather than letting it read as final.
+        if recorded_trip_km < MIN_DISTANCE_FOR_CONFIDENCE_KM:
+            note = (
+                f"provisional - only {recorded_trip_km:,.0f} km recorded so far; "
+                f"settles after about {MIN_DISTANCE_FOR_CONFIDENCE_KM:,.0f} km. "
+            ) + note
+
         health_scores.append(health_pct)
 
         components.append(
@@ -207,7 +357,8 @@ def vehicle_health(
                 status=_health_status(health_pct),
                 predicted_rul_km=rul_km,
                 max_lifespan_km=max_km,
-                confidence_note=f"{algo_label} (R²={r2_score:.4f})",
+                confidence_note=note,
+                **extra,
             )
         )
 
@@ -221,6 +372,25 @@ def vehicle_health(
         total_mileage_km=round(total_mileage, 2),
         components=components,
         timestamp=datetime.now(timezone.utc).isoformat(),
+        odometer_km=round(odometer_km, 1),
+        baseline_odometer_km=(
+            round(baseline.baseline_odometer_km, 1) if baseline is not None else None
+        ),
+        recorded_trip_km=round(recorded_trip_km, 2),
+        is_provisional=recorded_trip_km < MIN_DISTANCE_FOR_CONFIDENCE_KM,
+        min_distance_for_confidence_km=MIN_DISTANCE_FOR_CONFIDENCE_KM,
+        vehicle_condition=baseline.condition if baseline is not None else None,
+        engine_oil=EngineOilStatus(
+            interval_km=oil.interval_km,
+            km_since_change=(
+                round(oil.km_since_change, 1) if oil.km_since_change is not None else None
+            ),
+            km_remaining=(
+                round(oil.km_remaining, 1) if oil.km_remaining is not None else None
+            ),
+            is_overdue=oil.is_overdue,
+            last_change_odometer_km=oil.last_change_odometer_km,
+        ),
     )
 
 

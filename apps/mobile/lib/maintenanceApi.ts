@@ -179,6 +179,14 @@ export interface ServiceRecordCreate {
   service_type: ServiceType;
   service_date: string;
   km_on_component?: number;
+  /**
+   * "user"    - km_on_component is what the driver told us.
+   * "unknown" - the driver said "not sure"; the server ignores km_on_component
+   *             and works out the install point from the odometer instead.
+   * Left to the server on purpose so the "assume it was serviced on schedule"
+   * rule lives in exactly one place and can't drift between app and backend.
+   */
+  basis?: "user" | "unknown";
   item_name?: string;
   is_original?: "original" | "used";
   garage_name?: string;
@@ -398,4 +406,127 @@ export async function getVehicleTripSummary(vehicleId: string): Promise<VehicleT
   } finally {
     cancel();
   }
+}
+
+
+// ── Vehicle registration baseline ──────────────────────────────────────────
+// What the odometer read, and what condition each part was in, at the moment
+// the driver added the car. Set ONCE at registration and never editable after:
+// it is a statement about the vehicle's history, and letting it move would let
+// someone quietly rewrite their maintenance position. Servicing done later is
+// recorded as normal service records.
+
+export type VehicleCondition = "new" | "used";
+
+export interface ComponentLifespans {
+  expected_life_km: Record<string, number>;
+  wear_components: string[];
+  engine_oil_interval_km: number;
+}
+
+/** Expected life per component, so the registration screens can preview an
+ *  estimate without reimplementing the server's rule. */
+export async function getComponentLifespans(): Promise<ComponentLifespans | null> {
+  const { signal, cancel } = timeoutSignal(6000);
+  try {
+    const res = await fetch(`${BASE_URL}/components/lifespans`, {
+      headers: await authHeaders(),
+      signal,
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as ComponentLifespans;
+  } catch {
+    return null;
+  } finally {
+    cancel();
+  }
+}
+
+/** What the driver said about one component at registration. */
+export type ComponentBaselineInput =
+  | { known: true; installKm: number }   // "replaced at X km"
+  | { known: false };                    // "not sure" - the server estimates
+
+export interface VehicleBaselineInput {
+  odometerKm: number;
+  condition: VehicleCondition;
+  /** Only for a used vehicle; omitted keys are estimated server-side anyway. */
+  components?: Partial<Record<ComponentKey, ComponentBaselineInput>>;
+}
+
+/**
+ * Register the vehicle's starting condition. Best-effort by design: the server
+ * re-derives an estimate from the odometer at request time, so a dropped call
+ * costs the audit trail, not the health numbers.
+ *
+ * Returns true when the baseline itself was stored.
+ */
+export async function registerVehicleBaseline(
+  vehicleId: string,
+  input: VehicleBaselineInput
+): Promise<boolean> {
+  const { signal, cancel } = timeoutSignal(8000);
+  let baselineOk = false;
+  try {
+    const res = await fetch(`${BASE_URL}/vehicle/${encodeURIComponent(vehicleId)}/baseline`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify({ odometer_km: input.odometerKm, condition: input.condition }),
+      signal,
+    });
+    // 409 means it was already registered. Not an error to surface: the record
+    // is immutable, so "already set" is the correct end state.
+    baselineOk = res.ok || res.status === 409;
+    if (!baselineOk) {
+      console.log(`[baseline] PUT failed (${res.status}) for ${vehicleId}`);
+    }
+  } catch (e) {
+    console.log(`[baseline] PUT threw for ${vehicleId}: ${e instanceof Error ? e.message : e}`);
+  } finally {
+    cancel();
+  }
+
+  if (input.condition !== "used" || !input.components) return baselineOk;
+
+  const today = new Date().toISOString().slice(0, 10);
+  for (const [component, answer] of Object.entries(input.components)) {
+    if (!answer) continue;
+    try {
+      await logService(vehicleId, {
+        component: component as ComponentKey,
+        service_type: "initial_reading",
+        service_date: today,
+        km_on_component: answer.known ? Math.max(input.odometerKm - answer.installKm, 0) : 0,
+        basis: answer.known ? "user" : "unknown",
+      });
+    } catch (e) {
+      // Keep going: one failed component must not block the others, and the
+      // server estimates anything missing at request time regardless.
+      console.log(`[baseline] ${component} initial reading failed: ${e instanceof Error ? e.message : e}`);
+    }
+  }
+  return baselineOk;
+}
+
+/**
+ * Mirror of the server's "assume it was serviced on schedule" rule, used ONLY
+ * to preview an estimate while the driver is still filling the form. The stored
+ * answer always comes from the server - this never writes anything.
+ */
+export function previewInstallKm(
+  odometerKm: number,
+  expectedLifeKm: number
+): { installKm: number; kmOnComponent: number } {
+  if (expectedLifeKm <= 0 || odometerKm <= 0) return { installKm: 0, kmOnComponent: Math.max(odometerKm, 0) };
+  if (expectedLifeKm >= odometerKm) return { installKm: 0, kmOnComponent: odometerKm };
+  let n = Math.floor(odometerKm / expectedLifeKm);
+  let installKm = n * expectedLifeKm;
+  let kmOn = odometerKm - installKm;
+  if (kmOn === 0) {
+    // Exact multiple: treat as due now rather than brand new. An estimate must
+    // never claim a part is fresh.
+    installKm -= expectedLifeKm;
+    kmOn = expectedLifeKm;
+  }
+  return { installKm, kmOnComponent: kmOn };
 }
