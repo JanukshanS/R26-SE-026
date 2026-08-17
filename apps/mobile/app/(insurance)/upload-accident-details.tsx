@@ -192,29 +192,38 @@ export default function UploadAccidentDetailsScreen() {
     () => existingClaimId != null && existingClaim == null
   );
 
-  useEffect(() => {
-    if (!existingClaimId) {
-      return;
-    }
-    let cancelled = false;
-    listMyClaims()
-      .then((claims) => {
-        if (!cancelled) {
-          setExistingClaim(claims.find((c) => c.id === existingClaimId) ?? null);
-        }
-      })
-      .catch(() => {
-        // Best-effort refresh — keep whatever the cache already seeded above.
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoadingExistingClaim(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [existingClaimId]);
+  // useFocusEffect, not useEffect: a plain mount-once effect would only ever see
+  // this claim's status as of the first visit — if the driver opens this screen
+  // while the 3D pipeline is still running (or before an insurer has approved it)
+  // and later comes back to it, a mount-once fetch would keep showing the stale
+  // status forever. Refetching on every focus means navigating away and back
+  // always reflects the current server state.
+  useFocusEffect(
+    useCallback(() => {
+      if (!existingClaimId) {
+        return;
+      }
+      let cancelled = false;
+      setLoadingExistingClaim(true);
+      listMyClaims()
+        .then((claims) => {
+          if (!cancelled) {
+            setExistingClaim(claims.find((c) => c.id === existingClaimId) ?? null);
+          }
+        })
+        .catch(() => {
+          // Best-effort refresh — keep whatever was already shown.
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setLoadingExistingClaim(false);
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [existingClaimId])
+  );
 
   const isExistingClaimMode = existingClaimId != null;
   const displayLocationLine = isExistingClaimMode
@@ -472,7 +481,9 @@ export default function UploadAccidentDetailsScreen() {
 
           <Pressable style={({ pressed }) => [styles.insuranceRowBtn, pressed && styles.insuranceRowPressed]}>
             <Text style={styles.insuranceRowLabel}>Insurance</Text>
-            <Text style={styles.insuranceRowStatus}>Pending</Text>
+            <Text style={[styles.insuranceRowStatus, existingClaim?.status === 'approved' && styles.insuranceRowStatusApproved]}>
+              {existingClaim?.status === 'approved' ? 'Approved' : 'Pending'}
+            </Text>
           </Pressable>
 
           {resolvingInsurer ? (
@@ -680,6 +691,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: COLORS.textMuted,
+  },
+  insuranceRowStatusApproved: {
+    color: COLORS.success,
   },
   callInsurerBtn: {
     backgroundColor: COLORS.screen,
