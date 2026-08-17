@@ -10,3 +10,6 @@ joblib==1.4.2
 python-dotenv==1.0.1
 pydantic==2.7.1
 PyJWT[crypto]==2.13.0
+
+# PostgreSQL driver (Supabase). Binary wheel so the image needs no build tools.
+psycopg2-binary==2.9.10

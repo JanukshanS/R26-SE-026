@@ -39,14 +39,16 @@ def ensure_columns(engine: Engine, *models) -> List[str]:
     empty list when everything already matches, which is the steady state — the
     guard is safe to run on every boot.
 
-    No-ops on non-SQLite dialects: a real database should be migrated with a
-    proper tool, and emitting dialect-specific DDL here would be worse than
-    doing nothing loudly.
+    Works on SQLite and PostgreSQL, which both accept plain ALTER TABLE ... ADD
+    COLUMN. Any other dialect is refused loudly rather than guessed at.
     """
-    if engine.dialect.name != "sqlite":
+    # SQLite and PostgreSQL both take plain ALTER TABLE ... ADD COLUMN, and in
+    # both it is a metadata-only operation for a nullable column. Anything else
+    # (MySQL quirks, a future warehouse) is refused rather than guessed at.
+    if engine.dialect.name not in ("sqlite", "postgresql"):
         print(
-            f"[migrations] dialect is '{engine.dialect.name}', not sqlite — "
-            f"skipping the additive column guard (migrate with a real tool)"
+            f"[migrations] dialect is '{engine.dialect.name}' - skipping the "
+            f"additive column guard (migrate with a real tool)"
         )
         return []
 
@@ -55,11 +57,11 @@ def ensure_columns(engine: Engine, *models) -> List[str]:
 
     for model in models:
         table = model.__table__
-        if not inspector.has_table(table.name):
+        if not inspector.has_table(table.name, schema=table.schema):
             # create_all will make it; nothing to patch.
             continue
 
-        existing = {c["name"] for c in inspector.get_columns(table.name)}
+        existing = {c["name"] for c in inspector.get_columns(table.name, schema=table.schema)}
 
         for column in table.columns:
             if column.name in existing:
@@ -77,8 +79,11 @@ def ensure_columns(engine: Engine, *models) -> List[str]:
                 continue
 
             ddl = column.type.compile(engine.dialect)
+            # Qualify with the schema when there is one: search_path is set for
+            # the session but DDL should not depend on it being right.
+            qualified = f'"{table.schema}".{table.name}' if table.schema else table.name
             with engine.begin() as conn:
-                conn.execute(text(f'ALTER TABLE {table.name} ADD COLUMN {column.name} {ddl}'))
+                conn.execute(text(f'ALTER TABLE {qualified} ADD COLUMN {column.name} {ddl}'))
             added.append(f"{table.name}.{column.name}")
             print(f"[migrations] added {table.name}.{column.name} {ddl}")
 

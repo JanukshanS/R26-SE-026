@@ -10,6 +10,7 @@ import { Screen } from "@components/ui/screen";
 import { TextField } from "@components/ui/text-input";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
+import { getMyUser } from "@lib/vehicleApi";
 import {
   createProvider,
   PROVIDER_TYPES,
@@ -28,7 +29,7 @@ import { getCurrentDriverLocation } from "@lib/driverLocation";
  * carries a providerId, they're routed straight to the dashboard.
  */
 export default function ProviderOnboardingScreen() {
-  const { register, login, updateMe } = useVehicle();
+  const { register, login, updateMe, loginWithGoogle, refreshUser, user } = useVehicle();
 
   const [mode, setMode] = useState<"register" | "login">("register");
   const [name, setName] = useState("");
@@ -39,11 +40,56 @@ export default function ProviderOnboardingScreen() {
   const [type, setType] = useState<ProviderType>("MOBILE_MECHANIC");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Set once Google sign-in succeeds for an account that is NOT yet a provider.
+  // The account exists at that point, so the remaining task is the provider
+  // profile itself - which Google cannot supply, since it has no idea what kind
+  // of service someone offers or where they are.
+  const [googleAccount, setGoogleAccount] = useState<{ name: string; email: string } | null>(null);
+
+  /**
+   * Google sign-in doubles as sign-up: there is no separate "register" with an
+   * OAuth provider, the account simply exists afterwards. So the only question
+   * is whether this account is ALREADY a provider.
+   */
+  async function handleGoogle() {
+    setError("");
+    setSubmitting(true);
+    try {
+      await loginWithGoogle();
+
+      // Read the profile DIRECTLY rather than from context state. The context
+      // updates asynchronously via onAuthStateChange, so `user` here would
+      // still hold the pre-sign-in value and the branch below would be wrong.
+      const me = await getMyUser();
+      if (!me) {
+        setError("Signed in, but your profile could not be loaded. Please try again.");
+        return;
+      }
+
+      if (me.providerId) {
+        // Already a provider - this was a sign-in, not a sign-up.
+        router.replace("/(provider)/available");
+        return;
+      }
+
+      // New provider. The account now exists, but Google cannot tell us what
+      // service they offer or where they are, so the profile step remains.
+      setGoogleAccount({ name: me.name ?? "", email: me.email ?? "" });
+      setName((prev) => prev || me.name || "");
+      setMode("register");
+    } catch (err) {
+      setError((err as Error).message ?? "Google sign-in failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function handleSubmit() {
     setError("");
 
-    if (!email.trim() || !password) {
+    // With a Google account the password fields are gone - the account already
+    // exists, and only the provider profile is still missing.
+    if (!googleAccount && (!email.trim() || !password)) {
       setError("Email and password are required.");
       return;
     }
@@ -67,7 +113,10 @@ export default function ProviderOnboardingScreen() {
       }
 
       // Register: create the account, then the dispatch record, then link them.
-      await register(name.trim(), email.trim(), password, phone.trim() || undefined, "provider");
+      // A Google account already exists, so only the last two steps are needed.
+      if (!googleAccount) {
+        await register(name.trim(), email.trim(), password, phone.trim() || undefined, "provider");
+      }
 
       const loc = await getCurrentDriverLocation();
       const created = await createProvider({
@@ -102,22 +151,27 @@ export default function ProviderOnboardingScreen() {
             disabled={submitting}
             onPress={handleSubmit}
           />
-          <Pressable
-            onPress={() => {
-              setMode(mode === "register" ? "login" : "register");
-              setError("");
-            }}
-            style={{ alignItems: "center", paddingVertical: spacing.sm }}
-          >
-            <Text style={{ ...typography.body, color: palette.textMuted }}>
-              {mode === "register"
-                ? "Already a provider? "
-                : "New here? "}
-              <Text style={{ color: palette.brand, fontWeight: "700" }}>
-                {mode === "register" ? "Sign In" : "Register"}
+          {/* Hidden once signed in with Google: register-vs-sign-in is an
+              email/password distinction, and offering it here would suggest the
+              account still needs creating when it already exists. */}
+          {!googleAccount && (
+            <Pressable
+              onPress={() => {
+                setMode(mode === "register" ? "login" : "register");
+                setError("");
+              }}
+              style={{ alignItems: "center", paddingVertical: spacing.sm }}
+            >
+              <Text style={{ ...typography.body, color: palette.textMuted }}>
+                {mode === "register"
+                  ? "Already a provider? "
+                  : "New here? "}
+                <Text style={{ color: palette.brand, fontWeight: "700" }}>
+                  {mode === "register" ? "Sign In" : "Register"}
+                </Text>
               </Text>
-            </Text>
-          </Pressable>
+            </Pressable>
+          )}
         </>
       }
     >
@@ -134,7 +188,61 @@ export default function ProviderOnboardingScreen() {
         </Text>
       </View>
 
-      {mode === "register" && (
+      {/* Google covers BOTH sign-up and sign-in: with OAuth there is no separate
+          registration step, the account simply exists afterwards. So this button
+          is shown in either mode. Once a Google account is signed in, the auth
+          fields below disappear and only the provider profile remains. */}
+      {!googleAccount && (
+        <>
+          <Pressable
+            onPress={handleGoogle}
+            disabled={submitting}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: spacing.sm,
+              borderWidth: 1.5,
+              borderColor: palette.border,
+              backgroundColor: pressed ? palette.surfaceMuted : palette.surface,
+              borderRadius: radii.lg,
+              paddingVertical: spacing.md,
+              opacity: submitting ? 0.6 : 1,
+            })}
+          >
+            <Icon name="LogIn" size={18} color={palette.text} />
+            <Text style={{ ...typography.bodyStrong, color: palette.text }}>
+              Continue with Google
+            </Text>
+          </Pressable>
+
+          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: palette.border }} />
+            <Text style={{ ...typography.caption, color: palette.textMuted }}>or</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: palette.border }} />
+          </View>
+        </>
+      )}
+
+      {googleAccount && (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: spacing.sm,
+            backgroundColor: palette.successSoft,
+            borderRadius: radii.md,
+            padding: spacing.md,
+          }}
+        >
+          <Icon name="CircleCheck" size={18} color={palette.success} />
+          <Text style={{ ...typography.caption, color: palette.text, flex: 1 }}>
+            Signed in as {googleAccount.email}. Just your service details left.
+          </Text>
+        </View>
+      )}
+
+      {(mode === "register" || googleAccount) && (
         <TextField
           label="Name / Business name"
           value={name}
@@ -144,23 +252,27 @@ export default function ProviderOnboardingScreen() {
         />
       )}
 
-      <TextField
-        label="Email Address"
-        value={email}
-        onChangeText={setEmail}
-        placeholder="you@example.com"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        autoCorrect={false}
-      />
+      {!googleAccount && (
+        <>
+          <TextField
+            label="Email Address"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
 
-      <TextField
-        label="Password"
-        value={password}
-        onChangeText={setPassword}
-        placeholder="At least 8 characters"
-        secureTextEntry
-      />
+          <TextField
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="At least 8 characters"
+            secureTextEntry
+          />
+        </>
+      )}
 
       {mode === "register" && (
         <>

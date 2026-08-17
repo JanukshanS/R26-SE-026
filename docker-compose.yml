@@ -22,11 +22,13 @@ services:
   predictive-maintenance:
     build: ./components/predictive-maintenance
     restart: unless-stopped
+    env_file: .env
     environment:
       SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
-      PREDICTIVE_DATABASE_URL: sqlite:////app/data/predictive.db
-    volumes:
-      - predictive-data:/app/data
+      # Supabase Postgres, own schema. Was SQLite on a named volume, but because
+      # raw OBD/IMU readings are discarded after each trip is summarised, a lost
+      # volume meant trip history that could never be reconstructed.
+      PREDICTIVE_DATABASE_URL: ${PREDICTIVE_DATABASE_URL:?set PREDICTIVE_DATABASE_URL in .env}
 
   claims-privacy:
     build: ./components/claims-privacy
@@ -66,6 +68,5 @@ networks:
         - subnet: fd00:beef:cafe::/64
 
 volumes:
-  predictive-data:
   caddy-data:
   caddy-config:
