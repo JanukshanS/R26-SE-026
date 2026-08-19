@@ -10,7 +10,7 @@ export const GYRO_NOISE_DEADBAND_RAD_S = 0.02;
 
 /** Overhead: phone tilted ~30-45° downward over the vehicle (a forward-slash "/" angle). */
 export const OVERHEAD_TILT_MIN_DEG = 30;
-export const OVERHEAD_TILT_MAX_DEG = 45;
+export const OVERHEAD_TILT_MAX_DEG = 50;
 
 /** Chest/waist: phone held vertical/upright, tilt near 0°. */
 export const VERTICAL_TILT_TOLERANCE_DEG = 12;

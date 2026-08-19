@@ -108,7 +108,7 @@ export const CAPTURE_STATUS_PULSE_TINT = 'rgba(249, 115, 22, 0.3)';
 export const CAPTURE_PROGRESS_RING_TRACK = 'rgba(255, 255, 255, 0.28)';
 
 /** Viewfinder vignette — darkens outside the frame without a hard boundary line. */
-export const CAPTURE_VIGNETTE_TINT = 'rgba(0, 0, 0, 0.55)';
+export const CAPTURE_VIGNETTE_TINT = 'rgba(86, 86, 86, 0.55)';
 
 /**
  * Guided Capture typography scale. One label size (chips, pills, captions)
