@@ -1,4 +1,5 @@
 import { StyleSheet, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 import {
   CAPTURE_ACTION_BLUE,
@@ -18,6 +19,30 @@ const FRAME_COLOR: Record<CaptureStatus, string> = {
   steady: CAPTURE_VALID_BORDER,
 };
 
+const CORNER_SIZE = 26;
+const CORNER_THICKNESS = 3;
+const CORNER_RADIUS = 10;
+const S = CORNER_SIZE;
+const R = CORNER_RADIUS;
+
+// Drawn as SVG paths, not View borders: Android doesn't reliably render a
+// per-corner borderRadius when only two sides of a border have width (works
+// fine on iOS), which left these brackets sharp-cornered on-device.
+const CORNER_PATH: Record<'TL' | 'TR' | 'BL' | 'BR', string> = {
+  TL: `M 0 ${S} L 0 ${R} A ${R} ${R} 0 0 1 ${R} 0 L ${S} 0`,
+  TR: `M ${S} ${S} L ${S} ${R} A ${R} ${R} 0 0 0 ${S - R} 0 L 0 0`,
+  BL: `M 0 0 L 0 ${S - R} A ${R} ${R} 0 0 0 ${R} ${S} L ${S} ${S}`,
+  BR: `M ${S} 0 L ${S} ${S - R} A ${R} ${R} 0 0 1 ${S - R} ${S} L 0 ${S}`,
+};
+
+function CornerBracket({ corner, color }: { corner: 'TL' | 'TR' | 'BL' | 'BR'; color: string }) {
+  return (
+    <Svg width={S} height={S} style={[styles.corner, styles[`corner${corner}`]]}>
+      <Path d={CORNER_PATH[corner]} stroke={color} strokeWidth={CORNER_THICKNESS} fill="none" />
+    </Svg>
+  );
+}
+
 /** Static framing guide (no object detection): a vignette with a cut-out
  * viewfinder frame whose corner brackets recolor with capture status. */
 export function GuidanceBoundary({ status }: GuidanceBoundaryProps) {
@@ -28,10 +53,10 @@ export function GuidanceBoundary({ status }: GuidanceBoundaryProps) {
       <View style={styles.middleRow}>
         <View style={styles.vignetteSide} />
         <View style={styles.frame}>
-          <View style={[styles.corner, styles.cornerTL, { borderColor: color }]} />
-          <View style={[styles.corner, styles.cornerTR, { borderColor: color }]} />
-          <View style={[styles.corner, styles.cornerBL, { borderColor: color }]} />
-          <View style={[styles.corner, styles.cornerBR, { borderColor: color }]} />
+          <CornerBracket corner="TL" color={color} />
+          <CornerBracket corner="TR" color={color} />
+          <CornerBracket corner="BL" color={color} />
+          <CornerBracket corner="BR" color={color} />
         </View>
         <View style={styles.vignetteSide} />
       </View>
@@ -39,9 +64,6 @@ export function GuidanceBoundary({ status }: GuidanceBoundaryProps) {
     </View>
   );
 }
-
-const CORNER_SIZE = 26;
-const CORNER_THICKNESS = 3;
 
 const styles = StyleSheet.create({
   container: {
@@ -79,29 +101,17 @@ const styles = StyleSheet.create({
   cornerTL: {
     top: 0,
     left: 0,
-    borderTopWidth: CORNER_THICKNESS,
-    borderLeftWidth: CORNER_THICKNESS,
-    borderTopLeftRadius: 10,
   },
   cornerTR: {
     top: 0,
     right: 0,
-    borderTopWidth: CORNER_THICKNESS,
-    borderRightWidth: CORNER_THICKNESS,
-    borderTopRightRadius: 10,
   },
   cornerBL: {
     bottom: 0,
     left: 0,
-    borderBottomWidth: CORNER_THICKNESS,
-    borderLeftWidth: CORNER_THICKNESS,
-    borderBottomLeftRadius: 10,
   },
   cornerBR: {
     bottom: 0,
     right: 0,
-    borderBottomWidth: CORNER_THICKNESS,
-    borderRightWidth: CORNER_THICKNESS,
-    borderBottomRightRadius: 10,
   },
 });

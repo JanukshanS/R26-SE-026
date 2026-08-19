@@ -126,13 +126,22 @@ const styles = StyleSheet.create({
     fontSize: CAPTURE_TYPE_HEADLINE_SIZE,
     fontWeight: CAPTURE_TYPE_HEADLINE_WEIGHT,
   },
+  // Matches the reference photos' own ~4:3 aspect ratio (e.g. overhead.png is
+  // 658x494) instead of forcing a 280x280 square — with resizeMode="contain",
+  // a square box let the photo letterbox with an invisible white margin above
+  // and below, which is why borderRadius here was clipping blank space rather
+  // than the actual photo (no visible effect).
   mediaWrap: {
     width: 280,
-    height: 280,
+    aspectRatio: 4 / 3,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   image: {
     width: '100%',
     height: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   distanceLabel: {
     color: CAPTURE_ACTION_BLUE,
