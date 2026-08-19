@@ -173,6 +173,67 @@ function StatusPill({ status }: { status: TaskStatus }) {
   );
 }
 
+// Floor of the opacity pulse — kept fairly high (not near 0) so the glow never
+// fades down to near-invisible between pulses, which is what made the previous
+// single-layer version read as barely-there on screen load.
+const GLOW_PULSE_FLOOR = 0.55;
+
+/** Self-contained "primary action" glow: one plain View hugging the caller's
+ * content, just outside the border — not native shadow props, since
+ * shadowOpacity/shadowRadius are iOS-only in RN and Android's elevation only
+ * ever renders a plain gray shadow, never a colored one. Manages its own pulse
+ * animation from `active` so any caller can drop it in without wiring up
+ * shared-value/effect boilerplate itself. */
+function GlowHalo({ active }: { active: boolean }) {
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    if (active) {
+      pulse.value = withRepeat(
+        withSequence(withTiming(1, { duration: 700 }), withTiming(GLOW_PULSE_FLOOR, { duration: 700 })),
+        -1,
+        true
+      );
+    } else {
+      pulse.value = withTiming(0, { duration: 200 });
+    }
+  }, [active, pulse]);
+  const pulseStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
+
+  if (!active) {
+    return null;
+  }
+  return <Animated.View style={[styles.glowHaloInner, pulseStyle]} />;
+}
+
+function TaskCard({
+  task,
+  glow,
+  resolving,
+  onPress,
+}: {
+  task: FlowTask;
+  glow: boolean;
+  resolving: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <View style={styles.taskCardGlowWrap}>
+      <GlowHalo active={glow} />
+      <Pressable
+        disabled={resolving}
+        style={({ pressed }) => [styles.taskCard, glow && styles.taskCardGlowing, pressed && styles.taskCardPressed]}
+        onPress={onPress}>
+        <Text style={styles.taskTitle}>{task.title}</Text>
+        {resolving ? (
+          <ActivityIndicator size="small" color={COLORS.stepBadgeText} />
+        ) : (
+          <StatusPill status={task.status} />
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
 export default function InsuranceHomeScreen() {
   const router = useRouter();
   const navigation = useNavigation();
@@ -334,6 +395,17 @@ export default function InsuranceHomeScreen() {
   const totalCount = flowTasks.length;
   const progressLabel = `${completedCount}/${totalCount}`;
   const allFlowStepsComplete = flowTasks.every((t) => t.status === 'done');
+  // First still-incomplete card, in list order — the one that glows, but only
+  // once the driver has tapped the call button (hasCalledInsurer flips true
+  // immediately on tap, before the dialer even opens — see onCallInsurer).
+  // Before that, no card glows: the call button is the one thing that should
+  // draw the eye first. Reuses flowTasks (the same state driving the
+  // Incomplete/Done pills) rather than tracking a separate "which card glows"
+  // state, so it advances automatically whenever a step's completion state
+  // flips and flowTasks recomputes.
+  const firstIncompleteTaskKey = hasCalledInsurer
+    ? flowTasks.find((t) => t.status === 'incomplete')?.key ?? null
+    : null;
   /** Grey “disabled” look after submit, but the button stays pressable to open upload progress. */
   const reportLooksSubmitted = allFlowStepsComplete && claimReportLocked;
 
@@ -354,27 +426,6 @@ export default function InsuranceHomeScreen() {
     const timer = setTimeout(() => setGlowTimedOut(true), 30000);
     return () => clearTimeout(timer);
   }, [showGlow]);
-
-  const glowPulse = useSharedValue(0);
-  useEffect(() => {
-    if (showGlow) {
-      glowPulse.value = withRepeat(
-        withSequence(withTiming(1, { duration: 700 }), withTiming(0.3, { duration: 700 })),
-        -1,
-        true
-      );
-    } else {
-      glowPulse.value = withTiming(0, { duration: 200 });
-    }
-  }, [showGlow, glowPulse]);
-
-  // A plain opacity-animated View behind the button, not native shadow properties —
-  // shadowColor/shadowOpacity/shadowRadius are iOS-only in RN, and elevation (the
-  // Android equivalent) only ever renders a plain gray shadow, not a colored one, so
-  // neither actually produced a visible orange glow on Android.
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowPulse.value,
-  }));
 
   const onTaskPress = async (task: FlowTask) => {
     const href = task.href;
@@ -497,7 +548,7 @@ export default function InsuranceHomeScreen() {
               tried and reverted — restore by swapping this comment block back in:
           {insuranceCompany ? (
             <View style={styles.callInsurerGlowWrap}>
-              {showGlow ? <Animated.View style={[styles.callInsurerGlowHalo, glowStyle]} /> : null}
+              <GlowHalo active={showGlow} />
               <Pressable
                 disabled={callingInsurer}
                 style={({ pressed }) => [
@@ -523,7 +574,7 @@ export default function InsuranceHomeScreen() {
             </View>
           ) : insuranceCompany ? (
             <View style={styles.callInsurerGlowWrap}>
-              {showGlow ? <Animated.View style={[styles.callInsurerGlowHalo, glowStyle]} /> : null}
+              <GlowHalo active={showGlow} />
               <Pressable
                 disabled={callingInsurer}
                 style={({ pressed }) => [
@@ -562,18 +613,13 @@ export default function InsuranceHomeScreen() {
 
           <View style={styles.taskList}>
             {flowTasks.map((task) => (
-              <Pressable
+              <TaskCard
                 key={task.key}
-                disabled={resolvingTaskKey === task.key}
-                style={({ pressed }) => [styles.taskCard, pressed && styles.taskCardPressed]}
-                onPress={() => void onTaskPress(task)}>
-                <Text style={styles.taskTitle}>{task.title}</Text>
-                {resolvingTaskKey === task.key ? (
-                  <ActivityIndicator size="small" color={COLORS.stepBadgeText} />
-                ) : (
-                  <StatusPill status={task.status} />
-                )}
-              </Pressable>
+                task={task}
+                glow={task.key === firstIncompleteTaskKey}
+                resolving={resolvingTaskKey === task.key}
+                onPress={() => void onTaskPress(task)}
+              />
             ))}
           </View>
 
@@ -672,18 +718,20 @@ const styles = StyleSheet.create({
     // (thinner/thicker glow on different edges instead of a uniform ring).
     marginBottom: 10,
   },
-  // Sits behind the button, slightly larger on every side, pulsing in opacity — a
-  // plain View instead of native shadow props, which don't render as a colored
-  // glow on Android (shadowOpacity/shadowRadius are iOS-only there). Colors match
-  // the numbered step badges (1/2/3) — light orange fill, dark orange border.
-  callInsurerGlowHalo: {
+  // Sits just outside the glowing element's border (radius = its own 16 +
+  // inset, so the curve stays concentric). Shared by the call button and
+  // whichever task card is currently first-incomplete — see GlowHalo.
+  glowHaloInner: {
     position: 'absolute',
-    top: -8,
-    left: -8,
-    right: -8,
-    bottom: -8,
-    borderRadius: 24,
-    backgroundColor: INSURANCE_STEP_BADGE_BG,
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: 21,
+    // Same color as the glowing border itself (callInsurerBtnGlowing /
+    // taskCardGlowing), just with alpha appended, so the halo can never drift
+    // from the border it's meant to match.
+    backgroundColor: `${INSURANCE_PRIMARY}B3`,
   },
   callInsurerBtn: {
     backgroundColor: COLORS.cardBg,
@@ -792,6 +840,11 @@ const styles = StyleSheet.create({
   taskList: {
     gap: 12,
   },
+  // No marginBottom needed (unlike callInsurerGlowWrap) — taskList's own `gap`
+  // already spaces the wraps, so nothing else needs to compensate.
+  taskCardGlowWrap: {
+    position: 'relative',
+  },
   taskCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -802,6 +855,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 16,
+  },
+  // Same treatment as callInsurerBtnGlowing — dark-orange border on the card
+  // itself while it's the glowing (first-incomplete) one.
+  taskCardGlowing: {
+    borderColor: INSURANCE_PRIMARY,
+    borderWidth: 1,
   },
   taskCardPressed: {
     backgroundColor: INSURANCE_PRESSED_SURFACE_SOFT,
