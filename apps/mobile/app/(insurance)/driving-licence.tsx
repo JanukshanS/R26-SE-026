@@ -92,8 +92,11 @@ export default function DrivingLicencePhotoScreen() {
     setIsCameraReady(false);
   }, [cameraFacing]);
 
+  // Not gated on the current step: after retaking one slot the other two are still
+  // captured, so the primary button must go back to "Continue" as soon as that slot
+  // is refilled rather than forcing a replacement shot of the next photo.
   const allImagesCaptured =
-    side === 'selfie' && selfiePreviewUri !== null && frontPreviewUri !== null && backPreviewUri !== null;
+    frontPreviewUri !== null && backPreviewUri !== null && selfiePreviewUri !== null;
 
   const instructionHeadline = useMemo(() => {
     if (allImagesCaptured) {

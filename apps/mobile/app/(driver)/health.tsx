@@ -8,7 +8,7 @@ import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import {
   ALERT_THRESHOLD_PCT,
-  FALLBACK_HEALTH,
+  EMPTY_HEALTH,
   getVehicleHealth,
   rulToLabel,
   type ComponentHealth,
@@ -78,29 +78,42 @@ function RingProgress({
 export default function HealthScreen() {
   const insets = useSafeAreaInsets();
   const { selectedVehicle } = useVehicle();
-  const vehicleId = selectedVehicle?.plateNumber ?? "CBD-3742";
+  const vehicleId = selectedVehicle?.plateNumber ?? "";
   const vehicleLabel = selectedVehicle
     ? selectedVehicle.nickname || `${selectedVehicle.make} ${selectedVehicle.model}`
-    : "Toyota Aqua";
+    : "No vehicle added";
 
   const [data, setData] = useState<VehicleHealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    if (!vehicleId) {
+      setData(null);
+      setError(false);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
     setLoading(true);
     setError(false);
     setData(null);
     getVehicleHealth(vehicleId)
-      .then(setData)
-      .catch(() => {
-        setData(FALLBACK_HEALTH);
-        setError(true);
+      .then((d) => {
+        if (!cancelled) setData(d);
       })
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [vehicleId]);
 
-  const health = data ?? FALLBACK_HEALTH;
+  const health = data ?? EMPTY_HEALTH;
   const noData = health.overall_status === "No data";
   const overallColor = statusColor({ status: health.overall_status, health_pct: health.overall_health_pct });
   const allKeys: ComponentKey[] = ["engine", "brake", "tire", "battery"];

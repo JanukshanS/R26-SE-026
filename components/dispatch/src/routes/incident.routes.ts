@@ -7,6 +7,7 @@ import { Router } from 'express';
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { createIncidentSchema, resolutionReportSchema } from '../utils/validators';
+import { assertOwnsProvider } from '../middleware/auth';
 
 export const incidentRouter = Router();
 
@@ -85,8 +86,18 @@ incidentRouter.get('/', async (req, res) => {
     const limit = parseInt(String(req.query.limit || '20'), 10);
     const offset = parseInt(String(req.query.offset || '0'), 10);
 
+    const assignedProviderId = typeof req.query.assignedProviderId === 'string'
+      ? req.query.assignedProviderId : undefined;
+
     const where: any = {};
     if (status) where.status = status;
+    if (assignedProviderId) {
+      // Scopes the listing to a provider the caller actually owns. Not a
+      // confidentiality boundary: the unfiltered listing below is still
+      // unscoped, so any signed-in caller can read every incident.
+      if (!(await assertOwnsProvider(req, res, assignedProviderId))) return;
+      where.assignedProviderId = assignedProviderId;
+    }
 
     const [incidents, total] = await Promise.all([
       prisma.incident.findMany({
@@ -118,8 +129,11 @@ incidentRouter.post('/:id/resolve', async (req, res) => {
       return;
     }
 
-    const { actualServiceType, resolutionTimeMinutes, notes, escalationNeeded } = parsed.data;
+    const { providerId, actualServiceType, resolutionTimeMinutes, notes, escalationNeeded } = parsed.data;
     const incidentId = String(req.params.id);
+
+    // Checked before the incident is read, so a non-owner cannot probe existence.
+    if (!(await assertOwnsProvider(req, res, providerId))) return;
 
     const incident = await prisma.incident.findUnique({
       where: { id: incidentId },
@@ -128,6 +142,22 @@ incidentRouter.post('/:id/resolve', async (req, res) => {
 
     if (!incident) {
       res.status(404).json({ success: false, error: 'Incident not found', timestamp: new Date().toISOString() });
+      return;
+    }
+
+    if (incident.assignedProviderId !== providerId) {
+      res.status(409).json({
+        success: false, error: 'Incident is not assigned to this provider',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    if (incident.status === 'RESOLVED' || incident.status === 'ESCALATED') {
+      res.status(409).json({
+        success: false, error: `Incident is already ${incident.status.toLowerCase()}`,
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
 

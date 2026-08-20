@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -9,6 +9,7 @@ import {
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomNavBar, NAV_BAR_HEIGHT } from "@components/ui/bottom-nav-bar";
+import { ErrorState } from "@components/ui/error-state";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import {
@@ -90,19 +91,34 @@ export default function ServiceRecordsScreen() {
   const [records, setRecords] = useState<ServiceRecord[]>([]);
   const [health, setHealth] = useState<VehicleHealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
 
-  useEffect(() => {
+  // Only the health call is allowed to fail quietly (the card falls back to "— KM").
+  // A failed history call must not render as "no records yet".
+  const load = useCallback(() => {
+    setLoading(true);
+    setError("");
     Promise.all([
-      getServiceHistory(vehicleId).catch(() => []),
+      getServiceHistory(vehicleId),
       getVehicleHealth(vehicleId).catch(() => null),
     ])
       .then(([recs, h]) => {
         setRecords(recs);
         setHealth(h);
       })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : "";
+        setError(
+          message.includes("signed in")
+            ? message
+            : "Could not reach the maintenance service. Check your connection and try again."
+        );
+      })
       .finally(() => setLoading(false));
   }, [vehicleId]);
+
+  useEffect(load, [load]);
 
   const filtered = records.filter((r) => matchesTab(r, activeTab));
   const nextKm = kmToNextService(health);
@@ -124,7 +140,7 @@ export default function ServiceRecordsScreen() {
           gap: spacing.sm,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
           <Icon name="ChevronLeft" size={24} color={palette.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
@@ -250,6 +266,12 @@ export default function ServiceRecordsScreen() {
               <View style={{ height: 13, width: "40%", borderRadius: 4, backgroundColor: palette.border, opacity: 0.35 }} />
             </View>
           ))
+        ) : error ? (
+          <ErrorState
+            title="Couldn't load your service records"
+            message={error}
+            onRetry={load}
+          />
         ) : filtered.length === 0 ? (
           <View style={{ alignItems: "center", paddingVertical: spacing.xxxl, gap: spacing.md }}>
             <Icon name="ClipboardList" size={40} color={palette.border} />
@@ -267,6 +289,8 @@ export default function ServiceRecordsScreen() {
 
       {/* FAB */}
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Add service record"
         onPress={() =>
           router.push({
             pathname: "/(driver)/add-service-record",

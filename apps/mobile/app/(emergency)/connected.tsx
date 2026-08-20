@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
+import { ErrorState } from "@components/ui/error-state";
 import { HeaderBar } from "@components/ui/header-bar";
 import { Icon, type IconName } from "@components/ui/icon";
 import { MapPreview } from "@components/ui/map-preview";
@@ -51,10 +52,22 @@ export default function ConnectedScreen() {
     getCurrentDriverLocation().then(setDriverLoc).catch(() => {});
   }, []);
 
-  useEffect(() => {
+  // Failure is surfaced rather than swallowed: without the record there is no
+  // phone number, so Call and Message stay disabled and the card shows "—"
+  // with nothing telling the driver why or that it can be retried.
+  const [providerError, setProviderError] = useState<string | null>(null);
+  const loadProvider = useCallback(() => {
     if (!sp?.id) return;
-    getProvider(sp.id).then(setProvider).catch(() => setProvider(null));
+    setProviderError(null);
+    getProvider(sp.id)
+      .then((p) => { setProvider(p); })
+      .catch((err: unknown) => {
+        setProvider(null);
+        setProviderError(err instanceof Error ? err.message : "Couldn't reach the dispatch service.");
+      });
   }, [sp?.id]);
+
+  useEffect(() => { loadProvider(); }, [loadProvider]);
 
   // Success haptic — fire once when the dispatch result first lands on this screen.
   const successFired = useRef(false);
@@ -172,6 +185,14 @@ export default function ConnectedScreen() {
           />
         </Card>
       </Animated.View>
+
+      {providerError && (
+        <ErrorState
+          title="Contact details unavailable"
+          message={`${providerError} Your job is dispatched — the provider is still on the way. Try again to load their phone number.`}
+          onRetry={loadProvider}
+        />
+      )}
 
       {/* Live map with driver + provider pins, dashed route, and an ETA /
           distance overlay at the bottom. Driver coord comes from real GPS

@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from "react";
 import { Text, View } from "react-native";
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
 import { DispatchProgress } from "@components/ui/dispatch-progress";
@@ -62,8 +62,31 @@ export default function DiagnosisResultScreen() {
     runDispatchFlow();
   }, [dispatchResult, runDispatchFlow]);
 
-  const predicted = triageResult?.predictedServiceType ?? "BATTERY_JUMP";
-  const confidence = triageResult?.confidence ?? 0;
+  // Nothing to show without the in-memory answers (web reload / deep link):
+  // never fabricate a diagnosis, send the driver back to start over.
+  if (!triageResult || !incidentId) {
+    return (
+      <Screen
+        footer={
+          <Button
+            title="Back to Home screen"
+            onPress={() => router.replace("/(driver)/home")}
+          />
+        }
+      >
+        <Stack.Screen options={{ gestureEnabled: false }} />
+        <HeaderBar showBack={false} />
+        <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Result</Text>
+        <ErrorState
+          title="We lost this diagnosis"
+          message="Your answers are gone, so there is no result to show. Start the diagnosis again from the home screen."
+        />
+      </Screen>
+    );
+  }
+
+  const predicted = triageResult.predictedServiceType;
+  const confidence = triageResult.confidence ?? 0;
   const tierLabel = triageResult?.tier === "OBD_ENHANCED"
     ? "Tier-2 (OBD enhanced)"
     : triageResult?.tier === "BAYESIAN_LEARNED"
@@ -90,6 +113,7 @@ export default function DiagnosisResultScreen() {
         </>
       }
     >
+      <Stack.Screen options={{ gestureEnabled: false }} />
       <HeaderBar showBack={false} />
       <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Result</Text>
 
@@ -122,15 +146,11 @@ export default function DiagnosisResultScreen() {
             valueColor={palette.danger}
           />
           <Row label="SERVICE" value={serviceTypeAction(predicted)} />
-          {triageResult && (
-            <>
-              <Row
-                label="CONFIDENCE"
-                value={`${(confidence * 100).toFixed(0)}%`}
-              />
-              <Row label="MODEL" value={tierLabel} />
-            </>
-          )}
+          <Row
+            label="CONFIDENCE"
+            value={`${(confidence * 100).toFixed(0)}%`}
+          />
+          <Row label="MODEL" value={tierLabel} />
         </View>
       </Card>
 

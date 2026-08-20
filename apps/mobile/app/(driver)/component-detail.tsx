@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ErrorState } from "@components/ui/error-state";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import {
-  FALLBACK_HEALTH,
   getVehicleHealth,
   rulToBanner,
   type ComponentHealth,
@@ -26,8 +26,12 @@ const META: Record<ComponentKey, ComponentMeta> = {
     icon: "Disc",
     whyReasons: (c) => [
       `OBD readings: ${Math.round(c.health_pct)}%`,
-      "Braking events: above normal frequency",
-      "Driving behaviour: Heavy braking detected",
+      c.status === "Good"
+        ? "Braking events: within normal frequency"
+        : "Braking events: above normal frequency",
+      c.status === "Good"
+        ? "Driving behaviour: no heavy braking detected"
+        : "Driving behaviour: heavy braking detected",
     ],
     nextSteps: [
       {
@@ -50,7 +54,9 @@ const META: Record<ComponentKey, ComponentMeta> = {
     whyReasons: (c) => [
       `OBD readings: ${Math.round(c.health_pct)}%`,
       `Last oil change: ~${Math.round((c.max_lifespan_km - c.predicted_rul_km) / 1000)}k km ago`,
-      "Coolant temp: elevated patterns detected",
+      c.status === "Good"
+        ? "Coolant temp: within normal range"
+        : "Coolant temp: elevated patterns detected",
     ],
     nextSteps: [
       {
@@ -72,8 +78,12 @@ const META: Record<ComponentKey, ComponentMeta> = {
     icon: "Circle",
     whyReasons: (c) => [
       `Tread health: ${Math.round(c.health_pct)}%`,
-      "Cornering events: within normal range",
-      "Average speed: normal patterns",
+      c.status === "Good"
+        ? "Cornering events: within normal range"
+        : "Cornering events: above normal frequency",
+      c.status === "Good"
+        ? "Tread wear: in line with expected rate"
+        : "Tread wear: ahead of expected rate",
     ],
     nextSteps: [
       {
@@ -95,8 +105,12 @@ const META: Record<ComponentKey, ComponentMeta> = {
     icon: "Battery",
     whyReasons: (c) => [
       `Battery health: ${Math.round(c.health_pct)}%`,
-      "Voltage readings: stable",
-      "No voltage drops detected",
+      c.status === "Good"
+        ? "Voltage readings: stable"
+        : "Voltage readings: outside normal range",
+      c.status === "Good"
+        ? "No voltage drops detected"
+        : "Voltage drops detected under load",
     ],
     nextSteps: [
       {
@@ -122,20 +136,82 @@ export default function ComponentDetailScreen() {
   const key: ComponentKey = (component as ComponentKey) ?? "brake";
   const meta = META[key];
 
-  const vehicleId = selectedVehicle?.plateNumber ?? "CBD-3742";
+  const vehicleId = selectedVehicle?.plateNumber;
 
   const [componentHealth, setComponentHealth] = useState<ComponentHealth | null>(null);
+  const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  // This is the screen a driver reads before deciding to replace a part, so a
+  // failed fetch shows the failure rather than a stand-in reading, and with no
+  // vehicle selected we ask for one rather than reading some other plate.
+  const load = useCallback(() => {
+    if (!vehicleId) {
+      setComponentHealth(null);
+      setError(false);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+    setError(false);
     getVehicleHealth(vehicleId)
       .then((d) => setComponentHealth(d.components[key]))
-      .catch(() => setComponentHealth(FALLBACK_HEALTH.components[key]))
+      .catch(() => {
+        setComponentHealth(null);
+        setError(true);
+      })
       .finally(() => setLoading(false));
   }, [key, vehicleId]);
 
-  const health = componentHealth ?? FALLBACK_HEALTH.components[key];
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (!componentHealth) {
+    return (
+      <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
+        <DetailHeader label={meta.label} loading={loading} />
+        <View style={{ padding: spacing.lg }}>
+          {!vehicleId ? (
+            <View style={{ gap: spacing.md }}>
+              <ErrorState
+                title="No vehicle selected"
+                message={`Add a vehicle and select it on Home to see its ${meta.label.toLowerCase()} health.`}
+              />
+              <Pressable
+                onPress={() => router.push("/(driver)/manage-vehicles")}
+                accessibilityRole="button"
+                accessibilityLabel="Manage vehicles"
+                style={({ pressed }) => ({
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 1.5,
+                  borderColor: palette.brand,
+                  backgroundColor: pressed ? palette.brandSoft : "transparent",
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.brand }}>
+                  Manage Vehicles
+                </Text>
+              </Pressable>
+            </View>
+          ) : error ? (
+            <ErrorState
+              title="Couldn't load health data"
+              message={`We couldn't reach the maintenance service to read your ${meta.label.toLowerCase()}. Check your connection and try again.`}
+              onRetry={load}
+            />
+          ) : (
+            <ActivityIndicator size="small" color={palette.brand} />
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  const health = componentHealth;
   const banner = rulToBanner(health);
   const noData = health.status === "No data";
   const isUrgent = health.predicted_rul_km < 2000;
@@ -143,30 +219,7 @@ export default function ComponentDetailScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
-      {/* Header */}
-      <View
-        style={{
-          paddingTop: insets.top + spacing.sm,
-          paddingHorizontal: spacing.lg,
-          paddingBottom: spacing.md,
-          backgroundColor: palette.surface,
-          borderBottomWidth: 1,
-          borderBottomColor: palette.border,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: spacing.md,
-        }}
-      >
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
-          <Icon name="ChevronLeft" size={24} color={palette.text} />
-        </Pressable>
-        <Text style={{ ...typography.caption, color: palette.textMuted }}>Health</Text>
-        <Icon name="ChevronRight" size={14} color={palette.textMuted} />
-        <Text style={{ ...typography.bodyStrong, color: palette.text, flex: 1 }}>
-          {meta.label}
-        </Text>
-        {loading && <ActivityIndicator size="small" color={palette.brand} />}
-      </View>
+      <DetailHeader label={meta.label} loading={loading} />
 
       <ScrollView
         contentContainerStyle={{
@@ -457,6 +510,33 @@ export default function ComponentDetailScreen() {
           </View>
         </View>
       )}
+    </View>
+  );
+}
+
+function DetailHeader({ label, loading }: { label: string; loading: boolean }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={{
+        paddingTop: insets.top + spacing.sm,
+        paddingHorizontal: spacing.lg,
+        paddingBottom: spacing.md,
+        backgroundColor: palette.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: palette.border,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: spacing.md,
+      }}
+    >
+      <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+        <Icon name="ChevronLeft" size={24} color={palette.text} />
+      </Pressable>
+      <Text style={{ ...typography.caption, color: palette.textMuted }}>Health</Text>
+      <Icon name="ChevronRight" size={14} color={palette.textMuted} />
+      <Text style={{ ...typography.bodyStrong, color: palette.text, flex: 1 }}>{label}</Text>
+      {loading && <ActivityIndicator size="small" color={palette.brand} />}
     </View>
   );
 }

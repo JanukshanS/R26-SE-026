@@ -9,9 +9,10 @@
  *   label       — Human-readable label for the loading screen ("Flat tire")
  */
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Text } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
 import { DispatchProgress } from "@components/ui/dispatch-progress";
 import { ErrorState } from "@components/ui/error-state";
@@ -54,6 +55,11 @@ export default function QuickDispatchScreen() {
     dispatchResult, error,
   } = useEmergency();
 
+  // The pipeline keeps running if the user leaves via back/home mid-flight;
+  // without this the continuation yanks them back onto the connected screen,
+  // which then renders against an emergency context that was torn down.
+  const mounted = useRef(true);
+
   const runDispatchFlow = useCallback(async () => {
     if (!intent) return;
     setError(null);
@@ -79,10 +85,12 @@ export default function QuickDispatchScreen() {
         incidentId: incident.id,
         // trafficImpactScore omitted — dispatch sources it live from geo-intelligence
       });
+      if (!mounted.current) return;
       setDispatchResult(dispatch);
 
       router.replace("/(emergency)/connected");
     } catch (err) {
+      if (!mounted.current) return;
       const msg = err instanceof DispatchApiError
         ? `${err.message} (HTTP ${err.status})`
         : (err as Error).message;
@@ -92,8 +100,16 @@ export default function QuickDispatchScreen() {
   }, [intent, label, setIncidentId, setTriageResult, setDispatchResult, setError]);
 
   useEffect(() => {
+    mounted.current = true;
     runDispatchFlow();
+    return () => {
+      mounted.current = false;
+    };
   }, [runDispatchFlow]);
+
+  // authHeaders() throws this before any request leaves the device, so retrying
+  // can only fail the same way — offer the sign-in screen instead.
+  const signedOut = !!error && error.includes("You need to be signed in");
 
   return (
     <Screen>
@@ -103,11 +119,20 @@ export default function QuickDispatchScreen() {
       </Text>
 
       {error ? (
-        <ErrorState
-          title="Couldn't dispatch"
-          message={error}
-          onRetry={runDispatchFlow}
-        />
+        <>
+          <ErrorState
+            title="Couldn't dispatch"
+            message={
+              signedOut
+                ? "You need to be signed in to send help to your location."
+                : error
+            }
+            onRetry={signedOut ? undefined : runDispatchFlow}
+          />
+          {signedOut ? (
+            <Button title="Sign in" onPress={() => router.push("/(driver)/auth")} />
+          ) : null}
+        </>
       ) : (
         <Card
           variant="muted"

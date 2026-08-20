@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@components/ui/button";
@@ -6,9 +7,46 @@ import { Icon } from "@components/ui/icon";
 import { Logo } from "@components/ui/logo";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
+import { getMyUser } from "@lib/vehicleApi";
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  /**
+   * The session is persisted, so a returning user is already signed in —
+   * sending them to the sign-in wall would make them re-enter a password they
+   * never needed. Providers go to their job feed, drivers home; anything that
+   * fails (no session, offline, no profile row) falls through to Welcome.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    getMyUser()
+      .then((user) => {
+        if (cancelled) return;
+        if (!user) {
+          setCheckingSession(false);
+          return;
+        }
+        router.replace(user.providerId ? "/(provider)/available" : "/(driver)/home");
+      })
+      .catch(() => {
+        if (!cancelled) setCheckingSession(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (checkingSession) {
+    return (
+      <Screen>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color={palette.brand} />
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen

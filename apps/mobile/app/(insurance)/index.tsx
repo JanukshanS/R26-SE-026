@@ -187,6 +187,7 @@ export default function InsuranceHomeScreen() {
   const [claimReportLocked, setClaimReportLocked] = useState(false);
   const [insuranceCompany, setInsuranceCompany] = useState<InsuranceCompany | null>(null);
   const [vehicleMissingInsurer, setVehicleMissingInsurer] = useState(false);
+  const [navigating, setNavigating] = useState(false);
   const incompleteUpload = useIncompleteUploadStatus();
 
   // The "Need to call ___ Insurance?" button reflects the SPECIFIC vehicle the driver had
@@ -269,6 +270,12 @@ export default function InsuranceHomeScreen() {
     }, [])
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      setNavigating(false);
+    }, [])
+  );
+
   const flowTasks = useMemo(
     () =>
       FLOW_TASKS.map((task) => {
@@ -344,29 +351,47 @@ export default function InsuranceHomeScreen() {
   };
 
   const onReportAccident = () => {
-    if (!allFlowStepsComplete) {
+    if (!allFlowStepsComplete || navigating) {
       return;
     }
+    // computeClaimBundleUploadKey is async, so without this a double tap pushes
+    // two upload screens and files the same accident twice.
+    setNavigating(true);
     void (async () => {
-      const reportedAtIso = new Date().toISOString();
-      // Fire-and-forget GPS on first tap only; persists until reset.
-      void loadReportAccidentEntryMeta().then((existing) => {
-        if (existing) return;
-        void captureLocationSnapshot().then((meta) => {
-          void saveReportAccidentEntryMeta(meta);
+      try {
+        const reportedAtIso = new Date().toISOString();
+        // Fire-and-forget GPS on first tap only; persists until reset.
+        void loadReportAccidentEntryMeta().then((existing) => {
+          if (existing) return;
+          void captureLocationSnapshot().then((meta) => {
+            void saveReportAccidentEntryMeta(meta);
+          });
         });
-      });
-      const uploadKey = await computeClaimBundleUploadKey();
-      router.push({
-        pathname: '/(insurance)/upload-accident-details',
-        params: { uploadKey, reportedAtIso, vehicleId: effectiveVehicleId },
-      });
+        const uploadKey = await computeClaimBundleUploadKey();
+        router.push({
+          pathname: '/(insurance)/upload-accident-details',
+          params: { uploadKey, reportedAtIso, vehicleId: effectiveVehicleId },
+        });
+      } catch {
+        Alert.alert(
+          "Couldn't open your claim",
+          'Your captured photos are safe on this device. Try Report Accident again.',
+        );
+      } finally {
+        setNavigating(false);
+      }
     })();
   };
 
   const onTabPress = (tab: InsuranceTabId) => {
     if (tab === 'home') return;
-    Alert.alert('Coming soon', 'This section will be added in a future update.');
+    if (tab === 'store') {
+      router.push('/(driver)/order-parts');
+      return;
+    }
+    if (tab === 'profile') {
+      router.push('/(driver)/profile');
+    }
   };
 
   return (
@@ -431,7 +456,7 @@ export default function InsuranceHomeScreen() {
           </View>
 
           <Pressable
-            disabled={!allFlowStepsComplete}
+            disabled={!allFlowStepsComplete || navigating}
             style={({ pressed }) => [
               styles.reportBtn,
               (!allFlowStepsComplete || reportLooksSubmitted) && styles.reportBtnDisabled,
@@ -445,7 +470,7 @@ export default function InsuranceHomeScreen() {
                 ? 'Opens upload status. Does not send again until you reset walkaround in Guided Capture.'
                 : undefined
             }
-            accessibilityState={{ disabled: !allFlowStepsComplete }}>
+            accessibilityState={{ disabled: !allFlowStepsComplete || navigating }}>
             <Text
               style={[
                 styles.reportBtnText,

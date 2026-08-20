@@ -63,6 +63,14 @@ export async function getAccessToken(): Promise<string | null> {
 export async function authHeaders(): Promise<Record<string, string>> {
   const token = await getAccessToken();
   if (!token) {
+    // Local development escape hatch, to exercise the flows without a sign-in.
+    // Requires EXPO_PUBLIC_DEV_AUTH_BYPASS=1 AND a debug build: __DEV__ is
+    // compile-time false in release, so this branch is stripped from a
+    // production bundle. The backends need DEV_AUTH_BYPASS_USER_ID set to
+    // accept the placeholder.
+    if (__DEV__ && process.env.EXPO_PUBLIC_DEV_AUTH_BYPASS === '1') {
+      return { Authorization: 'Bearer dev-auth-bypass' };
+    }
     throw new Error('You need to be signed in. Sign in and try again.');
   }
   return { Authorization: `Bearer ${token}` };
@@ -336,7 +344,7 @@ export async function uploadFullClaimBundleToBackend(options: {
   onFraudProgress: (percent: number) => void;
   /** Fired once walkaround originals are on the server and guided progress is 100% (before fraud-validation uploads). */
   onGuidedWalkaroundUploadsComplete?: () => void;
-  /** Fired once licence / third-party / drunk-test media is uploaded and fraud progress is 100% (before `POST .../complete`). */
+  /** Fired once licence / third-party / drunk-test media is uploaded and the server has accepted `POST .../complete` — i.e. the claim really is submitted. */
   onFraudValidationMediaUploadsComplete?: () => void;
   signal?: AbortSignal;
 }): Promise<{ captureId: string }> {
@@ -456,7 +464,6 @@ export async function uploadFullClaimBundleToBackend(options: {
     }
     options.onFraudProgress(100);
   }
-  options.onFraudValidationMediaUploadsComplete?.();
 
   const completeRes = await fetch(`${base}/captures/${captureId}/complete`, {
     method: 'POST',
@@ -468,6 +475,7 @@ export async function uploadFullClaimBundleToBackend(options: {
     throw new Error(`Complete failed (${completeRes.status}): ${text.slice(0, 200)}`);
   }
   await clearUploadProgress();
+  options.onFraudValidationMediaUploadsComplete?.();
 
   return { captureId };
 }

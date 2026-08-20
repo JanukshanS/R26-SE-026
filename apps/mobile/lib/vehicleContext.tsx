@@ -118,12 +118,45 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
       });
 
       if (!session) {
+        // Local development escape hatch: stand in a synthetic signed-in user
+        // so the flows can be exercised without a real sign-in. Requires
+        // EXPO_PUBLIC_DEV_AUTH_BYPASS=1 and a debug build (__DEV__ is
+        // compile-time false in release, so this is stripped from a
+        // production bundle). Set EXPO_PUBLIC_DEV_PROVIDER_ID to land on the
+        // provider side of the app.
+        if (__DEV__ && process.env.EXPO_PUBLIC_DEV_AUTH_BYPASS === "1") {
+          setUser({
+            _id: "dev-local-user",
+            email: "dev@localhost",
+            name: "Dev Local",
+            role: process.env.EXPO_PUBLIC_DEV_PROVIDER_ID ? "provider" : "driver",
+            providerId: process.env.EXPO_PUBLIC_DEV_PROVIDER_ID ?? null,
+          });
+          return;
+        }
         setUser(null);
         setVehicles([]);
         setSelectedVehicle(null);
         return;
       }
-      vehicleApi.getMyUser().then(setUser).catch(() => setUser(null));
+      // A live session whose profile row fails to load is still a signed-in
+      // user — fall back to the identity the session already carries instead
+      // of downgrading them to a guest until the app is restarted.
+      vehicleApi
+        .getMyUser()
+        .catch(() => vehicleApi.getMyUser())
+        .then(setUser)
+        .catch(() =>
+          // Both attempts failed. Keep them signed in on the session identity,
+          // and carry the signup role so a provider is not silently treated as
+          // a driver. providerId stays absent, meaning unknown rather than none.
+          setUser({
+            _id: session.user.id,
+            email: session.user.email ?? "",
+            name: (session.user.user_metadata?.name as string) || "",
+            role: (session.user.user_metadata?.role as string) || "driver",
+          })
+        );
       void refreshVehicles();
     });
     return () => sub.subscription.unsubscribe();

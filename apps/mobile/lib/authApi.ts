@@ -61,9 +61,11 @@ export async function signOut(): Promise<void> {
 /**
  * Google OAuth (PKCE). On web supabase-js redirects the page and parses the
  * session back via detectSessionInUrl. On native we open the provider URL in a
- * system browser, then exchange the returned `?code=` for a session.
+ * system browser, then exchange the returned `?code=` for a session. Resolves
+ * `false` when the user dismissed the browser without signing in, so callers
+ * only navigate on a real session.
  */
-export async function signInWithGoogle(): Promise<void> {
+export async function signInWithGoogle(): Promise<boolean> {
   const redirectTo = Linking.createURL("/");
   if (Platform.OS === "web") {
     const { error } = await supabase.auth.signInWithOAuth({
@@ -71,7 +73,7 @@ export async function signInWithGoogle(): Promise<void> {
       options: { redirectTo },
     });
     if (error) throw new AuthApiError(error.message);
-    return; // browser navigates away
+    return false; // browser navigates away
   }
 
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -81,11 +83,13 @@ export async function signInWithGoogle(): Promise<void> {
   if (error) throw new AuthApiError(error.message);
 
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-  if (result.type !== "success") return; // user dismissed the browser
+  if (result.type !== "success") return false; // user dismissed the browser
 
   const code = new URL(result.url).searchParams.get("code");
-  if (code) {
-    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-    if (exchangeError) throw new AuthApiError(exchangeError.message);
+  if (!code) {
+    throw new AuthApiError("Google did not return a sign-in code. Try again.");
   }
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+  if (exchangeError) throw new AuthApiError(exchangeError.message);
+  return true;
 }

@@ -33,17 +33,20 @@ export interface VehicleHealthResponse {
   components: Record<ComponentKey, ComponentHealth>;
 }
 
-export const FALLBACK_HEALTH: VehicleHealthResponse = {
-  vehicle_id: "CBD-3742",
-  overall_health_pct: 87,
-  overall_status: "Good",
+// Shape-only placeholder so a screen can render its "No data" state before the
+// first response, or when the service is unreachable. Every figure is zero on
+// purpose: an invented health percentage reads as a real reading to a driver.
+export const EMPTY_HEALTH: VehicleHealthResponse = {
+  vehicle_id: "",
+  overall_health_pct: 0,
+  overall_status: "No data",
   trip_count: 0,
   total_mileage_km: 0,
   components: {
-    engine: { health_pct: 72, status: "Fair", predicted_rul_km: 7200, max_lifespan_km: 150000 },
-    brake: { health_pct: 58, status: "Fair", predicted_rul_km: 1800, max_lifespan_km: 40000 },
-    tire: { health_pct: 95, status: "Good", predicted_rul_km: 47500, max_lifespan_km: 50000 },
-    battery: { health_pct: 88, status: "Good", predicted_rul_km: 70400, max_lifespan_km: 80000 },
+    engine: { health_pct: 0, status: "No data", predicted_rul_km: 0, max_lifespan_km: 150000 },
+    brake: { health_pct: 0, status: "No data", predicted_rul_km: 0, max_lifespan_km: 40000 },
+    tire: { health_pct: 0, status: "No data", predicted_rul_km: 0, max_lifespan_km: 50000 },
+    battery: { health_pct: 0, status: "No data", predicted_rul_km: 0, max_lifespan_km: 80000 },
   },
 };
 

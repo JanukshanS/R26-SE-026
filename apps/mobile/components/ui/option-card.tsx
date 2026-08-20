@@ -23,6 +23,9 @@ export function OptionCard({
 }: Props) {
   return (
     <Pressable
+      accessibilityRole="radio"
+      accessibilityLabel={title}
+      accessibilityState={{ selected: !!selected }}
       onPress={() => {
         haptics.select();
         onPress?.();

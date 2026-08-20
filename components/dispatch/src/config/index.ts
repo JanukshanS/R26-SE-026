@@ -29,6 +29,11 @@ export const config = {
   // so there is no secret here. Unset means the API refuses requests.
   supabaseUrl: (process.env.SUPABASE_URL || '').trim().replace(/\/$/, ''),
 
+  // Anon key, used only to call PostgREST with the caller's own token so RLS
+  // decides what they may read. It is public — the mobile client ships it —
+  // but without it provider-scoped endpoints refuse requests.
+  supabaseAnonKey: (process.env.SUPABASE_ANON_KEY || '').trim(),
+
   // ── Google Maps ──
   googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || '',
 

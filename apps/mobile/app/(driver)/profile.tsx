@@ -13,11 +13,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
+import { unpairElm327 } from "@lib/elm327";
 import { listMyClaims } from "@lib/claims-api";
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user, vehicles, updateProfile, logout, authLoading } = useVehicle();
+  const { user, vehicles, updateProfile, logout } = useVehicle();
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user?.name ?? "");
@@ -127,12 +128,13 @@ export default function ProfileScreen() {
   }
 
   function handleEditToggle() {
-    if (editing) {
-      setName(user?.name ?? "");
-      setPhone(user?.phone ?? "");
-      setLocation(user?.location ?? "");
-      setError("");
-    }
+    // Seed on open as well as on cancel: the initial state was captured before
+    // the session finished restoring, so opening the form with stale "" values
+    // would save empty phone/location over the stored ones.
+    setName(user?.name ?? "");
+    setPhone(user?.phone ?? "");
+    setLocation(user?.location ?? "");
+    setError("");
     setEditing(!editing);
   }
 
@@ -393,7 +395,9 @@ export default function ProfileScreen() {
         }}
       >
         <Pressable
-          onPress={() => { logout(); router.back(); }}
+          onPress={async () => { unpairElm327(); await logout(); router.replace("/"); }}
+          accessibilityRole="button"
+          accessibilityLabel="Log out"
           style={({ pressed }) => ({
             borderRadius: radii.lg,
             paddingVertical: spacing.md,

@@ -32,6 +32,12 @@ def _project_url() -> str:
     return os.getenv("SUPABASE_URL", "").strip().rstrip("/")
 
 
+def _dev_bypass_user_id() -> str | None:
+    if os.getenv("ENV", "").strip().lower() == "production":
+        return None
+    return os.getenv("DEV_AUTH_BYPASS_USER_ID", "").strip() or None
+
+
 @lru_cache(maxsize=4)
 def _jwk_client(jwks_url: str) -> PyJWKClient:
     """One client per JWKS URL — it caches the fetched key set for an hour."""
@@ -53,7 +59,15 @@ def require_user(
 
     Raises 503 when SUPABASE_URL is unset, so a misconfigured deploy refuses
     requests instead of serving them unauthenticated.
+
+    Local development escape hatch: setting DEV_AUTH_BYPASS_USER_ID skips
+    verification and returns that id. Ignored when ENV is production, so it
+    cannot be switched on by a stray env var in a deploy.
     """
+    bypass = _dev_bypass_user_id()
+    if bypass:
+        return bypass
+
     base = _project_url()
     if not base:
         raise HTTPException(

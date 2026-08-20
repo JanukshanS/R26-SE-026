@@ -1,7 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useCallback, useRef, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Linking } from 'react-native';
 
 import { loadClaimantProfile, saveClaimantProfile } from '@/features/claimant/storage/claimant-profile-store';
 import { loadGuidedCaptureEntryMeta } from '@/features/guided-capture/storage/guided-capture-entry-store';
@@ -49,6 +49,9 @@ export function useClaimUpload(
   const [photosUploadComplete, setPhotosUploadComplete] = useState(false);
   const [fraudValidationPercent, setFraudValidationPercent] = useState<number | null>(null);
   const [fraudValidationComplete, setFraudValidationComplete] = useState(false);
+  /** Bumped by the "Try again" button on the blocking alerts; re-runs the effect below.
+   * Without it the only way back to an upload is leaving the screen and returning. */
+  const [retryToken, setRetryToken] = useState(0);
 
   const photosUploadedForKeyRef = useRef<string | null>(null);
   const guidedWalkaroundUploadsDoneRef = useRef(false);
@@ -188,8 +191,20 @@ export function useClaimUpload(
           if (lat === null) {
             Alert.alert(
               'Location required',
-              'We could not get your GPS location. Please enable location access and try again.',
-              [{ text: 'OK' }]
+              'Your claim needs the accident GPS location. Allow location access, then try again.',
+              [
+                {
+                  text: 'Open settings',
+                  onPress: () => {
+                    // Returning from Settings fires no focus event here, so queue the
+                    // re-run now: it re-prompts with "Try again" ready when they come back.
+                    setRetryToken((n) => n + 1);
+                    void Linking.openSettings();
+                  },
+                },
+                { text: 'Try again', onPress: () => setRetryToken((n) => n + 1) },
+                { text: 'Not now', style: 'cancel' },
+              ]
             );
             return;
           }
@@ -293,7 +308,10 @@ export function useClaimUpload(
                 setFraudValidationPercent(0);
                 setFraudValidationComplete(false);
               }
-              Alert.alert('Photos upload failed', message);
+              Alert.alert('Photos upload failed', message, [
+                { text: 'Try again', onPress: () => setRetryToken((n) => n + 1) },
+                { text: 'Not now', style: 'cancel' },
+              ]);
             }
           }
         } finally {
@@ -306,7 +324,7 @@ export function useClaimUpload(
       return () => {
         cancelled = true;
       };
-    }, [uploadKey, claimantHydrated, claimantRef, reportedAtIso, vehicleId])
+    }, [uploadKey, claimantHydrated, claimantRef, reportedAtIso, vehicleId, retryToken])
   );
 
   return {

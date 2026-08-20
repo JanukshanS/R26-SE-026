@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -12,7 +13,6 @@ import { QuickAction } from "@components/ui/quick-action";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import {
-  FALLBACK_HEALTH,
   getVehicleHealth,
   rulToLabel,
   type VehicleHealthResponse,
@@ -20,7 +20,7 @@ import {
 import { isElm327Paired, isRealBleSupported, pairElm327Async, unpairElm327 } from "@lib/elm327";
 import { useVehicle } from "@lib/vehicleContext";
 import { useHardwareBack } from "@lib/useHardwareBack";
-import { isTripActive, startTrip } from "@lib/tripRecorder";
+import { endTrip, isTripActive, startTrip } from "@lib/tripRecorder";
 import { useIncompleteUploadStatus } from "@/features/report-accident/hooks/use-incomplete-upload-status";
 import { ClaimUploadReminderModal } from "@/features/report-accident/components/claim-upload-reminder-modal";
 
@@ -36,7 +36,8 @@ export default function DriverHomeScreen() {
   // Home is the post-auth root: block the Android back button so it can never
   // pop back to the welcome/login screen. The only way off home is Log out.
   useHardwareBack(useCallback(() => true, []));
-  const [health, setHealth] = useState<VehicleHealthResponse>(FALLBACK_HEALTH);
+  const [health, setHealth] = useState<VehicleHealthResponse | null>(null);
+  const [healthError, setHealthError] = useState(false);
   const [loadingHealth, setLoadingHealth] = useState(true);
   const [showObd, setShowObd] = useState(() => !isElm327Paired());
   const [showVehiclePicker, setShowVehiclePicker] = useState(false);
@@ -52,10 +53,10 @@ export default function DriverHomeScreen() {
   const [pairResult, setPairResult] = useState<{ source: "ble" | "classic" | "sim"; deviceName?: string } | null>(null);
   const isRealPairResult = pairResult?.source === "ble" || pairResult?.source === "classic";
 
-  const vehicleId = selectedVehicle?.plateNumber ?? "CBD-3742";
+  const vehicleId = selectedVehicle?.plateNumber ?? "";
   const vehicleLabel = selectedVehicle
   ? (selectedVehicle.nickname || `${selectedVehicle.make} ${selectedVehicle.model}`)
-  : "Toyota Aqua";
+  : "No vehicle added";
 
   // Insurance provider/policy live on the vehicle; licence/NIC live on the profile — all
   // four are required before the Insurance flow is usable for the selected vehicle.
@@ -81,23 +82,41 @@ export default function DriverHomeScreen() {
     }
   }, [vehicleId]);
 
-  useEffect(() => {
+  // The card shows nothing rather than a stand-in score when the service can't
+  // be reached — a driver decides on repairs from these numbers.
+  const loadHealth = useCallback(() => {
+    // No vehicle selected yet — nothing to score, and scoring some other
+    // driver's plate would be worse than showing the empty state.
+    if (!vehicleId) {
+      setHealth(null);
+      setHealthError(false);
+      setLoadingHealth(false);
+      return;
+    }
     setLoadingHealth(true);
+    setHealthError(false);
     getVehicleHealth(vehicleId)
-      .then(setHealth)
-      .catch(() => setHealth(FALLBACK_HEALTH))
+      .then((d) => setHealth(d))
+      .catch(() => {
+        setHealth(null);
+        setHealthError(true);
+      })
       .finally(() => setLoadingHealth(false));
   }, [vehicleId]);
 
+  useEffect(() => {
+    loadHealth();
+  }, [loadHealth]);
+
   const alertComponents = (["brake", "engine", "tire", "battery"] as const).filter(
     (k) => {
-      const s = health.components[k]?.status;
+      const s = health?.components[k]?.status;
       // Only flag genuine wear (Fair/Poor/Critical). "No data" (no trips yet)
       // and a missing component are not alerts.
       return s != null && s !== "Good" && s !== "No data";
     }
   );
-  const noData = health.overall_status === "No data";
+  const noData = health?.overall_status === "No data";
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
@@ -114,7 +133,9 @@ export default function DriverHomeScreen() {
           }}
         >
           <View style={{ gap: spacing.xs }}>
-            <Text style={{ ...typography.caption, color: palette.textMuted }}>Malabe, Srilanka</Text>
+            {user?.location ? (
+              <Text style={{ ...typography.caption, color: palette.textMuted }}>{user.location}</Text>
+            ) : null}
             <Text style={{ ...typography.body, color: palette.text }}>
               {user ? (
                 <>
@@ -132,6 +153,9 @@ export default function DriverHomeScreen() {
           {user ? (
             <Pressable
               onPress={async () => {
+                // A recording left running would keep sampling under the previous
+                // driver's id and surface as "Trip in progress" for whoever signs in next.
+                if (isTripActive()) await endTrip().catch(() => {});
                 unpairElm327();
                 await logout();
                 router.replace("/");
@@ -206,14 +230,20 @@ export default function DriverHomeScreen() {
             }}
           >
             <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "700" }}>
-              {selectedVehicle?.plateNumber ?? vehicleId}
+              {selectedVehicle?.plateNumber ?? "Add vehicle"}
             </Text>
             <Icon name="ChevronDown" size={16} color={palette.brand} />
           </View>
         </Pressable>
 
         {/* Vehicle health card — taps through to health screen */}
-        <Pressable onPress={() => router.push("/(driver)/health")}>
+        <Pressable
+          onPress={() => {
+            if (!vehicleId) return setShowVehiclePicker(true);
+            if (healthError) return loadHealth();
+            router.push("/(driver)/health");
+          }}
+        >
           <Card
             style={{
               borderLeftWidth: 4,
@@ -234,7 +264,7 @@ export default function DriverHomeScreen() {
               <Text style={{ ...typography.bodyStrong, color: palette.text }}>Vehicle Health</Text>
               {loadingHealth ? (
                 <ActivityIndicator size="small" color={palette.brand} />
-              ) : (
+              ) : health ? (
                 <Badge
                   label={health.overall_status}
                   tone={
@@ -248,7 +278,7 @@ export default function DriverHomeScreen() {
                   }
                   uppercase={false}
                 />
-              )}
+              ) : null}
             </View>
 
             <View style={{ alignItems: "flex-start", paddingVertical: spacing.sm * 0.9 }}>
@@ -256,7 +286,7 @@ export default function DriverHomeScreen() {
                 style={{
                   fontSize: 52,
                   fontWeight: "700",
-                  color: noData
+                  color: !health || noData
                     ? palette.textMuted
                     : health.overall_health_pct >= 75
                       ? palette.success
@@ -266,7 +296,7 @@ export default function DriverHomeScreen() {
                   lineHeight: 52,
                 }}
               >
-                {noData ? "—" : `${Math.round(health.overall_health_pct)}%`}
+                {!health || noData ? "—" : `${Math.round(health.overall_health_pct)}%`}
               </Text>
             </View>
 
@@ -275,7 +305,13 @@ export default function DriverHomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: spacing.sm, paddingVertical: spacing.xs * 0.9 }}
             >
-              {noData ? (
+              {!vehicleId ? (
+                <HealthAlertPill text="Add a vehicle to track its health" danger={false} />
+              ) : healthError ? (
+                <HealthAlertPill text="Couldn't load vehicle health — tap to retry" />
+              ) : loadingHealth || !health ? (
+                <HealthAlertPill text="Loading vehicle health…" danger={false} />
+              ) : noData ? (
                 <HealthAlertPill text="No trips recorded yet — drive to assess" danger={false} />
               ) : alertComponents.length > 0 ? (
                 alertComponents.map((k) => (
@@ -293,7 +329,11 @@ export default function DriverHomeScreen() {
 
         {/* Trip recorder card */}
         <ObdSourceBadge />
-        <TripCard vehicleId={vehicleId} driverId={user?._id ?? "guest"} />
+        <TripCard
+          vehicleId={vehicleId}
+          driverId={user?._id ?? ""}
+          onNeedObd={() => setShowObd(true)}
+        />
 
         <View style={{ gap: spacing.md }}>
           <Text style={{ ...typography.h3, color: palette.text }}>Quick Actions</Text>
@@ -681,16 +721,45 @@ function HealthAlertPill({ text, danger = true }: { text: string; danger?: boole
   );
 }
 
-function TripCard({ vehicleId, driverId }: { vehicleId: string; driverId: string }) {
+function TripCard({
+  vehicleId,
+  driverId,
+  onNeedObd,
+}: {
+  vehicleId: string;
+  driverId: string;
+  onNeedObd: () => void;
+}) {
   const [tripActive, setTripActive] = useState(isTripActive());
 
+  // The recorder is module state: a home instance further down the stack keeps
+  // whatever value it mounted with, so re-read it every time this screen is shown.
+  useFocusEffect(
+    useCallback(() => {
+      setTripActive(isTripActive());
+    }, [])
+  );
+
   function handlePress() {
-    if (tripActive) {
+    if (isTripActive()) {
+      setTripActive(true);
       router.push("/(driver)/active-trip");
       return;
     }
     if (!isElm327Paired()) {
-      router.push("/(driver)/home");
+      onNeedObd();
+      return;
+    }
+    if (!driverId) {
+      // Submitting a trip needs a session, so stop before recording one rather
+      // than failing at the end of the drive.
+      router.push("/(driver)/auth");
+      return;
+    }
+    if (!vehicleId) {
+      // Without a plate the trip would be recorded, and later submitted, against
+      // an empty vehicle id.
+      router.push("/(driver)/manage-vehicles");
       return;
     }
     startTrip(vehicleId, driverId);

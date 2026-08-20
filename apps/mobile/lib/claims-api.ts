@@ -36,9 +36,9 @@ function mapClaim(row: ClaimSummaryRow): ClaimSummary {
 }
 
 /**
- * The signed-in driver's claim history, newest first. Returns `[]` for a guest
- * session — same graceful degradation as the rest of the claim-upload flow,
- * not an error.
+ * The signed-in driver's claim history, newest first. Throws when there is no
+ * session or no backend URL — an empty array would tell the driver they have
+ * no claims, which is a claim about their history we never asked the server.
  *
  * Which claims come back is decided by the backend from the bearer token, so
  * there is nothing to pass: the old `?nic=` parameter let any caller read any
@@ -47,12 +47,12 @@ function mapClaim(row: ClaimSummaryRow): ClaimSummary {
 export async function listMyClaims(): Promise<ClaimSummary[]> {
   const token = await getAccessToken();
   if (!token) {
-    return [];
+    throw new Error('Sign in to see your claims.');
   }
 
   const base = getCaptureApiBaseUrl();
   if (!base) {
-    return [];
+    throw new Error('Could not reach the server. Check EXPO_PUBLIC_API_URL and that the backend is running.');
   }
 
   // fetch() has no default timeout in React Native — an unreachable backend

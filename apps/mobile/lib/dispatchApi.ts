@@ -144,7 +144,7 @@ export interface DispatchResultData {
   metadata: {
     computationTimeMs: number;
     trafficImpactScore: number;
-    trafficImpactSource?: "client" | "geo-intelligence" | "default";
+    trafficImpactSource?: "client" | "geo-intelligence" | "geo-unavailable" | "default";
     lambda: number;
     providersEvaluated: number;
     triageTier: string;
@@ -207,6 +207,9 @@ function timeoutSignal(ms: number): { signal: AbortSignal; cancel: () => void } 
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${DISPATCH_BASE_URL}${path}`;
+  // Resolved before the try below so a missing session surfaces its own
+  // "sign in" message instead of being reported as a transport failure.
+  const auth = await authHeaders();
   const { signal, cancel } = timeoutSignal(10_000);
 
   let res: Response;
@@ -215,11 +218,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       headers: {
         "Content-Type": "application/json",
-        ...(await authHeaders()),
+        ...auth,
         ...(init?.headers ?? {}),
       },
       signal,
     });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error(
+        "The dispatch service took too long to respond. Check your connection and try again."
+      );
+    }
+    throw new Error(
+      "Couldn't reach the dispatch service. Check your connection and try again."
+    );
   } finally {
     cancel();
   }
@@ -294,6 +306,27 @@ export async function runDispatch(input: RunDispatchInput): Promise<DispatchResu
   });
 }
 
+export interface ProviderResponseInput {
+  incidentId: string;
+  providerId: string;
+  accepted: boolean;
+  declineReason?: string;
+}
+
+/**
+ * Accept or decline a job assigned to this provider. Accepting is idempotent —
+ * retrying against an incident already EN_ROUTE/ON_SCENE returns the current
+ * incident and writes nothing, so a network failure is safe to retry.
+ */
+export async function respondToJob(
+  input: ProviderResponseInput
+): Promise<{ incident: Incident; accepted: boolean; message: string }> {
+  return request("/api/v1/dispatch/respond", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export async function getIncident(
   incidentId: string
 ): Promise<Incident & {
@@ -302,6 +335,26 @@ export async function getIncident(
   dispatchDecisions?: any[];
 }> {
   return request(`/api/v1/incidents/${incidentId}`);
+}
+
+export interface AssignedIncident extends Incident {
+  triageResponse?: any;
+  assignedProvider?: ProviderRecord | null;
+}
+
+/**
+ * Jobs assigned to a provider. The backend enforces that the caller owns
+ * `providerId` (403 otherwise), so this is only callable for one's own record.
+ */
+export async function listAssignedIncidents(
+  providerId: string,
+  opts?: { status?: string; limit?: number; offset?: number }
+): Promise<{ incidents: AssignedIncident[]; total: number; limit: number; offset: number }> {
+  const params = new URLSearchParams({ assignedProviderId: providerId });
+  if (opts?.status) params.set("status", opts.status);
+  if (opts?.limit !== undefined) params.set("limit", String(opts.limit));
+  if (opts?.offset !== undefined) params.set("offset", String(opts.offset));
+  return request(`/api/v1/incidents?${params.toString()}`);
 }
 
 export async function getProvider(providerId: string): Promise<ProviderRecord> {

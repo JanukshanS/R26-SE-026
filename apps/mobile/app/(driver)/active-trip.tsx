@@ -16,12 +16,15 @@ import {
   onTripUpdate,
   type TripStats,
 } from "@lib/tripRecorder";
-import { submitTrip } from "@lib/maintenanceApi";
+import { submitTrip, type TripBatch } from "@lib/maintenanceApi";
 
 export default function ActiveTripScreen() {
   const insets = useSafeAreaInsets();
   const [stats, setStats] = useState<TripStats | null>(getTripStats());
   const [submitting, setSubmitting] = useState(false);
+  // Set when a completed trip failed to upload. endTrip() hands back the only
+  // copy of the batch, so it is held here and stays retryable instead of lost.
+  const [pending, setPending] = useState<TripBatch | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // If we land here without an active trip, go back
@@ -40,6 +43,34 @@ export default function ActiveTripScreen() {
     };
   }, []);
 
+  async function saveTrip(batch: TripBatch) {
+    setSubmitting(true);
+    try {
+      await submitTrip(batch);
+      setPending(null);
+      router.replace({
+        pathname: "/(driver)/trip-summary",
+        params: { vehicleId: batch.vehicle_id },
+      });
+    } catch (err: any) {
+      setPending(batch);
+      Alert.alert(
+        "Trip not saved",
+        `${err?.message ?? "Could not reach the maintenance server."}\n\nThe trip is still on your phone — tap Retry save to send it.`,
+        [
+          { text: "Retry", onPress: () => { void saveTrip(batch); } },
+          {
+            text: "Discard trip",
+            style: "destructive",
+            onPress: () => { setPending(null); router.replace("/(driver)/home"); },
+          },
+        ]
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   function handleEndTrip() {
     const s = getTripStats();
     if (!s) return;
@@ -50,7 +81,20 @@ export default function ActiveTripScreen() {
       const waitMsg = needImu > 0
         ? `${needImu} more IMU snapshot${needImu !== 1 ? "s" : ""} needed`
         : `${needObd} more OBD reading${needObd !== 1 ? "s" : ""} needed`;
-      Alert.alert("Trip too short", `Keep driving — ${waitMsg} before the trip can be saved.`);
+      Alert.alert("Trip too short", `Keep driving — ${waitMsg} before the trip can be saved.`, [
+        { text: "Keep driving", style: "cancel" },
+        {
+          // A trip started by mistake otherwise has no way out: the recorder
+          // keeps its timers and the phone sensors running. endTrip() tears
+          // both down, and there is nothing worth saving below the minimum.
+          text: "Discard trip",
+          style: "destructive",
+          onPress: async () => {
+            await endTrip().catch(() => {});
+            router.replace("/(driver)/home");
+          },
+        },
+      ]);
       return;
     }
 
@@ -63,19 +107,13 @@ export default function ActiveTripScreen() {
           setSubmitting(true);
           try {
             const batch = await endTrip();
-            await submitTrip(batch);
-            router.replace({
-              pathname: "/(driver)/trip-summary",
-              params: { vehicleId: batch.vehicle_id },
-            });
+            await saveTrip(batch);
           } catch (err: any) {
-            Alert.alert(
-              "Save failed",
-              err?.message ?? "Could not reach the maintenance server. Trip data is lost.",
-              [{ text: "OK", onPress: () => router.replace("/(driver)/home") }]
-            );
-          } finally {
             setSubmitting(false);
+            Alert.alert(
+              "Couldn't end the trip",
+              err?.message ?? "The recorder didn't stop. Try again."
+            );
           }
         },
       },
@@ -100,11 +138,11 @@ export default function ActiveTripScreen() {
           <View
             style={{
               width: 10, height: 10, borderRadius: 5,
-              backgroundColor: palette.success,
+              backgroundColor: pending ? palette.warning : palette.success,
             }}
           />
           <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>
-            Recording Trip
+            {pending ? "Trip Recorded" : "Recording Trip"}
           </Text>
           <View
             style={{
@@ -314,7 +352,11 @@ export default function ActiveTripScreen() {
         }}
       >
         <Pressable
-          onPress={submitting ? undefined : handleEndTrip}
+          onPress={
+            submitting ? undefined
+            : pending  ? () => { void saveTrip(pending); }
+            :            handleEndTrip
+          }
           disabled={submitting}
           style={({ pressed }) => ({
             backgroundColor:
@@ -331,12 +373,12 @@ export default function ActiveTripScreen() {
           })}
         >
           <Icon
-            name={submitting ? "Loader" : "CircleStop"}
+            name={submitting ? "Loader" : pending ? "RotateCcw" : "CircleStop"}
             size={18}
             color={palette.textOnBrand}
           />
           <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-            {submitting ? "Saving trip…" : "End Trip"}
+            {submitting ? "Saving trip…" : pending ? "Retry save" : "End Trip"}
           </Text>
         </Pressable>
       </View>

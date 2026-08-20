@@ -111,7 +111,12 @@ export default function OrderPartsScreen() {
               onPress={() =>
                 router.push({
                   pathname: "/(driver)/auto-schedule",
-                  params: { component: key },
+                  params: {
+                    component: key,
+                    partName: part.name,
+                    partSubtitle: `${part.year} · ${part.model}`,
+                    partPrice: part.price,
+                  },
                 })
               }
             />
@@ -179,7 +184,7 @@ function StoreLanding({ topInset, bottomInset }: { topInset: number; bottomInset
         contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: bottomInset + 100 }}
       >
         <Text style={{ ...typography.body, color: palette.textMuted }}>
-          Genuine parts matched to your vehicle. Pick a category to browse.
+          Browse parts by category. Prices are indicative.
         </Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
           {STORE_CATEGORIES.map((cat) => (

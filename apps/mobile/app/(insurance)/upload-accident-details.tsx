@@ -26,7 +26,6 @@ import {
   INSURANCE_BORDER_SOFT,
   INSURANCE_CARD_BORDER_ACCENT,
   INSURANCE_PRESSED_SURFACE,
-  INSURANCE_PRESSED_SURFACE_SOFT,
   INSURANCE_PROGRESS_DONE,
   INSURANCE_TEXT,
   INSURANCE_TEXT_MUTED_SOFT,
@@ -219,7 +218,13 @@ export default function UploadAccidentDetailsScreen() {
       router.dismissTo('/(insurance)');
       return;
     }
-    Alert.alert('Coming soon', 'This section will be added in a future update.');
+    if (tab === 'store') {
+      router.push('/(driver)/order-parts');
+      return;
+    }
+    if (tab === 'profile') {
+      router.push('/(driver)/profile');
+    }
   };
 
   return (
@@ -252,8 +257,10 @@ export default function UploadAccidentDetailsScreen() {
               percent={fraudValidationPercent}
               complete={fraudValidationComplete}
             />
-            <ProgressRow label="Low light enhancement" percent={0} complete={false} />
-            <ProgressRow label="3D Reconstruction" percent={0} complete={false} />
+            <Text style={styles.progressNote}>
+              Your photos are uploaded and stored with the claim. Your insurer reviews
+              them directly.
+            </Text>
           </View>
 
           <View style={styles.detailCard}>
@@ -270,14 +277,16 @@ export default function UploadAccidentDetailsScreen() {
               {timestampLine || (locationLoading ? '…' : formatTimestamp(new Date()))}
             </Text>
             <Text style={styles.detailFooter}>
-              GPS + Timestamp signed. You can close the App - Do not disconnect from Internet. We&apos;ll notify you.
+              {claimComplete
+                ? 'GPS + Timestamp signed. Upload finished — track this claim under My Claims.'
+                : 'GPS + Timestamp signed. Keep this screen open and stay online until the upload finishes.'}
             </Text>
           </View>
 
-          <Pressable style={({ pressed }) => [styles.insuranceRowBtn, pressed && styles.insuranceRowPressed]}>
+          <View style={styles.insuranceRowBtn}>
             <Text style={styles.insuranceRowLabel}>Insurance</Text>
             <Text style={styles.insuranceRowStatus}>Pending</Text>
-          </Pressable>
+          </View>
 
           {insuranceCompany ? (
             <Pressable
@@ -385,6 +394,11 @@ const styles = StyleSheet.create({
   progressSpinner: {
     marginRight: 9,
   },
+  progressNote: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: COLORS.textMuted,
+  },
   detailCard: {
     marginTop: 20,
     borderWidth: 1,
@@ -445,9 +459,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
     marginBottom: 12,
-  },
-  insuranceRowPressed: {
-    backgroundColor: INSURANCE_PRESSED_SURFACE_SOFT,
   },
   insuranceRowLabel: {
     fontSize: 16,

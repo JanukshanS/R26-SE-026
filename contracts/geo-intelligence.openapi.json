@@ -1,359 +1,894 @@
 {
-    "openapi": "3.1.0",
-    "info": {
-        "title": "Kaduna.lk \u00e2\u20ac\u201d Geo-Intelligence Service",
-        "description": "Traffic-impact intelligence for Sri Lankan roads. Scores incidents on a 1\u00e2\u20ac\u201c10 priority scale; serves precomputed hotspot clusters for the Colombo metropolitan area.",
-        "contact": {
-            "name": "Asath M M",
-            "email": "it22633422@my.sliit.lk"
-        },
-        "version": "0.1.0"
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Kaduna.lk — Geo-Intelligence Service",
+    "description": "Traffic-impact intelligence for Sri Lankan roads. Scores incidents on a 1–10 priority scale; serves precomputed hotspot clusters for the Colombo metropolitan area. v0.1 error bodies use FastAPI `{ detail }`; not yet platform standard envelope.",
+    "contact": {
+      "name": "Asath M M",
+      "email": "it22633422@my.sliit.lk"
     },
-    "paths": {
-        "/v1/health": {
-            "get": {
-                "tags": [
-                    "meta"
-                ],
-                "summary": "Health",
-                "operationId": "health_v1_health_get",
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/HealthResponse"
-                                }
-                            }
-                        }
-                    }
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Health",
+        "operationId": "health_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
                 }
+              }
             }
-        },
-        "/v1/score": {
-            "post": {
-                "tags": [
-                    "scoring"
-                ],
-                "summary": "Score",
-                "operationId": "score_v1_score_post",
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/ScoreRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ScoreResponse"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/HTTPValidationError"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/hotspots": {
-            "get": {
-                "tags": [
-                    "spatial"
-                ],
-                "summary": "Hotspots",
-                "operationId": "hotspots_v1_hotspots_get",
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "items": {
-                                        "$ref": "#/components/schemas/HotspotCluster"
-                                    },
-                                    "type": "array",
-                                    "title": "Response Hotspots V1 Hotspots Get"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/stats": {
-            "get": {
-                "tags": [
-                    "meta"
-                ],
-                "summary": "Stats",
-                "operationId": "stats_v1_stats_get",
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "additionalProperties": true,
-                                    "type": "object",
-                                    "title": "Response Stats V1 Stats Get"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+          }
         }
+      }
     },
-    "components": {
-        "schemas": {
-            "HTTPValidationError": {
-                "properties": {
-                    "detail": {
-                        "items": {
-                            "$ref": "#/components/schemas/ValidationError"
-                        },
-                        "type": "array",
-                        "title": "Detail"
-                    }
-                },
-                "type": "object",
-                "title": "HTTPValidationError"
-            },
-            "HealthResponse": {
-                "properties": {
-                    "status": {
-                        "type": "string",
-                        "title": "Status"
-                    },
-                    "service": {
-                        "type": "string",
-                        "title": "Service"
-                    },
-                    "version": {
-                        "type": "string",
-                        "title": "Version"
-                    },
-                    "weights": {
-                        "additionalProperties": true,
-                        "type": "object",
-                        "title": "Weights"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "status",
-                    "service",
-                    "version",
-                    "weights"
-                ],
-                "title": "HealthResponse"
-            },
-            "HotspotCluster": {
-                "properties": {
-                    "cluster_id": {
-                        "type": "integer",
-                        "title": "Cluster Id"
-                    },
-                    "centroid_lat": {
-                        "type": "number",
-                        "title": "Centroid Lat"
-                    },
-                    "centroid_lon": {
-                        "type": "number",
-                        "title": "Centroid Lon"
-                    },
-                    "incident_count": {
-                        "type": "integer",
-                        "title": "Incident Count"
-                    },
-                    "avg_score": {
-                        "type": "number",
-                        "title": "Avg Score"
-                    },
-                    "composite_risk": {
-                        "type": "number",
-                        "title": "Composite Risk"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "cluster_id",
-                    "centroid_lat",
-                    "centroid_lon",
-                    "incident_count",
-                    "avg_score",
-                    "composite_risk"
-                ],
-                "title": "HotspotCluster"
-            },
-            "ScoreRequest": {
-                "properties": {
-                    "latitude": {
-                        "type": "number",
-                        "title": "Latitude",
-                        "example": 6.9271
-                    },
-                    "longitude": {
-                        "type": "number",
-                        "title": "Longitude",
-                        "example": 79.8612
-                    },
-                    "road_type": {
-                        "type": "string",
-                        "title": "Road Type",
-                        "description": "One of: motorway, trunk, primary, secondary, tertiary, residential",
-                        "example": "primary"
-                    },
-                    "total_lanes": {
-                        "type": "integer",
-                        "maximum": 8.0,
-                        "minimum": 1.0,
-                        "title": "Total Lanes",
-                        "example": 2
-                    },
-                    "lanes_blocked": {
-                        "type": "integer",
-                        "maximum": 8.0,
-                        "minimum": 0.0,
-                        "title": "Lanes Blocked",
-                        "example": 1
-                    },
-                    "incident_type": {
-                        "type": "string",
-                        "title": "Incident Type",
-                        "description": "One of: major_accident, minor_accident, engine_failure, flat_tire, fuel_empty, battery_dead, lockout, other",
-                        "example": "engine_failure"
-                    },
-                    "hour": {
-                        "type": "integer",
-                        "maximum": 23.0,
-                        "minimum": 0.0,
-                        "title": "Hour",
-                        "example": 8
-                    },
-                    "day_of_week": {
-                        "type": "integer",
-                        "maximum": 6.0,
-                        "minimum": 0.0,
-                        "title": "Day Of Week",
-                        "description": "0=Monday, 6=Sunday",
-                        "example": 0
-                    },
-                    "speed_limit_kmh": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Speed Limit Kmh",
-                        "example": 60.0
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "latitude",
-                    "longitude",
-                    "road_type",
-                    "total_lanes",
-                    "lanes_blocked",
-                    "incident_type",
-                    "hour",
-                    "day_of_week"
-                ],
-                "title": "ScoreRequest"
-            },
-            "ScoreResponse": {
-                "properties": {
-                    "score": {
-                        "type": "number",
-                        "title": "Score",
-                        "description": "Impact score on a 1\u00e2\u20ac\u201c10 scale"
-                    },
-                    "priority": {
-                        "type": "string",
-                        "title": "Priority",
-                        "description": "CRITICAL | HIGH | MEDIUM | LOW"
-                    },
-                    "factors": {
-                        "additionalProperties": true,
-                        "type": "object",
-                        "title": "Factors"
-                    },
-                    "prediction": {
-                        "additionalProperties": true,
-                        "type": "object",
-                        "title": "Prediction"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "score",
-                    "priority",
-                    "factors",
-                    "prediction"
-                ],
-                "title": "ScoreResponse"
-            },
-            "ValidationError": {
-                "properties": {
-                    "loc": {
-                        "items": {
-                            "anyOf": [
-                                {
-                                    "type": "string"
-                                },
-                                {
-                                    "type": "integer"
-                                }
-                            ]
-                        },
-                        "type": "array",
-                        "title": "Location"
-                    },
-                    "msg": {
-                        "type": "string",
-                        "title": "Message"
-                    },
-                    "type": {
-                        "type": "string",
-                        "title": "Error Type"
-                    },
-                    "input": {
-                        "title": "Input"
-                    },
-                    "ctx": {
-                        "type": "object",
-                        "title": "Context"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "loc",
-                    "msg",
-                    "type"
-                ],
-                "title": "ValidationError"
+    "/v1/score": {
+      "post": {
+        "tags": [
+          "scoring"
+        ],
+        "summary": "Score",
+        "operationId": "score_v1_score_post",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScoreRequest"
+              }
             }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoreResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Business rule violation (lanes_blocked exceeds total_lanes)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "example": {
+                  "detail": "lanes_blocked cannot exceed total_lanes"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "examples": {
+                  "missing": {
+                    "value": {
+                      "detail": "Missing bearer token."
+                    }
+                  },
+                  "invalid": {
+                    "value": {
+                      "detail": "Invalid or expired token."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Auth backend not configured (SUPABASE_URL unset)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "example": {
+                  "detail": "SUPABASE_URL is not configured."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
         }
+      }
+    },
+    "/v1/score/uncertainty": {
+      "post": {
+        "tags": [
+          "scoring"
+        ],
+        "summary": "Score Uncertainty",
+        "description": "90% confidence band on the impact score via Monte-Carlo over the two\ngenuinely uncertain inputs (incident duration, reported lanes-blocked).",
+        "operationId": "score_uncertainty_v1_score_uncertainty_post",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UncertaintyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Business rule violation (lanes_blocked exceeds total_lanes)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "example": {
+                  "detail": "lanes_blocked cannot exceed total_lanes"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "examples": {
+                  "missing": {
+                    "value": {
+                      "detail": "Missing bearer token."
+                    }
+                  },
+                  "invalid": {
+                    "value": {
+                      "detail": "Invalid or expired token."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Auth backend not configured (SUPABASE_URL unset)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "example": {
+                  "detail": "SUPABASE_URL is not configured."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/score/timeline": {
+      "post": {
+        "tags": [
+          "scoring"
+        ],
+        "summary": "Score Timeline",
+        "description": "Relative congestion-impact curve over time since the incident: the queue\nbuilds while the incident is active, then drains — a rise-then-decay profile.",
+        "operationId": "score_timeline_v1_score_timeline_post",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimelineRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Score Timeline V1 Score Timeline Post"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Business rule violation (lanes_blocked exceeds total_lanes)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "example": {
+                  "detail": "lanes_blocked cannot exceed total_lanes"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "examples": {
+                  "missing": {
+                    "value": {
+                      "detail": "Missing bearer token."
+                    }
+                  },
+                  "invalid": {
+                    "value": {
+                      "detail": "Invalid or expired token."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Auth backend not configured (SUPABASE_URL unset)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "example": {
+                  "detail": "SUPABASE_URL is not configured."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/hotspots": {
+      "get": {
+        "tags": [
+          "spatial"
+        ],
+        "summary": "Hotspots",
+        "operationId": "hotspots_v1_hotspots_get",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HotspotCluster"
+                  },
+                  "type": "array",
+                  "title": "Response Hotspots V1 Hotspots Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "examples": {
+                  "missing": {
+                    "value": {
+                      "detail": "Missing bearer token."
+                    }
+                  },
+                  "invalid": {
+                    "value": {
+                      "detail": "Invalid or expired token."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Auth backend not configured (SUPABASE_URL unset), or hotspot dataset unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "examples": {
+                  "auth_unconfigured": {
+                    "value": {
+                      "detail": "SUPABASE_URL is not configured."
+                    }
+                  },
+                  "dataset_missing": {
+                    "value": {
+                      "detail": "hotspot dataset not available"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stats": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Stats",
+        "operationId": "stats_v1_stats_get",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Stats V1 Stats Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "examples": {
+                  "missing": {
+                    "value": {
+                      "detail": "Missing bearer token."
+                    }
+                  },
+                  "invalid": {
+                    "value": {
+                      "detail": "Invalid or expired token."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Auth backend not configured (SUPABASE_URL unset), or stats dataset unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "examples": {
+                  "auth_unconfigured": {
+                    "value": {
+                      "detail": "SUPABASE_URL is not configured."
+                    }
+                  },
+                  "dataset_missing": {
+                    "value": {
+                      "detail": "stats dataset not available"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Supabase Auth access token, ES256, verified against the project JWKS endpoint."
+      }
+    },
+    "schemas": {
+      "HTTPErrorDetail": {
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "properties": {
+          "detail": {
+            "type": "string"
+          }
+        },
+        "description": "FastAPI-native error body; platform `{ error: { code, message } }` envelope deferred to v0.2",
+        "title": "HTTPErrorDetail"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "service": {
+            "type": "string",
+            "title": "Service"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "weights": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Weights"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "service",
+          "version",
+          "weights"
+        ],
+        "title": "HealthResponse"
+      },
+      "HotspotCluster": {
+        "description": "Enriched cluster metadata from DBSCAN pipeline; optional fields for backward compatibility.",
+        "properties": {
+          "cluster_id": {
+            "type": "integer",
+            "title": "Cluster Id"
+          },
+          "centroid_lat": {
+            "type": "number",
+            "title": "Centroid Lat"
+          },
+          "centroid_lon": {
+            "type": "number",
+            "title": "Centroid Lon"
+          },
+          "incident_count": {
+            "type": "integer",
+            "title": "Incident Count"
+          },
+          "avg_score": {
+            "type": "number",
+            "title": "Avg Score"
+          },
+          "composite_risk": {
+            "type": "number",
+            "title": "Composite Risk"
+          },
+          "road_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "title": "Road Type",
+            "example": "motorway"
+          },
+          "incident_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "title": "Incident Type",
+            "example": "accident_major"
+          },
+          "peak_hour": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 23,
+            "title": "Peak Hour",
+            "example": 17
+          },
+          "radius_m": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "title": "Radius M",
+            "example": 920.9
+          }
+        },
+        "type": "object",
+        "required": [
+          "cluster_id",
+          "centroid_lat",
+          "centroid_lon",
+          "incident_count",
+          "avg_score",
+          "composite_risk"
+        ],
+        "title": "HotspotCluster"
+      },
+      "ScoreRequest": {
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "title": "Latitude",
+            "example": 6.9271
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude",
+            "example": 79.8612
+          },
+          "road_type": {
+            "type": "string",
+            "title": "Road Type",
+            "description": "One of: motorway, trunk, primary, secondary, tertiary, residential, living_street, unclassified",
+            "example": "primary"
+          },
+          "total_lanes": {
+            "type": "integer",
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "Total Lanes",
+            "example": 2
+          },
+          "lanes_blocked": {
+            "type": "integer",
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Lanes Blocked",
+            "example": 1
+          },
+          "incident_type": {
+            "type": "string",
+            "title": "Incident Type",
+            "description": "One of: major_accident, minor_accident, engine_failure, flat_tire, fuel_empty, battery_dead, lockout, overheating, other",
+            "example": "engine_failure",
+            "x-incident-aliases": {
+              "major_accident": "accident_major",
+              "minor_accident": "accident_minor",
+              "lockout": "default ISF 0.5",
+              "other": "default ISF 0.5"
+            }
+          },
+          "hour": {
+            "type": "integer",
+            "maximum": 23.0,
+            "minimum": 0.0,
+            "title": "Hour",
+            "example": 8
+          },
+          "day_of_week": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 0.0,
+            "title": "Day Of Week",
+            "description": "0=Monday, 6=Sunday",
+            "example": 0
+          },
+          "speed_limit_kmh": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speed Limit Kmh",
+            "example": 60.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "latitude",
+          "longitude",
+          "road_type",
+          "total_lanes",
+          "lanes_blocked",
+          "incident_type",
+          "hour",
+          "day_of_week"
+        ],
+        "title": "ScoreRequest"
+      },
+      "ScoreResponse": {
+        "properties": {
+          "score": {
+            "type": "number",
+            "title": "Score",
+            "description": "Impact score on a 1–10 scale"
+          },
+          "priority": {
+            "type": "string",
+            "title": "Priority",
+            "description": "CRITICAL | HIGH | MEDIUM | LOW"
+          },
+          "factors": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Factors"
+          },
+          "prediction": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Prediction"
+          }
+        },
+        "type": "object",
+        "required": [
+          "score",
+          "priority",
+          "factors",
+          "prediction"
+        ],
+        "title": "ScoreResponse"
+      },
+      "TimelineRequest": {
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "title": "Latitude",
+            "example": 6.9271
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude",
+            "example": 79.8612
+          },
+          "road_type": {
+            "type": "string",
+            "title": "Road Type",
+            "description": "One of: motorway, trunk, primary, secondary, tertiary, residential, living_street, unclassified",
+            "example": "primary"
+          },
+          "total_lanes": {
+            "type": "integer",
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "Total Lanes",
+            "example": 2
+          },
+          "lanes_blocked": {
+            "type": "integer",
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Lanes Blocked",
+            "example": 1
+          },
+          "incident_type": {
+            "type": "string",
+            "title": "Incident Type",
+            "description": "One of: major_accident, minor_accident, engine_failure, flat_tire, fuel_empty, battery_dead, lockout, overheating, other",
+            "example": "engine_failure",
+            "x-incident-aliases": {
+              "major_accident": "accident_major",
+              "minor_accident": "accident_minor",
+              "lockout": "default ISF 0.5",
+              "other": "default ISF 0.5"
+            }
+          },
+          "hour": {
+            "type": "integer",
+            "maximum": 23.0,
+            "minimum": 0.0,
+            "title": "Hour",
+            "example": 8
+          },
+          "day_of_week": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 0.0,
+            "title": "Day Of Week",
+            "description": "0=Monday, 6=Sunday",
+            "example": 0
+          },
+          "speed_limit_kmh": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speed Limit Kmh",
+            "example": 60.0
+          },
+          "horizon_min": {
+            "type": "integer",
+            "maximum": 600.0,
+            "minimum": 1.0,
+            "title": "Horizon Min",
+            "description": "Minutes since the incident to project",
+            "default": 120
+          },
+          "step_min": {
+            "type": "integer",
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Step Min",
+            "description": "Sampling interval in minutes",
+            "default": 10
+          }
+        },
+        "type": "object",
+        "required": [
+          "latitude",
+          "longitude",
+          "road_type",
+          "total_lanes",
+          "lanes_blocked",
+          "incident_type",
+          "hour",
+          "day_of_week"
+        ],
+        "title": "TimelineRequest"
+      },
+      "UncertaintyResponse": {
+        "properties": {
+          "score_mean": {
+            "type": "number",
+            "title": "Score Mean"
+          },
+          "score_p05": {
+            "type": "number",
+            "title": "Score P05"
+          },
+          "score_p95": {
+            "type": "number",
+            "title": "Score P95"
+          },
+          "score_std": {
+            "type": "number",
+            "title": "Score Std"
+          }
+        },
+        "type": "object",
+        "required": [
+          "score_mean",
+          "score_p05",
+          "score_p95",
+          "score_std"
+        ],
+        "title": "UncertaintyResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
 }

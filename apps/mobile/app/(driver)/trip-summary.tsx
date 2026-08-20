@@ -20,19 +20,22 @@ export default function TripSummaryScreen() {
 
   const [data, setData] = useState<VehicleTripSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [empty, setEmpty] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     setLoading(true);
-    setError(null);
+    setEmpty(false);
+    setLoadFailed(false);
     getVehicleTripSummary(vehicleId)
       .then((d) => {
-        if (!d) setError("No trip data recorded for this vehicle yet.");
+        if (!d) setEmpty(true);
         else setData(d);
       })
-      .catch(() => setError("Could not reach the maintenance server."))
+      .catch(() => setLoadFailed(true))
       .finally(() => setLoading(false));
-  }, [vehicleId]);
+  }, [vehicleId, attempt]);
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
@@ -62,8 +65,10 @@ export default function TripSummaryScreen() {
 
       {loading ? (
         <LoadingSkeleton />
-      ) : error ? (
-        <EmptyState message={error} />
+      ) : loadFailed ? (
+        <LoadFailedState onRetry={() => setAttempt((a) => a + 1)} />
+      ) : empty ? (
+        <EmptyState message="No trip data recorded for this vehicle yet." />
       ) : data ? (
         <ScrollView
           contentContainerStyle={{
@@ -361,6 +366,39 @@ function EmptyState({ message }: { message: string }) {
       <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
         {message}
       </Text>
+    </View>
+  );
+}
+
+function LoadFailedState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xxl, gap: spacing.lg }}>
+      <View
+        style={{
+          width: 64, height: 64, borderRadius: 32,
+          backgroundColor: palette.dangerSoft,
+          alignItems: "center", justifyContent: "center",
+        }}
+      >
+        <Icon name="TriangleAlert" size={28} color={palette.danger} />
+      </View>
+      <Text style={{ ...typography.h3, color: palette.text, textAlign: "center" }}>Couldn&apos;t load trips</Text>
+      <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
+        The maintenance server didn&apos;t respond. Check your connection and try again.
+      </Text>
+      <Pressable
+        onPress={onRetry}
+        accessibilityRole="button"
+        accessibilityLabel="Try again"
+        style={({ pressed }) => ({
+          backgroundColor: pressed ? palette.brandPressed : palette.brand,
+          borderRadius: radii.lg,
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.xl,
+        })}
+      >
+        <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Try again</Text>
+      </Pressable>
     </View>
   );
 }

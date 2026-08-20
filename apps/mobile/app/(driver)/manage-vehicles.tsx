@@ -14,8 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
-import type { VehicleInput } from "@lib/vehicleApi";
-import type { Vehicle } from "@lib/vehicleApi";
+import type { Vehicle, VehicleInput } from "@lib/vehicleApi";
 import { listInsuranceCompanies, type InsuranceCompany } from "@lib/insuranceCompaniesApi";
 
 const FUEL_TYPES = ["petrol", "diesel", "hybrid", "electric"] as const;
@@ -28,7 +27,7 @@ const EMPTY_FORM: Partial<VehicleInput> = {
 
 export default function ManageVehiclesScreen() {
   const insets = useSafeAreaInsets();
-  const { user, vehicles, vehiclesLoading, selectedVehicle, selectVehicle, addVehicle, editVehicle, removeVehicle, setDefault, updateMe, logout } = useVehicle();
+  const { user, vehicles, vehiclesLoading, vehicleError, refreshVehicles, selectedVehicle, selectVehicle, addVehicle, editVehicle, removeVehicle, setDefault, updateMe, logout } = useVehicle();
   const { editVehicleId } = useLocalSearchParams<{ editVehicleId?: string }>();
 
   const [showForm, setShowForm] = useState(false);
@@ -118,10 +117,22 @@ export default function ManageVehiclesScreen() {
       } else {
         await addVehicle(form);
       }
-      await updateMe({ licenceNumber: licenceNumber.trim(), nicNumber: nicNumber.trim() });
-      setShowForm(false);
     } catch (err: any) {
-      setError(err.message ?? "Failed to save vehicle");
+      setError(err.message ?? "Failed to save vehicle. Check your connection and try again.");
+      setSaving(false);
+      return;
+    }
+    // The vehicle write already went through, so the form is closed before the
+    // profile write below: leaving it open on a licence/NIC failure invites a
+    // second tap of "Add Vehicle" and a duplicate car.
+    setShowForm(false);
+    try {
+      await updateMe({ licenceNumber: licenceNumber.trim(), nicNumber: nicNumber.trim() });
+    } catch (err: any) {
+      Alert.alert(
+        "Licence and NIC not saved",
+        `${err.message ?? "The server didn't respond."}\n\nYour vehicle was saved. Tap Edit on it to enter them again.`
+      );
     } finally {
       setSaving(false);
     }
@@ -195,6 +206,30 @@ export default function ManageVehiclesScreen() {
       >
         {vehiclesLoading ? (
           <ActivityIndicator size="large" color={palette.brand} style={{ marginTop: 40 }} />
+        ) : vehicleError && vehicles.length === 0 ? (
+          /* Without this the failed fetch looks like an empty garage, and the
+             driver re-registers a car they already have. */
+          <View style={{ alignItems: "center", paddingTop: 60, gap: spacing.md }}>
+            <Icon name="TriangleAlert" size={48} color={palette.danger} />
+            <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
+              Couldn&apos;t load your vehicles. {vehicleError}
+            </Text>
+            <Pressable
+              onPress={() => { void refreshVehicles(); }}
+              style={({ pressed }) => ({
+                paddingHorizontal: spacing.lg,
+                paddingVertical: spacing.sm,
+                borderRadius: radii.md,
+                borderWidth: 1,
+                borderColor: palette.border,
+                backgroundColor: pressed ? palette.brandSoft : "transparent",
+              })}
+            >
+              <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "600" }}>
+                Try again
+              </Text>
+            </Pressable>
+          </View>
         ) : vehicles.length === 0 ? (
           <View style={{ alignItems: "center", paddingTop: 60, gap: spacing.md }}>
             <Icon name="Car" size={48} color={palette.border} />
@@ -248,7 +283,7 @@ export default function ManageVehiclesScreen() {
       </View>
 
       {/* Add / Edit modal */}
-      <Modal visible={showForm} transparent animationType="slide">
+      <Modal visible={showForm} transparent animationType="slide" onRequestClose={() => setShowForm(false)}>
         <View
           style={{
             flex: 1,
@@ -410,7 +445,7 @@ export default function ManageVehiclesScreen() {
 
       {/* Shown when redirected here from Home's Insurance button because required
           details were missing — names the specific fields still needed, in orange. */}
-      <Modal visible={reminderVisible} transparent animationType="fade">
+      <Modal visible={reminderVisible} transparent animationType="fade" onRequestClose={() => setReminderVisible(false)}>
         <View
           style={{
             flex: 1,

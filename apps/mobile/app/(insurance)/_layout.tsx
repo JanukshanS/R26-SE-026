@@ -10,7 +10,6 @@ export default function InsuranceLayout() {
       <Stack.Screen name="driving-licence" />
       <Stack.Screen name="drunk-test" />
       <Stack.Screen name="third-party" />
-      <Stack.Screen name="scene-video" />
     </Stack>
   );
 }

@@ -8,7 +8,7 @@
  * 
  * Formula (from research proposal):
  *   ExpectedCost(p, i) = Σ_k [ P(type_k) × ResolutionCost(p, i, type_k) ]
- *                      + λ × TrafficImpact × E[ResolutionTime]
+ *                      + λ × TrafficImpact × TravelTime
  * 
  *   Where:
  *     Match cost    = TravelTime + ServiceTime
@@ -85,7 +85,7 @@ export interface ECMProvider {
  * This is the core ECM formula from the research proposal:
  * 
  *   ExpectedCost = Σ_k [ P(type_k) × ResolutionCost(provider, type_k) ]
- *                + λ × trafficImpact × E[totalTime]
+ *                + λ × trafficImpact × travelTime
  * 
  * Where ResolutionCost depends on whether the provider CAN or CANNOT
  * handle service type k (match vs. mismatch).
@@ -135,9 +135,12 @@ function calculateExpectedCost(
     }
   }
 
-  // Traffic externality cost: λ × trafficImpact × expectedTotalTime
-  // Higher traffic impact → more important to resolve quickly
-  const trafficExternalityCost = lambda * (trafficImpactScore / 10) * expectedTotalTime;
+  // Traffic externality cost: λ × trafficImpact × travelTime
+  // The externality is the congestion the incident imposes while a provider is
+  // still en route, so it scales with travel time rather than total resolution
+  // time. Scaling by expectedTotalTime would apply a uniform multiplier to every
+  // provider's cost and could never change the ranking.
+  const trafficExternalityCost = lambda * (trafficImpactScore / 10) * travelTimeMin;
 
   // Total raw cost
   const rawCost = expectedServiceCost + expectedMismatchCost + trafficExternalityCost;

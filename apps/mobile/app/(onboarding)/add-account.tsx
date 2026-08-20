@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Platform, Pressable, Text } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Button } from "@components/ui/button";
+import { Card } from "@components/ui/card";
 import { ErrorState } from "@components/ui/error-state";
 import { HeaderBar } from "@components/ui/header-bar";
 import { Screen } from "@components/ui/screen";
@@ -19,10 +20,12 @@ export default function AddAccountScreen() {
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit() {
     setError("");
+    setNotice("");
     if (mode === "register" && !name.trim()) {
       setError("Name is required");
       return;
@@ -42,7 +45,7 @@ export default function AddAccountScreen() {
         });
         if (needsConfirmation) {
           setMode("login");
-          setError("Account created — check your email to confirm, then sign in.");
+          setNotice("Account created. Confirm your email address, then sign in here.");
           return;
         }
         router.replace("/(onboarding)/add-vehicle");
@@ -59,11 +62,17 @@ export default function AddAccountScreen() {
 
   async function handleGoogle() {
     setError("");
+    setNotice("");
     setSubmitting(true);
     try {
-      await authApi.signInWithGoogle();
+      const signedIn = await authApi.signInWithGoogle();
       // Web navigates away to Google and back; native returns here signed in.
-      if (Platform.OS !== "web") router.replace("/(driver)/home");
+      if (Platform.OS === "web") return;
+      if (!signedIn) {
+        setError("Google sign-in was cancelled. Try again, or use your email and password.");
+        return;
+      }
+      router.replace("/(driver)/home");
     } catch (err) {
       setError((err as Error).message ?? "Google sign-in failed");
     } finally {
@@ -91,12 +100,6 @@ export default function AddAccountScreen() {
             variant="secondary"
             disabled={submitting}
             onPress={handleGoogle}
-          />
-          {/* Frictionless: never block entry — continue as a guest. */}
-          <Button
-            title="Continue as guest"
-            variant="ghost"
-            onPress={() => router.replace("/(driver)/home")}
           />
         </>
       }
@@ -141,6 +144,13 @@ export default function AddAccountScreen() {
         />
       )}
 
+      {notice ? (
+        <Card style={{ borderLeftWidth: 4, borderLeftColor: palette.brand, gap: spacing.sm }}>
+          <Text style={{ ...typography.bodyStrong, color: palette.text }}>Check your email</Text>
+          <Text style={{ ...typography.caption, color: palette.textMuted }}>{notice}</Text>
+        </Card>
+      ) : null}
+
       {error ? (
         <ErrorState
           title={mode === "register" ? "Registration failed" : "Sign in failed"}
@@ -152,6 +162,7 @@ export default function AddAccountScreen() {
         onPress={() => {
           setMode(mode === "register" ? "login" : "register");
           setError("");
+          setNotice("");
         }}
         style={{ alignItems: "center", paddingVertical: spacing.sm }}
       >

@@ -194,6 +194,9 @@ export default function DrunkTestScreen() {
         const previousUri = videoUriRef.current;
         try {
           const storedUri = await persistRecordedVideo(recorded.uri);
+          // Persist directly, not via the videoUri effect — that effect never runs
+          // if the screen was left mid-recording, and the take would be lost.
+          await saveDrunkTestState({ videoUri: storedUri });
           setVideoUri(storedUri);
           if (previousUri && previousUri !== storedUri) {
             void deleteDrunkTestVideo(previousUri);
