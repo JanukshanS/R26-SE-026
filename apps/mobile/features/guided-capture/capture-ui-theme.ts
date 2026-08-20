@@ -57,6 +57,9 @@ export const CAPTURE_GUIDE_BORDER = 'rgba(255, 255, 255, 0.92)';
 export const CAPTURE_GUIDE_FILL = 'rgba(255, 255, 255, 0.03)';
 export const CAPTURE_OVERLAP_GUIDE_BORDER = 'rgba(255, 255, 255, 0.7)';
 export const CAPTURE_VALID_BORDER = 'rgba(0, 219, 126, 0.9)';
+/** Same color as CAPTURE_VALID_BORDER, as a plain hex — needed anywhere an alpha suffix
+ * gets appended (e.g. GlowHalo's `${color}B3`), which rgba(...) strings can't take. */
+export const CAPTURE_VALID_HEX = '#00db7e';
 export const CAPTURE_INVALID_BORDER = 'rgba(255, 88, 88, 0.95)';
 export const CAPTURE_VALID_BG = 'rgba(112, 255, 147, 0.15)';
 export const CAPTURE_VALID_BORDER_SOFT = 'rgba(112, 255, 147, 0.5)';
@@ -161,8 +164,8 @@ export const INSURANCE_PILL_INCOMPLETE_BG = '#ffdda742';
 export const INSURANCE_PILL_INCOMPLETE_TEXT = '#ff6b35';
 export const INSURANCE_REPORT_BG = '#ff5c5c';
 export const INSURANCE_REPORT_DISABLED_BG = GRAY_LIGHTER;
-export const DONE_PRIMARY = '#34a910ff';
-export const DONE_BADGE_BG = '#c0ffa742';
+export const DONE_PRIMARY = '#21bb10ff';
+export const DONE_BADGE_BG = '#70f06e2d';
 
 /** User Verification (drunk test) screen extras */
 export const INSURANCE_SCRIPT_BOX_BG = '#fff0e6';

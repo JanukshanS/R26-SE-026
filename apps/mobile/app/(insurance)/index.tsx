@@ -35,9 +35,7 @@ import { getVehicles } from '@/lib/vehicleApi';
 import { getVehicleInsurance } from '@/lib/vehicleInsuranceApi';
 import { loadSelectedVehicleId } from '@/lib/selected-vehicle-store';
 import { computeClaimBundleUploadKey, isClaimReportSubmittedLocked } from '@/lib/claim-upload-dedupe';
-import { formatGeocodedLine } from '@/lib/format-geocoded-line';
-import { formatTimestamp } from '@/lib/format-timestamp';
-import { type LocationSnapshotMeta } from '@/lib/location-snapshot-store';
+import { captureLocationSnapshot } from '@/lib/location-snapshot-store';
 import {
   INSURANCE_BORDER_SOFT,
   INSURANCE_PILL_INCOMPLETE_BG,
@@ -80,55 +78,6 @@ type FlowTask = {
   href: Href | null;
 };
 
-
-async function captureLocationSnapshot(): Promise<LocationSnapshotMeta> {
-  const capturedAt = new Date();
-  const base: LocationSnapshotMeta = {
-    capturedAtIso: capturedAt.toISOString(),
-    capturedAtDisplayLocal: formatTimestamp(capturedAt),
-    latitude: null,
-    longitude: null,
-    accuracyMeters: null,
-    locationPermission: 'unavailable',
-    locationLabel: null,
-  };
-
-  try {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      base.locationPermission = 'denied';
-      if (__DEV__) {
-        console.log('[Location captured]', base);
-      }
-      return base;
-    }
-    base.locationPermission = 'granted';
-    const pos = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
-    base.latitude = pos.coords.latitude;
-    base.longitude = pos.coords.longitude;
-    base.accuracyMeters = pos.coords.accuracy ?? null;
-    try {
-      const [geo] = await Location.reverseGeocodeAsync({
-        latitude: base.latitude,
-        longitude: base.longitude,
-      });
-      if (geo) {
-        base.locationLabel = formatGeocodedLine(geo);
-      }
-    } catch {
-      // keep null label
-    }
-  } catch {
-    base.locationPermission = 'unavailable';
-  }
-
-  if (__DEV__) {
-    console.log('[Location captured]', base);
-  }
-  return base;
-}
 
 const FLOW_TASKS: FlowTask[] = [
   { key: 'guided', title: 'Guided Capture', status: 'incomplete', href: '/(insurance)/guided-capture-intro' },

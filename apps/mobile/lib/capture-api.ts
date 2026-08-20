@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 
 import { type InsurerCallMeta } from '@/features/insurer-call/storage/insurer-call-store';
 import { type GuidedCaptureEntryMeta } from '@/features/guided-capture/storage/guided-capture-entry-store';
+import { type DrunkTestEntryMeta } from '@/features/drunk-test/storage/drunk-test-entry-store';
 import { loadDrunkTestState } from '@/features/drunk-test/storage/drunk-test-store';
 import { loadDrivingLicenceState } from '@/features/driving-licence/storage/driving-licence-store';
 import { loadGuidedCaptureStoreState } from '@/features/guided-capture/storage/guided-capture-store';
@@ -202,6 +203,8 @@ export type VehiclePayload = {
   model: string;
   policyNumber?: string;
   plateNumber?: string;
+  /** "YY/MM" format, e.g. "26/09". */
+  insuranceExpireMonth?: string;
 };
 
 export type ReportPayload = {
@@ -370,6 +373,7 @@ export async function uploadFullClaimBundleToBackend(options: {
   vehicle?: VehiclePayload;
   insurerCallMeta?: InsurerCallMeta | null;
   guidedCaptureEntryMeta?: GuidedCaptureEntryMeta | null;
+  drunkTestEntryMeta?: DrunkTestEntryMeta | null;
   onGuidedProgress: (percent: number) => void;
   onFraudProgress: (percent: number) => void;
   /** Fired once walkaround originals are on the server and guided progress is 100% (before fraud-validation uploads). */
@@ -403,6 +407,7 @@ export async function uploadFullClaimBundleToBackend(options: {
     vehicle_model: options.vehicle?.model.trim() || null,
     policy_number: options.vehicle?.policyNumber?.trim() || null,
     vehicle_reg_no: options.vehicle?.plateNumber?.trim() || null,
+    insurance_expire_month: options.vehicle?.insuranceExpireMonth?.trim() || null,
     report_captured_at: options.report.capturedAtIso,
     report_captured_at_display_local: displayLocal || null,
     report_gps_lat: options.report.gpsLat,
@@ -420,6 +425,12 @@ export async function uploadFullClaimBundleToBackend(options: {
     guided_capture_start_gps_lng: options.guidedCaptureEntryMeta?.longitude ?? null,
     guided_capture_start_location_permission: options.guidedCaptureEntryMeta?.locationPermission ?? null,
     guided_capture_start_location_label: options.guidedCaptureEntryMeta?.locationLabel ?? null,
+    drunk_test_started_at: options.drunkTestEntryMeta?.capturedAtIso ?? null,
+    drunk_test_start_captured_at_display_local: options.drunkTestEntryMeta?.capturedAtDisplayLocal ?? null,
+    drunk_test_start_gps_lat: options.drunkTestEntryMeta?.latitude ?? null,
+    drunk_test_start_gps_lng: options.drunkTestEntryMeta?.longitude ?? null,
+    drunk_test_start_location_permission: options.drunkTestEntryMeta?.locationPermission ?? null,
+    drunk_test_start_location_label: options.drunkTestEntryMeta?.locationLabel ?? null,
   };
 
   const { captureId, resumeIndex, alreadyComplete } = await resolveCaptureSession(

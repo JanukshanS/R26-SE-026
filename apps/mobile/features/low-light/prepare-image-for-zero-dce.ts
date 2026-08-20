@@ -52,10 +52,15 @@ function getImageSize(uri: string): Promise<{ width: number; height: number }> {
   });
 }
 
+// Was fetch(uri).then(r => r.blob()).size — loaded the entire image into a JS
+// Blob just to read its byte count. Called up to ~48 times per captured photo
+// (binary-search loop below), this piled up large in-memory allocations fast
+// enough to crash the app on some devices ("sometimes" — memory-pressure bugs
+// are inherently non-deterministic). FileSystem.getInfoAsync reads the size
+// from the filesystem directly, no file contents ever loaded into JS.
 async function localUriByteLength(uri: string): Promise<number> {
-  const res = await fetch(uri);
-  const blob = await res.blob();
-  return blob.size;
+  const info = await FileSystem.getInfoAsync(uri);
+  return info.exists && 'size' in info ? info.size : 0;
 }
 
 async function resizeOriginalToMaxEdge(
@@ -87,6 +92,19 @@ async function reencodeJpegSameDimensions(
   const { manipulateAsync, SaveFormat } = manipulator;
   const out = await manipulateAsync(uri, [], { compress, format: SaveFormat.JPEG });
   return out.uri;
+}
+
+/** Discards a rejected intermediate JPEG from the binary-search loop below — never the
+ * original captured photo, which resizeOriginalToMaxEdge returns as-is (no copy) when no
+ * resize was needed. Without this, every rejected candidate stayed on disk for the rest
+ * of the session. */
+async function deleteTempIfNotSource(uri: string, sourceUri: string): Promise<void> {
+  if (uri === sourceUri) return;
+  try {
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+  } catch {
+    // best-effort
+  }
 }
 
 /**
@@ -133,10 +151,14 @@ export async function prepareImageForZeroDce(
         const candidate = await reencodeJpegSameDimensions(manipulator, resizedUri, mid);
         const candidateSize = await localUriByteLength(candidate);
         if (candidateSize <= targetMaxBytes) {
+          if (bestUri !== resizedUri) {
+            await deleteTempIfNotSource(bestUri, sourceUri);
+          }
           bestUri = candidate;
           bestSize = candidateSize;
           lo = mid;
         } else {
+          await deleteTempIfNotSource(candidate, sourceUri);
           hi = mid;
         }
       }
@@ -144,6 +166,13 @@ export async function prepareImageForZeroDce(
       if (bestSize <= targetMaxBytes) {
         return bestUri;
       }
+
+      // Neither this attempt's resize nor any re-encode hit the target — clean up
+      // before the next attempt resizes from scratch at a smaller edge.
+      if (bestUri !== resizedUri) {
+        await deleteTempIfNotSource(bestUri, sourceUri);
+      }
+      await deleteTempIfNotSource(resizedUri, sourceUri);
     }
 
     return sourceUri;

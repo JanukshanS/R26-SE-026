@@ -5,6 +5,7 @@ import { Alert } from 'react-native';
 
 import { loadClaimantProfile, saveClaimantProfile } from '@/features/claimant/storage/claimant-profile-store';
 import { loadGuidedCaptureEntryMeta } from '@/features/guided-capture/storage/guided-capture-entry-store';
+import { loadDrunkTestEntryMeta } from '@/features/drunk-test/storage/drunk-test-entry-store';
 import { loadInsurerCallMeta } from '@/features/insurer-call/storage/insurer-call-store';
 import { loadReportAccidentEntryMeta } from '@/features/report-accident/storage/report-accident-entry-store';
 import { uploadFullClaimBundleToBackend } from '@/lib/capture-api';
@@ -216,20 +217,22 @@ export function useClaimUpload(
           fraudValidationMediaUploadsDoneRef.current = false;
 
           try {
-            const [saved, insurerCallMeta, guidedCaptureEntryMeta, vehicles, profileUser] = await Promise.all([
-              loadClaimantProfile(),
-              loadInsurerCallMeta(),
-              loadGuidedCaptureEntryMeta(),
-              // Guest/unauthenticated sessions get [] back (RLS-filtered), not a thrown
-              // error — vehicle stays undefined below and the backend falls back to
-              // its own placeholders, same as before this vehicle info existed.
-              getVehicles().catch(() => []),
-              // The signed-in driver's name/NIC/licence live on their Supabase profile
-              // (set via Add Insurer) — that's the real source of truth; the local
-              // claimant-profile-store below only exists as a guest-mode fallback
-              // (there's no in-app form that ever writes to it directly).
-              getMyUser().catch(() => null),
-            ]);
+            const [saved, insurerCallMeta, guidedCaptureEntryMeta, drunkTestEntryMeta, vehicles, profileUser] =
+              await Promise.all([
+                loadClaimantProfile(),
+                loadInsurerCallMeta(),
+                loadGuidedCaptureEntryMeta(),
+                loadDrunkTestEntryMeta(),
+                // Guest/unauthenticated sessions get [] back (RLS-filtered), not a thrown
+                // error — vehicle stays undefined below and the backend falls back to
+                // its own placeholders, same as before this vehicle info existed.
+                getVehicles().catch(() => []),
+                // The signed-in driver's name/NIC/licence live on their Supabase profile
+                // (set via Add Insurer) — that's the real source of truth; the local
+                // claimant-profile-store below only exists as a guest-mode fallback
+                // (there's no in-app form that ever writes to it directly).
+                getMyUser().catch(() => null),
+              ]);
             const claimant = {
               fullName: (profileUser?.name || claimantRef.current.fullName || saved.fullName).trim(),
               nic: (profileUser?.nicNumber || claimantRef.current.nic || saved.nic).trim(),
@@ -256,11 +259,13 @@ export function useClaimUpload(
               uploadKey,
               insurerCallMeta,
               guidedCaptureEntryMeta,
+              drunkTestEntryMeta,
               vehicle: targetVehicle
                 ? {
                     model: `${targetVehicle.make} ${targetVehicle.model}`.trim(),
                     policyNumber: targetInsurance?.insurancePolicyNumber,
                     plateNumber: targetVehicle.plateNumber,
+                    insuranceExpireMonth: targetInsurance?.insuranceExpireMonth,
                   }
                 : undefined,
               onGuidedProgress: (p) => { if (!cancelled) setPhotosUploadPercent(p); },
