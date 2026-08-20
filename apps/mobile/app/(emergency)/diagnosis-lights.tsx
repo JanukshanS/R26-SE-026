@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@components/ui/button";
@@ -28,6 +29,10 @@ export default function DiagnosisLightsScreen() {
     incidentId, loading,
   } = useEmergency();
 
+  // `loading` only disables the button on the next render, which leaves a
+  // double-tap window open that would file two incidents.
+  const inFlightRef = useRef(false);
+
   /**
    * After Q5 lights we hand off to the always-asked tail (smells → recent →
    * SL context). The full POST /triage/submit (with OBD) happens at the
@@ -46,6 +51,8 @@ export default function DiagnosisLightsScreen() {
       router.push("/(emergency)/smells");
       return;
     }
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -83,6 +90,7 @@ export default function DiagnosisLightsScreen() {
             (__DEV__ ? `\n\n[dev] ${msg} — is dispatch running on port 3001?` : "")
       );
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   }

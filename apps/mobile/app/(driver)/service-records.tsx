@@ -83,10 +83,12 @@ function alertComponents(health: VehicleHealthResponse | null): string[] {
 export default function ServiceRecordsScreen() {
   const insets = useSafeAreaInsets();
   const { selectedVehicle } = useVehicle();
-  const vehicleId = selectedVehicle?.plateNumber ?? "CBD-3742";
+  // No stand-in plate: reading — and, via the FAB, writing — another driver's
+  // service history is worse than refusing until a vehicle is selected.
+  const vehicleId = selectedVehicle?.plateNumber ?? "";
   const vehicleLabel = selectedVehicle
     ? selectedVehicle.nickname || `${selectedVehicle.make} ${selectedVehicle.model}`
-    : vehicleId;
+    : "No vehicle selected";
 
   const [records, setRecords] = useState<ServiceRecord[]>([]);
   const [health, setHealth] = useState<VehicleHealthResponse | null>(null);
@@ -97,8 +99,14 @@ export default function ServiceRecordsScreen() {
   // Only the health call is allowed to fail quietly (the card falls back to "— KM").
   // A failed history call must not render as "no records yet".
   const load = useCallback(() => {
-    setLoading(true);
     setError("");
+    if (!vehicleId) {
+      setRecords([]);
+      setHealth(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     Promise.all([
       getServiceHistory(vehicleId),
       getVehicleHealth(vehicleId).catch(() => null),
@@ -249,7 +257,34 @@ export default function ServiceRecordsScreen() {
         <Text style={{ ...typography.bodyStrong, color: palette.text }}>Service logs</Text>
 
         {/* Records list */}
-        {loading ? (
+        {!vehicleId ? (
+          <View style={{ alignItems: "center", paddingVertical: spacing.xxxl, gap: spacing.md }}>
+            <Icon name="Car" size={40} color={palette.border} />
+            <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
+              Select a vehicle first
+            </Text>
+            <Text style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}>
+              Service records are kept per vehicle.
+            </Text>
+            <Pressable
+              onPress={() => router.push("/(driver)/manage-vehicles")}
+              accessibilityRole="button"
+              accessibilityLabel="Manage vehicles"
+              style={({ pressed }) => ({
+                paddingHorizontal: spacing.lg,
+                paddingVertical: spacing.sm,
+                borderRadius: radii.md,
+                borderWidth: 1.5,
+                borderColor: palette.brand,
+                backgroundColor: pressed ? palette.brandSoft : "transparent",
+              })}
+            >
+              <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "600" }}>
+                Manage Vehicles
+              </Text>
+            </Pressable>
+          </View>
+        ) : loading ? (
           [0, 1, 2].map((i) => (
             <View
               key={i}
@@ -287,7 +322,8 @@ export default function ServiceRecordsScreen() {
         )}
       </ScrollView>
 
-      {/* FAB */}
+      {/* FAB — hidden with no vehicle, since the form it opens would only refuse. */}
+      {vehicleId ? (
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Add service record"
@@ -316,6 +352,7 @@ export default function ServiceRecordsScreen() {
       >
         <Icon name="Plus" size={26} color={palette.textOnBrand} />
       </Pressable>
+      ) : null}
 
       <BottomNavBar activeTab="maintenance" />
     </View>

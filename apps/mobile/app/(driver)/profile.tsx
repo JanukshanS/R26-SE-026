@@ -14,6 +14,7 @@ import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
 import { unpairElm327 } from "@lib/elm327";
+import { endTrip, isTripActive } from "@lib/tripRecorder";
 import { listMyClaims } from "@lib/claims-api";
 
 export default function ProfileScreen() {
@@ -395,7 +396,14 @@ export default function ProfileScreen() {
         }}
       >
         <Pressable
-          onPress={async () => { unpairElm327(); await logout(); router.replace("/"); }}
+          onPress={async () => {
+            // A recording left running would keep sampling under the previous
+            // driver's id — same teardown order as Home's Log out.
+            if (isTripActive()) await endTrip().catch(() => {});
+            unpairElm327();
+            await logout();
+            router.replace("/");
+          }}
           accessibilityRole="button"
           accessibilityLabel="Log out"
           style={({ pressed }) => ({

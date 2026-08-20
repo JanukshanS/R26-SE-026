@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,6 +11,7 @@ import {
   endTrip,
   getTripStats,
   isTripActive,
+  IMU_INTERVAL_MS,
   MIN_IMU_READINGS,
   MIN_OBD_READINGS,
   OBD_INTERVAL_MS,
@@ -18,6 +19,7 @@ import {
   type TripStats,
 } from "@lib/tripRecorder";
 import { submitTrip, type TripBatch } from "@lib/maintenanceApi";
+import { useHardwareBack } from "@lib/useHardwareBack";
 
 export default function ActiveTripScreen() {
   const insets = useSafeAreaInsets();
@@ -32,17 +34,47 @@ export default function ActiveTripScreen() {
   useEffect(() => {
     if (!isTripActive()) { router.replace("/(driver)/home"); return; }
 
+    // getTripStats() returns null once the recorder is torn down. Keeping the
+    // last non-null reading means the post-end "Trip Recorded" state still
+    // shows the numbers that were actually captured, instead of resetting the
+    // whole screen to 00:00 and zeroes while the upload is retried.
+    const refresh = () => {
+      const s = getTripStats();
+      if (s) setStats(s);
+    };
+
     // Listen for OBD/IMU snapshots
-    const unsub = onTripUpdate(() => setStats(getTripStats()));
+    const unsub = onTripUpdate(refresh);
 
     // Poll every second so the elapsed timer + countdown update smoothly
-    pollRef.current = setInterval(() => setStats(getTripStats()), 1000);
+    pollRef.current = setInterval(refresh, 1000);
 
     return () => {
       unsub();
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, []);
+
+  // An unsaved batch lives only in `pending` — leaving this screen destroys the
+  // whole drive, so back has to ask first.
+  useHardwareBack(
+    useCallback(() => {
+      if (!pending) return false;
+      Alert.alert(
+        "Trip not saved yet",
+        "This trip is only on your phone. Leaving now discards it.",
+        [
+          { text: "Stay", style: "cancel" },
+          {
+            text: "Discard trip",
+            style: "destructive",
+            onPress: () => { setPending(null); router.replace("/(driver)/home"); },
+          },
+        ]
+      );
+      return true;
+    }, [pending])
+  );
 
   async function saveTrip(batch: TripBatch) {
     setSubmitting(true);
@@ -73,6 +105,7 @@ export default function ActiveTripScreen() {
   }
 
   function handleEndTrip() {
+    if (submitting) return;
     const s = getTripStats();
     if (!s) return;
 
@@ -145,17 +178,30 @@ export default function ActiveTripScreen() {
           <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>
             {pending ? "Trip Recorded" : "Recording Trip"}
           </Text>
+          {/* Recording has stopped once a batch is pending — a LIVE pill there
+              would claim the phone is still sampling. */}
           <View
             style={{
               flexDirection: "row", alignItems: "center",
               gap: spacing.xs, paddingHorizontal: spacing.md,
               paddingVertical: 4, borderRadius: radii.pill,
-              backgroundColor: palette.dangerSoft,
+              backgroundColor: pending ? palette.warningSoft : palette.dangerSoft,
             }}
           >
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: palette.danger }} />
-            <Text style={{ ...typography.caption, color: palette.danger, fontWeight: "700" }}>
-              LIVE
+            <View
+              style={{
+                width: 6, height: 6, borderRadius: 3,
+                backgroundColor: pending ? palette.warning : palette.danger,
+              }}
+            />
+            <Text
+              style={{
+                ...typography.caption,
+                color: pending ? palette.warning : palette.danger,
+                fontWeight: "700",
+              }}
+            >
+              {pending ? "NOT SAVED" : "LIVE"}
             </Text>
           </View>
         </View>
@@ -197,7 +243,9 @@ export default function ActiveTripScreen() {
           >
             {stats ? formatElapsed(stats.elapsedMs) : "00:00"}
           </Text>
-          {stats && (
+          {/* Frozen once the recorder stops — a countdown there would claim a
+              read is still coming. */}
+          {stats && !pending && (
             <Text style={{ ...typography.caption, color: palette.textMuted }}>
               Next OBD read in{" "}
               <Text style={{ color: palette.brand, fontWeight: "600" }}>
@@ -302,14 +350,14 @@ export default function ActiveTripScreen() {
             label="OBD Snapshots"
             count={stats?.obdCount ?? 0}
             min={MIN_OBD_READINGS}
-            unit={`/ ${OBD_INTERVAL_MS / 60000} min each`}
+            unit={`/ ${intervalLabel(OBD_INTERVAL_MS)} each`}
           />
           <ProgressRow
             icon="Smartphone"
             label="IMU Snapshots"
             count={stats?.imuCount ?? 0}
             min={MIN_IMU_READINGS}
-            unit="/ 2 min each"
+            unit={`/ ${intervalLabel(IMU_INTERVAL_MS)} each`}
           />
           {stats && !stats.canEnd && (
             <View
@@ -353,8 +401,15 @@ export default function ActiveTripScreen() {
           borderTopColor: palette.border,
           paddingHorizontal: spacing.lg,
           paddingVertical: spacing.md,
+          gap: spacing.sm,
         }}
       >
+        {pending && !submitting && (
+          <Text style={{ ...typography.caption, color: palette.warning, textAlign: "center" }}>
+            This trip is only on your phone. Tap Retry save to send it — leaving
+            this screen discards it.
+          </Text>
+        )}
         <Pressable
           onPress={
             submitting ? undefined
@@ -534,3 +589,9 @@ function formatMs(ms: number): string {
 }
 
 function pad(n: number): string { return String(n).padStart(2, "0"); }
+
+/** Sampling cadence as shown on the progress rows. Reads the real interval so
+ *  the dev build's compressed timers aren't described as the 5 min / 2 min spec. */
+function intervalLabel(ms: number): string {
+  return ms >= 60_000 ? `${ms / 60_000} min` : `${Math.round(ms / 1000)} s`;
+}

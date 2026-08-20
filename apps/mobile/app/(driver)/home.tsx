@@ -417,7 +417,10 @@ export default function DriverHomeScreen() {
               <QuickAction icon="Truck" label="Service" onPress={() => router.push("/(driver)/health")} />
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(240).springify()} style={{ flex: 1 }}>
-              <QuickAction icon="Package" label="Order parts" onPress={() => router.push({ pathname: "/(driver)/order-parts", params: { component: "brake" } })} />
+              {/* No component param — this is the store entrance, not a brake
+                  alert, and pinning it to "brake" showed pads to a driver whose
+                  brakes are fine. */}
+              <QuickAction icon="Package" label="Order parts" onPress={() => router.push("/(driver)/order-parts")} />
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(300).springify()} style={{ flex: 1 }}>
               <QuickAction
@@ -691,6 +694,20 @@ export default function DriverHomeScreen() {
                   ? `Switch to ${pendingVehicle.nickname || `${pendingVehicle.make} ${pendingVehicle.model}`} (${pendingVehicle.plateNumber})?`
                   : ""}
               </Text>
+              {/* The recorder keeps the vehicle it started with, so say so
+                  rather than letting the driver assume the switch moved it. */}
+              {pendingVehicle && isTripActive() ? (
+                <Text
+                  style={{
+                    ...typography.caption,
+                    color: palette.warning,
+                    textAlign: "center",
+                  }}
+                >
+                  The trip in progress stays recorded against{" "}
+                  {selectedVehicle?.plateNumber ?? "the current vehicle"}.
+                </Text>
+              ) : null}
             </View>
 
             <View style={{ flexDirection: "row", gap: spacing.md, width: "100%" }}>

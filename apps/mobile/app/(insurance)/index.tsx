@@ -25,6 +25,7 @@ import {
   loadInsurerCallMeta,
   saveInsurerCallMeta,
 } from '@/features/insurer-call/storage/insurer-call-store';
+import { getCurrentPositionOrNull } from '@/features/report-accident/get-current-position';
 import {
   loadReportAccidentEntryMeta,
   saveReportAccidentEntryMeta,
@@ -103,22 +104,24 @@ async function captureLocationSnapshot(): Promise<LocationSnapshotMeta> {
       return base;
     }
     base.locationPermission = 'granted';
-    const pos = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
-    base.latitude = pos.coords.latitude;
-    base.longitude = pos.coords.longitude;
-    base.accuracyMeters = pos.coords.accuracy ?? null;
-    try {
-      const [geo] = await Location.reverseGeocodeAsync({
-        latitude: base.latitude,
-        longitude: base.longitude,
-      });
-      if (geo) {
-        base.locationLabel = formatGeocodedLine(geo);
+    // Null when the fix took too long — the snapshot is still returned (with the
+    // timestamp and permission state), so the caller's control is never left waiting.
+    const pos = await getCurrentPositionOrNull();
+    if (pos) {
+      base.latitude = pos.coords.latitude;
+      base.longitude = pos.coords.longitude;
+      base.accuracyMeters = pos.coords.accuracy ?? null;
+      try {
+        const [geo] = await Location.reverseGeocodeAsync({
+          latitude: base.latitude,
+          longitude: base.longitude,
+        });
+        if (geo) {
+          base.locationLabel = formatGeocodedLine(geo);
+        }
+      } catch {
+        // keep null label
       }
-    } catch {
-      // keep null label
     }
   } catch {
     base.locationPermission = 'unavailable';

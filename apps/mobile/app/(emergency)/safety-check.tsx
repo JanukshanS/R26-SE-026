@@ -38,6 +38,9 @@ export default function SafetyCheckScreen() {
   // context id/triage may belong to a roadside flow the user backed out of.
   const crashIncidentIdRef = useRef<string | null>(null);
   const crashTriageDoneRef = useRef(false);
+  // `ctxLoading` only disables the button on the next render, which leaves a
+  // double-tap window open while the JS thread is busy.
+  const inFlightRef = useRef(false);
   const {
     setDamage,
     setLoading: setCtxLoading,
@@ -82,6 +85,8 @@ export default function SafetyCheckScreen() {
    * into a callback so the inline error state can re-invoke it on retry.
    */
   const runDispatchFlow = useCallback(async () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setCtxLoading(true);
     setError(null);
     try {
@@ -142,6 +147,7 @@ export default function SafetyCheckScreen() {
       haptics.error();
       setError(msg);
     } finally {
+      inFlightRef.current = false;
       setCtxLoading(false);
     }
   }, [setCtxLoading, setError, setIncidentId, setTriageResult, setDispatchResult]);
@@ -152,6 +158,17 @@ export default function SafetyCheckScreen() {
     if (choice === "CRASH") {
       runDispatchFlow();
     } else {
+      // A failed crash attempt leaves a MAJOR_CRASH incident + triage in
+      // context. Drop it, or diagnosis-lights reuses that incident id and the
+      // roadside answers get submitted against the accident.
+      if (crashIncidentIdRef.current) {
+        crashIncidentIdRef.current = null;
+        crashTriageDoneRef.current = false;
+        setIncidentId(null);
+        setTriageResult(null);
+        setDispatchResult(null);
+      }
+      setError(null);
       // Intent picker is the top-level branch of the adaptive form. From
       // there the user enters either the ENGINE subtree (engine-state →
       // sound / electrical / running-issue) or the BRAKE / GEAR subtrees.

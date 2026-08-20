@@ -6,6 +6,7 @@ import { Alert, Linking } from 'react-native';
 import { loadClaimantProfile, saveClaimantProfile } from '@/features/claimant/storage/claimant-profile-store';
 import { loadGuidedCaptureEntryMeta } from '@/features/guided-capture/storage/guided-capture-entry-store';
 import { loadInsurerCallMeta } from '@/features/insurer-call/storage/insurer-call-store';
+import { getCurrentPositionOrNull } from '@/features/report-accident/get-current-position';
 import { loadReportAccidentEntryMeta } from '@/features/report-accident/storage/report-accident-entry-store';
 import { uploadFullClaimBundleToBackend } from '@/lib/capture-api';
 import {
@@ -31,6 +32,10 @@ export type UseClaimUploadResult = {
   /** null while the resumed upload's real starting point is still being resolved (show a spinner). */
   fraudValidationPercent: number | null;
   fraudValidationComplete: boolean;
+  /** Set when the upload is stopped and waiting on the driver (location blocked, or a failed
+   * attempt). The Alert that raises it is one-shot, so this keeps the same instruction on
+   * screen after it's dismissed instead of leaving the progress rows spinning. */
+  uploadError: string | null;
 };
 
 export function useClaimUpload(
@@ -50,6 +55,7 @@ export function useClaimUpload(
   const [photosUploadComplete, setPhotosUploadComplete] = useState(false);
   const [fraudValidationPercent, setFraudValidationPercent] = useState<number | null>(null);
   const [fraudValidationComplete, setFraudValidationComplete] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   /** Bumped by the "Try again" button on the blocking alerts; re-runs the effect below.
    * Without it the only way back to an upload is leaving the screen and returning. */
   const [retryToken, setRetryToken] = useState(0);
@@ -91,6 +97,9 @@ export function useClaimUpload(
           return;
         }
         uploadInFlightForKeyRef.current = uploadKey;
+        if (!cancelled) {
+          setUploadError(null);
+        }
 
         try {
           const parsed = reportedAtIso ? new Date(reportedAtIso) : null;
@@ -167,22 +176,26 @@ export function useClaimUpload(
                   setTimestampLine(formatTimestamp(recordedAt));
                 }
               } else {
-                const pos = await Location.getCurrentPositionAsync({
-                  accuracy: Location.Accuracy.Balanced,
-                });
+                const pos = await getCurrentPositionOrNull();
                 if (cancelled) return;
-                lat = pos.coords.latitude;
-                lng = pos.coords.longitude;
-                line = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-                try {
-                  const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-                  if (geo && !cancelled) line = formatGeocodedLine(geo);
-                } catch {
-                  // keep coordinates
-                }
-                if (!cancelled) {
+                if (!pos) {
+                  line = 'Could not read location';
                   setLocationLine(line);
                   setTimestampLine(formatTimestamp(recordedAt));
+                } else {
+                  lat = pos.coords.latitude;
+                  lng = pos.coords.longitude;
+                  line = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+                  try {
+                    const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+                    if (geo && !cancelled) line = formatGeocodedLine(geo);
+                  } catch {
+                    // keep coordinates
+                  }
+                  if (!cancelled) {
+                    setLocationLine(line);
+                    setTimestampLine(formatTimestamp(recordedAt));
+                  }
                 }
               }
             } catch {
@@ -200,9 +213,16 @@ export function useClaimUpload(
 
           // Block upload if GPS location was not obtained.
           if (lat === null) {
+            // 0%, not the null "still resolving" value — nothing is uploading while this
+            // is blocked, and a spinner here read as work in progress.
+            setPhotosUploadPercent(0);
+            setFraudValidationPercent(0);
+            setUploadError(
+              'Nothing has been sent yet — your claim needs the accident location. Turn on location access for this app, then come back to this screen to retry.'
+            );
             Alert.alert(
               'Location required',
-              'Your claim needs the accident GPS location. Allow location access, then try again.',
+              'Your claim needs the accident GPS location. Allow location access, or move somewhere with a clearer signal, then try again.',
               [
                 {
                   text: 'Open settings',
@@ -324,6 +344,9 @@ export function useClaimUpload(
                 setFraudValidationPercent(0);
                 setFraudValidationComplete(false);
               }
+              setUploadError(
+                'Upload stopped before it finished. Your photos are safe on this device — tap Try again, or come back to this screen to resume from where it stopped.'
+              );
               Alert.alert('Photos upload failed', message, [
                 { text: 'Try again', onPress: () => setRetryToken((n) => n + 1) },
                 { text: 'Not now', style: 'cancel' },
@@ -351,5 +374,6 @@ export function useClaimUpload(
     photosUploadComplete,
     fraudValidationPercent,
     fraudValidationComplete,
+    uploadError,
   };
 }

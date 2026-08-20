@@ -14,6 +14,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
+import { unpairElm327 } from "@lib/elm327";
+import { endTrip, isTripActive } from "@lib/tripRecorder";
 import type { Vehicle, VehicleInput } from "@lib/vehicleApi";
 import { listInsuranceCompanies, type InsuranceCompany } from "@lib/insuranceCompaniesApi";
 import { getVehicleInsurance, upsertVehicleInsurance } from "@lib/vehicleInsuranceApi";
@@ -153,8 +155,6 @@ export default function ManageVehiclesScreen() {
         insuranceProvider,
         insurancePolicyNumber,
       });
-      await updateMe({ licenceNumber: licenceNumber.trim(), nicNumber: nicNumber.trim() });
-      setShowForm(false);
     } catch (err: any) {
       setError(err.message ?? "Failed to save vehicle. Check your connection and try again.");
       setSaving(false);
@@ -312,7 +312,17 @@ export default function ManageVehiclesScreen() {
         }}
       >
         <Pressable
-          onPress={() => { logout(); router.back(); }}
+          onPress={async () => {
+            // Same teardown as Home: a recording left running would keep sampling
+            // under the previous driver's id, and router.back() would drop the
+            // signed-out user back inside the authenticated stack.
+            if (isTripActive()) await endTrip().catch(() => {});
+            unpairElm327();
+            await logout();
+            router.replace("/");
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Log out"
           style={({ pressed }) => ({
             borderRadius: radii.lg,
             paddingVertical: spacing.md,

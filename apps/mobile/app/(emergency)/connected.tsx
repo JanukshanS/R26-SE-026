@@ -249,6 +249,32 @@ export default function ConnectedScreen() {
     impactScore >= 5 ? palette.brand :
     impactScore >= 3 ? palette.warning : palette.success;
 
+  // Without the dispatch result there is no incident to poll and no provider to
+  // show — every field below would be invented. Say so instead of rendering an
+  // assignment that does not exist (web reload / deep link).
+  if (!dispatchResult) {
+    return (
+      <Screen
+        footer={
+          <Button
+            title="Back to Home screen"
+            onPress={() => {
+              reset();
+              router.replace("/(driver)/home");
+            }}
+          />
+        }
+      >
+        <HeaderBar showBack={false} />
+        <Text style={{ ...typography.h1, color: palette.text }}>Request</Text>
+        <ErrorState
+          title="We lost this request"
+          message="This screen no longer has your dispatch details, so we can't show who is coming. Start the request again from the home screen."
+        />
+      </Screen>
+    );
+  }
+
   return (
     <Screen
       footer={

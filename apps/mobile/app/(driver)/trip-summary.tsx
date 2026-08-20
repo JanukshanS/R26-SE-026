@@ -16,7 +16,10 @@ export default function TripSummaryScreen() {
   const insets = useSafeAreaInsets();
   const { selectedVehicle } = useVehicle();
   const { vehicleId: paramId } = useLocalSearchParams<{ vehicleId?: string }>();
-  const vehicleId = paramId ?? selectedVehicle?.plateNumber ?? "CBD-3742";
+  // No stand-in plate: with nothing selected we ask for a vehicle rather than
+  // showing another driver's trips. Callers (health) pass "" when unselected,
+  // so this falls through on empty strings, not just on undefined.
+  const vehicleId = paramId || selectedVehicle?.plateNumber || "";
 
   const [data, setData] = useState<VehicleTripSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,9 +28,14 @@ export default function TripSummaryScreen() {
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    setLoading(true);
     setEmpty(false);
     setLoadFailed(false);
+    if (!vehicleId) {
+      setData(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     getVehicleTripSummary(vehicleId)
       .then((d) => {
         if (!d) setEmpty(true);
@@ -53,17 +61,21 @@ export default function TripSummaryScreen() {
           gap: spacing.md,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
           <Icon name="ChevronLeft" size={24} color={palette.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={{ ...typography.h3, color: palette.text }}>Trip Behaviour</Text>
-          <Text style={{ ...typography.caption, color: palette.textMuted }}>{vehicleId}</Text>
+          <Text style={{ ...typography.caption, color: palette.textMuted }}>
+            {vehicleId || "No vehicle selected"}
+          </Text>
         </View>
         {loading && <ActivityIndicator size="small" color={palette.brand} />}
       </View>
 
-      {loading ? (
+      {!vehicleId ? (
+        <NoVehicleState />
+      ) : loading ? (
         <LoadingSkeleton />
       ) : loadFailed ? (
         <LoadFailedState onRetry={() => setAttempt((a) => a + 1)} />
@@ -366,6 +378,39 @@ function EmptyState({ message }: { message: string }) {
       <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
         {message}
       </Text>
+    </View>
+  );
+}
+
+function NoVehicleState() {
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xxl, gap: spacing.lg }}>
+      <View
+        style={{
+          width: 64, height: 64, borderRadius: 32,
+          backgroundColor: palette.brandSoft,
+          alignItems: "center", justifyContent: "center",
+        }}
+      >
+        <Icon name="Car" size={28} color={palette.brand} />
+      </View>
+      <Text style={{ ...typography.h3, color: palette.text, textAlign: "center" }}>No vehicle selected</Text>
+      <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
+        Trip behaviour is recorded per vehicle. Add or select one to see its trips.
+      </Text>
+      <Pressable
+        onPress={() => router.push("/(driver)/manage-vehicles")}
+        accessibilityRole="button"
+        accessibilityLabel="Manage vehicles"
+        style={({ pressed }) => ({
+          backgroundColor: pressed ? palette.brandPressed : palette.brand,
+          borderRadius: radii.lg,
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.xl,
+        })}
+      >
+        <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Manage Vehicles</Text>
+      </Pressable>
     </View>
   );
 }

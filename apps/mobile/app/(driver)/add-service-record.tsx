@@ -73,6 +73,9 @@ export default function AddServiceRecordScreen() {
       Alert.alert("Item name required", "Please enter what was serviced or replaced.");
       return;
     }
+    // parseFloat("-") / parseFloat("..") is NaN, which serialises to null and
+    // silently drops the cost the driver typed.
+    const cost = Number.parseFloat(costLkr);
     setSubmitting(true);
     try {
       await logService(vehicleId, {
@@ -83,7 +86,7 @@ export default function AddServiceRecordScreen() {
         item_name: itemName.trim() || undefined,
         is_original: isOriginal ?? undefined,
         garage_name: garageName.trim() || undefined,
-        cost_lkr: costLkr ? parseFloat(costLkr) : undefined,
+        cost_lkr: Number.isFinite(cost) ? cost : undefined,
         notes: notes.trim() || undefined,
       });
       setSaved(true);

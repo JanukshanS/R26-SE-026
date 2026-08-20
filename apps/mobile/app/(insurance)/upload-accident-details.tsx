@@ -49,6 +49,12 @@ const COLORS = {
   cardBorder: INSURANCE_CARD_BORDER_ACCENT,
 };
 
+/** Shown once every file is on the server — both while the server reports "processing" and
+ * right after a local upload finishes, since telling the driver not to close the app after
+ * the last file has landed is no longer true. */
+const SUBMITTED_MESSAGE =
+  "Your claim has been submitted. We're validating your photos — you'll be notified once it's ready for review.";
+
 function ProgressRow({
   label,
   percent,
@@ -172,6 +178,7 @@ export default function UploadAccidentDetailsScreen() {
     photosUploadComplete,
     fraudValidationPercent,
     fraudValidationComplete,
+    uploadError,
   } = useClaimUpload(uploadKey, reportedAtIso, claimantHydrated, claimantRef, effectiveVehicleId);
 
   // existingClaimId mode: nothing local to show progress for — the claim already
@@ -456,6 +463,7 @@ export default function UploadAccidentDetailsScreen() {
               percent={display3DReconstructionPercent}
               complete={display3DReconstructionComplete}
             />
+            {uploadError ? <Text style={styles.progressNote}>{uploadError}</Text> : null}
           </View>
 
           <View style={styles.detailCard}>
@@ -478,18 +486,20 @@ export default function UploadAccidentDetailsScreen() {
                 ? 'Your claim has been Approved'
                 : existingClaim?.status === 'pending_review'
                 ? 'The review process will take 1 - 2 working days'
-                : existingClaim?.status === 'processing'
-                ? "Your claim has been submitted. We're validating your photos — you'll be notified once it's ready for review."
+                : existingClaim?.status === 'processing' || claimComplete
+                ? SUBMITTED_MESSAGE
                 : "GPS + Timestamp signed. Do not close the app and Do not disconnect from Internet. We'll notify you."}
             </Text>
           </View>
 
-          <Pressable style={({ pressed }) => [styles.insuranceRowBtn, pressed && styles.insuranceRowPressed]}>
+          {/* A View, not a Pressable: this row is a status readout with nowhere to go, and
+              as a Pressable it lit up on touch as if it did. */}
+          <View style={styles.insuranceRowBtn}>
             <Text style={styles.insuranceRowLabel}>Insurance</Text>
             <Text style={[styles.insuranceRowStatus, existingClaim?.status === 'approved' && styles.insuranceRowStatusApproved]}>
               {existingClaim?.status === 'approved' ? 'Approved' : 'Pending'}
             </Text>
-          </Pressable>
+          </View>
 
           {resolvingInsurer ? (
             <View style={[styles.callInsurerBtn, styles.callInsurerCalling]}>
@@ -688,9 +698,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
     marginBottom: 12,
-  },
-  insuranceRowPressed: {
-    backgroundColor: INSURANCE_PRESSED_SURFACE,
   },
   insuranceRowLabel: {
     fontSize: 16,

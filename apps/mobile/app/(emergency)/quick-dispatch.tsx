@@ -60,29 +60,44 @@ export default function QuickDispatchScreen() {
   // which then renders against an emergency context that was torn down.
   const mounted = useRef(true);
 
+  // What this attempt already filed, so "Try again" after a failure at triage
+  // or dispatch resumes instead of filing a second incident for the same job.
+  const incidentIdRef = useRef<string | null>(null);
+  const triageDoneRef = useRef(false);
+  const inFlightRef = useRef(false);
+
   const runDispatchFlow = useCallback(async () => {
-    if (!intent) return;
+    if (!intent || inFlightRef.current) return;
+    inFlightRef.current = true;
     setError(null);
     try {
       const driver = await getCurrentDriverLocation();
-      const incident = await createIncident({
-        location:    { latitude: driver.latitude, longitude: driver.longitude },
-        vehicleInfo: DEMO_VEHICLE,
-        description: `Quick-dispatch from home: ${label ?? intent}`,
-      });
-      setIncidentId(incident.id);
+      let id = incidentIdRef.current;
+      if (!id) {
+        const incident = await createIncident({
+          location:    { latitude: driver.latitude, longitude: driver.longitude },
+          vehicleInfo: DEMO_VEHICLE,
+          description: `Quick-dispatch from home: ${label ?? intent}`,
+        });
+        id = incident.id;
+        incidentIdRef.current = id;
+        setIncidentId(id);
+      }
 
-      const triage = await submitTriage({
-        incidentId: incident.id,
-        responses: {
-          Q1_intent: intent,
-          ...buildFastPathDefaults(),
-        },
-      });
-      setTriageResult(triage.result);
+      if (!triageDoneRef.current) {
+        const triage = await submitTriage({
+          incidentId: id,
+          responses: {
+            Q1_intent: intent,
+            ...buildFastPathDefaults(),
+          },
+        });
+        triageDoneRef.current = true;
+        setTriageResult(triage.result);
+      }
 
       const dispatch = await runDispatch({
-        incidentId: incident.id,
+        incidentId: id,
         // trafficImpactScore omitted — dispatch sources it live from geo-intelligence
       });
       if (!mounted.current) return;
@@ -96,6 +111,8 @@ export default function QuickDispatchScreen() {
         : (err as Error).message;
       haptics.error();
       setError(msg);
+    } finally {
+      inFlightRef.current = false;
     }
   }, [intent, label, setIncidentId, setTriageResult, setDispatchResult, setError]);
 
@@ -125,7 +142,7 @@ export default function QuickDispatchScreen() {
             message={
               signedOut
                 ? "You need to be signed in to send help to your location."
-                : error
+                : `${error}\n\nTap Try again to resend the request, or use back to pick a different kind of help.`
             }
             onRetry={signedOut ? undefined : runDispatchFlow}
           />

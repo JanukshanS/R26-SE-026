@@ -5,6 +5,7 @@ import { useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Image,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -123,11 +124,20 @@ export default function GuidedCaptureScreen() {
   }
 
   if (!permission.granted) {
+    // Once the OS refuses to ask again, requestPermission() resolves without showing
+    // anything — the button has to send the driver to Settings instead of doing nothing.
     return (
       <View style={styles.center}>
         <Text style={styles.text}>Camera access is required for guided capture.</Text>
-        <Pressable style={styles.permissionButton} onPress={requestPermission}>
-          <Text style={styles.buttonText}>Grant Camera Permission</Text>
+        <Pressable
+          style={styles.permissionButton}
+          onPress={() => void (permission.canAskAgain ? requestPermission() : Linking.openSettings())}>
+          <Text style={styles.buttonText}>
+            {permission.canAskAgain ? 'Grant Camera Permission' : 'Open Settings'}
+          </Text>
+        </Pressable>
+        <Pressable style={styles.textButton} onPress={() => router.back()}>
+          <Text style={styles.textButtonLabel}>Go back</Text>
         </Pressable>
       </View>
     );
@@ -340,6 +350,16 @@ const styles = StyleSheet.create({
     color: CAPTURE_TEXT_WHITE,
     fontWeight: '700',
     fontSize: 16,
+  },
+  textButton: {
+    marginTop: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  textButtonLabel: {
+    color: CAPTURE_TEXT_WHITE,
+    fontSize: 16,
+    fontWeight: '600',
   },
   center: {
     flex: 1,

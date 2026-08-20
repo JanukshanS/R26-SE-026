@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomNavBar, NAV_BAR_HEIGHT } from "@components/ui/bottom-nav-bar";
+import { ErrorState } from "@components/ui/error-state";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import {
@@ -87,31 +88,42 @@ export default function HealthScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
+  // Bumped per load and again on unmount: switching vehicles, or retrying,
+  // must not let the previous request land and show one vehicle's health under
+  // another's plate — this is the screen a driver decides on repairs from.
+  const loadId = useRef(0);
+  const mounted = useRef(true);
+
+  const load = useCallback(() => {
+    const id = ++loadId.current;
+    const isCurrent = () => mounted.current && id === loadId.current;
     if (!vehicleId) {
       setData(null);
       setError(false);
       setLoading(false);
       return;
     }
-    let cancelled = false;
     setLoading(true);
     setError(false);
     setData(null);
     getVehicleHealth(vehicleId)
       .then((d) => {
-        if (!cancelled) setData(d);
+        if (isCurrent()) setData(d);
       })
       .catch(() => {
-        if (!cancelled) setError(true);
+        if (isCurrent()) setError(true);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (isCurrent()) setLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
   }, [vehicleId]);
+
+  useEffect(() => {
+    load();
+    return () => {
+      mounted.current = false;
+    };
+  }, [load]);
 
   const health = data ?? EMPTY_HEALTH;
   const noData = health.overall_status === "No data";
@@ -146,7 +158,9 @@ export default function HealthScreen() {
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={{ ...typography.h3, color: palette.text }}>Vehicle Health</Text>
-          <Text style={{ ...typography.caption, color: palette.textMuted }}>{vehicleId}</Text>
+          <Text style={{ ...typography.caption, color: palette.textMuted }}>
+            {vehicleId || "No vehicle selected"}
+          </Text>
         </View>
         {loading ? (
           <ActivityIndicator size="small" color={palette.brand} />
@@ -168,6 +182,40 @@ export default function HealthScreen() {
         )}
       </View>
 
+      {!vehicleId ? (
+        <View style={{ padding: spacing.lg, gap: spacing.md }}>
+          <ErrorState
+            title="No vehicle selected"
+            message="Health is scored per vehicle. Add one, or select it on Home, to see its condition."
+          />
+          <Pressable
+            onPress={() => router.push("/(driver)/manage-vehicles")}
+            accessibilityRole="button"
+            accessibilityLabel="Manage vehicles"
+            style={({ pressed }) => ({
+              borderRadius: radii.lg,
+              paddingVertical: spacing.md,
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 1.5,
+              borderColor: palette.brand,
+              backgroundColor: pressed ? palette.brandSoft : "transparent",
+            })}
+          >
+            <Text style={{ ...typography.bodyStrong, color: palette.brand }}>Manage Vehicles</Text>
+          </Pressable>
+        </View>
+      ) : error ? (
+        /* A failed fetch must not render as "No trips recorded yet" — a driver
+           decides on repairs from this screen. */
+        <View style={{ padding: spacing.lg }}>
+          <ErrorState
+            title="Couldn't load vehicle health"
+            message="We couldn't reach the maintenance service. Check your connection and try again."
+            onRetry={load}
+          />
+        </View>
+      ) : (
       <ScrollView
         contentContainerStyle={{
           padding: spacing.lg,
@@ -352,6 +400,7 @@ export default function HealthScreen() {
           }
         />
       </ScrollView>
+      )}
 
       <BottomNavBar activeTab="maintenance" />
     </View>

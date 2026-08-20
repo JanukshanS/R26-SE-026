@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Text, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { Button } from "@components/ui/button";
@@ -36,8 +36,13 @@ export default function DiagnosisResultScreen() {
   // Kick off /dispatch/optimize automatically once we land here (matches the
   // "Fetching a Service Provider" loading state in the reference UI). Lifted
   // into a callback so the inline error state can re-invoke it on retry.
+  // The error card's Try again only disappears on the next render, which leaves
+  // a double-tap window open that would run dispatch twice for one incident.
+  const inFlightRef = useRef(false);
+
   const runDispatchFlow = useCallback(async () => {
-    if (!incidentId) return;
+    if (!incidentId || inFlightRef.current) return;
+    inFlightRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -53,6 +58,7 @@ export default function DiagnosisResultScreen() {
       haptics.error();
       setError(msg);
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   }, [incidentId, setDispatchResult, setError, setLoading]);
@@ -101,7 +107,11 @@ export default function DiagnosisResultScreen() {
       footer={
         <>
           <Button
-            title={dispatchResult ? "See Connected Mechanic" : "Waiting for provider..."}
+            title={
+              dispatchResult ? "See Connected Mechanic"
+                : error ? "No provider yet"
+                  : "Waiting for provider..."
+            }
             disabled={!dispatchResult || loading}
             onPress={() => router.push("/(emergency)/connected")}
           />
@@ -157,8 +167,8 @@ export default function DiagnosisResultScreen() {
       {/* Loading / connected card — matches the reference UI's "Fetching..." state */}
       {error ? (
         <ErrorState
-          title="Dispatch failed"
-          message={error}
+          title="Couldn't reach a provider"
+          message={`${error}\n\nYour diagnosis above is saved. Tap Try again to search for a provider, or head back to the home screen and retry from there.`}
           onRetry={runDispatchFlow}
         />
       ) : (
@@ -180,7 +190,7 @@ export default function DiagnosisResultScreen() {
                 ...typography.caption, color: palette.textMuted, textAlign: "center",
               }}
             >
-              You will be connected to a {providerTypeLabel("MOBILE_MECHANIC")}
+              Finding the closest provider — {serviceTypeAction(predicted)}
             </Text>
           )}
         </Card>

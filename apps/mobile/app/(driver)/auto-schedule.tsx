@@ -104,15 +104,18 @@ const SUGGESTIONS_BY_COMPONENT: Record<ComponentKey, Suggestion[]> = {
   ],
 };
 
+// Generic guidance only. This screen is reachable from the parts store with no
+// health context at all, so it cannot state a remaining-life figure for the
+// driver's car — the component detail screen shows the measured one.
 const ASSISTANT_TEXT: Record<ComponentKey, string> = {
   brake:
-    "Your brakes have about 4 weeks of pad life left — but it's best to replace them within 3 months. The next available Saturday is below. Fitting is LKR 2,500 on top of the part price shown above.",
+    "Brake pads are a wear item — go by the health score on the component screen rather than a fixed interval. Fitting is around LKR 2,500 on top of the part price shown above.",
   engine:
-    "Your engine oil is showing signs of degradation. I recommend an oil change within 1 week. The service is LKR 14,800 on top of the oil price shown above.",
+    "An oil and filter change is the usual first service. The labour is around LKR 14,800 on top of the oil price shown above.",
   tire:
-    "Your tyres have good remaining life. A rotation is recommended soon to extend tyre longevity. Estimated cost: LKR 1,500 for rotation service.",
+    "Rotating tyres evens out wear and extends their life. Rotation is around LKR 1,500.",
   battery:
-    "Battery is in good health. No immediate action needed, but a free test can confirm. Estimated test cost: LKR 500.",
+    "A load test is the quickest way to confirm a battery's condition before replacing it. A test is around LKR 500.",
 };
 
 /** Next upcoming Saturday, formatted "Sat, 4 Jul 2026". */
@@ -235,8 +238,10 @@ export default function AutoScheduleScreen() {
             }}
           >
             <Icon name="CalendarCheck" size={14} color={palette.brand} />
+            {/* A suggestion, not an availability check — nothing here queries
+                the garage's calendar. */}
             <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "600" }}>
-              Next available: {scheduleDate}
+              Suggested: {scheduleDate}
             </Text>
           </View>
         </View>
@@ -266,7 +271,7 @@ export default function AutoScheduleScreen() {
           }}
         >
           Booking and online payment aren&apos;t available yet — nothing has been scheduled.
-          Contact the garage directly to book {scheduleDate}.
+          Contact the garage directly to arrange a date.
         </Text>
 
         <Pressable
