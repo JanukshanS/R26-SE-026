@@ -17,7 +17,12 @@
 
 import { Platform } from "react-native";
 import { Accelerometer, Gyroscope } from "expo-sensors";
-import { getPairing, readRawObdPids } from "./elm327";
+import { getPairing, isRealBackend, readRawObdPids } from "./elm327";
+import {
+  createBehaviorAccumulator,
+  type BehaviorAccumulator,
+  type TripBehavior,
+} from "./driverBehavior";
 import type { IMUReading, OBDReading, TripBatch } from "./maintenanceApi";
 
 // Sensors are only available on native (iOS/Android). On web we fall back to
@@ -30,8 +35,15 @@ const SENSORS_AVAILABLE = Platform.OS !== "web";
 const IS_DEV = __DEV__;
 export const OBD_INTERVAL_MS  = IS_DEV ? 30_000  : 300_000;
 export const IMU_INTERVAL_MS  = IS_DEV ? 10_000  : 120_000;
-const OBD_OFFSET_STEP         = 300;   // seconds — always 5-min steps in batch
-const IMU_OFFSET_STEP         = 120;   // seconds — always 2-min steps in batch
+// Fallback spacing, used only if a real elapsed time can't be computed. The
+// batch now carries REAL offsets (seconds since trip start) rather than
+// index * step: the backend derives duration and distance from them, so
+// index-derived values made a dev-mode trip report 10x its real distance.
+const OBD_OFFSET_STEP         = 300;   // seconds
+const IMU_OFFSET_STEP         = 120;   // seconds
+
+/** Wire-format version. 2 = real offsets + on-device behaviour block. */
+const CLIENT_SCHEMA_VERSION = 2;
 
 // Backend requires at least 2 OBD + 5 IMU readings
 export const MIN_OBD_READINGS = 2;
@@ -50,24 +62,37 @@ export interface TripStats {
   canEnd: boolean;        // true when min readings reached
 }
 
+/** How the trip was started. Auto trips get extra guardrails and UI. */
+export type TripOrigin = "manual" | "auto";
+
 interface ActiveTrip {
   tripId: string;
   vehicleId: string;
   driverId: string;
   startTimestamp: string;
   startedAt: number;
+  origin: TripOrigin;
   obdReadings: OBDReading[];
   imuReadings: IMUReading[];
-  // live sensor values (updated at 4 Hz)
-  latestAccel: { x: number; y: number; z: number };
-  latestGyro:  { x: number; y: number; z: number };
-  // worst-case peaks in the current 2-min IMU window
-  windowPeakBrakingMs2: number;   // most negative accel_y × 9.81 (m/s²)
-  windowPeakCorneringRad: number; // largest |gyro_z| (rad/s)
+  /**
+   * Analyses the raw 4 Hz stream: removes gravity, derives yaw about the
+   * gravity vector, and accumulates steering/braking/cornering metrics. The
+   * per-window peaks below come from here too — the old code read raw
+   * accelerometer values that still included gravity, which is why harsh
+   * braking was never once detected.
+   */
+  behavior: BehaviorAccumulator;
+  /** Timestamps of the last accel/gyro sample, for real per-sample dt. */
+  lastAccelAt: number;
+  lastGyroAt: number;
   // event tallies for the UI
   brakingEvents: number;
   corneringEvents: number;
   lastObdAt: number;
+  /** OBD samples skipped because a real dongle was paired but didn't answer. */
+  syntheticObdMisses: number;
+  /** Best speed evidence, for the auto-trip false-start check. */
+  maxSpeedKmh: number;
 }
 
 // ── Module-global state ───────────────────────────────────────────────────────
@@ -107,7 +132,11 @@ export function onTripUpdate(cb: () => void): () => void {
   return () => listeners.delete(cb);
 }
 
-export function startTrip(vehicleId: string, driverId: string): string {
+export function startTrip(
+  vehicleId: string,
+  driverId: string,
+  opts?: { origin?: TripOrigin }
+): string {
   if (trip) throw new Error("Trip already active — call endTrip() first.");
 
   const now = Date.now();
@@ -117,35 +146,41 @@ export function startTrip(vehicleId: string, driverId: string): string {
     driverId,
     startTimestamp:   new Date(now).toISOString(),
     startedAt:        now,
+    origin:           opts?.origin ?? "manual",
     obdReadings:      [],
     imuReadings:      [],
-    latestAccel:      { x: 0, y: 0, z: 0 },
-    latestGyro:       { x: 0, y: 0, z: 0 },
-    windowPeakBrakingMs2:    0,
-    windowPeakCorneringRad:  0,
+    behavior:         createBehaviorAccumulator(),
+    lastAccelAt:      now,
+    lastGyroAt:       now,
     brakingEvents:    0,
     corneringEvents:  0,
     lastObdAt:        now,
+    syntheticObdMisses: 0,
+    maxSpeedKmh:      0,
   };
 
-  // Real phone sensors at 4 Hz (native only — web uses synthetic IMU)
+  // Real phone sensors at 4 Hz (native only — web uses synthetic IMU).
+  // Both listeners feed the behaviour accumulator raw, in the units
+  // expo-sensors reports (accel in g INCLUDING gravity, gyro in rad/s); the
+  // accumulator removes gravity itself. Passing pre-scaled values here was the
+  // original bug.
   if (SENSORS_AVAILABLE) {
     Accelerometer.setUpdateInterval(250);
     accelSub = Accelerometer.addListener(({ x, y, z }) => {
       if (!trip) return;
-      // Convert g → m/s²; phone y-axis = forward/back when portrait on dash
-      const ay = y * 9.81;
-      trip.latestAccel = { x: x * 9.81, y: ay, z: z * 9.81 };
-      // Track harshest braking in this window (forward decel → negative y)
-      if (ay < trip.windowPeakBrakingMs2) trip.windowPeakBrakingMs2 = ay;
+      const t = Date.now();
+      const dtSec = (t - trip.lastAccelAt) / 1000;
+      trip.lastAccelAt = t;
+      trip.behavior.addAccel({ ax: x, ay: y, az: z, dtSec });
     });
 
     Gyroscope.setUpdateInterval(250);
     gyroSub = Gyroscope.addListener(({ x, y, z }) => {
       if (!trip) return;
-      trip.latestGyro = { x, y, z };
-      if (Math.abs(z) > Math.abs(trip.windowPeakCorneringRad))
-        trip.windowPeakCorneringRad = z;
+      const t = Date.now();
+      const dtSec = (t - trip.lastGyroAt) / 1000;
+      trip.lastGyroAt = t;
+      trip.behavior.addGyro({ gx: x, gy: y, gz: z, dtSec });
     });
   }
 
@@ -156,7 +191,33 @@ export function startTrip(vehicleId: string, driverId: string): string {
   obdTimer = setInterval(() => { void captureObd().then(notify); }, OBD_INTERVAL_MS);
   imuTimer = setInterval(() => { captureImu(); notify(); }, IMU_INTERVAL_MS);
 
+  console.log(`[tripRecorder] trip started id=${trip.tripId.slice(0, 8)} origin=${trip.origin} vehicle=${vehicleId}`);
+  // Subscribers (home's TripCard) need to learn the trip exists. Previously
+  // only the interval callbacks notified, so the card went stale the moment a
+  // trip started or ended anywhere other than its own press handler.
+  notify();
+
   return trip.tripId;
+}
+
+/**
+ * Stop timers and sensor subscriptions and clear the active trip.
+ *
+ * Shared by endTrip and abortTrip deliberately: this is the ONLY place the
+ * subscriptions are removed, so a second hand-copied teardown would rot the
+ * moment another subscription is added.
+ */
+function teardown(): ActiveTrip | null {
+  if (obdTimer) { clearInterval(obdTimer); obdTimer = null; }
+  if (imuTimer) { clearInterval(imuTimer); imuTimer = null; }
+  if (SENSORS_AVAILABLE) {
+    accelSub?.remove(); accelSub = null;
+    gyroSub?.remove();  gyroSub  = null;
+  }
+  const completed = trip;
+  trip = null;
+  notify();
+  return completed;
 }
 
 export async function endTrip(): Promise<TripBatch> {
@@ -166,23 +227,64 @@ export async function endTrip(): Promise<TripBatch> {
   await captureObd();
   captureImu();
 
-  clearInterval(obdTimer!); obdTimer = null;
-  clearInterval(imuTimer!); imuTimer = null;
-  if (SENSORS_AVAILABLE) {
-    accelSub?.remove(); accelSub = null;
-    gyroSub?.remove();  gyroSub  = null;
-  }
+  const durationSec = Math.max(1, Math.round((Date.now() - trip.startedAt) / 1000));
+  const behavior = trip.behavior.finalize(durationSec);
+  behavior.synthetic_obd_count = trip.syntheticObdMisses;
 
-  const completed = trip;
-  trip = null;
+  const completed = teardown()!;
+
+  // One line that makes a whole drive diagnosable without scrolling.
+  console.log(
+    `[tripRecorder] trip ended  origin=${completed.origin}  dur=${(durationSec / 60).toFixed(1)}min  ` +
+    `obd=${completed.obdReadings.length}(${completed.syntheticObdMisses} skipped)  imu=${completed.imuReadings.length}  ` +
+    `steering=${behavior.steering_reversal_rate.toFixed(1)}rev/min  swerve=${behavior.swerve_events}  ` +
+    `brake=${behavior.harsh_braking_events}  accel=${behavior.harsh_accel_events}  corner=${behavior.harsh_cornering_events}  ` +
+    `latG_p95=${behavior.lateral_g_p95.toFixed(2)}  axisConf=${behavior.axis_confidence.toFixed(2)}  ` +
+    `mountStable=${behavior.mount_stable}`
+  );
 
   return {
     trip_id:         completed.tripId,
     vehicle_id:      completed.vehicleId,
     driver_id:       completed.driverId,
     start_timestamp: completed.startTimestamp,
+    end_timestamp:   new Date().toISOString(),
+    client_schema_version: CLIENT_SCHEMA_VERSION,
     obd_readings:    completed.obdReadings,
     imu_readings:    completed.imuReadings,
+    behavior,
+  };
+}
+
+/**
+ * Discard the active trip WITHOUT producing a batch.
+ *
+ * Needed by the auto-trip guardrails: a trip auto-started by a voltage
+ * artefact (battery charger, jump start) that never sees real motion must be
+ * thrown away, not submitted. endTrip always yields data, so it can't express
+ * "this never happened".
+ */
+export function abortTrip(reason: string): void {
+  if (!trip) return;
+  const t = trip;
+  teardown();
+  console.log(
+    `[tripRecorder] trip ABORTED id=${t.tripId.slice(0, 8)} origin=${t.origin} — ${reason} ` +
+    `(discarded ${t.obdReadings.length} OBD + ${t.imuReadings.length} IMU readings)`
+  );
+}
+
+/** Origin of the active trip, or null when none is running. */
+export function getTripOrigin(): TripOrigin | null {
+  return trip?.origin ?? null;
+}
+
+/** Motion evidence for the auto-controller's false-start check. */
+export function getMotionEvidence(): { maxSpeedKmh: number; elapsedSec: number } | null {
+  if (!trip) return null;
+  return {
+    maxSpeedKmh: trip.maxSpeedKmh,
+    elapsedSec: Math.round((Date.now() - trip.startedAt) / 1000),
   };
 }
 
@@ -194,14 +296,35 @@ async function captureObd() {
   if (!trip) return;
   const idx      = trip.obdReadings.length;
   const pairing  = getPairing();
-  const synthetic = synthesizeObd(idx * OBD_OFFSET_STEP, pairing?.state ?? null);
+  // REAL seconds since trip start. The backend derives duration and distance
+  // from these; index * step made distance a function of how many samples
+  // arrived rather than of elapsed time.
+  const offsetSec = Math.round((Date.now() - trip.startedAt) / 1000);
+  const synthetic = synthesizeObd(offsetSec, pairing?.state ?? null);
 
   // Real dongle first; per-field fallback to the synthesizer for whatever
   // the car didn't answer (or the whole reading, if nothing's connected).
   const real = await readRawObdPids();
+
+  // A real dongle that answers NOTHING means the link died mid-trip (engine
+  // off, adapter unplugged, BLE dropped). Fabricating a full reading there
+  // would feed invented ~13.9V / 900-2700rpm data straight into the ML
+  // pipeline as if it were measured. Skip the sample instead and count it.
+  // The synthesizer stays for the simulator/demo path, which is what it was
+  // written for.
+  if (!real && isRealBackend()) {
+    if (!trip) return;
+    trip.syntheticObdMisses += 1;
+    console.log(
+      `[tripRecorder] OBD snapshot #${idx} SKIPPED: real dongle paired but no answer ` +
+      `(total skipped ${trip.syntheticObdMisses}) — not fabricating data`
+    );
+    return;
+  }
+
   const reading: OBDReading = real
     ? {
-        timestamp_offset_sec: idx * OBD_OFFSET_STEP,
+        timestamp_offset_sec: offsetSec,
         rpm:                  real.rpm                 ?? synthetic.rpm,
         speed_kmh:            real.speed_kmh            ?? synthetic.speed_kmh,
         coolant_temp_c:       real.coolant_temp_c       ?? synthetic.coolant_temp_c,
@@ -225,6 +348,7 @@ async function captureObd() {
   if (!trip) return; // trip may have ended while the BLE read was in flight
   trip.obdReadings.push(reading);
   trip.lastObdAt = Date.now();
+  if (reading.speed_kmh > trip.maxSpeedKmh) trip.maxSpeedKmh = reading.speed_kmh;
 }
 
 function captureImu() {
@@ -240,7 +364,7 @@ function captureImu() {
     const braking   = state === "BRAKE_WORN" ? -(3.5 + Math.random() * 2.0) : -(Math.random() * 1.5);
     const cornering = (Math.random() - 0.5) * (state === "BRAKE_WORN" ? 1.2 : 0.4);
     trip.imuReadings.push({
-      timestamp_offset_sec: idx * IMU_OFFSET_STEP,
+      timestamp_offset_sec: Math.round((Date.now() - trip.startedAt) / 1000),
       accel_x: (Math.random() - 0.5) * 0.5,
       accel_y: (Math.random() - 0.5) * 0.5,
       accel_z: braking,
@@ -253,26 +377,35 @@ function captureImu() {
     return;
   }
 
-  // Native: use window peak values so the backend's peak-finder can detect events.
-  // braking signal goes into accel_z (backend: find_peaks(-accel_z, height=3.0))
+  // Native: peaks come from the behaviour accumulator, which has already
+  // removed gravity and resolved yaw about the true vertical. Reading the raw
+  // sensor values here (as the old code did) meant accel_z carried a ~9.81
+  // gravity offset, so the backend's find_peaks(-accel_z, height=3.0) could
+  // never fire — zero braking events across every trip ever recorded.
+  const peaks = trip.behavior.closeWindow();
   const reading: IMUReading = {
-    timestamp_offset_sec: idx * IMU_OFFSET_STEP,
-    accel_x: trip.latestAccel.x,
-    accel_y: trip.latestAccel.y,
-    accel_z: trip.windowPeakBrakingMs2,        // negative during hard braking
-    gyro_x:  trip.latestGyro.x,
-    gyro_y:  trip.latestGyro.y,
-    gyro_z:  trip.windowPeakCorneringRad,       // peaks on hard corners
+    timestamp_offset_sec: Math.round((Date.now() - trip.startedAt) / 1000),
+    accel_x: peaks.peakLateralMs2,
+    accel_y: 0,
+    accel_z: peaks.peakDecelMs2,        // negative during hard braking
+    gyro_x:  0,
+    gyro_y:  0,
+    gyro_z:  peaks.peakYawRateRad,      // peaks on hard corners
   };
   trip.imuReadings.push(reading);
 
-  // Count events for the UI (same thresholds as the backend)
-  if (trip.windowPeakBrakingMs2 < -3.0)               trip.brakingEvents++;
-  if (Math.abs(trip.windowPeakCorneringRad) > 0.6)    trip.corneringEvents++;
+  // Live tallies for the UI, straight from the accumulator's own detectors
+  // (debounced + refractory-limited) rather than re-thresholding here.
+  const preview = trip.behavior.preview();
+  trip.brakingEvents   = preview.harshBrakingEvents;
+  trip.corneringEvents = preview.harshCorneringEvents;
 
-  // Reset peaks for next window
-  trip.windowPeakBrakingMs2   = 0;
-  trip.windowPeakCorneringRad = 0;
+  console.log(
+    `[tripRecorder] IMU window #${idx}: decel=${peaks.peakDecelMs2.toFixed(2)}m/s2 ` +
+    `yaw=${peaks.peakYawRateRad.toFixed(2)}rad/s lat=${peaks.peakLateralMs2.toFixed(2)}m/s2 ` +
+    `| trip so far: brake=${preview.harshBrakingEvents} accel=${preview.harshAccelEvents} ` +
+    `corner=${preview.harshCorneringEvents} swerve=${preview.swerveEvents} steer=${preview.steeringReversals}rev`
+  );
 }
 
 function jit(val: number, pct = 3): number {

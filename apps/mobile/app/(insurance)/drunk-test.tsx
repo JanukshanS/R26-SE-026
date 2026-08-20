@@ -37,7 +37,7 @@ import {
   INSURANCE_VIDEO_TILE_SUBTEXT,
   WHITE,
 } from '@/features/guided-capture/capture-ui-theme';
-import { getMyUser } from '@/lib/vehicleApi';
+import { getCachedMyUser, getMyUser } from '@/lib/vehicleApi';
 
 /** Matches on-screen “Recording N seconds left” and `recordAsync.maxDuration`. */
 const RECORD_DURATION_SEC = 40;
@@ -94,7 +94,12 @@ export default function DrunkTestScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [isResetDialogVisible, setIsResetDialogVisible] = useState(false);
-  const [licenceNumber, setLicenceNumber] = useState<string | null>(null);
+  // Seeded from whatever profile was already fetched earlier this session (almost
+  // always available by the time a driver reaches this step) so the licence number
+  // doesn't flash a placeholder before this screen's own fresh fetch below resolves.
+  const [licenceNumber, setLicenceNumber] = useState<string | null>(
+    () => getCachedMyUser()?.licenceNumber ?? null
+  );
 
   // useFocusEffect (not useEffect) so the licence number refreshes if the
   // driver sets/edits it elsewhere (e.g. Add Insurer) and comes back here.

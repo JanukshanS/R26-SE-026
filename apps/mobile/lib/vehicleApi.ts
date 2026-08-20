@@ -1,4 +1,5 @@
 import { supabase } from "@lib/supabase";
+import { getActiveSessionId } from "@lib/session-guard";
 
 /**
  * Vehicles + profile data access, backed by Supabase Postgres (RLS-protected:
@@ -33,9 +34,6 @@ export interface Vehicle {
   fuelType: "petrol" | "diesel" | "hybrid" | "electric";
   isDefault: boolean;
   createdAt: string;
-  // Insurance is per-vehicle (a driver's two cars can have different insurers/policies).
-  insuranceProvider?: string;
-  insurancePolicyNumber?: string;
 }
 
 export type VehicleInput = Omit<Vehicle, "_id" | "userId" | "createdAt">;
@@ -62,8 +60,6 @@ interface VehicleRow {
   fuel_type: string;
   is_default: boolean;
   created_at: string;
-  insurance_provider: string | null;
-  insurance_policy_number: string | null;
 }
 
 function mapVehicle(r: VehicleRow): Vehicle {
@@ -80,8 +76,6 @@ function mapVehicle(r: VehicleRow): Vehicle {
     fuelType: (r.fuel_type as Vehicle["fuelType"]) ?? "petrol",
     isDefault: r.is_default,
     createdAt: r.created_at,
-    insuranceProvider: r.insurance_provider ?? undefined,
-    insurancePolicyNumber: r.insurance_policy_number ?? undefined,
   };
 }
 
@@ -96,9 +90,6 @@ function toRow(data: Partial<VehicleInput>): Record<string, unknown> {
   if (data.currentMileage !== undefined) row.current_mileage = data.currentMileage;
   if (data.fuelType !== undefined) row.fuel_type = data.fuelType;
   if (data.isDefault !== undefined) row.is_default = data.isDefault;
-  if (data.insuranceProvider !== undefined) row.insurance_provider = data.insuranceProvider || null;
-  if (data.insurancePolicyNumber !== undefined)
-    row.insurance_policy_number = data.insurancePolicyNumber || null;
   return row;
 }
 
@@ -116,13 +107,35 @@ function unwrap<T>({ data, error }: { data: T | null; error: { message: string }
 
 // ── Vehicles ────────────────────────────────────────────────────────────────
 
+// Same pattern as getCachedMyUser() below — populated on every successful fetch
+// (already warmed at login, since refreshVehicles() calls getVehicles()), readable
+// synchronously by screens outside VehicleProvider that would otherwise start from
+// a blank/loading state on every focus. Cleared on logout alongside the other
+// per-account caches (see vehicleContext.tsx's logout()).
+let cachedVehicles: Vehicle[] | null = null;
+
+export function getCachedVehicles(): Vehicle[] | null {
+  return cachedVehicles;
+}
+
+export function clearCachedVehicles(): void {
+  cachedVehicles = null;
+}
+
 export async function getVehicles(): Promise<Vehicle[]> {
+  const requestedFor = getActiveSessionId();
   const { data, error } = await supabase
     .from("vehicles")
     .select("*")
     .order("created_at", { ascending: true });
   if (error) throw new VehicleApiError(error.message);
-  return (data as VehicleRow[]).map(mapVehicle);
+  const vehicles = (data as VehicleRow[]).map(mapVehicle);
+  // A slower request from an account that has since logged out must not clobber a
+  // newer account's cache once it finally resolves — see session-guard.ts.
+  if (getActiveSessionId() === requestedFor) {
+    cachedVehicles = vehicles;
+  }
+  return vehicles;
 }
 
 /** Fetch a single vehicle by its own id — for callers that already know exactly which
@@ -197,8 +210,28 @@ interface ProfileRow {
   nic_number: string | null;
 }
 
+// Last successfully-fetched profile, kept in memory only. Screens outside
+// VehicleProvider (e.g. the (insurance) flow) re-fetch this on every focus so edits
+// made elsewhere show up promptly — but that means they otherwise start from a
+// blank/placeholder state on every visit even though the profile was almost
+// certainly already fetched once earlier in the session. getCachedMyUser() lets
+// them seed their initial render from that instead of nothing, while getMyUser()
+// still always hits the network for the authoritative value. Cleared explicitly by
+// vehicleContext.tsx's logout() — must not survive a sign-out, since a different
+// account could sign in next on the same device.
+let cachedUser: User | null = null;
+
+export function getCachedMyUser(): User | null {
+  return cachedUser;
+}
+
+export function clearCachedMyUser(): void {
+  cachedUser = null;
+}
+
 /** Compose the app `User` from the auth session + the profile row. */
 export async function getMyUser(): Promise<User | null> {
+  const requestedFor = getActiveSessionId();
   const { data: sessionData } = await supabase.auth.getSession();
   const session = sessionData.session;
   if (!session) return null;
@@ -209,7 +242,7 @@ export async function getMyUser(): Promise<User | null> {
     .maybeSingle();
   if (error) throw new VehicleApiError(error.message);
   const p = data as ProfileRow | null;
-  return {
+  const user: User = {
     _id: session.user.id,
     email: session.user.email ?? "",
     name: p?.name || (session.user.user_metadata?.name as string) || "",
@@ -220,6 +253,12 @@ export async function getMyUser(): Promise<User | null> {
     licenceNumber: p?.licence_number ?? undefined,
     nicNumber: p?.nic_number ?? undefined,
   };
+  // A slower request from an account that has since logged out must not clobber a
+  // newer account's cache once it finally resolves — see session-guard.ts.
+  if (getActiveSessionId() === requestedFor) {
+    cachedUser = user;
+  }
+  return user;
 }
 
 export interface ProfileUpdate {

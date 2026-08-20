@@ -17,6 +17,7 @@ import {
 import { formatGeocodedLine } from '@/lib/format-geocoded-line';
 import { formatTimestamp } from '@/lib/format-timestamp';
 import { getMyUser, getVehicles } from '@/lib/vehicleApi';
+import { getVehicleInsurance } from '@/lib/vehicleInsuranceApi';
 
 type ClaimantData = { fullName: string; nic: string; licenceNumber: string };
 
@@ -71,15 +72,25 @@ export function useClaimUpload(
       setTimestampLine('');
 
       void (async () => {
+        // No uploadKey means there's nothing to upload or resume — e.g. viewing an
+        // already-completed claim fetched from the server (see upload-accident-details.tsx's
+        // existingClaimId mode). Every other call site of this hook always has one; bail
+        // out before touching GPS/location state at all rather than fetching a location
+        // nobody asked for.
+        if (!uploadKey) {
+          if (!cancelled) {
+            setLocationLoading(false);
+          }
+          return;
+        }
+
         // Guards against a second concurrent invocation for the same key (e.g. a duplicate
         // focus event firing while the first pass is still mid-upload) starting a whole
         // second GPS+upload sequence, which would post every photo twice.
-        if (uploadKey) {
-          if (uploadInFlightForKeyRef.current === uploadKey) {
-            return;
-          }
-          uploadInFlightForKeyRef.current = uploadKey;
+        if (uploadInFlightForKeyRef.current === uploadKey) {
+          return;
         }
+        uploadInFlightForKeyRef.current = uploadKey;
 
         try {
           const parsed = reportedAtIso ? new Date(reportedAtIso) : null;
@@ -251,6 +262,11 @@ export function useClaimUpload(
             const targetVehicle = vehicleId
               ? vehicles.find((v) => v._id === vehicleId) ?? vehicles.find((v) => v.isDefault) ?? vehicles[0]
               : vehicles.find((v) => v.isDefault) ?? vehicles[0];
+            // Insurance lives in its own table (vehicle_insurance), not on the vehicle
+            // row itself, so the policy number is fetched separately.
+            const targetInsurance = targetVehicle
+              ? await getVehicleInsurance(targetVehicle._id).catch(() => null)
+              : null;
             await uploadFullClaimBundleToBackend({
               uploadKey,
               insurerCallMeta,
@@ -258,7 +274,7 @@ export function useClaimUpload(
               vehicle: targetVehicle
                 ? {
                     model: `${targetVehicle.make} ${targetVehicle.model}`.trim(),
-                    policyNumber: targetVehicle.insurancePolicyNumber,
+                    policyNumber: targetInsurance?.insurancePolicyNumber,
                     plateNumber: targetVehicle.plateNumber,
                   }
                 : undefined,

@@ -60,6 +60,41 @@ export type { PairingInfo };
 type Backend = "ble" | "classic" | "sim" | null;
 let backend: Backend = null;
 
+/**
+ * True only when a PHYSICAL dongle is on the other end. The engine monitor
+ * gates on this: the simulator's `synthesizeObd` always models a running
+ * engine (RPM floored at 700, voltage ~13.9V — see `tripRecorder.ts`), so
+ * letting simulated data reach engine-state detection would report "running"
+ * forever on a parked car.
+ */
+export function isRealBackend(): boolean {
+  return backend === "ble" || backend === "classic";
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Pairing-change notification
+// ─────────────────────────────────────────────────────────────────────────
+// Nothing could previously observe pair/unpair without polling
+// `isElm327Paired()`. The engine monitor needs to start and stop in step with
+// the connection, so the facade now announces the transitions.
+
+const pairingListeners = new Set<() => void>();
+
+export function onPairingChange(cb: () => void): () => void {
+  pairingListeners.add(cb);
+  return () => pairingListeners.delete(cb);
+}
+
+function notifyPairingChange(): void {
+  pairingListeners.forEach((cb) => {
+    try {
+      cb();
+    } catch (e) {
+      console.log(`[ELM327:Facade] pairing listener threw: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Pairing state queries
 // ─────────────────────────────────────────────────────────────────────────
@@ -114,6 +149,7 @@ export function getCurrentState(): VehicleState | null {
 export function pairElm327(vehicleId: string): PairingInfo {
   const info = sim.pair(vehicleId);
   backend = "sim";
+  notifyPairingChange();
   return info;
 }
 
@@ -170,6 +206,7 @@ function recordRealPairing(
   (info as { source: string }).source = via;
   (info as { deviceName?: string }).deviceName = name ?? undefined;
   backend = via;
+  notifyPairingChange();
   return info;
 }
 
@@ -197,6 +234,7 @@ export function unpairElm327(): void {
   if (backend === "classic") void classic.disconnect();
   sim.unpair();
   backend = null;
+  notifyPairingChange();
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -254,6 +292,37 @@ export async function readRawObdPids(): Promise<ble.RawObdPids | null> {
     if (backend === "classic" && classic.isConnected()) return await classic.readObdRaw();
   } catch {
     return null;
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Engine-state signals (engineMonitor.ts)
+// ─────────────────────────────────────────────────────────────────────────
+
+export type { EngineSignals } from "./elm327.protocol";
+
+/**
+ * Poll engine-state signals from a REAL dongle.
+ *
+ * The key property is that ATRV reads OBD pin 16, which is permanently live
+ * and NOT switched by the ignition — so this returns a usable voltage with the
+ * car completely off, which is exactly the case where every Mode 01 PID query
+ * comes back empty because the ECU is asleep.
+ *
+ * Returns null on the simulation backend BY DESIGN — see `isRealBackend()`.
+ */
+export async function readEngineSignals(
+  opts?: { probeRpm?: boolean }
+): Promise<import("./elm327.protocol").EngineSignals | null> {
+  const probeRpm = opts?.probeRpm ?? false;
+  try {
+    if (backend === "ble" && ble.isConnected()) return await ble.readEngineSignals({ probeRpm });
+    if (backend === "classic" && classic.isConnected()) return await classic.readEngineSignals({ probeRpm });
+  } catch {
+    // A throw this far out means the transport itself broke, which is the
+    // adapter-unreachable case — report it as such rather than as "no link".
+    return { voltage: null, rpm: null, adapterAlive: false };
   }
   return null;
 }

@@ -16,6 +16,15 @@ import {
 } from '@/lib/claim-upload-progress-store';
 import { loadPhotoGps } from '@/lib/photo-gps-store';
 
+/**
+ * Claim/capture creation, photo upload, and completion — backed directly by Supabase
+ * Postgres (RLS-protected) for everything except the two steps that need R2
+ * credentials (minting a presigned upload URL, and the final locations.json write),
+ * which go through two small Supabase Edge Functions (`sign-photo-upload`,
+ * `complete-capture` — see supabase/functions/). Previously all of this proxied
+ * through a separate claims-privacy FastAPI service; that service is now retired.
+ */
+
 /** Guided-capture walkaround photo URIs in stop/height order (matches how they were captured). */
 async function loadGuidedWalkaroundUris(): Promise<string[]> {
   const { photos } = await loadGuidedCaptureStoreState();
@@ -28,23 +37,13 @@ async function loadGuidedWalkaroundUris(): Promise<string[]> {
 }
 
 /**
- * Base URL for the Guided Camera FastAPI backend (no trailing slash).
- * Set in `frontend/.env`, e.g. `EXPO_PUBLIC_API_URL=http://192.168.1.10:8000`
- * when the phone and Mac are on the same Wi‑Fi. Restart Expo after changing.
- */
-export function getCaptureApiBaseUrl(): string | null {
-  const raw = process.env.EXPO_PUBLIC_API_URL;
-  if (!raw || typeof raw !== 'string' || !raw.trim()) {
-    return null;
-  }
-  return raw.trim().replace(/\/$/, '');
-}
-
-/**
  * Supabase access token for the current session, or null when signed out.
  * Read per request rather than once per flow: a guided-capture upload can run
  * longer than the token's one-hour lifetime, and supabase-js hands back the
  * refreshed token here.
+ *
+ * Kept exported even though claims-privacy is gone — lib/maintenanceApi.ts and
+ * lib/dispatchApi.ts (unrelated backends) still import this and authHeaders() below.
  */
 export async function getAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
@@ -53,12 +52,8 @@ export async function getAccessToken(): Promise<string | null> {
 
 /**
  * Authorization header for the backend services, all of which reject
- * unauthenticated requests with 401. Shared by the claims, dispatch and
- * maintenance clients, so the error stays generic — screens surface this
- * message verbatim.
- *
- * Only the header — never set Content-Type alongside FormData or React Native
- * drops the multipart boundary.
+ * unauthenticated requests with 401. Shared by the dispatch and maintenance
+ * clients, so the error stays generic — screens surface this message verbatim.
  */
 export async function authHeaders(): Promise<Record<string, string>> {
   const token = await getAccessToken();
@@ -74,6 +69,13 @@ export async function authHeaders(): Promise<Record<string, string>> {
     throw new Error('You need to be signed in. Sign in and try again.');
   }
   return { Authorization: `Bearer ${token}` };
+}
+
+async function currentUserId(): Promise<string> {
+  const { data } = await supabase.auth.getSession();
+  const id = data.session?.user.id;
+  if (!id) throw new Error('You need to be signed in. Sign in and try again.');
+  return id;
 }
 
 /** Last path segment extension only (full-path `split('.').pop()` is wrong for dotted folders). */
@@ -223,38 +225,85 @@ export type ReportPayload = {
   locationLabel: string;
 };
 
+type SignPhotoUploadResponse = {
+  uploadUrl: string;
+  key: string;
+  contentType: string;
+  metadataHeaders: Record<string, string>;
+};
+
+/**
+ * Uploads one photo/video: asks the sign-photo-upload Edge Function for a presigned R2
+ * PUT URL (the only step that needs R2 credentials), PUTs the file bytes straight to R2
+ * via expo-file-system (binary upload — avoids loading the whole file into JS memory,
+ * important for the drunk-test video), then records the row directly in Supabase.
+ * upsert (not insert) on the same unique constraint the DB enforces
+ * (capture_id, photo_index, asset_kind) so a retry after a crash between the R2 PUT
+ * succeeding and the local progress checkpoint saving doesn't hard-fail on a duplicate —
+ * same resilience the old resumable-upload flow relied on.
+ */
 async function postOriginalMedia(
-  base: string,
   captureId: string,
   photoIndex: number,
   slot: FraudMediaSlot,
-  photoSlot: 'walkaround' | 'user-verification' | 'third-party',
-  signal?: AbortSignal
+  photoSlot: 'walkaround' | 'user-verification' | 'third-party'
 ): Promise<void> {
   const { uri, drunkTestVideo } = slot;
-  const { name, type } = drunkTestVideo ? mimeForDrunkTestVideo(uri) : mimeForUri(uri);
-  const formData = new FormData();
-  formData.append('photo_index', String(photoIndex));
-  formData.append('asset_kind', 'original');
-  formData.append('photo_slot', photoSlot);
-  formData.append('photo', { uri, name, type } as unknown as Blob);
+  const { type } = drunkTestVideo ? mimeForDrunkTestVideo(uri) : mimeForUri(uri);
   const gps = await loadPhotoGps(uri);
-  if (gps) {
-    formData.append('gps_lat', String(gps.lat));
-    formData.append('gps_lng', String(gps.lng));
-    if (gps.accuracy != null) formData.append('gps_accuracy', String(gps.accuracy));
-    formData.append('captured_at_client', gps.capturedAt);
+
+  const { data, error } = await supabase.functions.invoke('sign-photo-upload', {
+    body: {
+      captureId,
+      photoIndex,
+      assetKind: 'original',
+      photoSlot,
+      contentType: type,
+      gpsLat: gps?.lat ?? null,
+      gpsLng: gps?.lng ?? null,
+      gpsAccuracy: gps?.accuracy ?? null,
+      capturedAtClient: gps?.capturedAt ?? null,
+    },
+  });
+  if (error || !data) {
+    throw new Error(`Failed to get upload URL: ${error?.message ?? 'unknown error'}`);
+  }
+  const { uploadUrl, key, contentType, metadataHeaders } = data as SignPhotoUploadResponse;
+
+  const headers: Record<string, string> = { 'Content-Type': contentType };
+  for (const [metaKey, metaValue] of Object.entries(metadataHeaders)) {
+    headers[`x-amz-meta-${metaKey}`] = metaValue;
   }
 
-  const upRes = await fetch(`${base}/captures/${captureId}/photos`, {
-    method: 'POST',
-    headers: await authHeaders(),
-    body: formData,
-    signal,
+  const uploadResult = await FileSystem.uploadAsync(uploadUrl, uri, {
+    httpMethod: 'PUT',
+    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+    headers,
   });
-  if (!upRes.ok) {
-    const text = await upRes.text();
-    throw new Error(`Upload failed (${upRes.status}): ${text.slice(0, 200)}`);
+  if (uploadResult.status < 200 || uploadResult.status >= 300) {
+    throw new Error(`Upload failed (${uploadResult.status}): ${uploadResult.body?.slice(0, 200) ?? ''}`);
+  }
+
+  const info = await FileSystem.getInfoAsync(uri);
+  const byteSize = info.exists && 'size' in info ? info.size : 0;
+
+  const { error: insertError } = await supabase.from('capture_photos').upsert(
+    {
+      capture_id: captureId,
+      photo_index: photoIndex,
+      asset_kind: 'original',
+      r2_key: key,
+      content_type: contentType,
+      byte_size: byteSize,
+      gps_lat: gps?.lat ?? null,
+      gps_lng: gps?.lng ?? null,
+      gps_accuracy: gps?.accuracy ?? null,
+      captured_at_client: gps?.capturedAt ?? null,
+    },
+    { onConflict: 'capture_id,photo_index,asset_kind' }
+  );
+  if (insertError) {
+    throw new Error(`Failed to save photo metadata: ${insertError.message}`);
   }
 }
 
@@ -265,59 +314,48 @@ type CombinedUploadItem = {
 
 /**
  * Reuses a previously-started capture session for this exact photo bundle if one exists and
- * the server confirms it's still accepting uploads; otherwise starts a fresh one. This is what
- * lets an interrupted upload (e.g. app killed mid-upload) resume instead of restarting from 0.
+ * is still accepting uploads; otherwise starts a fresh one. This is what lets an interrupted
+ * upload (e.g. app killed mid-upload) resume instead of restarting from 0.
  */
 async function resolveCaptureSession(
-  base: string,
   uploadKey: string,
   reportedAtIso: string,
   createPayload: Record<string, unknown>,
-  totalItems: number,
-  signal: AbortSignal | undefined
+  totalItems: number
 ): Promise<{ captureId: string; resumeIndex: number; alreadyComplete: boolean }> {
   const existing = await loadUploadProgress(uploadKey);
   if (existing) {
-    try {
-      const statusRes = await fetch(`${base}/captures/${existing.captureId}/status`, {
-        headers: await authHeaders(),
-        signal,
-      });
-      if (statusRes.ok) {
-        const statusJson = (await statusRes.json()) as { status?: string };
-        if (statusJson.status === 'uploading') {
-          return {
-            captureId: existing.captureId,
-            resumeIndex: Math.min(existing.nextIndex, totalItems),
-            alreadyComplete: false,
-          };
-        }
-        // Status moved past "uploading" (e.g. POST .../complete already succeeded in a
-        // prior attempt, but the app was killed before the local success flag was written).
-        // Nothing left to upload — the caller should treat this as already done.
-        await clearUploadProgress();
-        return { captureId: existing.captureId, resumeIndex: totalItems, alreadyComplete: true };
+    const { data: existingCapture, error: statusError } = await supabase
+      .from('captures')
+      .select('status')
+      .eq('id', existing.captureId)
+      .maybeSingle();
+    if (!statusError && existingCapture) {
+      if (existingCapture.status === 'uploading') {
+        return {
+          captureId: existing.captureId,
+          resumeIndex: Math.min(existing.nextIndex, totalItems),
+          alreadyComplete: false,
+        };
       }
-    } catch {
-      // Network error checking status — fall through and start a fresh capture below.
+      // Status moved past "uploading" (e.g. complete-capture already succeeded in a
+      // prior attempt, but the app was killed before the local success flag was written).
+      // Nothing left to upload — the caller should treat this as already done.
+      await clearUploadProgress();
+      return { captureId: existing.captureId, resumeIndex: totalItems, alreadyComplete: true };
     }
+    // Network/RLS error checking status — fall through and start a fresh capture below.
   }
 
-  const createRes = await fetch(`${base}/captures`, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      ...(await authHeaders()),
-    },
-    body: JSON.stringify(createPayload),
-    signal,
-  });
-  if (!createRes.ok) {
-    const text = await createRes.text();
-    throw new Error(`Create capture failed (${createRes.status}): ${text.slice(0, 200)}`);
+  const userId = await currentUserId();
+  const { data: capture, error } = await supabase
+    .from('captures')
+    .insert({ ...createPayload, user_id: userId, status: 'uploading' })
+    .select('id')
+    .single();
+  if (error || !capture) {
+    throw new Error(`Create capture failed: ${error?.message ?? 'unknown error'}`);
   }
-  const capture = (await createRes.json()) as { id: string };
   await saveUploadProgress({ uploadKey, captureId: capture.id, nextIndex: 0, totalItems, reportedAtIso });
   return { captureId: capture.id, resumeIndex: 0, alreadyComplete: false };
 }
@@ -325,8 +363,8 @@ async function resolveCaptureSession(
 /**
  * Creates (or resumes) a capture session, uploads guided walkaround photos, then
  * fraud-validation media (licence + third-party images, then drunk-test video when present;
- * same session, continuing `photo_index`), then completes. `POST /complete` runs only after
- * all uploads. Progress is persisted after every photo so an interrupted upload (e.g. the app
+ * same session, continuing `photo_index`), then completes via the complete-capture Edge
+ * Function. Progress is persisted after every photo so an interrupted upload (e.g. the app
  * is killed) resumes from where it stopped on the next attempt instead of starting over.
  */
 export async function uploadFullClaimBundleToBackend(options: {
@@ -344,17 +382,13 @@ export async function uploadFullClaimBundleToBackend(options: {
   onFraudProgress: (percent: number) => void;
   /** Fired once walkaround originals are on the server and guided progress is 100% (before fraud-validation uploads). */
   onGuidedWalkaroundUploadsComplete?: () => void;
-  /** Fired once licence / third-party / drunk-test media is uploaded and the server has accepted `POST .../complete` — i.e. the claim really is submitted. */
+  /** Fired once licence / third-party / drunk-test media is uploaded AND the
+   *  capture is genuinely complete — either the complete-capture Edge Function
+   *  has returned, or the capture was already finished server-side. Never fired
+   *  on progress alone, so the caller can treat it as "really submitted". */
   onFraudValidationMediaUploadsComplete?: () => void;
   signal?: AbortSignal;
 }): Promise<{ captureId: string }> {
-  const base = getCaptureApiBaseUrl();
-  if (!base) {
-    throw new Error(
-      'EXPO_PUBLIC_API_URL is not set. Add to apps/mobile/.env, e.g. EXPO_PUBLIC_API_URL=http://YOUR_MAC_LAN_IP:8000'
-    );
-  }
-
   const guidedUris = await loadGuidedWalkaroundUris();
 
   if (guidedUris.length === 0) {
@@ -400,12 +434,10 @@ export async function uploadFullClaimBundleToBackend(options: {
   };
 
   const { captureId, resumeIndex, alreadyComplete } = await resolveCaptureSession(
-    base,
     options.uploadKey,
     options.report.capturedAtIso,
     createPayload,
-    combined.length,
-    options.signal
+    combined.length
   );
 
   if (alreadyComplete) {
@@ -427,7 +459,7 @@ export async function uploadFullClaimBundleToBackend(options: {
 
   for (let i = resumeIndex; i < guidedTotal; i++) {
     const { slot } = combined[i]!;
-    await postOriginalMedia(base, captureId, i, slot, 'walkaround', options.signal);
+    await postOriginalMedia(captureId, i, slot, 'walkaround');
     await saveUploadProgress({
       uploadKey: options.uploadKey,
       captureId,
@@ -451,7 +483,7 @@ export async function uploadFullClaimBundleToBackend(options: {
     options.onFraudProgress(doneBefore === 0 ? 0 : Math.round((doneBefore / fraudTotal) * 100));
     for (let i = fraudResumeIndex; i < combined.length; i++) {
       const { slot, photoSlot } = combined[i]!;
-      await postOriginalMedia(base, captureId, i, slot, photoSlot, options.signal);
+      await postOriginalMedia(captureId, i, slot, photoSlot);
       await saveUploadProgress({
         uploadKey: options.uploadKey,
         captureId,
@@ -465,14 +497,11 @@ export async function uploadFullClaimBundleToBackend(options: {
     options.onFraudProgress(100);
   }
 
-  const completeRes = await fetch(`${base}/captures/${captureId}/complete`, {
-    method: 'POST',
-    headers: await authHeaders(),
-    signal: options.signal,
+  const { data: completeData, error: completeError } = await supabase.functions.invoke('complete-capture', {
+    body: { captureId },
   });
-  if (!completeRes.ok) {
-    const text = await completeRes.text();
-    throw new Error(`Complete failed (${completeRes.status}): ${text.slice(0, 200)}`);
+  if (completeError || !completeData) {
+    throw new Error(`Complete failed: ${completeError?.message ?? 'unknown error'}`);
   }
   await clearUploadProgress();
   options.onFraudValidationMediaUploadsComplete?.();

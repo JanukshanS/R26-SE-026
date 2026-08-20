@@ -16,13 +16,13 @@ import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
 import type { Vehicle, VehicleInput } from "@lib/vehicleApi";
 import { listInsuranceCompanies, type InsuranceCompany } from "@lib/insuranceCompaniesApi";
+import { getVehicleInsurance, upsertVehicleInsurance } from "@lib/vehicleInsuranceApi";
 
 const FUEL_TYPES = ["petrol", "diesel", "hybrid", "electric"] as const;
 
 const EMPTY_FORM: Partial<VehicleInput> = {
   make: "", model: "", year: undefined, plateNumber: "",
   nickname: "", color: "", currentMileage: 0, fuelType: "petrol",
-  insuranceProvider: "", insurancePolicyNumber: "",
 };
 
 export default function ManageVehiclesScreen() {
@@ -38,11 +38,18 @@ export default function ManageVehiclesScreen() {
   // editing any vehicle, same as the insurance fields below.
   const [licenceNumber, setLicenceNumber] = useState("");
   const [nicNumber, setNicNumber] = useState("");
+  // Insurance lives in its own table (vehicle_insurance), not on the vehicle row itself,
+  // so it's fetched/saved separately from `form`.
+  const [insuranceProvider, setInsuranceProvider] = useState("");
+  const [insurancePolicyNumber, setInsurancePolicyNumber] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [companies, setCompanies] = useState<InsuranceCompany[]>([]);
   const [reminderVisible, setReminderVisible] = useState(false);
   const [missingLabels, setMissingLabels] = useState<string[]>([]);
+  const [confirmSaveVisible, setConfirmSaveVisible] = useState(false);
+  // Vehicle tapped in the list, awaiting confirmation before actually switching.
+  const [pendingVehicle, setPendingVehicle] = useState<Vehicle | null>(null);
   const autoOpenedForId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -71,52 +78,83 @@ export default function ManageVehiclesScreen() {
     const target = vehicles.find((v) => v._id === editVehicleId);
     if (!target) return;
     autoOpenedForId.current = editVehicleId;
-    openEdit(target);
-    const missing: string[] = [];
-    if (!target.insuranceProvider) missing.push("Your insurance provider");
-    if (!target.insurancePolicyNumber) missing.push("Your insurance policy number");
-    if (!user?.licenceNumber) missing.push("Your Driving Licence Number");
-    if (!user?.nicNumber) missing.push("NIC Number");
-    if (missing.length > 0) {
-      setMissingLabels(missing);
-      setReminderVisible(true);
-    }
+    void (async () => {
+      await openEdit(target);
+      const insurance = await getVehicleInsurance(target._id).catch(() => null);
+      const missing: string[] = [];
+      if (!insurance?.insuranceProvider) missing.push("Your insurance provider");
+      if (!insurance?.insurancePolicyNumber) missing.push("Your insurance policy number");
+      if (!user?.licenceNumber) missing.push("Your Driving Licence Number");
+      if (!user?.nicNumber) missing.push("NIC Number");
+      if (missing.length > 0) {
+        setMissingLabels(missing);
+        setReminderVisible(true);
+      }
+    })();
   }, [editVehicleId, vehicles, vehiclesLoading, user]);
 
   function openAdd() {
     setEditingVehicle(null);
     setForm(EMPTY_FORM);
+    setInsuranceProvider("");
+    setInsurancePolicyNumber("");
     setError("");
     setShowForm(true);
   }
 
-  function openEdit(v: Vehicle) {
+  async function openEdit(v: Vehicle) {
     setEditingVehicle(v);
     setForm({
       make: v.make, model: v.model, year: v.year,
       plateNumber: v.plateNumber, nickname: v.nickname ?? "",
       color: v.color ?? "", currentMileage: v.currentMileage,
       fuelType: v.fuelType,
-      insuranceProvider: v.insuranceProvider ?? "",
-      insurancePolicyNumber: v.insurancePolicyNumber ?? "",
     });
+    setInsuranceProvider("");
+    setInsurancePolicyNumber("");
     setError("");
     setShowForm(true);
+    try {
+      const insurance = await getVehicleInsurance(v._id);
+      setInsuranceProvider(insurance?.insuranceProvider ?? "");
+      setInsurancePolicyNumber(insurance?.insurancePolicyNumber ?? "");
+    } catch {
+      // best-effort — form still usable, just starts blank for these two fields
+    }
   }
 
-  async function handleSave() {
+  function handleSave() {
     if (!form.make || !form.model || !form.plateNumber) {
       setError("Make, model and plate number are required.");
       return;
     }
+    // Only editing an existing vehicle's data needs confirmation — adding a
+    // brand-new vehicle has nothing to overwrite, so it saves immediately.
+    if (editingVehicle) {
+      setConfirmSaveVisible(true);
+      return;
+    }
+    void performSave();
+  }
+
+  async function performSave() {
     setSaving(true);
     setError("");
     try {
+      let vehicleId: string;
       if (editingVehicle) {
         await editVehicle(editingVehicle._id, form);
+        vehicleId = editingVehicle._id;
       } else {
-        await addVehicle(form);
+        const vehicle = await addVehicle(form);
+        vehicleId = vehicle._id;
       }
+      await upsertVehicleInsurance(vehicleId, {
+        insuranceProvider,
+        insurancePolicyNumber,
+      });
+      await updateMe({ licenceNumber: licenceNumber.trim(), nicNumber: nicNumber.trim() });
+      setShowForm(false);
     } catch (err: any) {
       setError(err.message ?? "Failed to save vehicle. Check your connection and try again.");
       setSaving(false);
@@ -243,8 +281,14 @@ export default function ManageVehiclesScreen() {
               key={v._id}
               vehicle={v}
               isSelected={selectedVehicle?._id === v._id}
-              onSelect={() => { selectVehicle(v); router.back(); }}
-              onEdit={() => openEdit(v)}
+              onSelect={() => {
+                if (selectedVehicle?._id === v._id) {
+                  router.back();
+                  return;
+                }
+                setPendingVehicle(v);
+              }}
+              onEdit={() => void openEdit(v)}
               onDelete={() => confirmDelete(v)}
               onSetDefault={() => setDefault(v._id)}
             />
@@ -368,20 +412,20 @@ export default function ManageVehiclesScreen() {
                     {companies.map(({ companyName: name }) => (
                       <Pressable
                         key={name}
-                        onPress={() => setForm((f) => ({ ...f, insuranceProvider: name }))}
+                        onPress={() => setInsuranceProvider(name)}
                         style={{
                           paddingHorizontal: spacing.md,
                           paddingVertical: spacing.sm,
                           borderRadius: radii.pill,
                           borderWidth: 1.5,
-                          borderColor: form.insuranceProvider === name ? palette.brand : palette.border,
-                          backgroundColor: form.insuranceProvider === name ? palette.brandSoft : "transparent",
+                          borderColor: insuranceProvider === name ? palette.brand : palette.border,
+                          backgroundColor: insuranceProvider === name ? palette.brandSoft : "transparent",
                         }}
                       >
                         <Text
                           style={{
                             ...typography.caption,
-                            color: form.insuranceProvider === name ? palette.brand : palette.textMuted,
+                            color: insuranceProvider === name ? palette.brand : palette.textMuted,
                             fontWeight: "600",
                           }}
                         >
@@ -393,8 +437,8 @@ export default function ManageVehiclesScreen() {
                 </View>
                 <Field
                   label="Insurance Policy Number"
-                  value={form.insurancePolicyNumber ?? ""}
-                  onChangeText={(v) => setForm((f) => ({ ...f, insurancePolicyNumber: v }))}
+                  value={insurancePolicyNumber}
+                  onChangeText={setInsurancePolicyNumber}
                   placeholder="ALCI-254-VP"
                   autoCapitalize="characters"
                 />
@@ -519,6 +563,186 @@ export default function ManageVehiclesScreen() {
             >
               <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Got it</Text>
             </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Save Changes confirmation — same icon-circle popup style as the reminder above. */}
+      <Modal visible={confirmSaveVisible} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: palette.overlay,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: spacing.xl,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: palette.surface,
+              borderRadius: radii.xl,
+              padding: spacing.xl,
+              gap: spacing.lg,
+              width: "100%",
+              alignItems: "center",
+            }}
+          >
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: palette.brandSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="Car" size={32} color={palette.brand} />
+            </View>
+
+            <View style={{ gap: spacing.sm, alignItems: "center" }}>
+              <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
+                Save Changes
+              </Text>
+              <Text
+                style={{
+                  ...typography.body,
+                  color: palette.textMuted,
+                  textAlign: "center",
+                  lineHeight: 22,
+                }}
+              >
+                Save these changes to your vehicle details?
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: spacing.md, width: "100%" }}>
+              <Pressable
+                onPress={() => setConfirmSaveVisible(false)}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  borderWidth: 1.5,
+                  borderColor: palette.border,
+                  backgroundColor: pressed ? palette.homeBackground : "transparent",
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  setConfirmSaveVisible(false);
+                  void performSave();
+                }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: pressed ? palette.brandPressed : palette.brand,
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Save</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Switch Vehicle confirmation — tapping a vehicle card in this list, same
+          icon-circle popup style as the other confirmations on this screen. */}
+      <Modal visible={pendingVehicle != null} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: palette.overlay,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: spacing.xl,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: palette.surface,
+              borderRadius: radii.xl,
+              padding: spacing.xl,
+              gap: spacing.lg,
+              width: "100%",
+              alignItems: "center",
+            }}
+          >
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: palette.brandSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="Car" size={32} color={palette.brand} />
+            </View>
+
+            <View style={{ gap: spacing.sm, alignItems: "center" }}>
+              <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
+                Switch Vehicle
+              </Text>
+              <Text
+                style={{
+                  ...typography.body,
+                  color: palette.textMuted,
+                  textAlign: "center",
+                  lineHeight: 22,
+                }}
+              >
+                {pendingVehicle
+                  ? `Switch to ${pendingVehicle.nickname || `${pendingVehicle.make} ${pendingVehicle.model}`} (${pendingVehicle.plateNumber})?`
+                  : ""}
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: spacing.md, width: "100%" }}>
+              <Pressable
+                onPress={() => setPendingVehicle(null)}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  borderWidth: 1.5,
+                  borderColor: palette.border,
+                  backgroundColor: pressed ? palette.homeBackground : "transparent",
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  if (pendingVehicle) {
+                    selectVehicle(pendingVehicle);
+                  }
+                  setPendingVehicle(null);
+                  router.back();
+                }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: pressed ? palette.brandPressed : palette.brand,
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Switch</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>

@@ -1,6 +1,9 @@
 import { Platform } from "react-native";
 
 import { authHeaders } from "@lib/capture-api";
+import type { TripBehavior } from "@lib/driverBehavior";
+
+export type { TripBehavior };
 
 const BASE_URL =
   process.env.EXPO_PUBLIC_MAINTENANCE_URL ??
@@ -299,6 +302,16 @@ export interface TripBatch {
   start_timestamp: string;
   obd_readings: OBDReading[];
   imu_readings: IMUReading[];
+  /** Wall-clock end. Authoritative for duration when it agrees with the offsets. */
+  end_timestamp?: string;
+  /** 2 = real timestamp offsets + behaviour block. Absent = legacy client. */
+  client_schema_version?: number;
+  /**
+   * Driver-behaviour metrics computed on-device from the raw 4 Hz IMU stream
+   * (steering reversals, swerves, harsh events, jerk). Optional so older app
+   * builds keep working against the same endpoint.
+   */
+  behavior?: TripBehavior;
 }
 
 export interface TripMetricsResponse {

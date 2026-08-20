@@ -108,7 +108,7 @@ export const CAPTURE_STATUS_PULSE_TINT = 'rgba(249, 115, 22, 0.3)';
 export const CAPTURE_PROGRESS_RING_TRACK = 'rgba(255, 255, 255, 0.28)';
 
 /** Viewfinder vignette — darkens outside the frame without a hard boundary line. */
-export const CAPTURE_VIGNETTE_TINT = 'rgba(0, 0, 0, 0.55)';
+export const CAPTURE_VIGNETTE_TINT = 'rgba(86, 86, 86, 0.55)';
 
 /**
  * Guided Capture typography scale. One label size (chips, pills, captions)
@@ -157,10 +157,12 @@ export const INSURANCE_CARD_BORDER_ACCENT = '#ff6b35';
 
 /** Insurance home — step badges, status pills, report button */
 export const INSURANCE_STEP_BADGE_BG = '#ffdda742';
-export const INSURANCE_PILL_INCOMPLETE_BG = '#ffebee';
-export const INSURANCE_PILL_INCOMPLETE_TEXT = DANGER_RED;
+export const INSURANCE_PILL_INCOMPLETE_BG = '#ffdda742';
+export const INSURANCE_PILL_INCOMPLETE_TEXT = '#ff6b35';
 export const INSURANCE_REPORT_BG = '#ff5c5c';
 export const INSURANCE_REPORT_DISABLED_BG = GRAY_LIGHTER;
+export const DONE_PRIMARY = '#34a910ff';
+export const DONE_BADGE_BG = '#c0ffa742';
 
 /** User Verification (drunk test) screen extras */
 export const INSURANCE_SCRIPT_BOX_BG = '#fff0e6';
