@@ -11,7 +11,9 @@ vi.hoisted(() => {
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
-    incident: { findMany: vi.fn(), count: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    incident: {
+      findMany: vi.fn(), count: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn(),
+    },
     dispatchDecision: { findFirst: vi.fn(), update: vi.fn() },
     resolutionFeedback: { create: vi.fn() },
   },
@@ -177,10 +179,19 @@ describe("GET /api/v1/incidents (unfiltered)", () => {
 describe("POST /api/v1/dispatch/respond", () => {
   const body = { incidentId: INCIDENT_ID, providerId: PROVIDER_ID, accepted: true };
 
+  /** The where clause that makes the transition conditional on the read state. */
+  const conditionalWhere = {
+    id: INCIDENT_ID,
+    assignedProviderId: PROVIDER_ID,
+    status: "PROVIDER_ASSIGNED",
+  };
+
   it("accepts a job and moves the incident to EN_ROUTE", async () => {
     mockProfile([{ provider_id: PROVIDER_ID }]);
-    mockPrisma.incident.findUnique.mockResolvedValue(assignedIncident);
-    mockPrisma.incident.update.mockResolvedValue({ ...assignedIncident, status: "EN_ROUTE" });
+    mockPrisma.incident.findUnique
+      .mockResolvedValueOnce(assignedIncident)
+      .mockResolvedValueOnce({ ...assignedIncident, status: "EN_ROUTE" });
+    mockPrisma.incident.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.dispatchDecision.findFirst.mockResolvedValue({
       id: "decision-1",
       createdAt: new Date(Date.now() - 30_000),
@@ -193,8 +204,8 @@ describe("POST /api/v1/dispatch/respond", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.incident.status).toBe("EN_ROUTE");
-    expect(mockPrisma.incident.update).toHaveBeenCalledWith({
-      where: { id: INCIDENT_ID },
+    expect(mockPrisma.incident.updateMany).toHaveBeenCalledWith({
+      where: conditionalWhere,
       data: { status: "EN_ROUTE" },
     });
     expect(mockPrisma.dispatchDecision.update).toHaveBeenCalledWith(
@@ -216,16 +227,16 @@ describe("POST /api/v1/dispatch/respond", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.incident.status).toBe("EN_ROUTE");
-    expect(mockPrisma.incident.update).not.toHaveBeenCalled();
+    expect(mockPrisma.incident.updateMany).not.toHaveBeenCalled();
     expect(mockPrisma.dispatchDecision.update).not.toHaveBeenCalled();
   });
 
   it("declines by unassigning the provider and returning the incident to DISPATCHING", async () => {
     mockProfile([{ provider_id: PROVIDER_ID }]);
-    mockPrisma.incident.findUnique.mockResolvedValue(assignedIncident);
-    mockPrisma.incident.update.mockResolvedValue({
-      ...assignedIncident, status: "DISPATCHING", assignedProviderId: null,
-    });
+    mockPrisma.incident.findUnique
+      .mockResolvedValueOnce(assignedIncident)
+      .mockResolvedValueOnce({ ...assignedIncident, status: "DISPATCHING", assignedProviderId: null });
+    mockPrisma.incident.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.dispatchDecision.findFirst.mockResolvedValue({
       id: "decision-2",
       createdAt: new Date(Date.now() - 10_000),
@@ -237,8 +248,8 @@ describe("POST /api/v1/dispatch/respond", () => {
       .set("Authorization", TOKEN);
 
     expect(res.status).toBe(200);
-    expect(mockPrisma.incident.update).toHaveBeenCalledWith({
-      where: { id: INCIDENT_ID },
+    expect(mockPrisma.incident.updateMany).toHaveBeenCalledWith({
+      where: conditionalWhere,
       data: { status: "DISPATCHING", assignedProviderId: null },
     });
     expect(mockPrisma.dispatchDecision.update).toHaveBeenCalledWith(
@@ -260,7 +271,7 @@ describe("POST /api/v1/dispatch/respond", () => {
       .set("Authorization", TOKEN);
 
     expect(res.status).toBe(409);
-    expect(mockPrisma.incident.update).not.toHaveBeenCalled();
+    expect(mockPrisma.incident.updateMany).not.toHaveBeenCalled();
   });
 
   it("rejects responding on behalf of a provider the caller does not own with 403", async () => {
@@ -285,7 +296,23 @@ describe("POST /api/v1/dispatch/respond", () => {
       .set("Authorization", TOKEN);
 
     expect(res.status).toBe(409);
-    expect(mockPrisma.incident.update).not.toHaveBeenCalled();
+    expect(mockPrisma.incident.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("answers 409 when a concurrent response already moved the incident", async () => {
+    mockProfile([{ provider_id: PROVIDER_ID }]);
+    mockPrisma.incident.findUnique.mockResolvedValue(assignedIncident);
+    mockPrisma.incident.updateMany.mockResolvedValue({ count: 0 });
+
+    const res = await request(makeApp("user-race"))
+      .post("/api/v1/dispatch/respond")
+      .send(body)
+      .set("Authorization", TOKEN);
+
+    expect(res.status).toBe(409);
+    expect(res.body.success).toBe(false);
+    expect(mockPrisma.dispatchDecision.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.dispatchDecision.update).not.toHaveBeenCalled();
   });
 
   it("rejects a malformed body with 400", async () => {

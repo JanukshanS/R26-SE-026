@@ -240,12 +240,26 @@ dispatchRouter.post('/respond', async (req, res) => {
 
     let updatedIncident = incident;
     if (!alreadyAccepted) {
-      updatedIncident = await prisma.incident.update({
-        where: { id: incidentId },
+      // Conditional write: the transition only lands while the incident still
+      // holds the state checked above, so a racing accept and decline cannot
+      // both apply. updateMany returns a count rather than the row, hence the
+      // re-read below.
+      const { count } = await prisma.incident.updateMany({
+        where: { id: incidentId, assignedProviderId: providerId, status: 'PROVIDER_ASSIGNED' },
         data: accepted
           ? { status: 'EN_ROUTE' }
           : { status: 'DISPATCHING', assignedProviderId: null },
       });
+
+      if (count === 0) {
+        res.status(409).json({
+          success: false, error: 'Another response for this incident was recorded first',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      updatedIncident = (await prisma.incident.findUnique({ where: { id: incidentId } })) ?? incident;
 
       // The decision row from /optimize carries the response; it is absent if
       // the assignment was made some other way, which is not fatal here.

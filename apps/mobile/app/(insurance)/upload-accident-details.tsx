@@ -479,7 +479,7 @@ export default function UploadAccidentDetailsScreen() {
                 : existingClaim?.status === 'pending_review'
                 ? 'The review process will take 1 - 2 working days'
                 : existingClaim?.status === 'processing'
-                ? "Your claim has been submitted. We're validating your photos and generating your 3D report — you'll be notified once it's ready for review."
+                ? "Your claim has been submitted. We're validating your photos — you'll be notified once it's ready for review."
                 : "GPS + Timestamp signed. Do not close the app and Do not disconnect from Internet. We'll notify you."}
             </Text>
           </View>
