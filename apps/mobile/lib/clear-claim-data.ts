@@ -16,6 +16,7 @@ import {
   loadDrunkTestState,
   saveDrunkTestState,
 } from '@/features/drunk-test/storage/drunk-test-store';
+import { clearDrunkTestEntryMeta } from '@/features/drunk-test/storage/drunk-test-entry-store';
 import {
   deleteThirdPartyPhotos,
   loadThirdPartyState,
@@ -49,10 +50,11 @@ export async function clearAllClaimData(): Promise<void> {
     clearPersistedClaimUploadSuccess(),
     clearUploadProgress(),
 
-    // Clear location metadata for all 3 steps
+    // Clear location metadata for all 4 steps
     clearInsurerCallMeta(),
     clearGuidedCaptureEntryMeta(),
     clearReportAccidentEntryMeta(),
+    clearDrunkTestEntryMeta(),
 
     // Reset store state files to empty (next load returns defaults)
     saveGuidedCaptureStoreState({ photos: [] }),

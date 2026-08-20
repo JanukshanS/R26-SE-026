@@ -22,6 +22,7 @@ import { isElm327Paired, isRealBleSupported, pairElm327Async, unpairElm327 } fro
 import { useVehicle } from "@lib/vehicleContext";
 import type { Vehicle } from "@lib/vehicleApi";
 import { getVehicleInsurance, type VehicleInsurance } from "@lib/vehicleInsuranceApi";
+import { isExpiringSoon } from "@lib/insurer-field-format";
 import { useHardwareBack } from "@lib/useHardwareBack";
 import { isTripActive, startTrip } from "@lib/tripRecorder";
 import { getCachedClaims, listMyClaims } from "@lib/claims-api";
@@ -50,6 +51,8 @@ export default function DriverHomeScreen() {
   // True while the Insurance button's existing-claim check (a network call) is in
   // flight — shown as a spinner in place of the icon so the tap doesn't feel dead.
   const [checkingInsuranceStatus, setCheckingInsuranceStatus] = useState(false);
+  // Shown when the selected vehicle's insurance is expiring soon and the driver taps Insurance.
+  const [renewalReminderVisible, setRenewalReminderVisible] = useState(false);
   // Real BLE pairing is async (scan + connect takes seconds). We show a
   // "Connecting…" state while it runs. pairElm327Async never rejects — it
   // falls back to the on-device simulation when no real dongle is reachable
@@ -102,6 +105,73 @@ export default function DriverHomeScreen() {
         !user?.licenceNumber ||
         !user?.nicNumber)
   );
+  // Expiring this month, next month, or already lapsed — month-only granularity,
+  // see isExpiringSoon. Only meaningful once an expiry month is actually on file.
+  const insuranceExpiringSoon = Boolean(
+    selectedVehicle &&
+      vehicleInsurance?.insuranceExpireMonth &&
+      isExpiringSoon(vehicleInsurance.insuranceExpireMonth)
+  );
+
+  // The Insurance button's actual destination logic — factored out so both a direct
+  // tap (nothing wrong) and dismissing the renewal-reminder popup below can reach it.
+  async function proceedToInsuranceFlow() {
+    if (incompleteUpload) {
+      router.push({
+        pathname: "/(insurance)/upload-accident-details",
+        params: {
+          uploadKey: incompleteUpload.uploadKey,
+          reportedAtIso: incompleteUpload.reportedAtIso,
+          vehicleId: selectedVehicle?._id,
+        },
+      });
+      return;
+    }
+    // Already have a finished claim on the server (from this session, an
+    // older one, or a different device) — go straight to its submitted
+    // view instead of the 4-steps screen. Local files aren't needed for
+    // this, only the backend's own record of it. Prefer the cache warmed
+    // at login (claims-api.ts) — instant, no spinner needed. Only fall back
+    // to a live fetch (with a spinner, since this one takes a moment) if
+    // that cache isn't ready yet for some reason.
+    //
+    // But if the driver already dismissed this exact claim via "Start New
+    // Claim", don't redirect back to it even though the server hasn't seen a
+    // newer one yet — they may be mid-way through a new claim's steps locally.
+    const dismissedId = await loadDismissedClaimId();
+    const cached = getCachedClaims();
+    if (cached) {
+      const latest = cached[0];
+      if (latest && latest.status !== "uploading" && latest.id !== dismissedId) {
+        router.push({
+          pathname: "/(insurance)/upload-accident-details",
+          params: { existingClaimId: latest.id, vehicleId: selectedVehicle?._id },
+        });
+        return;
+      }
+    } else {
+      setCheckingInsuranceStatus(true);
+      try {
+        const claims = await listMyClaims();
+        const latest = claims[0];
+        if (latest && latest.status !== "uploading" && latest.id !== dismissedId) {
+          router.push({
+            pathname: "/(insurance)/upload-accident-details",
+            params: { existingClaimId: latest.id, vehicleId: selectedVehicle?._id },
+          });
+          return;
+        }
+      } catch {
+        // Best-effort — fall through to the normal 4-steps flow if this check fails.
+      } finally {
+        setCheckingInsuranceStatus(false);
+      }
+    }
+    router.push({
+      pathname: "/(insurance)",
+      params: { vehicleId: selectedVehicle?._id },
+    });
+  }
 
   const handlePairObd = useCallback(async () => {
     setPairingObd(true);
@@ -383,7 +453,7 @@ export default function DriverHomeScreen() {
               <QuickAction
                 icon="ShieldCheck"
                 label="Insurance"
-                badge={incompleteUpload != null || missingInsuranceDetails}
+                badge={incompleteUpload != null || missingInsuranceDetails || insuranceExpiringSoon}
                 loading={checkingInsuranceStatus}
                 onPress={() => {
                   void (async () => {
@@ -396,61 +466,13 @@ export default function DriverHomeScreen() {
                       });
                       return;
                     }
-                    if (incompleteUpload) {
-                      router.push({
-                        pathname: "/(insurance)/upload-accident-details",
-                        params: {
-                          uploadKey: incompleteUpload.uploadKey,
-                          reportedAtIso: incompleteUpload.reportedAtIso,
-                          vehicleId: selectedVehicle?._id,
-                        },
-                      });
+                    // Warn about a lapsing policy before proceeding, rather than blocking —
+                    // dismissing the popup continues into the normal flow below.
+                    if (insuranceExpiringSoon) {
+                      setRenewalReminderVisible(true);
                       return;
                     }
-                    // Already have a finished claim on the server (from this session, an
-                    // older one, or a different device) — go straight to its submitted
-                    // view instead of the 4-steps screen. Local files aren't needed for
-                    // this, only the backend's own record of it. Prefer the cache warmed
-                    // at login (claims-api.ts) — instant, no spinner needed. Only fall back
-                    // to a live fetch (with a spinner, since this one takes a moment) if
-                    // that cache isn't ready yet for some reason.
-                    //
-                    // But if the driver already dismissed this exact claim via "Start New
-                    // Claim", don't redirect back to it even though the server hasn't seen a
-                    // newer one yet — they may be mid-way through a new claim's steps locally.
-                    const dismissedId = await loadDismissedClaimId();
-                    const cached = getCachedClaims();
-                    if (cached) {
-                      const latest = cached[0];
-                      if (latest && latest.status !== "uploading" && latest.id !== dismissedId) {
-                        router.push({
-                          pathname: "/(insurance)/upload-accident-details",
-                          params: { existingClaimId: latest.id, vehicleId: selectedVehicle?._id },
-                        });
-                        return;
-                      }
-                    } else {
-                      setCheckingInsuranceStatus(true);
-                      try {
-                        const claims = await listMyClaims();
-                        const latest = claims[0];
-                        if (latest && latest.status !== "uploading" && latest.id !== dismissedId) {
-                          router.push({
-                            pathname: "/(insurance)/upload-accident-details",
-                            params: { existingClaimId: latest.id, vehicleId: selectedVehicle?._id },
-                          });
-                          return;
-                        }
-                      } catch {
-                        // Best-effort — fall through to the normal 4-steps flow if this check fails.
-                      } finally {
-                        setCheckingInsuranceStatus(false);
-                      }
-                    }
-                    router.push({
-                      pathname: "/(insurance)",
-                      params: { vehicleId: selectedVehicle?._id },
-                    });
+                    await proceedToInsuranceFlow();
                   })();
                 }}
               />
@@ -689,6 +711,80 @@ export default function DriverHomeScreen() {
                 <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Switch</Text>
               </Pressable>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Insurance renewal reminder — shown on tapping Insurance while the selected
+          vehicle's policy is expiring soon (see insuranceExpiringSoon). Same icon-circle
+          popup style as the other confirmations on this screen; "Got it" both closes this
+          and continues into the normal Insurance flow, rather than requiring a second tap. */}
+      <Modal visible={renewalReminderVisible} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: palette.overlay,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: spacing.xl,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: palette.surface,
+              borderRadius: radii.xl,
+              padding: spacing.xl,
+              gap: spacing.lg,
+              width: "100%",
+              alignItems: "center",
+            }}
+          >
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: palette.dangerSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="ShieldAlert" size={32} color={palette.danger} />
+            </View>
+
+            <View style={{ gap: spacing.sm, alignItems: "center" }}>
+              <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
+                Insurance needs renewal
+              </Text>
+              <Text
+                style={{
+                  ...typography.body,
+                  color: palette.textMuted,
+                  textAlign: "center",
+                  lineHeight: 22,
+                }}
+              >
+                {vehicleInsurance?.insuranceExpireMonth
+                  ? `Your policy expires ${vehicleInsurance.insuranceExpireMonth}. Renew it soon to stay covered.`
+                  : "Your policy is expiring soon. Renew it to stay covered."}
+              </Text>
+            </View>
+
+            <Pressable
+              onPress={() => {
+                setRenewalReminderVisible(false);
+                void proceedToInsuranceFlow();
+              }}
+              style={({ pressed }) => ({
+                width: "100%",
+                backgroundColor: pressed ? palette.brandPressed : palette.brand,
+                borderRadius: radii.lg,
+                paddingVertical: spacing.md + 2,
+                alignItems: "center",
+              })}
+            >
+              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Got it</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>

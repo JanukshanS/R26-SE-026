@@ -39,9 +39,13 @@ export interface Vehicle {
 export type VehicleInput = Omit<Vehicle, "_id" | "userId" | "createdAt">;
 
 export class VehicleApiError extends Error {
-  constructor(message: string) {
+  /** Postgres error code, e.g. "23505" for a unique-constraint violation — lets callers
+   * distinguish "this NIC/licence/policy number is already taken" from other failures. */
+  code?: string;
+  constructor(message: string, code?: string) {
     super(message);
     this.name = "VehicleApiError";
+    this.code = code;
   }
 }
 
@@ -280,7 +284,7 @@ export async function updateMyProfile(patch: ProfileUpdate): Promise<User> {
   if (patch.licenceNumber !== undefined) row.licence_number = patch.licenceNumber || null;
   if (patch.nicNumber !== undefined) row.nic_number = patch.nicNumber || null;
   const { error } = await supabase.from("profiles").update(row).eq("id", userId);
-  if (error) throw new VehicleApiError(error.message);
+  if (error) throw new VehicleApiError(error.message, error.code);
   const user = await getMyUser();
   if (!user) throw new VehicleApiError("Not authenticated");
   return user;

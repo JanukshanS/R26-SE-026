@@ -10,9 +10,17 @@ import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { TextField } from "@components/ui/text-input";
 import { palette, radii, spacing, typography } from "@theme/index";
-import { updateMyProfile } from "@lib/vehicleApi";
+import { updateMyProfile, VehicleApiError } from "@lib/vehicleApi";
 import { upsertVehicleInsurance } from "@lib/vehicleInsuranceApi";
 import { listInsuranceCompanies, type InsuranceCompany } from "@lib/insuranceCompaniesApi";
+import {
+  formatExpireMonth,
+  formatLicenceNumber,
+  formatNicNumber,
+  isValidExpireMonth,
+  isValidLicenceNumber,
+  isValidNicNumber,
+} from "@lib/insurer-field-format";
 
 export default function AddInsurerScreen() {
   const insets = useSafeAreaInsets();
@@ -24,7 +32,12 @@ export default function AddInsurerScreen() {
   const [policy, setPolicy] = useState("");
   const [licence, setLicence] = useState("");
   const [nic, setNic] = useState("");
+  const [expireMonth, setExpireMonth] = useState("");
   const [error, setError] = useState("");
+  const [policyError, setPolicyError] = useState("");
+  const [licenceError, setLicenceError] = useState("");
+  const [nicError, setNicError] = useState("");
+  const [expireMonthError, setExpireMonthError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -46,6 +59,31 @@ export default function AddInsurerScreen() {
 
   async function handleSave() {
     setError("");
+    setPolicyError("");
+
+    // Fields stay optional (Skip / Continue as guest bypass this screen entirely) — only
+    // enforce the format once the driver has actually typed something into a field. All
+    // three are checked up front (not one-at-a-time with an early return) so every
+    // invalid field shows its own error below it at once, not just the first one found.
+    const nextLicenceError =
+      licence.trim() && !isValidLicenceNumber(licence.trim())
+        ? "Must be 1 letter followed by 7 digits (e.g. B4818153)."
+        : "";
+    const nextNicError =
+      nic.trim() && !isValidNicNumber(nic.trim())
+        ? "Must be 12 digits, or 9 digits followed by V (e.g. 200221458V)."
+        : "";
+    const nextExpireMonthError =
+      expireMonth.trim() && !isValidExpireMonth(expireMonth.trim())
+        ? "Must be a valid future month in YY/MM format (e.g. 26/09)."
+        : "";
+    setLicenceError(nextLicenceError);
+    setNicError(nextNicError);
+    setExpireMonthError(nextExpireMonthError);
+    if (nextLicenceError || nextNicError || nextExpireMonthError) {
+      return;
+    }
+
     if (!provider.trim()) {
       setError(
         companiesLoading
@@ -68,12 +106,29 @@ export default function AddInsurerScreen() {
         await upsertVehicleInsurance(vehicleId, {
           insuranceProvider: provider,
           insurancePolicyNumber: policy.trim(),
+          insuranceExpireMonth: expireMonth.trim(),
         });
       } else if (__DEV__) {
         console.warn("add-insurer: no vehicleId param — insurer was not attached to any vehicle.");
       }
       router.replace("/(driver)/home");
     } catch (err) {
+      // 23505 = Postgres unique-violation. The three unique columns live across two
+      // different tables/calls above, so the constraint name in the error message is
+      // what tells us which field to blame — there's no single shared error shape here.
+      const apiErr = err instanceof VehicleApiError ? err : null;
+      if (apiErr?.code === "23505") {
+        if (apiErr.message.includes("nic_number")) {
+          setNicError("This NIC Number is already registered to another account.");
+        } else if (apiErr.message.includes("licence_number")) {
+          setLicenceError("This Driving Licence Number is already registered to another account.");
+        } else if (apiErr.message.includes("policy_number")) {
+          setPolicyError("This Policy Number is already registered to another vehicle.");
+        } else {
+          setError("One of the details you entered is already registered elsewhere.");
+        }
+        return;
+      }
       setError((err as Error).message ?? "Couldn't save your insurer details.");
     } finally {
       setSubmitting(false);
@@ -144,23 +199,49 @@ export default function AddInsurerScreen() {
       <TextField
         label="Your insurance policy number"
         value={policy}
-        onChangeText={setPolicy}
-        placeholder="ALCI-254-VP"
+        onChangeText={(t) => {
+          setPolicy(t);
+          setPolicyError("");
+        }}
+        placeholder="Policy Number"
         autoCapitalize="characters"
+        error={policyError}
       />
       <TextField
         label="Your Driving Licence Number"
         value={licence}
-        onChangeText={setLicence}
-        placeholder="B4818153"
+        onChangeText={(t) => {
+          setLicence(formatLicenceNumber(t));
+          setLicenceError("");
+        }}
+        placeholder="Licence Number"
         autoCapitalize="characters"
+        maxLength={8}
+        error={licenceError}
       />
       <TextField
         label="NIC Number"
         value={nic}
-        onChangeText={setNic}
-        placeholder="200221458936"
+        onChangeText={(t) => {
+          setNic(formatNicNumber(t));
+          setNicError("");
+        }}
+        placeholder="NIC Number"
         keyboardType="numbers-and-punctuation"
+        maxLength={12}
+        error={nicError}
+      />
+      <TextField
+        label="Insurance Expiry Month"
+        value={expireMonth}
+        onChangeText={(t) => {
+          setExpireMonth(formatExpireMonth(t));
+          setExpireMonthError("");
+        }}
+        placeholder="YY/MM"
+        keyboardType="number-pad"
+        maxLength={5}
+        error={expireMonthError}
       />
 
       {error ? <ErrorState title="Couldn't save insurer details" message={error} /> : null}

@@ -1,4 +1,8 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Location from 'expo-location';
+
+import { formatGeocodedLine } from '@/lib/format-geocoded-line';
+import { formatTimestamp } from '@/lib/format-timestamp';
 
 export type LocationSnapshotMeta = {
   capturedAtIso: string;
@@ -9,6 +13,61 @@ export type LocationSnapshotMeta = {
   locationLabel: string | null;
   capturedAtDisplayLocal: string | null;
 };
+
+/** One-shot "where/when" snapshot — requests foreground permission, reads the
+ * current position, and reverse-geocodes it to a display label. Used at the
+ * moment a feature's entry point is triggered (e.g. tapping into a flow, or
+ * pressing record), not continuously. Never throws — falls back to a
+ * permission/coords-less snapshot on any failure so callers can always save
+ * something. */
+export async function captureLocationSnapshot(): Promise<LocationSnapshotMeta> {
+  const capturedAt = new Date();
+  const base: LocationSnapshotMeta = {
+    capturedAtIso: capturedAt.toISOString(),
+    capturedAtDisplayLocal: formatTimestamp(capturedAt),
+    latitude: null,
+    longitude: null,
+    accuracyMeters: null,
+    locationPermission: 'unavailable',
+    locationLabel: null,
+  };
+
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      base.locationPermission = 'denied';
+      if (__DEV__) {
+        console.log('[Location captured]', base);
+      }
+      return base;
+    }
+    base.locationPermission = 'granted';
+    const pos = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    base.latitude = pos.coords.latitude;
+    base.longitude = pos.coords.longitude;
+    base.accuracyMeters = pos.coords.accuracy ?? null;
+    try {
+      const [geo] = await Location.reverseGeocodeAsync({
+        latitude: base.latitude,
+        longitude: base.longitude,
+      });
+      if (geo) {
+        base.locationLabel = formatGeocodedLine(geo);
+      }
+    } catch {
+      // keep null label
+    }
+  } catch {
+    base.locationPermission = 'unavailable';
+  }
+
+  if (__DEV__) {
+    console.log('[Location captured]', base);
+  }
+  return base;
+}
 
 export function createLocationSnapshotStore(dir: string, filename: string) {
   const ROOT_DIR = (FileSystem.documentDirectory ?? '') + dir + '/';

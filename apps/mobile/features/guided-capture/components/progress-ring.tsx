@@ -4,7 +4,7 @@ import Svg, { Circle } from 'react-native-svg';
 import {
   CAPTURE_ACTION_BLUE,
   CAPTURE_PROGRESS_RING_TRACK,
-  CAPTURE_TEXT_WHITE,
+  CAPTURE_VALID_HEX,
 } from '@/features/guided-capture/capture-ui-theme';
 
 type ProgressRingProps = {
@@ -13,13 +13,17 @@ type ProgressRingProps = {
   size?: number;
 };
 
-/** Small circular progress ring showing captured/expected photo count. */
+/** Small circular progress ring showing captured/expected photo count. Stays orange
+ * while in progress; turns the same green as the "Angle is good" status pill once
+ * complete (the glow at that point lives on the View and Submit button instead). */
 export function ProgressRing({ current, total, size = 46 }: ProgressRingProps) {
   const strokeWidth = 4;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const progress = total > 0 ? Math.min(current / total, 1) : 0;
   const dashOffset = circumference * (1 - progress);
+  const complete = total > 0 && current >= total;
+  const activeColor = complete ? CAPTURE_VALID_HEX : CAPTURE_ACTION_BLUE;
 
   return (
     <View style={{ width: size, height: size }}>
@@ -36,7 +40,7 @@ export function ProgressRing({ current, total, size = 46 }: ProgressRingProps) {
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={CAPTURE_ACTION_BLUE}
+          stroke={activeColor}
           strokeWidth={strokeWidth}
           fill="none"
           strokeDasharray={`${circumference} ${circumference}`}
@@ -47,7 +51,7 @@ export function ProgressRing({ current, total, size = 46 }: ProgressRingProps) {
         />
       </Svg>
       <View style={styles.labelWrap} pointerEvents="none">
-        <Text style={styles.label} numberOfLines={1} adjustsFontSizeToFit>
+        <Text style={[styles.label, { color: activeColor }]} numberOfLines={1} adjustsFontSizeToFit>
           {current}/{total}
         </Text>
       </View>
@@ -66,7 +70,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   label: {
-    color: CAPTURE_TEXT_WHITE,
     fontSize: 10,
     fontWeight: '700',
   },
