@@ -10,7 +10,6 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Icon } from '@components/ui/icon';
 import { CaptureButton } from '@/features/guided-capture/components/capture-button';
 import { ResetCaptureDialog } from '@/features/guided-capture/components/reset-capture-dialog';
-import { prepareImageForZeroDce } from '@/features/low-light/prepare-image-for-zero-dce';
 import {
   deleteDrivingLicencePhotos,
   loadDrivingLicenceState,
@@ -178,10 +177,9 @@ export default function DrivingLicencePhotoScreen() {
         Alert.alert('Capture failed', 'No image was saved. Please try again.');
         return;
       }
-      const uriForStore = await prepareImageForZeroDce(uri);
-      let storedUri = uriForStore;
+      let storedUri = uri;
       try {
-        storedUri = await persistDrivingLicencePhoto(uriForStore);
+        storedUri = await persistDrivingLicencePhoto(uri);
       } catch {
         storedUri = uri;
       }

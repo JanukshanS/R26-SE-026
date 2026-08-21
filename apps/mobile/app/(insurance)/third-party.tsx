@@ -9,7 +9,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Icon } from '@components/ui/icon';
 import { CaptureButton } from '@/features/guided-capture/components/capture-button';
 import { ResetCaptureDialog } from '@/features/guided-capture/components/reset-capture-dialog';
-import { prepareImageForZeroDce } from '@/features/low-light/prepare-image-for-zero-dce';
 import {
   deleteThirdPartyPhotos,
   loadThirdPartyState,
@@ -187,10 +186,9 @@ export default function ThirdPartyDetailsScreen() {
         Alert.alert('Capture failed', 'No image was saved. Please try again.');
         return;
       }
-      const uriForStore = await prepareImageForZeroDce(uri);
-      let storedUri = uriForStore;
+      let storedUri = uri;
       try {
-        storedUri = await persistThirdPartyPhoto(uriForStore);
+        storedUri = await persistThirdPartyPhoto(uri);
       } catch {
         storedUri = uri;
       }

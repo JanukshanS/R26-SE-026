@@ -205,7 +205,9 @@ export default function AddInsurerScreen() {
         }}
         placeholder="Policy Number"
         autoCapitalize="characters"
+        editable={Boolean(provider)}
         error={policyError}
+        helperText={provider ? undefined : "Select an insurance provider first."}
       />
       <TextField
         label="Your Driving Licence Number"
@@ -241,7 +243,9 @@ export default function AddInsurerScreen() {
         placeholder="YY/MM"
         keyboardType="number-pad"
         maxLength={5}
+        editable={Boolean(provider)}
         error={expireMonthError}
+        helperText={provider ? undefined : "Select an insurance provider first."}
       />
 
       {error ? <ErrorState title="Couldn't save insurer details" message={error} /> : null}
@@ -270,8 +274,8 @@ export default function AddInsurerScreen() {
           <Pressable
             style={{
               backgroundColor: palette.surface,
-              borderTopLeftRadius: radii.xl,
-              borderTopRightRadius: radii.xl,
+              borderTopLeftRadius: 15,
+              borderTopRightRadius: 15,
               paddingTop: spacing.lg,
               paddingHorizontal: spacing.lg,
               paddingBottom: insets.bottom + spacing.lg,

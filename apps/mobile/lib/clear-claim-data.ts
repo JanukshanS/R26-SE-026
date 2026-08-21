@@ -4,6 +4,7 @@ import {
   saveGuidedCaptureStoreState,
 } from '@/features/guided-capture/storage/guided-capture-store';
 import { clearGuidedCaptureEntryMeta } from '@/features/guided-capture/storage/guided-capture-entry-store';
+import { clearGuidedCaptureIntroSeen } from '@/features/guided-capture/storage/guided-capture-intro-seen-store';
 import { clearInsurerCallMeta } from '@/features/insurer-call/storage/insurer-call-store';
 import { clearReportAccidentEntryMeta } from '@/features/report-accident/storage/report-accident-entry-store';
 import {
@@ -55,6 +56,9 @@ export async function clearAllClaimData(): Promise<void> {
     clearGuidedCaptureEntryMeta(),
     clearReportAccidentEntryMeta(),
     clearDrunkTestEntryMeta(),
+
+    // Starting over should bring the Guided Capture walkthrough back too.
+    clearGuidedCaptureIntroSeen(),
 
     // Reset store state files to empty (next load returns defaults)
     saveGuidedCaptureStoreState({ photos: [] }),
