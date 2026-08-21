@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -37,7 +36,13 @@ const EMPTY_FORM: Partial<VehicleInput> = {
 export default function ManageVehiclesScreen() {
   const insets = useSafeAreaInsets();
   const { user, vehicles, vehiclesLoading, selectedVehicle, selectVehicle, addVehicle, editVehicle, removeVehicle, setDefault, updateMe, logout } = useVehicle();
-  const { editVehicleId } = useLocalSearchParams<{ editVehicleId?: string }>();
+  // "addVehicle" param renamed on destructure — the context already exposes an
+  // `addVehicle` function above, and the two would otherwise collide.
+  const { editVehicleId, addVehicle: autoOpenAddParam } = useLocalSearchParams<{
+    editVehicleId?: string;
+    addVehicle?: string;
+  }>();
+  const autoOpenedAdd = useRef(false);
 
   const [showForm, setShowForm] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
@@ -65,6 +70,8 @@ export default function ManageVehiclesScreen() {
   const [confirmSaveVisible, setConfirmSaveVisible] = useState(false);
   // Vehicle tapped in the list, awaiting confirmation before actually switching.
   const [pendingVehicle, setPendingVehicle] = useState<Vehicle | null>(null);
+  // Vehicle's Delete button tapped, awaiting confirmation before actually deleting.
+  const [pendingDeleteVehicle, setPendingDeleteVehicle] = useState<Vehicle | null>(null);
   const autoOpenedForId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -99,6 +106,7 @@ export default function ManageVehiclesScreen() {
       const missing: string[] = [];
       if (!insurance?.insuranceProvider) missing.push("Your insurance provider");
       if (!insurance?.insurancePolicyNumber) missing.push("Your insurance policy number");
+      if (!insurance?.insuranceExpireMonth) missing.push("Your insurance expiry date");
       if (!user?.licenceNumber) missing.push("Your Driving Licence Number");
       if (!user?.nicNumber) missing.push("NIC Number");
       if (missing.length > 0) {
@@ -107,6 +115,14 @@ export default function ManageVehiclesScreen() {
       }
     })();
   }, [editVehicleId, vehicles, vehiclesLoading, user]);
+
+  // Arriving from Home's Insurance button with no vehicle on file at all: auto-open
+  // the Add Vehicle form so there's nothing extra to tap first.
+  useEffect(() => {
+    if (autoOpenAddParam !== "1" || autoOpenedAdd.current) return;
+    autoOpenedAdd.current = true;
+    openAdd();
+  }, [autoOpenAddParam]);
 
   function clearFieldErrors() {
     setError("");
@@ -152,6 +168,12 @@ export default function ManageVehiclesScreen() {
   function handleSave() {
     if (!form.make || !form.model || !form.plateNumber) {
       setError("Make, model and plate number are required.");
+      return;
+    }
+    // Policy Number/Expiry Month are disabled in the form until a provider is picked, so
+    // this shouldn't be reachable in practice — kept as a safety net regardless.
+    if (!insuranceProvider && (insurancePolicyNumber.trim() || insuranceExpireMonth.trim())) {
+      setError("Select an insurance provider before adding a policy number or expiry date.");
       return;
     }
     // Licence/NIC/Policy Number stay optional — only enforce the format once something's
@@ -225,18 +247,7 @@ export default function ManageVehiclesScreen() {
   }
 
   function confirmDelete(v: Vehicle) {
-    Alert.alert(
-      "Delete Vehicle",
-      `Remove ${v.nickname || `${v.make} ${v.model}`} (${v.plateNumber})?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => removeVehicle(v._id),
-        },
-      ]
-    );
+    setPendingDeleteVehicle(v);
   }
 
   return (
@@ -362,8 +373,8 @@ export default function ManageVehiclesScreen() {
           <View
             style={{
               backgroundColor: palette.surface,
-              borderTopLeftRadius: radii.xl,
-              borderTopRightRadius: radii.xl,
+              borderTopLeftRadius: 15,
+              borderTopRightRadius: 15,
               paddingTop: spacing.lg,
               paddingHorizontal: spacing.lg,
               paddingBottom: insets.bottom + spacing.lg,
@@ -464,7 +475,9 @@ export default function ManageVehiclesScreen() {
                   }}
                   placeholder="ALCI-254-VP"
                   autoCapitalize="characters"
+                  editable={Boolean(insuranceProvider)}
                   error={policyError}
+                  helperText={insuranceProvider ? undefined : "Select an insurance provider first."}
                 />
                 {/* Profile-level (one per driver) — same value regardless of which
                     vehicle is being edited, kept here so it can be completed later
@@ -504,7 +517,9 @@ export default function ManageVehiclesScreen() {
                   placeholder="YY/MM"
                   keyboardType="number-pad"
                   maxLength={5}
+                  editable={Boolean(insuranceProvider)}
                   error={expireMonthError}
+                  helperText={insuranceProvider ? undefined : "Select an insurance provider first."}
                 />
 
                 {error ? (
@@ -544,8 +559,8 @@ export default function ManageVehiclesScreen() {
           <Pressable
             style={{
               backgroundColor: palette.surface,
-              borderTopLeftRadius: radii.xl,
-              borderTopRightRadius: radii.xl,
+              borderTopLeftRadius: 15,
+              borderTopRightRadius: 15,
               paddingTop: spacing.lg,
               paddingHorizontal: spacing.lg,
               paddingBottom: insets.bottom + spacing.lg,
@@ -624,7 +639,7 @@ export default function ManageVehiclesScreen() {
           <View
             style={{
               backgroundColor: palette.surface,
-              borderRadius: radii.xl,
+              borderRadius: 15,
               padding: spacing.xl,
               gap: spacing.lg,
               width: "100%",
@@ -703,7 +718,7 @@ export default function ManageVehiclesScreen() {
           <View
             style={{
               backgroundColor: palette.surface,
-              borderRadius: radii.xl,
+              borderRadius: 15,
               padding: spacing.xl,
               gap: spacing.lg,
               width: "100%",
@@ -791,7 +806,7 @@ export default function ManageVehiclesScreen() {
           <View
             style={{
               backgroundColor: palette.surface,
-              borderRadius: radii.xl,
+              borderRadius: 15,
               padding: spacing.xl,
               gap: spacing.lg,
               width: "100%",
@@ -863,6 +878,99 @@ export default function ManageVehiclesScreen() {
                 })}
               >
                 <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Switch</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Vehicle confirmation — same icon-circle popup style as the other
+          confirmations on this screen, replacing the native Alert.alert dialog for
+          visual consistency; danger-colored instead of brand since this is destructive. */}
+      <Modal visible={pendingDeleteVehicle != null} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: palette.overlay,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: spacing.xl,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: palette.surface,
+              borderRadius: 15,
+              padding: spacing.xl,
+              gap: spacing.lg,
+              width: "100%",
+              alignItems: "center",
+            }}
+          >
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: palette.brandSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="Trash2" size={32} color={palette.brand} />
+            </View>
+
+            <View style={{ gap: spacing.sm, alignItems: "center" }}>
+              <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
+                Delete Vehicle
+              </Text>
+              <Text
+                style={{
+                  ...typography.body,
+                  color: palette.textMuted,
+                  textAlign: "center",
+                  lineHeight: 22,
+                }}
+              >
+                {pendingDeleteVehicle
+                  ? `Remove ${pendingDeleteVehicle.nickname || `${pendingDeleteVehicle.make} ${pendingDeleteVehicle.model}`} (${pendingDeleteVehicle.plateNumber})?`
+                  : ""}
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: spacing.md, width: "100%" }}>
+              <Pressable
+                onPress={() => setPendingDeleteVehicle(null)}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  borderWidth: 1.5,
+                  borderColor: palette.border,
+                  backgroundColor: pressed ? palette.homeBackground : "transparent",
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  if (pendingDeleteVehicle) {
+                    removeVehicle(pendingDeleteVehicle._id);
+                  }
+                  setPendingDeleteVehicle(null);
+                }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: pressed ? palette.brandPressed : palette.brand,
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Delete</Text>
               </Pressable>
             </View>
           </View>

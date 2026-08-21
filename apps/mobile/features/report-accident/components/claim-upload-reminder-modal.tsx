@@ -66,7 +66,7 @@ export function ClaimUploadReminderModal() {
         <View
           style={{
             backgroundColor: palette.surface,
-            borderRadius: radii.xl,
+            borderRadius: 15,
             padding: spacing.xxl,
             width: '100%',
             gap: spacing.lg,

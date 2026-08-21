@@ -158,18 +158,23 @@ function TaskCard({
   task,
   glow,
   resolving,
+  disabled,
   onPress,
 }: {
   task: FlowTask;
   glow: boolean;
   resolving: boolean;
+  // Separate from `resolving`: this tile isn't necessarily the one loading, but
+  // something else on screen (another tile, or the Call button) is — blocked from
+  // being pressed without touching its style, so it doesn't look any different.
+  disabled: boolean;
   onPress: () => void;
 }) {
   return (
     <View style={styles.taskCardGlowWrap}>
       <GlowHalo active={glow} />
       <Pressable
-        disabled={resolving}
+        disabled={disabled}
         style={({ pressed }) => [styles.taskCard, glow && styles.taskCardGlowing, pressed && styles.taskCardPressed]}
         onPress={onPress}>
         <Text style={styles.taskTitle}>{task.title}</Text>
@@ -355,6 +360,11 @@ export default function InsuranceHomeScreen() {
   const firstIncompleteTaskKey = hasCalledInsurer
     ? flowTasks.find((t) => t.status === 'incomplete')?.key ?? null
     : null;
+  // Call and Guided Capture both do an awaited location fetch before doing anything
+  // else (dialing / navigating), which can take a moment. While either is in flight,
+  // every other button on this screen is blocked from being pressed — not restyled,
+  // just non-interactive — so a second tap can't race the in-flight one.
+  const anyLoading = callingInsurer || resolvingTaskKey != null;
   /** Grey “disabled” look after submit, but the button stays pressable to open upload progress. */
   const reportLooksSubmitted = allFlowStepsComplete && claimReportLocked;
 
@@ -378,7 +388,7 @@ export default function InsuranceHomeScreen() {
 
   const onTaskPress = async (task: FlowTask) => {
     const href = task.href;
-    if (!href || resolvingTaskKey) {
+    if (!href || resolvingTaskKey || callingInsurer) {
       return;
     }
     if (task.key === 'guided') {
@@ -407,7 +417,7 @@ export default function InsuranceHomeScreen() {
   };
 
   const onCallInsurer = async () => {
-    if (!insuranceCompany || callingInsurer) {
+    if (!insuranceCompany || callingInsurer || resolvingTaskKey) {
       return;
     }
     // Stop the glow immediately on tap — don't wait for the next focus's
@@ -525,7 +535,7 @@ export default function InsuranceHomeScreen() {
             <View style={styles.callInsurerGlowWrap}>
               <GlowHalo active={showGlow} />
               <Pressable
-                disabled={callingInsurer}
+                disabled={anyLoading}
                 style={({ pressed }) => [
                   styles.callInsurerBtn,
                   showGlow && styles.callInsurerBtnGlowing,
@@ -567,13 +577,14 @@ export default function InsuranceHomeScreen() {
                 task={task}
                 glow={task.key === firstIncompleteTaskKey}
                 resolving={resolvingTaskKey === task.key}
+                disabled={anyLoading}
                 onPress={() => void onTaskPress(task)}
               />
             ))}
           </View>
 
           <Pressable
-            disabled={!allFlowStepsComplete}
+            disabled={!allFlowStepsComplete || anyLoading}
             style={({ pressed }) => [
               styles.reportBtn,
               (!allFlowStepsComplete || reportLooksSubmitted) && styles.reportBtnDisabled,

@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Image,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -18,14 +19,13 @@ import {
   BLACK,
   BORDER_LIGHT,
   CAPTURE_ACTION_BLUE,
+  CAPTURE_ACTION_BLUE_SOFT,
   CAPTURE_RESET_CANCEL_BORDER,
   CAPTURE_SCREEN_BG,
   CAPTURE_SCREEN_DARK_BG,
   CAPTURE_SURFACE_WHITE,
   CAPTURE_TEXT_WHITE,
   CAPTURE_THUMBNAIL_BG,
-  DANGER_RED,
-  DANGER_RED_SOFT,
   GRAY_900,
 } from '@/features/guided-capture/capture-ui-theme';
 import {
@@ -34,6 +34,7 @@ import {
   useCaptureModalOverlaySize,
 } from '@/features/guided-capture/components/capture-modal-backdrop';
 import { CaptureFooter } from '@/features/guided-capture/components/capture-footer';
+import { CaptureInstructions } from '@/features/guided-capture/components/capture-instructions';
 import { CaptureOverlay } from '@/features/guided-capture/components/capture-overlay';
 import { GuidanceBoundary } from '@/features/guided-capture/components/guidance-boundary';
 import { OrbitProgress } from '@/features/guided-capture/components/orbit-progress';
@@ -96,6 +97,7 @@ export default function GuidedCaptureScreen() {
   };
 
   const [deleteConfirmStopIndex, setDeleteConfirmStopIndex] = useState<number | null>(null);
+  const [instructionsVisible, setInstructionsVisible] = useState(false);
 
   const onDeleteStopPress = (stopIndex: number) => setDeleteConfirmStopIndex(stopIndex);
   const onCancelDeleteStop = () => setDeleteConfirmStopIndex(null);
@@ -113,6 +115,24 @@ export default function GuidedCaptureScreen() {
   });
 
   const captureStatus = phase.kind === 'aiming' ? captureStatusFor(pitchDeg, phase.heightStep) : 'aligning';
+
+  // The moment the last required stop is finished: show the intro screen once (same
+  // walkthrough as the very first stop, plus a "required images captured" banner), then
+  // — once the user comes back from it via the header/Next back-navigation, which returns
+  // to this exact still-mounted screen instance rather than pushing a fresh one — show the
+  // normal "keep walking" stops screen, now with both "I'm in position" and "Next Step".
+  // State (not a ref) so the switch to the stops screen is committed to this instance's
+  // render tree *before* navigating to the intro screen, not just on some later re-render —
+  // otherwise coming back via router.back() would redisplay a stale "still hidden" frame.
+  const requiredStopsJustDone = phase.kind === 'moveNext' && phase.completedStopIndex === stopCount - 1;
+  const [shownRequiredDoneIntro, setShownRequiredDoneIntro] = useState(false);
+  useEffect(() => {
+    if (requiredStopsJustDone && !shownRequiredDoneIntro) {
+      setShownRequiredDoneIntro(true);
+      router.push({ pathname: '/(insurance)/guided-capture-intro', params: { requiredDone: '1' } });
+    }
+  }, [requiredStopsJustDone, shownRequiredDoneIntro, router]);
+  const awaitingRequiredDoneIntro = requiredStopsJustDone && !shownRequiredDoneIntro;
 
   if (!permission) {
     return (
@@ -148,20 +168,21 @@ export default function GuidedCaptureScreen() {
           <PoseIllustration
             heightStep={phase.heightStep}
             stopIndex={phase.stopIndex}
-            stopCount={Math.max(stopCount, phase.stopIndex + 1)}
+            stopCount={stopCount}
             isRetake={isRetake}
             onReady={onPoseReady}
           />
         </Animated.View>
       ) : null}
 
-      {phase.kind === 'moveNext' ? (
+      {phase.kind === 'moveNext' && !awaitingRequiredDoneIntro ? (
         <Animated.View style={styles.phaseFill} entering={FadeIn.duration(220)} exiting={FadeOut.duration(150)}>
           <OrbitProgress
             completedStopIndex={phase.completedStopIndex}
             stopCount={stopCount}
             progress01={stopTransitionProgress01}
             onManualContinue={onMoveNextConfirmed}
+            onNextStep={onSubmitFinal}
           />
         </Animated.View>
       ) : null}
@@ -181,6 +202,7 @@ export default function GuidedCaptureScreen() {
             onSubmitPhotos={onSubmitPhotos}
             onBackPress={() => router.back()}
             onResetCapture={onResetCapture}
+            onShowInstructions={() => setInstructionsVisible(true)}
           />
           <CaptureFooter
             label={captureButtonLabel}
@@ -284,7 +306,7 @@ export default function GuidedCaptureScreen() {
               <View style={styles.deleteConfirmScrim}>
                 <View style={styles.deleteConfirmCard}>
                   <View style={styles.deleteConfirmIconCircle}>
-                    <Ionicons name="trash-outline" size={30} color={DANGER_RED} />
+                    <Ionicons name="trash-outline" size={30} color={CAPTURE_ACTION_BLUE} />
                   </View>
                   <Text style={styles.deleteConfirmTitle}>Delete Stop</Text>
                   <Text style={styles.deleteConfirmMessage}>
@@ -311,6 +333,34 @@ export default function GuidedCaptureScreen() {
                 </View>
               </View>
             ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={instructionsVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        navigationBarTranslucent
+        presentationStyle="overFullScreen"
+        onRequestClose={() => setInstructionsVisible(false)}>
+        <View style={styles.instructionsBackdrop}>
+          <View style={styles.instructionsCard}>
+            <View style={styles.instructionsHeaderRow}>
+              <Text style={styles.instructionsTitle}>How to Capture</Text>
+              <Pressable
+                style={({ pressed }) => [styles.instructionsCloseBtn, pressed && styles.closeButtonPressed]}
+                onPress={() => setInstructionsVisible(false)}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Close instructions">
+                <Ionicons name="close" size={22} color={GRAY_900} />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={styles.instructionsScrollContent} showsVerticalScrollIndicator={false}>
+              <CaptureInstructions />
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -364,8 +414,8 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: CAPTURE_SURFACE_WHITE,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
     padding: 16,
     maxHeight: '72%',
     borderTopWidth: 1,
@@ -489,7 +539,7 @@ const styles = StyleSheet.create({
   },
   deleteConfirmCard: {
     backgroundColor: CAPTURE_SURFACE_WHITE,
-    borderRadius: 10,
+    borderRadius: 15,
     padding: 20,
     borderWidth: 1,
     width: '104%',
@@ -500,7 +550,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: DANGER_RED_SOFT,
+    backgroundColor: CAPTURE_ACTION_BLUE_SOFT,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -556,5 +606,40 @@ const styles = StyleSheet.create({
     color: CAPTURE_TEXT_WHITE,
     fontWeight: '800',
     fontSize: 15,
+  },
+  instructionsBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  instructionsCard: {
+    backgroundColor: CAPTURE_SURFACE_WHITE,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+    paddingTop: 16,
+    paddingHorizontal: 20,
+    maxHeight: '88%',
+  },
+  instructionsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  instructionsTitle: {
+    color: GRAY_900,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  instructionsCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f0f0f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  instructionsScrollContent: {
+    paddingBottom: 28,
   },
 });

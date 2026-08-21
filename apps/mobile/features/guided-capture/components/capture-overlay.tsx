@@ -19,6 +19,7 @@ type CaptureOverlayProps = {
   /** Before any photos: overflow menu shows Back instead of Reset and calls this. */
   onBackPress: () => void;
   onResetCapture: () => void;
+  onShowInstructions: () => void;
 };
 
 export function CaptureOverlay({
@@ -32,6 +33,7 @@ export function CaptureOverlay({
   onSubmitPhotos,
   onBackPress,
   onResetCapture,
+  onShowInstructions,
 }: CaptureOverlayProps) {
   const showBackInsteadOfReset = capturedCount === 0;
   const allCaptured = totalExpected > 0 && capturedCount >= totalExpected;
@@ -62,6 +64,7 @@ export function CaptureOverlay({
           onToggleAutoCapture={onToggleAutoCapture}
           submitEnabled={submitEnabled}
           onSubmitPhotos={onSubmitPhotos}
+          onShowInstructions={onShowInstructions}
         />
       </View>
       {statusMessage ? (

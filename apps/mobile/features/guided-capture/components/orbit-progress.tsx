@@ -28,6 +28,9 @@ type OrbitProgressProps = {
   /** Manual escape hatch (e.g. straight-line walks along a flat side barely turn the phone,
    * so the gyro accumulates very little yaw — or the device has no working gyroscope). */
   onManualContinue: () => void;
+  /** Required stops are already covered at this point — lets the user leave Guided Capture
+   * for the next step in the claim instead of only being able to keep walking/shooting. */
+  onNextStep: () => void;
 };
 
 const SIZE = 300;
@@ -166,19 +169,26 @@ export function OrbitProgress({
   completedStopIndex,
   progress01,
   onManualContinue,
+  onNextStep,
 }: OrbitProgressProps) {
   // Clamp so extra stops beyond stopCount (walked after the required set is done) don't
   // push the angle math outside the drawn semicircle — they just show as "fully arrived".
+  // This clamped index is only for the arc geometry (dot positions are fixed to stopCount
+  // slots); the label below uses the real, unclamped next-stop number instead, so walking
+  // toward stop 13 reads "Stop 13", not a geometry-clamped "Stop 12".
   const clampedDoneIndex = Math.min(completedStopIndex, stopCount - 1);
   const targetIndex = Math.min(completedStopIndex + 1, stopCount - 1);
+  const labelTargetIndex = completedStopIndex + 1;
   const doneAngle = angleForIndex(clampedDoneIndex, stopCount);
   const targetAngle = angleForIndex(targetIndex, stopCount);
   const markerAngle = doneAngle + (targetAngle - doneAngle) * progress01;
   const marker = pointForAngle(markerAngle);
+  // The last required stop was just finished — any further stops from here are "extra".
+  const requiredStopsDone = completedStopIndex >= stopCount - 1;
 
   return (
     <View style={styles.root}>
-      <StopProgressLabel stopIndex={targetIndex} stopCount={stopCount} />
+      <StopProgressLabel stopIndex={labelTargetIndex} stopCount={stopCount} />
       <Text style={styles.title}>Keep walking to the next stop</Text>
 
       <Svg width={SIZE} height={SIZE}>
@@ -195,13 +205,34 @@ export function OrbitProgress({
         <Circle cx={marker.x} cy={marker.y} r={5} fill={CAPTURE_ARC_DOT_DONE} />
       </Svg>
 
-      <CaptureButton
-        title="I'm in position"
-        onPress={onManualContinue}
-        variant="secondary"
-        fullWidth={false}
-        accessibilityLabel="I'm in position"
-      />
+      {requiredStopsDone ? (
+        <View style={styles.actions}>
+          <CaptureButton
+            title="Home"
+            onPress={onNextStep}
+            variant="secondary"
+            fullWidth={false}
+            style={styles.actionBtn}
+            accessibilityLabel="Home"
+          />
+          <CaptureButton
+            title="Continue"
+            onPress={onManualContinue}
+            variant="primary"
+            fullWidth={false}
+            style={styles.actionBtn}
+            accessibilityLabel="Continue"
+          />
+        </View>
+      ) : (
+        <CaptureButton
+          title="Continue"
+          onPress={onManualContinue}
+          variant="secondary"
+          fullWidth={false}
+          accessibilityLabel="Continue"
+        />
+      )}
     </View>
   );
 }
@@ -220,5 +251,16 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     marginBottom: 8,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  // flex: 1 (not fullWidth) so both buttons split the row evenly regardless of their
+  // text length — "I'm in position" is longer than "Next Step", so matching width by
+  // content alone left them visibly different sizes.
+  actionBtn: {
+    flex: 1,
   },
 });
