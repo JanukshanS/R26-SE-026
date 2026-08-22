@@ -1,36 +1,54 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import type { Incident, HotspotCluster, Blackspot, Stats, ModelConfig } from "@/lib/types";
-import StatsPanel from "@/components/StatsPanel";
-import IncidentPanel from "@/components/IncidentPanel";
-import WhatIfSimulator from "@/components/WhatIfSimulator";
-import ValidationPanel from "@/components/ValidationPanel";
+import { Layers, MapPin, Flame, Target } from "lucide-react";
+
+import { AppShell, DataSourceBadge, MobileNav, SECTIONS, type Section } from "@/components/shell/AppShell";
+import { useSession } from "@/components/AuthGate";
+import DayRibbon from "@/components/DayRibbon";
 import DispatchPanel from "@/components/DispatchPanel";
+import IncidentPanel from "@/components/IncidentPanel";
+import MetricCards from "@/components/MetricCards";
+import StatsPanel from "@/components/StatsPanel";
+import ValidationPanel from "@/components/ValidationPanel";
+import WhatIfSimulator from "@/components/WhatIfSimulator";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { fetchLiveIncidents } from "@/lib/liveData";
 import { fetchHotspots, fetchStats, fetchGeoHealth, type DataSource } from "@/lib/geoData";
+import { supabase } from "@/lib/supabase";
+import type { Blackspot, HotspotCluster, Incident, ModelConfig, Stats } from "@/lib/types";
 
 const Map = dynamic(() => import("@/components/Map"), { ssr: false });
 
-type Tab = "stats" | "whatif" | "validation" | "dispatch";
-
-const TAB_LABELS: Record<Tab, string> = {
-  stats: "Statistics",
-  whatif: "What-If",
-  validation: "Validation",
-  dispatch: "Dispatch",
+const PRIORITIES = ["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
+const PRIORITY_TOKEN: Record<string, string> = {
+  CRITICAL: "var(--priority-critical)",
+  HIGH: "var(--priority-high)",
+  MEDIUM: "var(--priority-medium)",
+  LOW: "var(--priority-low)",
 };
+const ROAD_TYPES = ["motorway", "trunk", "primary", "secondary", "tertiary", "residential"];
 
 export default function Home() {
+  const session = useSession();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [hotspots, setHotspots] = useState<HotspotCluster[]>([]);
   const [blackspots, setBlackspots] = useState<Blackspot[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [model, setModel] = useState<ModelConfig | null>(null);
   const [selected, setSelected] = useState<Incident | null>(null);
-  const [tab, setTab] = useState<Tab>("stats");
-  const [filters, setFilters] = useState({ priority: [] as string[], roadType: "all" });
+  const [section, setSection] = useState<Section>("overview");
+  const [filters, setFilters] = useState({
+    priority: [] as string[],
+    roadType: "all",
+    hour: null as number | null,
+  });
   const [layers, setLayers] = useState({ incidents: true, hotspots: true, heatmap: true, blackspots: true });
   const [live, setLive] = useState<Incident[]>([]);
   const [liveOn, setLiveOn] = useState(false);
@@ -101,199 +119,174 @@ export default function Home() {
 
   const handleSelectIncident = useCallback((inc: Incident) => setSelected(inc), []);
 
-  const togglePriority = (p: string) => {
+  const togglePriority = (p: string) =>
     setFilters((prev) => ({
       ...prev,
       priority: prev.priority.includes(p)
         ? prev.priority.filter((x) => x !== p)
         : [...prev.priority, p],
     }));
-  };
+
+  const shownCount = useMemo(
+    () =>
+      allIncidents.filter((i) => {
+        if (filters.priority.length > 0 && !filters.priority.includes(i.priority)) return false;
+        if (filters.roadType !== "all" && i.roadType !== filters.roadType) return false;
+        if (filters.hour !== null && i.hour !== filters.hour) return false;
+        return true;
+      }).length,
+    [allIncidents, filters]
+  );
+
+  const account = useMemo(() => {
+    const email = session?.user.email ?? "signed in";
+    const metaName = session?.user.user_metadata?.full_name as string | undefined;
+    return {
+      name: metaName || email.split("@")[0],
+      email,
+      role: "Operator",
+    };
+  }, [session]);
 
   if (!stats || !model) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-[var(--text-muted)] mt-3">Loading Geo-Intelligence data...</p>
+      <div className="flex h-screen flex-col gap-4 p-6">
+        <Skeleton className="h-14 w-full" />
+        <div className="grid flex-1 gap-4 md:grid-cols-[24rem_1fr]">
+          <Skeleton className="h-full w-full" />
+          <Skeleton className="h-full w-full" />
         </div>
+        <span className="sr-only">Loading incident data</span>
       </div>
     );
   }
 
+  const current = SECTIONS.find((s) => s.id === section)!;
+
   return (
-    <div className="h-screen flex flex-col">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 py-2 bg-[var(--surface)] border-b border-[var(--border)]">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center text-white font-bold text-sm">
-            K
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-tight">Kaduna.lk Geo-Intelligence</h1>
-            <p className="text-[10px] text-[var(--text-muted)]">
-              Traffic Impact Analysis — Colombo District
-            </p>
-          </div>
+    <AppShell
+      section={section}
+      onSectionChange={setSection}
+      user={account}
+      onSignOut={() => void supabase.auth.signOut()}
+    >
+      <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border px-4 md:px-6">
+        <div className="min-w-0">
+          <h1 className="truncate text-base font-semibold leading-tight">{current.label}</h1>
+          <p className="truncate text-sm text-muted-foreground leading-tight">{current.hint}</p>
         </div>
-
-        <div className="flex items-center gap-2">
-          <span
-            className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
-              dataSource === "api"
-                ? "border-orange-500/50 bg-orange-500/10 text-orange-600"
-                : "border-[var(--border)] text-[var(--text-muted)]"
-            }`}
-            title={
-              dataSource === "api"
-                ? "Hotspots and stats loaded from geo-intelligence API"
-                : "Geo API unreachable — showing static dataset"
-            }
-          >
-            {dataSource === "api" ? "API" : "Static"}
-          </span>
-          <span
-            className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
-              geoOk
-                ? "border-blue-500/50 bg-blue-500/10 text-blue-600"
-                : "border-[var(--border)] text-[var(--text-muted)]"
-            }`}
-            title={geoOk ? "Geo-intelligence service is healthy" : "Geo service offline"}
-          >
-            <span className={`w-2 h-2 rounded-full ${geoOk ? "bg-blue-500" : "bg-[var(--text-muted)]"}`} />
-            {geoOk ? "Geo OK" : "Geo offline"}
-          </span>
-          <span
-            className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
-              liveOn
-                ? "border-green-500/50 bg-green-500/10 text-green-600"
-                : "border-[var(--border)] text-[var(--text-muted)]"
-            }`}
-            title={liveOn ? "Receiving live incidents from the dispatch service" : "No live backend — showing the static dataset"}
-          >
-            <span className={`w-2 h-2 rounded-full ${liveOn ? "bg-green-500 animate-pulse" : "bg-[var(--text-muted)]"}`} />
-            {liveOn ? `Live ${live.length}` : "Demo"}
-          </span>
-          {(["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const).map((p) => {
-            const active = filters.priority.length === 0 || filters.priority.includes(p);
-            const colors: Record<string, string> = {
-              CRITICAL: "bg-red-500",
-              HIGH: "bg-orange-500",
-              MEDIUM: "bg-yellow-500",
-              LOW: "bg-green-500",
-            };
-            return (
-              <button
-                key={p}
-                onClick={() => togglePriority(p)}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all border ${
-                  active
-                    ? `${colors[p]}/20 border-current opacity-100`
-                    : "bg-transparent border-[var(--border)] opacity-40"
-                }`}
-              >
-                <span className={`w-2 h-2 rounded-full ${colors[p]}`} />
-                {p}
-              </button>
-            );
-          })}
-
-          <select
-            className="ml-2 bg-[var(--bg)] border border-[var(--border)] rounded-md px-2 py-1 text-xs"
-            value={filters.roadType}
-            onChange={(e) => setFilters({ ...filters, roadType: e.target.value })}
-          >
-            <option value="all">All Roads</option>
-            {["motorway", "trunk", "primary", "secondary", "tertiary", "residential"].map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-        </div>
+        <DataSourceBadge dataSource={dataSource} geoOk={geoOk} liveCount={liveOn ? live.length : 0} />
       </header>
 
-      {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <aside className="w-80 bg-[var(--surface)] border-r border-[var(--border)] flex flex-col overflow-hidden">
-          <div className="flex border-b border-[var(--border)]">
-            {(["stats", "whatif", "validation", "dispatch"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`flex-1 py-2 text-[11px] font-medium uppercase tracking-wider transition-colors ${
-                  tab === t
-                    ? "text-orange-500 border-b-2 border-orange-500"
-                    : "text-[var(--text-muted)] hover:text-[var(--text)]"
-                }`}
-              >
-                {TAB_LABELS[t]}
-              </button>
-            ))}
-          </div>
-          <div className="flex-1 overflow-y-auto p-3">
-            {tab === "stats" && <StatsPanel stats={stats} />}
-            {tab === "whatif" && <WhatIfSimulator model={model} />}
-            {tab === "validation" && <ValidationPanel />}
-            {tab === "dispatch" && <DispatchPanel />}
-          </div>
-        </aside>
+      <MobileNav section={section} onSectionChange={setSection} />
 
-        {/* Map */}
-        <main className="flex-1 relative">
-          <Map
-            incidents={allIncidents}
-            hotspots={hotspots}
-            blackspots={blackspots}
-            onSelectIncident={handleSelectIncident}
-            filters={filters}
-            layers={layers}
-          />
-          <IncidentPanel incident={selected} onClose={() => setSelected(null)} />
+      {section === "overview" ? (
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+          <ScrollArea className="w-full shrink-0 border-b border-border lg:h-auto lg:w-96 lg:border-b-0 lg:border-r">
+            <div className="space-y-4 p-4">
+              <MetricCards stats={stats} shown={shownCount} />
+              <DayRibbon
+                byHour={stats.byHour}
+                incidents={allIncidents}
+                selectedHour={filters.hour}
+                onSelectHour={(h) => setFilters((f) => ({ ...f, hour: h }))}
+              />
+              <StatsPanel stats={stats} />
+            </div>
+          </ScrollArea>
 
-          {/* Layer toggles */}
-          <div className="absolute bottom-4 left-4 z-[1000] bg-[var(--surface)] border border-[var(--border)] rounded-lg p-2 flex gap-2">
-            {(["incidents", "hotspots", "heatmap", "blackspots"] as const).map((layer) => (
-              <button
-                key={layer}
-                onClick={() => setLayers((prev) => ({ ...prev, [layer]: !prev[layer] }))}
-                className={`px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wider transition-all border ${
-                  layers[layer]
-                    ? "bg-orange-500/20 border-orange-500 text-orange-500"
-                    : "bg-transparent border-[var(--border)] text-[var(--text-muted)] opacity-50"
-                }`}
-              >
-                {layer}
-              </button>
-            ))}
-          </div>
-
-          {/* Legend */}
-          <div className="absolute bottom-4 right-4 z-[1000] bg-[var(--surface)]/90 backdrop-blur border border-[var(--border)] rounded-lg p-2">
-            <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider mb-1">Legend</p>
-            <div className="space-y-0.5">
-              {[
-                { color: "#ef4444", label: "Critical (8-10)" },
-                { color: "#f97316", label: "High (5-7.9)" },
-                { color: "#eab308", label: "Medium (3-4.9)" },
-                { color: "#22c55e", label: "Low (1-2.9)" },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="text-[10px]">{item.label}</span>
-                </div>
-              ))}
-              <div className="flex items-center gap-1.5 mt-1 pt-1 border-t border-[var(--border)]">
-                <span className="w-2.5 h-2.5 rounded-full border-2 border-dashed border-red-500" />
-                <span className="text-[10px]">Hotspot zone</span>
+          <div className="flex min-h-[60vh] flex-1 flex-col">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-4 py-2.5">
+              <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by priority">
+                {PRIORITIES.map((p) => {
+                  const on = filters.priority.includes(p);
+                  return (
+                    <Button
+                      key={p}
+                      size="sm"
+                      variant={on ? "secondary" : "ghost"}
+                      onClick={() => togglePriority(p)}
+                      aria-pressed={on}
+                      className="h-8 gap-2 px-2.5"
+                    >
+                      <span
+                        className="size-2 rounded-full"
+                        style={{ background: PRIORITY_TOKEN[p] }}
+                        aria-hidden
+                      />
+                      <span className="text-sm">{p.charAt(0) + p.slice(1).toLowerCase()}</span>
+                    </Button>
+                  );
+                })}
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rotate-45 bg-[#7f1d1d] border border-[var(--bg)]" />
-                <span className="text-[10px]">Real blackspot</span>
+
+              <Separator orientation="vertical" className="hidden h-6 sm:block" />
+
+              <Select
+                value={filters.roadType}
+                onValueChange={(v) => setFilters((f) => ({ ...f, roadType: v }))}
+              >
+                <SelectTrigger size="sm" className="w-[150px]" aria-label="Filter by road type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All road types</SelectItem>
+                  {ROAD_TYPES.map((r) => (
+                    <SelectItem key={r} value={r} className="capitalize">
+                      {r}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <div className="ml-auto flex items-center gap-1.5">
+                {([
+                  ["incidents", "Incidents", MapPin],
+                  ["hotspots", "Hotspots", Flame],
+                  ["heatmap", "Heatmap", Layers],
+                  ["blackspots", "Blackspots (NTC)", Target],
+                ] as const).map(([key, label, Icon]) => (
+                  <Button
+                    key={key}
+                    size="sm"
+                    variant={layers[key] ? "secondary" : "ghost"}
+                    onClick={() => setLayers((l) => ({ ...l, [key]: !l[key] }))}
+                    aria-pressed={layers[key]}
+                    className="h-8 gap-1.5 px-2.5"
+                  >
+                    <Icon className="size-3.5" aria-hidden />
+                    <span className="hidden text-sm sm:inline">{label}</span>
+                  </Button>
+                ))}
               </div>
             </div>
+
+            <div className="relative flex-1">
+              <Map
+                incidents={allIncidents}
+                hotspots={hotspots}
+                blackspots={blackspots}
+                onSelectIncident={handleSelectIncident}
+                filters={filters}
+                layers={layers}
+              />
+              <IncidentPanel incident={selected} onClose={() => setSelected(null)} />
+            </div>
           </div>
-        </main>
-      </div>
-    </div>
+        </div>
+      ) : (
+        <ScrollArea className="flex-1">
+          <div className="mx-auto w-full max-w-5xl p-4 md:p-6">
+            <Card>
+              <CardContent className="p-4 md:p-6">
+                {section === "whatif" && <WhatIfSimulator model={model} />}
+                {section === "validation" && <ValidationPanel />}
+                {section === "dispatch" && <DispatchPanel />}
+              </CardContent>
+            </Card>
+          </div>
+        </ScrollArea>
+      )}
+    </AppShell>
   );
 }

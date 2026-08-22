@@ -4,12 +4,12 @@ Web dashboard for the Kaduna.lk Geo-Intelligence component. Aimed at traffic-aut
 
 ## Status
 
-Migrated from `RP/dashboard/` on 2026-05-10. Theme aligned with the mobile app (warm cream + brand orange). Reads static JSON from `public/data/` for now; will switch to consuming `components/geo-intelligence/`'s FastAPI backend in PP2.
+Migrated from `RP/dashboard/` on 2026-05-10; UI re-synced to the RP dashboard overhaul on 2026-08-15 (dark shadcn/ui shell with sidebar sections). Reads static JSON from `public/data/`, upgrading to the geo-intelligence API and live dispatch incidents when those services are up (see the header status badges).
 
 ## Stack
 
 - Next.js 16 (App Router, TypeScript)
-- Tailwind CSS v4
+- Tailwind CSS v4 + shadcn/ui (radix-ui, lucide-react)
 - Leaflet.js + react-leaflet + leaflet.heat
 - pnpm (pinned to 10.18.3)
 
