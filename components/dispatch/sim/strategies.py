@@ -234,3 +234,44 @@ class MultiCriteriaStrategy(Strategy):
 
         chosen = max(available, key=score)
         return chosen, predicted, {predicted: 1.0}
+
+
+# ─── Ablation: ECM-only (tree + ECM, NO Bayesian blend) ─────────────────
+
+class ECMOnlyStrategy(Strategy):
+    """
+    Ablation arm — isolates the ECM cost function's contribution from the
+    Bayesian feedback loop. Same tree, same cost function, same provider
+    ranking as UADO — but the stored posterior is never consulted or
+    updated. Any UADO-vs-ECMOnly delta measures exactly what Bayesian
+    adds to dispatch performance.
+
+    Rationale: comparing UADO to naive baselines (Greedy, TypeMatched,
+    MultiCriteria) conflates two contributions — ECM's uncertainty
+    handling AND Bayesian's self-calibration. This arm separates them
+    for the paper's Table I.
+    """
+    name = "ECMOnly"
+
+    def dispatch(
+        self,
+        incident:              Incident,
+        providers:             list[Provider],
+        traffic_impact_score:  float = 5.0,
+    ) -> tuple[Provider, str, dict[str, float]]:
+        tier = 2 if incident.obd_data and incident.obd_data.get("available") else 1
+        tree = get_tree(tier)
+
+        tree_input = dict(incident.responses)
+        if tier == 2 and incident.obd_data:
+            for k, v in incident.obd_data.items():
+                if k != "available":
+                    tree_input[k] = v
+
+        tree_probs = tree.predict_proba(tree_input)
+
+        # Skip the Bayesian blend — P_final = P_tree.
+        ranked = rank_providers(providers, incident.latitude, incident.longitude, tree_probs, traffic_impact_score)
+        chosen = next(p for p in providers if p.id == ranked[0].provider_id)
+        argmax_c, _ = bayesian_argmax(tree_probs)
+        return chosen, argmax_c, tree_probs

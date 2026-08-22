@@ -1,17 +1,24 @@
 """
 ============================================================================
-Bayesian — Python port of the TS runtime's posterior update logic
+Bayesian — Python port of the TypeScript Dirichlet-Multinomial engine
 ============================================================================
 
 Mirrors `components/dispatch/src/services/bayesian-engine.ts` exactly:
-symptom-key derivation, learning-rate decay, prior update, and the
+symptom-key hashing, discounted Dirichlet-Multinomial update, and the
 count-weighted blend at inference time.
 
-The TypeScript version is unit-tested in the dispatch service; this port
-keeps the SAME formulas so simulation results transfer directly to
-production behaviour. If you tune anything here, tune the same constant in
-the TS file — the whole point of the simulation is that its results predict
-what the real system will do.
+The TypeScript version is unit-tested in the dispatch service and its
+reference tests reproduce this file's convergence numbers. If you tune
+anything here, tune the same constant in the TS file — the whole point
+of the simulation is that its results predict production behaviour.
+
+MODEL
+-----
+Per symptom key, maintain a Dirichlet pseudo-count vector α_x of
+length K = 19 (ML classes), initialised to α_0 = 0.5 (Jeffreys prior).
+On each resolution outcome k*:
+    α_x,k <- gamma * α_x,k + 1[k == k*]     for all k, gamma = 0.99
+    P_prior(k | x) = α_x,k / sum(α_x)
 
 @author Janukshan Sivakumar - IT22635266
 """
@@ -23,16 +30,15 @@ import math
 from dataclasses import dataclass, field
 
 
-# ─── Config mirrors src/config/index.ts (bayesian.*) ─────────────────────
-INITIAL_LEARNING_RATE = 0.1
-MIN_LEARNING_RATE     = 0.01
-WINDOW_SIZE           = 100
+# ─── Discounted Dirichlet-Multinomial constants (mirror TS) ──────────────
+DISCOUNT_FACTOR           = 0.99   # gamma
+INITIAL_ALPHA_PSEUDOCOUNT = 0.5    # Jeffreys prior
 
-# ─── Blend constants mirror bayesian-engine.ts ───────────────────────────
-TREE_EFFECTIVE_WEIGHT     = 20   # K in the (K·tree + n·prior) blend
-MIN_OBSERVATIONS_TO_BLEND = 3    # below this, Bayesian is a no-op
+# ─── Blend constants (unchanged from v1) ─────────────────────────────────
+TREE_EFFECTIVE_WEIGHT     = 20   # K in (K*tree + n*prior) / (K+n)
+MIN_OBSERVATIONS_TO_BLEND = 3    # below this the blend is a no-op
 
-# ─── The five KEY_FIELDS mirror utils/symptom-key.ts ─────────────────────
+# ─── Symptom-key fields (mirror utils/symptom-key.ts) ────────────────────
 KEY_FIELDS = [
     "Q1_intent",
     "Q2_engine_start",
@@ -54,31 +60,50 @@ def compute_symptom_key(responses: dict[str, str]) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# Pure functions (no I/O)
+# Pure Dirichlet-Multinomial functions
 # ─────────────────────────────────────────────────────────────────────────
 
-def compute_learning_rate(observation_count: int) -> float:
-    """Linear decay from INITIAL to MIN across WINDOW_SIZE observations."""
-    if observation_count <= 0:
-        return INITIAL_LEARNING_RATE
-    decayed = INITIAL_LEARNING_RATE - observation_count * (
-        INITIAL_LEARNING_RATE - MIN_LEARNING_RATE
-    ) / WINDOW_SIZE
-    return max(MIN_LEARNING_RATE, decayed)
+def initial_dirichlet_counts(classes: list[str]) -> dict[str, float]:
+    """A fresh Jeffreys-uniform Dirichlet count vector over `classes`."""
+    return {c: INITIAL_ALPHA_PSEUDOCOUNT for c in classes}
 
 
-def uniform_prior(classes: list[str]) -> dict[str, float]:
-    """Fresh uniform distribution across `classes`."""
-    p = 1.0 / len(classes)
-    return {c: p for c in classes}
+def update_dirichlet_counts(
+    counts: dict[str, float],
+    actual: str,
+    gamma: float = DISCOUNT_FACTOR,
+) -> dict[str, float]:
+    """
+    Apply one observation to the count vector.
+
+        α_k  <-  gamma * α_k + 1[k = actual]
+
+    Returns a NEW dict; input not mutated.
+    """
+    if not 0 <= gamma <= 1:
+        raise ValueError(f"gamma must be in [0,1], got {gamma}")
+    out = {c: gamma * v for c, v in counts.items()}
+    if actual in out:
+        out[actual] += 1.0
+    return out
+
+
+def posterior_from_counts(counts: dict[str, float]) -> dict[str, float]:
+    """Normalise the count vector to a probability distribution."""
+    total = sum(counts.values())
+    if total <= 0:
+        p = 1.0 / len(counts) if counts else 0.0
+        return {c: p for c in counts}
+    return {c: v / total for c, v in counts.items()}
 
 
 def normalise(dist: dict[str, float]) -> dict[str, float]:
-    """Scale so probabilities sum to 1. Defends against float drift + zero-sums."""
+    """Scale so probabilities sum to 1. Defensive against float drift."""
     total = sum(dist.values())
     if total <= 0:
-        return uniform_prior(list(dist.keys()))
-    return {k: v / total for k, v in dist.items()}
+        p = 1.0 / len(dist) if dist else 0.0
+        return {c: p for c in dist}
+    return {c: v / total for c, v in dist.items()}
 
 
 def shannon_entropy(dist: dict[str, float]) -> float:
@@ -90,44 +115,24 @@ def shannon_entropy(dist: dict[str, float]) -> float:
     return h
 
 
-def update_prior(
-    old: dict[str, float],
-    actual: str,
-    alpha: float,
-) -> dict[str, float]:
-    """
-    P_new = (1 - alpha) * P_old + alpha * one_hot(actual)
-    Mirrors the TS runtime exactly.
-    """
-    if not 0 <= alpha <= 1:
-        raise ValueError(f"alpha out of [0,1]: {alpha}")
-    one_minus = 1 - alpha
-    out = {c: one_minus * old[c] for c in old}
-    if actual in out:
-        out[actual] += alpha
-    return normalise(out)
-
-
 def blend_prior_with_tree(
     tree_probs:               dict[str, float],
     prior_probs:              dict[str, float],
     prior_observation_count:  int,
 ) -> tuple[dict[str, float], bool]:
     """
-    Count-weighted blend: P_final = (K·tree + n·prior) / (K + n)
+    Count-weighted blend: P_final = (K*tree + n*prior) / (K + n).
 
-    Returns (blended_distribution, was_actually_blended). The bool is False
-    when observation count is below the trust threshold — in that case the
-    tree distribution is returned unchanged and the caller should NOT mark
-    the result as bayesian-influenced.
+    Returns (blended, was_actually_blended). The bool is False when
+    n < MIN_OBSERVATIONS_TO_BLEND — in that case the tree distribution
+    is returned unchanged and the caller should NOT mark the result as
+    bayesian-influenced.
     """
     if prior_observation_count < MIN_OBSERVATIONS_TO_BLEND:
         return tree_probs, False
-
     K = TREE_EFFECTIVE_WEIGHT
     n = prior_observation_count
     denom = K + n
-    # Take the union of keys so we don't drop classes present in only one.
     all_keys = set(tree_probs.keys()) | set(prior_probs.keys())
     out = {
         k: (K * tree_probs.get(k, 0.0) + n * prior_probs.get(k, 0.0)) / denom
@@ -146,22 +151,21 @@ def argmax(dist: dict[str, float]) -> tuple[str, float]:
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# Stateful store (in-memory) — the simulation's version of the DB table
+# Stateful store — the simulation's in-memory version of bayesian_priors
 # ─────────────────────────────────────────────────────────────────────────
 
 @dataclass
 class StoredPrior:
     symptom_key:            str
-    probabilities:          dict[str, float]
-    observation_count:      int = 0
-    current_learning_rate:  float = INITIAL_LEARNING_RATE
+    alpha:                  dict[str, float]   # Dirichlet counts vector
+    observation_count:      int = 0            # real n_x
 
 
 class InMemoryPriorStore:
     """
-    A dict-based analogue of the Postgres `bayesian_priors` table. Same
-    read/update semantics as the DB wrapper in bayesian-service.ts, but
-    without persistence — perfect for reproducible simulation runs.
+    Dict-backed analogue of the Postgres `bayesian_priors` table using the
+    v3 Dirichlet-Multinomial formulation. No persistence — one instance
+    per simulation run, so seeds fully control state.
     """
 
     def __init__(self, class_names: list[str]):
@@ -173,20 +177,13 @@ class InMemoryPriorStore:
 
     def apply_feedback(self, key: str, actual: str) -> StoredPrior:
         existing = self._store.get(key)
-        if existing is None:
-            probs = uniform_prior(self._class_names)
-            count = 0
-        else:
-            probs = existing.probabilities
-            count = existing.observation_count
-        alpha    = compute_learning_rate(count)
-        new_prob = update_prior(probs, actual, alpha)
-        new_count = count + 1
+        old_alpha = existing.alpha if existing else initial_dirichlet_counts(self._class_names)
+        old_n     = existing.observation_count if existing else 0
+        new_alpha = update_dirichlet_counts(old_alpha, actual, DISCOUNT_FACTOR)
         stored = StoredPrior(
-            symptom_key=key,
-            probabilities=new_prob,
-            observation_count=new_count,
-            current_learning_rate=compute_learning_rate(new_count),
+            symptom_key       = key,
+            alpha             = new_alpha,
+            observation_count = old_n + 1,
         )
         self._store[key] = stored
         return stored
@@ -199,16 +196,18 @@ class InMemoryPriorStore:
         stored = self._store.get(key)
         if stored is None:
             return tree_probs, False
-        return blend_prior_with_tree(
-            tree_probs, stored.probabilities, stored.observation_count
-        )
+        prior_probs = posterior_from_counts(stored.alpha)
+        return blend_prior_with_tree(tree_probs, prior_probs, stored.observation_count)
 
-    # ── Aggregate stats — for the convergence plot ────────────────────
+    # ── Aggregate stats for the convergence plot ──────────────────────
 
     def average_entropy(self) -> float:
         if not self._store:
             return 0.0
-        return sum(shannon_entropy(p.probabilities) for p in self._store.values()) / len(self._store)
+        return sum(
+            shannon_entropy(posterior_from_counts(p.alpha))
+            for p in self._store.values()
+        ) / len(self._store)
 
     def total_observations(self) -> int:
         return sum(p.observation_count for p in self._store.values())

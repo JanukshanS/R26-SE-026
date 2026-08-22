@@ -161,6 +161,54 @@ def _std_normal_cdf(z: float) -> float:
     )
 
 
+# ─── McNemar's test — appropriate for BINARY paired outcomes ─────────────
+#
+# Paired t-test on binary variables (match / no-match) is not the right
+# tool because the assumption of continuous outcomes is violated and
+# small-N behavior is poor. McNemar's chi-square uses only the DISCORDANT
+# pairs — cases where the two strategies disagreed — which is the correct
+# way to compare paired categorical outcomes.
+
+def mcnemars_test(
+    strategy_a_matched: list[bool],
+    strategy_b_matched: list[bool],
+) -> dict[str, float]:
+    """
+    Continuity-corrected McNemar's test on two per-incident paired
+    boolean sequences (True = the strategy predicted the correct class).
+
+    Returns a dict with:
+      - b, c            : discordant pair counts (a-wins, b-wins)
+      - chi2            : (|b - c| - 1)^2 / (b + c) if b+c > 0 else nan
+      - p_value         : 1-df chi-square upper tail — normal approx via
+                          the same Zelen & Severo CDF used elsewhere here
+      - a_wins_rate     : b / N — fraction of incidents where only A was right
+      - b_wins_rate     : c / N — fraction of incidents where only B was right
+      - n               : total paired incidents
+    """
+    if len(strategy_a_matched) != len(strategy_b_matched):
+        raise ValueError("McNemar's test requires paired sequences of equal length")
+    n = len(strategy_a_matched)
+    b = sum(1 for x, y in zip(strategy_a_matched, strategy_b_matched) if x and not y)
+    c = sum(1 for x, y in zip(strategy_a_matched, strategy_b_matched) if y and not x)
+    if b + c == 0:
+        # Perfectly concordant — no statistical evidence of difference.
+        return {"b": float(b), "c": float(c), "chi2": math.nan, "p_value": 1.0,
+                "a_wins_rate": 0.0, "b_wins_rate": 0.0, "n": float(n)}
+    chi2 = (abs(b - c) - 1) ** 2 / (b + c)
+    # Upper-tail p-value of χ²_1: 2·(1 - Φ(√χ²)).
+    p = 2 * (1 - _std_normal_cdf(math.sqrt(chi2)))
+    return {
+        "b":           float(b),
+        "c":           float(c),
+        "chi2":        float(chi2),
+        "p_value":     float(p),
+        "a_wins_rate": b / n if n else 0.0,
+        "b_wins_rate": c / n if n else 0.0,
+        "n":           float(n),
+    }
+
+
 # ─── CSV output ──────────────────────────────────────────────────────────
 
 def write_logs_csv(logs: list[DispatchLog], path: Path) -> None:

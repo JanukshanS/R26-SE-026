@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * Bayesian Service — DB wrapper around the pure engine
+ * Bayesian Service — DB wrapper around the Dirichlet-Multinomial engine
  * ============================================================================
  *
  * Thin persistence layer over `bayesian-engine.ts`. This module is the ONLY
@@ -8,18 +8,18 @@
  * feedback route + the triage engine) go through these functions; the pure
  * engine stays free of Prisma so it remains trivially testable.
  *
- * Responsibilities:
- *   1. `getPriorForKey(key)`          — read the stored prior for a symptom
- *      key, or null if none exists yet.
- *   2. `applyFeedback(key, actual)`   — read → update → write in a single
- *      transaction, so concurrent feedback for the same key doesn't lose
- *      an update.
- *   3. `computeAggregateStats()`      — aggregate view for the /stats
- *      endpoint and for SimPy's convergence proof.
+ * WHAT'S STORED PER SYMPTOM KEY
+ * -----------------------------
+ *   alpha              — 19-dim Dirichlet pseudo-count vector (source of truth)
+ *   probabilities      — 29-key ServiceType distribution derived from alpha
+ *                        (denormalised for read-path convenience)
+ *   observationCount   — count of REAL resolution outcomes (n_x) — used as
+ *                        the blend weight; independent of the α mass which
+ *                        is exponentially discounted every update.
  *
- * We use Prisma's `upsert` and `serializable` transactions to avoid the
- * classic read-modify-write race that would otherwise let two mechanics
- * reporting for the same symptom key clobber each other's update.
+ * We use Prisma's `upsert` inside a SERIALIZABLE transaction to avoid the
+ * classic read-modify-write race that would let two mechanics reporting
+ * feedback for the same symptom key clobber each other's update.
  *
  * @module services/bayesian-service
  * @author Janukshan Sivakumar - IT22635266
@@ -29,18 +29,21 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import {
+  ML_SERVICE_TYPES,
   ServiceType,
   ServiceTypeProbabilities,
   TriageResponses,
   TriageResult,
 } from '../types';
 import {
+  DISCOUNT_FACTOR,
+  DirichletCounts,
   argmaxServiceType,
   blendPriorWithTree,
-  computeLearningRate,
+  initialDirichletCounts,
+  posteriorFromCounts,
   shannonEntropy,
-  uniformPrior,
-  updatePrior,
+  updateDirichletCounts,
 } from './bayesian-engine';
 import { computeSymptomKey } from '../utils/symptom-key';
 
@@ -51,8 +54,13 @@ import { computeSymptomKey } from '../utils/symptom-key';
 /** In-memory shape of a stored prior. Mirrors the Prisma row but typed. */
 export interface StoredPrior {
   symptomKey:          string;
+  /** 19-dim Dirichlet pseudo-count vector — source of truth. */
+  alpha:               DirichletCounts;
+  /** 29-key ServiceType probability distribution derived from alpha. */
   probabilities:       ServiceTypeProbabilities;
+  /** Number of REAL resolution outcomes recorded for this key (n_x). */
   observationCount:    number;
+  /** Fixed discount factor γ (0.99). Retained in the schema for stability. */
   currentLearningRate: number;
   updatedAt:           Date;
 }
@@ -63,7 +71,7 @@ export interface BayesianStats {
   totalObservations:        number;
   averageObservationsPerKey:number;
   averageEntropyBits:       number;
-  minLearningRate:          number;
+  discountFactor:           number;
   maxObservationCount:      number;
   mostUpdatedKeys:          Array<{
     symptomKey:       string;
@@ -74,20 +82,44 @@ export interface BayesianStats {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Alpha (de)serialisation
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Read an `alpha` JSON column into a DirichletCounts object. Missing keys
+ * default to INITIAL_ALPHA_PSEUDOCOUNT (0.5) via `initialDirichletCounts` —
+ * so pre-migration rows (where alpha is null) still work, and forward-compat
+ * with class-catalog additions is preserved.
+ */
+function parseAlphaJson(json: unknown): DirichletCounts {
+  const base = initialDirichletCounts();
+  if (json && typeof json === 'object' && !Array.isArray(json)) {
+    const obj = json as Record<string, unknown>;
+    for (const c of ML_SERVICE_TYPES) {
+      const v = obj[c];
+      if (typeof v === 'number' && Number.isFinite(v)) base[c] = v;
+    }
+  }
+  return base;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Read
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
  * Fetch the stored prior for a symptom key. Returns null when the key has
- * never been observed before — callers should default to the tree output
+ * never been observed before — callers default to the tree output
  * unmodified in that case.
  */
 export async function getPriorForKey(symptomKey: string): Promise<StoredPrior | null> {
   const row = await prisma.bayesianPrior.findUnique({ where: { symptomKey } });
   if (!row) return null;
+  const alpha = parseAlphaJson(row.alpha);
   return {
     symptomKey:          row.symptomKey,
-    probabilities:       row.probabilities as unknown as ServiceTypeProbabilities,
+    alpha,
+    probabilities:       posteriorFromCounts(alpha),
     observationCount:    row.observationCount,
     currentLearningRate: row.currentLearningRate,
     updatedAt:           row.updatedAt,
@@ -99,17 +131,16 @@ export async function getPriorForKey(symptomKey: string): Promise<StoredPrior | 
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Apply one observation (a mechanic-reported actual service type) to the
- * prior for `symptomKey`. Creates the prior with a uniform starting
- * distribution if it doesn't exist yet.
+ * Apply one observation to the Dirichlet posterior for `symptomKey`.
+ * Creates the prior with a Jeffreys-uniform starting vector (all α_k = 0.5)
+ * if this symptom pattern has never been observed.
  *
- * Uses a SERIALIZABLE transaction so concurrent feedback for the same key
- * doesn't race. In practice the row-level lock would be enough, but
- * SERIALIZABLE is the belt-and-braces that a research thesis reviewer will
- * respect.
+ * Uses a SERIALIZABLE transaction so concurrent feedback for the same
+ * key doesn't race. Row-level locking alone would suffice; SERIALIZABLE
+ * is the belt-and-braces the paper's methodology section can point at.
  *
- * Returns the updated prior so the caller can echo it back to the API user
- * for transparency.
+ * Returns the updated prior so the caller can echo it back to the API
+ * user for transparency.
  */
 export async function applyFeedback(
   symptomKey: string,
@@ -117,31 +148,31 @@ export async function applyFeedback(
 ): Promise<StoredPrior> {
   const updated = await prisma.$transaction(
     async (tx) => {
-      // Read current state (row-locked under SERIALIZABLE).
       const existing = await tx.bayesianPrior.findUnique({ where: { symptomKey } });
 
-      const oldProbs: ServiceTypeProbabilities = existing
-        ? (existing.probabilities as unknown as ServiceTypeProbabilities)
-        : uniformPrior();
-
+      const oldAlpha: DirichletCounts = existing
+        ? parseAlphaJson(existing.alpha)
+        : initialDirichletCounts();
       const oldCount = existing?.observationCount ?? 0;
-      const alpha    = computeLearningRate(oldCount);
-      const newProbs = updatePrior(oldProbs, actualServiceType, alpha);
+
+      const newAlpha = updateDirichletCounts(oldAlpha, actualServiceType, DISCOUNT_FACTOR);
+      const newProbs = posteriorFromCounts(newAlpha);
       const newCount = oldCount + 1;
-      const newAlpha = computeLearningRate(newCount);
 
       const upserted = await tx.bayesianPrior.upsert({
         where: { symptomKey },
         create: {
           symptomKey,
+          alpha:               newAlpha as unknown as Prisma.InputJsonValue,
           probabilities:       newProbs as unknown as Prisma.InputJsonValue,
           observationCount:    newCount,
-          currentLearningRate: newAlpha,
+          currentLearningRate: DISCOUNT_FACTOR,
         },
         update: {
+          alpha:               newAlpha as unknown as Prisma.InputJsonValue,
           probabilities:       newProbs as unknown as Prisma.InputJsonValue,
           observationCount:    newCount,
-          currentLearningRate: newAlpha,
+          currentLearningRate: DISCOUNT_FACTOR,
         },
       });
 
@@ -150,16 +181,18 @@ export async function applyFeedback(
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   );
 
-  logger.info('Bayesian prior updated', {
+  logger.info('Bayesian prior updated (Dirichlet-multinomial)', {
     symptomKey,
     actualServiceType,
-    observationCount:    updated.observationCount,
-    currentLearningRate: updated.currentLearningRate.toFixed(4),
+    observationCount: updated.observationCount,
+    discountFactor:   DISCOUNT_FACTOR,
   });
 
+  const finalAlpha = parseAlphaJson(updated.alpha);
   return {
     symptomKey:          updated.symptomKey,
-    probabilities:       updated.probabilities as unknown as ServiceTypeProbabilities,
+    alpha:               finalAlpha,
+    probabilities:       posteriorFromCounts(finalAlpha),
     observationCount:    updated.observationCount,
     currentLearningRate: updated.currentLearningRate,
     updatedAt:           updated.updatedAt,
@@ -171,16 +204,14 @@ export async function applyFeedback(
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Wrap the pure tree result with the Bayesian posterior for this incident's
- * symptom key, if one exists. This is the ONLY function the triage route
- * calls to get the "post-Bayesian" TriageResult — the pure tree engine
- * stays synchronous and DB-free.
+ * Wrap the pure tree result with the Bayesian posterior for this
+ * incident's symptom key, if one exists. This is the ONLY function the
+ * triage route calls to get the "post-Bayesian" TriageResult — the pure
+ * tree engine stays synchronous and DB-free.
  *
- * If no prior exists yet, or the prior has too few observations to be
- * trusted, this returns the tree result unmodified (with
- * `bayesianPriorsApplied: false`). That means the very first observation
- * for a symptom pattern doesn't cause dispatch to jitter — the tree runs
- * as-is until the posterior has accumulated enough evidence.
+ * If no prior exists, or the prior has fewer than MIN_OBSERVATIONS_TO_BLEND
+ * real observations, the tree result is returned unmodified (with
+ * `bayesianPriorsApplied: false`).
  */
 export async function blendTriageWithPrior(
   responses: TriageResponses,
@@ -197,9 +228,9 @@ export async function blendTriageWithPrior(
     stored.observationCount,
   );
 
-  // If blending was suppressed by the observation-count threshold, the
-  // blended output is byte-identical to the tree output; detect that so we
-  // don't misleadingly flip bayesianPriorsApplied to true.
+  // If blending was suppressed (n_x < MIN_OBSERVATIONS_TO_BLEND), the
+  // blended output equals the tree output — don't misleadingly flip
+  // bayesianPriorsApplied to true.
   const unchanged = distributionsEqual(blended, treeResult.probabilities);
   if (unchanged) return treeResult;
 
@@ -233,15 +264,10 @@ function distributionsEqual(
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Compute aggregate learning statistics across all stored priors. This is
- * what the SimPy convergence proof will call each round to plot the
- * average-entropy-over-time curve. A monotonically-decreasing average
- * entropy is the visual proof that the posterior is concentrating —
- * i.e. that Bayesian is learning something.
- *
- * The N in "mostUpdatedKeys" is fixed at 5 for the /stats endpoint; a
- * different cap would be a nice-to-have query param but isn't required
- * for the SO3 scope.
+ * Compute aggregate learning statistics across all stored priors. Feeds the
+ * /bayesian/stats endpoint and the SimPy convergence-trajectory measurement.
+ * A monotonically-decreasing average entropy over time is the visual proof
+ * that posteriors are concentrating on their true classes.
  */
 export async function computeAggregateStats(): Promise<BayesianStats> {
   const priors = await prisma.bayesianPrior.findMany({
@@ -254,26 +280,26 @@ export async function computeAggregateStats(): Promise<BayesianStats> {
       totalObservations:        0,
       averageObservationsPerKey:0,
       averageEntropyBits:       0,
-      minLearningRate:          0,
+      discountFactor:           DISCOUNT_FACTOR,
       maxObservationCount:      0,
       mostUpdatedKeys:          [],
     };
   }
 
-  let totalObs      = 0;
-  let entropySum    = 0;
-  let minAlpha      = Number.POSITIVE_INFINITY;
-  let maxObs        = 0;
+  let totalObs   = 0;
+  let entropySum = 0;
+  let maxObs     = 0;
 
   for (const p of priors) {
-    totalObs   += p.observationCount;
-    entropySum += shannonEntropy(p.probabilities as unknown as ServiceTypeProbabilities);
-    if (p.currentLearningRate < minAlpha) minAlpha = p.currentLearningRate;
-    if (p.observationCount > maxObs)      maxObs   = p.observationCount;
+    totalObs += p.observationCount;
+    const alpha = parseAlphaJson(p.alpha);
+    entropySum += shannonEntropy(posteriorFromCounts(alpha));
+    if (p.observationCount > maxObs) maxObs = p.observationCount;
   }
 
   const topN = priors.slice(0, 5).map((p) => {
-    const probs = p.probabilities as unknown as ServiceTypeProbabilities;
+    const alpha = parseAlphaJson(p.alpha);
+    const probs = posteriorFromCounts(alpha);
     const top3  = Object.entries(probs)
       .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 3)
@@ -294,7 +320,7 @@ export async function computeAggregateStats(): Promise<BayesianStats> {
     totalObservations:        totalObs,
     averageObservationsPerKey:parseFloat((totalObs / priors.length).toFixed(2)),
     averageEntropyBits:       parseFloat((entropySum / priors.length).toFixed(4)),
-    minLearningRate:          parseFloat(minAlpha.toFixed(4)),
+    discountFactor:           DISCOUNT_FACTOR,
     maxObservationCount:      maxObs,
     mostUpdatedKeys:          topN,
   };

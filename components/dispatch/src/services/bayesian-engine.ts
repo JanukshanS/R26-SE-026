@@ -1,42 +1,54 @@
 /**
  * ============================================================================
- * Bayesian Engine — pure update + blend functions
+ * Bayesian Engine — Discounted Dirichlet-Multinomial posterior update
  * ============================================================================
  *
  * PURE FUNCTIONS ONLY. No DB, no logging, no side effects. Everything is
  * deterministic and unit-testable. The DB wrapper (bayesian-service.ts) calls
- * these functions with values it read from Postgres and writes the results
- * back — that separation keeps the math trivially testable and reviewable.
+ * these functions with values read from Postgres and writes results back — a
+ * separation that keeps the math trivially testable.
  *
- * WHAT THIS MODULE PROVIDES
- * -------------------------
- *   1. computeLearningRate(n)        — decayed α as observations accumulate
- *   2. updatePrior(P_old, actual, α) — the Bayesian posterior update
- *   3. blendPriorWithTree(...)       — count-weighted blend at inference
- *   4. uniformPrior()                — initial P_0 for a fresh symptom key
- *   5. shannonEntropy(P)             — measure of remaining uncertainty
+ * MODEL
+ * -----
+ * For each symptom key, maintain a Dirichlet pseudo-count vector
+ *   α_x = (α_x,1, ..., α_x,K), K = |ML_SERVICE_TYPES| = 19
+ * initialised uniformly at INITIAL_ALPHA_PSEUDOCOUNT (0.5, a Jeffreys prior).
  *
- * WHY LINEAR BLEND, NOT MULTIPLICATIVE
- * ------------------------------------
- * A strict Bayesian update would be P_new ∝ P_prior · P(observation|class).
- * That requires modelling a full likelihood function — for a 19-class
- * categorical outcome the model is Categorical-Dirichlet. We use the closed-
- * form Dirichlet posterior mean, which — for a symmetric Dirichlet prior
- * and an observed one-hot outcome — reduces to a linear blend with
- * α = 1/(N+K) where N is prior observation count and K is the concentration
- * parameter. Setting α = f(n) directly (with a decaying schedule) is a
- * stochastic-approximation form of the same update: it converges to the true
- * distribution under standard Robbins-Monro conditions (Σα=∞, Σα²<∞), which
- * a linearly-decayed-then-floored schedule satisfies for practical N.
+ * On each resolution outcome `k*`:
+ *   α_x,k ← γ · α_x,k + 1[k = k*]        (all k, γ = 0.99)
+ *   P_prior(k | x) = α_x,k / Σ_j α_x,j
  *
- * See docs/bayesian-derivation.md (to be written) for the full derivation.
+ * This is standard Dirichlet-multinomial conjugacy with exponential
+ * discounting (West & Harrison, "Bayesian Forecasting and Dynamic Models",
+ * 2nd ed., 1997) — not an ad-hoc EMA. At γ=1 the posterior is exactly the
+ * Dirichlet posterior mean and consistency follows directly from
+ * conjugacy. At γ<1 the effective sample size is bounded (ESS ≈ 1/(1-γ) ≈
+ * 100 at γ=0.99), giving the posterior finite plasticity so it can track
+ * genuine distributional drift over time.
+ *
+ * NOTE — supersedes the earlier EMA implementation
+ * -------------------------------------------------
+ * The prior EMA formulation was documented as satisfying Robbins-Monro
+ * (Σα=∞, Σα²<∞) convergence conditions. This was checked and found FALSE:
+ * a linear-decay-then-floor schedule fails Σα²<∞ because α floors at α_min
+ * rather than decaying to zero, so Σα² diverges. The Dirichlet-multinomial
+ * formulation here has consistency guaranteed by conjugacy, needing no
+ * stochastic-approximation machinery.
+ *
+ * INFERENCE-TIME BLEND (unchanged in form)
+ * ----------------------------------------
+ *   P_final = (K_tree · P_tree + n_x · P_prior) / (K_tree + n_x)
+ * where K_tree = TREE_EFFECTIVE_WEIGHT (20) and n_x is the number of REAL
+ * observations recorded for this symptom key (tracked independently of
+ * the discounted α mass). Blend is suppressed when n_x < MIN_OBSERVATIONS_TO_BLEND.
  *
  * @module services/bayesian-engine
  * @author Janukshan Sivakumar - IT22635266
  */
 
-import { config } from '../config';
 import {
+  ML_SERVICE_TYPES,
+  MLServiceType,
   ServiceType,
   ServiceTypeProbabilities,
   SERVICE_TYPES,
@@ -47,42 +59,113 @@ import {
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Effective "prior sample count" attributed to the decision tree at inference
- * time. Controls the tree/data blend: with n=K real observations, the tree
- * and the posterior contribute equally. Bumping K makes the tree stickier;
- * lowering it lets a small number of real observations dominate.
+ * Exponential discount factor γ applied to prior pseudo-counts on every
+ * update. γ=1 recovers the exact Dirichlet-Multinomial posterior mean
+ * (no forgetting). γ<1 gives finite effective sample size:
+ *   ESS(γ) ≈ 1/(1-γ)      // ESS ≈ 100 at γ=0.99
  *
- * K=20 was chosen so that the crossover happens at a realistic number of
- * observations for a research thesis (viva readers should see the posterior
- * matter after ~20 feedback events, not 200).
+ * γ=0.99 is chosen so a symptom pattern's posterior can meaningfully
+ * track distributional drift within ~100 observations while still being
+ * robust to short-term noise (see convergence tests § 7.3 in
+ * ARCHITECTURE.md and tests/bayesian-engine.test.ts).
+ */
+export const DISCOUNT_FACTOR = 0.99;
+
+/**
+ * Initial Dirichlet pseudo-count assigned to every ML class for a
+ * previously-unseen symptom key. 0.5 is Jeffreys' prior — minimally
+ * informative but proper (all classes reachable). Small enough that one
+ * real observation dominates the initial mass yet non-zero so log-domain
+ * arithmetic remains safe.
+ */
+export const INITIAL_ALPHA_PSEUDOCOUNT = 0.5;
+
+/**
+ * Effective "prior sample count" attributed to the decision tree at
+ * inference time. With n_x = TREE_EFFECTIVE_WEIGHT real observations for
+ * a symptom pattern, the tree and the posterior contribute equally to the
+ * blend. Bumping this makes the tree stickier; lowering lets a small
+ * number of real observations dominate.
  */
 export const TREE_EFFECTIVE_WEIGHT = 20;
 
 /**
- * Observation-count threshold BELOW which a stored prior is considered
- * too noisy to blend into the tree's output. Below this the tree wins
- * unmodified.
- *
- * Rationale: with 1-2 observations, the "posterior" is essentially a
- * one-hot on whatever fault the mechanic saw first — that would override
- * the tree with a single data point. Waiting for a handful of observations
- * gives the posterior a chance to stabilise before it starts influencing
- * dispatch.
+ * Below this real-observation count, the stored posterior is considered
+ * too noisy to influence dispatch — the tree wins unmodified. Prevents
+ * a single mechanic's report from steering triage for that symptom
+ * pattern.
  */
 export const MIN_OBSERVATIONS_TO_BLEND = 3;
 
 // ─────────────────────────────────────────────────────────────────────────
-// Distribution helpers
+// Types
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Return a fresh uniform prior across all 29 service types. Used as P_0
- * when a symptom key is observed for the very first time.
+ * Dirichlet pseudo-count vector over the 19 ML-diagnosable classes.
+ * Fast-path service types are NOT included — the Bayesian layer only
+ * fires on the ML path (fast-path bypasses triage entirely).
+ */
+export type DirichletCounts = Record<MLServiceType, number>;
+
+// ─────────────────────────────────────────────────────────────────────────
+// Dirichlet count vector helpers
+// ─────────────────────────────────────────────────────────────────────────
+
+/** A fresh, uniformly-initialised Dirichlet vector (Jeffreys prior). */
+export function initialDirichletCounts(): DirichletCounts {
+  const out = {} as DirichletCounts;
+  for (const c of ML_SERVICE_TYPES) out[c] = INITIAL_ALPHA_PSEUDOCOUNT;
+  return out;
+}
+
+/**
+ * Apply one observation to a Dirichlet count vector using the discounted
+ * update rule. Returns a NEW object; the input is not mutated.
  *
- * Note: this includes fast-path service types (each at 1/29). That is
- * intentional — Bayesian only fires on ML paths (fast-path bypasses triage
- * entirely), so those slots receive zero updates in practice and their
- * mass gradually decays via renormalisation when the ML classes gain mass.
+ *   α_k ← γ · α_k + 1[k = actual]
+ *
+ * If `actual` is a fast-path service type (not in ML_SERVICE_TYPES), the
+ * function still discounts existing counts but adds no observation mass
+ * — a defensive stance that keeps the vector well-formed even if a
+ * caller misuses the API. Callers should not update from fast-path
+ * outcomes; the Bayesian layer is not the right tool for those.
+ */
+export function updateDirichletCounts(
+  counts: DirichletCounts,
+  actual: ServiceType,
+  gamma: number = DISCOUNT_FACTOR,
+): DirichletCounts {
+  if (gamma < 0 || gamma > 1) {
+    throw new Error(`bayesian-engine: gamma must be in [0,1], got ${gamma}`);
+  }
+  const out = {} as DirichletCounts;
+  for (const c of ML_SERVICE_TYPES) {
+    out[c] = gamma * (counts[c] ?? INITIAL_ALPHA_PSEUDOCOUNT);
+  }
+  if ((ML_SERVICE_TYPES as readonly string[]).includes(actual)) {
+    out[actual as MLServiceType] += 1;
+  }
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Distribution helpers (over the full 29-class ServiceType space)
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Zero-initialised probability distribution over the 29 service types. */
+function zeroProbabilities(): ServiceTypeProbabilities {
+  const out = {} as ServiceTypeProbabilities;
+  for (const st of SERVICE_TYPES) out[st] = 0;
+  return out;
+}
+
+/**
+ * Uniform prior over all 29 service types — the fallback distribution
+ * returned when no other information is available. Note: for Bayesian
+ * inference we use `initialDirichletCounts()` (uniform over 19 ML
+ * classes), not this. This helper exists for cases where we need a
+ * 29-class default (e.g., normalise() edge cases).
  */
 export function uniformPrior(): ServiceTypeProbabilities {
   const p = 1 / SERVICE_TYPES.length;
@@ -91,17 +174,27 @@ export function uniformPrior(): ServiceTypeProbabilities {
   return out;
 }
 
-/** Zero-initialised probability distribution — private helper. */
-function zeroProbabilities(): ServiceTypeProbabilities {
-  const out = {} as ServiceTypeProbabilities;
-  for (const st of SERVICE_TYPES) out[st] = 0;
+/**
+ * Convert a Dirichlet count vector into a full-29-class probability
+ * distribution (fast-path classes = 0). Renormalises defensively.
+ */
+export function posteriorFromCounts(counts: DirichletCounts): ServiceTypeProbabilities {
+  let total = 0;
+  for (const c of ML_SERVICE_TYPES) total += counts[c];
+  const out = zeroProbabilities();
+  if (total <= 0) {
+    // Degenerate; return uniform over ML classes only.
+    const p = 1 / ML_SERVICE_TYPES.length;
+    for (const c of ML_SERVICE_TYPES) out[c] = p;
+    return out;
+  }
+  for (const c of ML_SERVICE_TYPES) out[c] = counts[c] / total;
   return out;
 }
 
 /**
- * Renormalise so probabilities sum to 1. Guards against floating-point drift
- * and against blend inputs that don't come from valid distributions.
- * Returns a uniform distribution if the input sums to 0 (defensive).
+ * Renormalise a probability distribution so it sums to 1. Defensive
+ * against float drift and degenerate zero-sum inputs (returns uniform).
  */
 export function normalise(p: ServiceTypeProbabilities): ServiceTypeProbabilities {
   let total = 0;
@@ -113,10 +206,9 @@ export function normalise(p: ServiceTypeProbabilities): ServiceTypeProbabilities
 }
 
 /**
- * Shannon entropy in bits — measures how spread the distribution is.
- * 0 means a delta on one class (certain); log2(29) ≈ 4.86 means uniform
- * (maximally uncertain). The Bayesian stats endpoint reports this so the
- * viva can show "priors become more concentrated with observations."
+ * Shannon entropy in bits. 0 = certain (one-hot); log2(K) = maximally
+ * uncertain (uniform over K classes). Used to visualise posterior
+ * concentration over time.
  */
 export function shannonEntropy(p: ServiceTypeProbabilities): number {
   let h = 0;
@@ -128,86 +220,23 @@ export function shannonEntropy(p: ServiceTypeProbabilities): number {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Learning rate schedule
-// ─────────────────────────────────────────────────────────────────────────
-
-/**
- * Compute the learning rate α for the (n+1)-th observation, given that
- * this symptom key has already accumulated n observations.
- *
- * Linear decay from INITIAL_LEARNING_RATE (default 0.1) down to
- * MIN_LEARNING_RATE (default 0.01) over LEARNING_WINDOW_SIZE observations
- * (default 100), then floors. Matches the config's semantics: the first
- * observation moves the prior by 10%; by observation 100+ every new
- * observation moves it by only 1%.
- *
- * Never returns < MIN_LEARNING_RATE — the posterior always keeps *some*
- * plasticity so distributional drift over years can still be captured.
- */
-export function computeLearningRate(observationCount: number): number {
-  const { initialLearningRate, minLearningRate, windowSize } = config.bayesian;
-  if (observationCount <= 0) return initialLearningRate;
-  const decayed = initialLearningRate
-    - observationCount * (initialLearningRate - minLearningRate) / windowSize;
-  return Math.max(minLearningRate, decayed);
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Posterior update (the core Bayesian step)
-// ─────────────────────────────────────────────────────────────────────────
-
-/**
- * Given the current prior for a symptom key AND a freshly-observed actual
- * service type, return the updated prior.
- *
- * Formula:  P_new = (1 - α) · P_old  +  α · one_hot(actual)
- *
- * Properties:
- *   - The result is a valid probability distribution (sums to 1 — proven
- *     by construction since one_hot sums to 1 and P_old sums to 1).
- *   - α close to 1: posterior "jumps" toward the observation (high learning).
- *   - α close to 0: posterior barely moves (converged, or capped).
- *
- * The learning rate α is expected to have been pre-computed by
- * `computeLearningRate` — this function has no opinion about α's decay
- * schedule; it just applies the blend.
- */
-export function updatePrior(
-  oldProbs: ServiceTypeProbabilities,
-  actual: ServiceType,
-  alpha: number,
-): ServiceTypeProbabilities {
-  if (alpha < 0 || alpha > 1) {
-    throw new Error(`bayesian-engine: alpha must be in [0,1], got ${alpha}`);
-  }
-  const out = zeroProbabilities();
-  const oneMinus = 1 - alpha;
-  for (const st of SERVICE_TYPES) {
-    out[st] = oneMinus * oldProbs[st] + (st === actual ? alpha : 0);
-  }
-  return normalise(out);
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Inference-time blend
+// Inference-time blend (unchanged in form from the EMA version)
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
  * Combine the decision-tree output with the stored Bayesian posterior for
  * this symptom key.
  *
- * Formula:  P_final = (K · P_tree  +  n · P_prior) / (K + n)
+ *   P_final = (K · P_tree + n · P_prior) / (K + n)
  *
- * where K = TREE_EFFECTIVE_WEIGHT and n = the prior's observationCount.
+ * where K = TREE_EFFECTIVE_WEIGHT and n is the REAL observation count.
  *
- * Behaviour by n:
- *   n = 0                → identical to P_tree (0-weight prior is ignored)
- *   n = K (= 20)         → 50/50 blend
- *   n → ∞                → asymptotically equal to P_prior
+ *   n = 0              → returns P_tree unchanged
+ *   n = K (=20)        → 50/50 blend
+ *   n → ∞              → asymptotically equal to P_prior
  *
  * Below MIN_OBSERVATIONS_TO_BLEND the prior is considered too noisy to
- * influence dispatch at all, so we return the tree unmodified. This
- * prevents a single mechanic's report from steering the tree.
+ * influence dispatch and the tree wins unmodified.
  */
 export function blendPriorWithTree(
   treeProbs: ServiceTypeProbabilities,
@@ -224,18 +253,18 @@ export function blendPriorWithTree(
   for (const st of SERVICE_TYPES) {
     out[st] = (K * treeProbs[st] + n * priorProbs[st]) / denom;
   }
-  // Sum should equal 1 by construction (both inputs sum to 1), but renormalise
-  // to guard against floating-point drift over many updates.
+  // Sum is 1 by construction (both inputs sum to 1); renormalise anyway
+  // to guard against float drift over many stored updates.
   return normalise(out);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Prediction helpers
+// Prediction helper
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Argmax over a distribution. Ties break by service-type declaration order
- * in SERVICE_TYPES — a stable ordering (matters for testability).
+ * Argmax over a distribution. Ties break by declaration order in
+ * SERVICE_TYPES — deterministic, matters for testability.
  */
 export function argmaxServiceType(p: ServiceTypeProbabilities): {
   serviceType: ServiceType;

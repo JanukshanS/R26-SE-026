@@ -53,7 +53,7 @@ if __package__ is None or __package__ == "":
     from sim.ecm import Provider                            # noqa: E402
     from sim.metrics import (                                # noqa: E402
         DispatchLog, StrategySummary,
-        paired_t_test, score_dispatch, summarise,
+        mcnemars_test, paired_t_test, score_dispatch, summarise,
         write_logs_csv, write_summaries_csv,
     )
     from sim.plots import plot_comparison, plot_convergence  # noqa: E402
@@ -66,13 +66,14 @@ if __package__ is None or __package__ == "":
     from sim.strategies import (                              # noqa: E402
         UADOStrategy, GreedyNearestStrategy,
         TypeMatchedNearestStrategy, MultiCriteriaStrategy,
+        ECMOnlyStrategy,
     )
 else:
     from .bayesian import shannon_entropy
     from .ecm import Provider
     from .metrics import (
         DispatchLog, StrategySummary,
-        paired_t_test, score_dispatch, summarise,
+        mcnemars_test, paired_t_test, score_dispatch, summarise,
         write_logs_csv, write_summaries_csv,
     )
     from .plots import plot_comparison, plot_convergence
@@ -85,6 +86,7 @@ else:
     from .strategies import (
         UADOStrategy, GreedyNearestStrategy,
         TypeMatchedNearestStrategy, MultiCriteriaStrategy,
+        ECMOnlyStrategy,
     )
 
 
@@ -162,43 +164,47 @@ def _run_strategy(
 # Main
 # ─────────────────────────────────────────────────────────────────────────
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="UADO dispatch simulation")
-    parser.add_argument("--n",           type=int,   default=1000, help="Number of incidents")
-    parser.add_argument("--seed",        type=int,   default=42,   help="RNG seed")
-    parser.add_argument("--n-providers", type=int,   default=20,   help="Provider network size")
-    parser.add_argument("--traffic",     type=float, default=5.0,  help="Traffic impact score 1-10")
-    parser.add_argument("--out",         type=Path,  default=None, help="Output directory (default: sim/outputs/)")
-    args = parser.parse_args()
-
-    out_dir = args.out or (Path(__file__).parent / "outputs")
-
-    print(f"[sim] Generating {args.n} incidents (seed={args.seed})")
-    incidents = generate_incidents(n=args.n, seed=args.seed)
-
-    print(f"[sim] Seeding {args.n_providers} providers")
-    prov_rng = random.Random(args.seed + 1)
-    providers = _seed_providers(args.n_providers, prov_rng)
-
-    strategies = [
+def _build_strategies() -> list:
+    """Fresh strategy instances (UADO state resets per seed)."""
+    return [
         UADOStrategy(),
+        ECMOnlyStrategy(),
         GreedyNearestStrategy(),
         TypeMatchedNearestStrategy(),
         MultiCriteriaStrategy(),
     ]
 
-    all_logs: list[DispatchLog] = []
-    for strat in strategies:
-        t0 = time.time()
-        # Deep-copy provider state so nobody inherits another strategy's damage
-        # (currently providers only carry static config, but this is defensive)
-        pool = [Provider(**{**p.__dict__, "capabilities": set(p.capabilities)}) for p in providers]
-        logs = _run_strategy(strat, incidents, pool, args.traffic)
-        all_logs.extend(logs)
-        print(f"[sim] {strat.name:15s} done in {time.time()-t0:.2f}s")
 
-    # ── Aggregate ────────────────────────────────────────────────────
-    summaries = [summarise(all_logs, s.name) for s in strategies]
+def _run_one_seed(
+    seed:         int,
+    n:            int,
+    n_providers:  int,
+    traffic:      float,
+) -> list[DispatchLog]:
+    """
+    Generate incidents + providers for one seed and run every strategy on
+    identical inputs. Returns the concatenated per-incident dispatch logs.
+    Each strategy's UADO/priors state is fresh (created here).
+    """
+    incidents = generate_incidents(n=n, seed=seed)
+    provs     = _seed_providers(n_providers, random.Random(seed + 1))
+    strategies = _build_strategies()
+
+    seed_logs: list[DispatchLog] = []
+    for strat in strategies:
+        # Deep-copy provider state per strategy (defensive; providers are
+        # currently static but future changes might mutate).
+        pool = [Provider(**{**p.__dict__, "capabilities": set(p.capabilities)}) for p in provs]
+        seed_logs.extend(_run_strategy(strat, incidents, pool, traffic))
+    return seed_logs
+
+
+def _print_single_seed_report(
+    logs:      list[DispatchLog],
+    strategy_names: list[str],
+) -> list[StrategySummary]:
+    """Compact single-seed report: table + paired t-tests + McNemar's."""
+    summaries = [summarise(logs, name) for name in strategy_names]
 
     print("\n" + "─" * 76)
     print(f"{'Strategy':16s} {'N':>5s} {'Match%':>8s} {'Capable%':>10s} {'Redispatch%':>13s} {'AvgRes min':>12s}")
@@ -209,37 +215,181 @@ def main() -> int:
               f"{s.re_dispatch_rate*100:12.2f}% {s.avg_resolution_time_min:11.2f}")
     print("─" * 76)
 
-    # ── Paired t-tests: UADO vs each baseline ───────────────────────
-    print("\nPaired t-tests (UADO vs baseline):")
-    uado_logs = [l for l in all_logs if l.strategy == "UADO"]
+    # Paired t-test on resolution time (continuous), McNemar's on match
+    # rate (binary). Both keyed to UADO as the reference.
+    uado_logs = [l for l in logs if l.strategy == "UADO"]
     uado_res  = [l.resolution_time_min for l in uado_logs]
-    uado_hit  = [1.0 if l.matched else 0.0 for l in uado_logs]
+    uado_hit  = [l.matched for l in uado_logs]
 
-    for s in summaries:
-        if s.strategy == "UADO":
+    print("\nSignificance tests (UADO vs baseline):")
+    for name in strategy_names:
+        if name == "UADO":
             continue
-        base_logs = [l for l in all_logs if l.strategy == s.strategy]
+        base_logs = [l for l in logs if l.strategy == name]
         base_res  = [l.resolution_time_min for l in base_logs]
-        base_hit  = [1.0 if l.matched else 0.0 for l in base_logs]
-
+        base_hit  = [l.matched for l in base_logs]
         t_r, p_r = paired_t_test(uado_res, base_res)
-        t_h, p_h = paired_t_test(uado_hit, base_hit)
-        sig_r = "SIGNIFICANT" if p_r < 0.05 else "not sig."
-        sig_h = "SIGNIFICANT" if p_h < 0.05 else "not sig."
-        print(f"  UADO vs {s.strategy:16s} resolution_time: t={t_r:+.3f} p={p_r:.4f} [{sig_r}]")
-        print(f"  UADO vs {s.strategy:16s} match_rate:      t={t_h:+.3f} p={p_h:.4f} [{sig_h}]")
+        mc       = mcnemars_test(uado_hit, base_hit)
+        sig_r = "SIG" if p_r < 0.05 else "n.s."
+        sig_m = "SIG" if mc["p_value"] < 0.05 else "n.s."
+        print(f"  UADO vs {name:16s} resolution_time: paired-t t={t_r:+.3f} p={p_r:.4f} [{sig_r}]")
+        print(f"  UADO vs {name:16s} match_rate:      McNemar χ²={mc['chi2']:.3f} "
+              f"(b={int(mc['b'])}, c={int(mc['c'])}) p={mc['p_value']:.4f} [{sig_m}]")
+    return summaries
+
+
+def _print_multi_seed_report(
+    all_seed_logs:   list[list[DispatchLog]],
+    strategy_names:  list[str],
+) -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]]]:
+    """
+    Multi-seed report: per-strategy metrics as mean ± SD across seeds,
+    plus McNemar's + paired-t on the POOLED per-incident sequences
+    (concatenated across seeds — 30 × N pairs per baseline).
+    """
+    # ── Per-seed metrics, then aggregate across seeds ────────────────
+    per_seed_metrics: dict[str, list[dict[str, float]]] = {n: [] for n in strategy_names}
+    for seed_logs in all_seed_logs:
+        for name in strategy_names:
+            s = summarise(seed_logs, name)
+            per_seed_metrics[name].append({
+                "match_rate":              s.match_rate,
+                "provider_capable_rate":   s.provider_capable_rate,
+                "re_dispatch_rate":        s.re_dispatch_rate,
+                "avg_resolution_time_min": s.avg_resolution_time_min,
+            })
+
+    from statistics import mean, stdev
+    agg: dict[str, dict[str, float]] = {}
+    for name, rows in per_seed_metrics.items():
+        agg[name] = {}
+        for metric in ["match_rate", "provider_capable_rate", "re_dispatch_rate", "avg_resolution_time_min"]:
+            values = [r[metric] for r in rows]
+            agg[name][f"{metric}_mean"] = mean(values)
+            agg[name][f"{metric}_sd"]   = stdev(values) if len(values) > 1 else 0.0
+
+    print("\n" + "─" * 96)
+    print(f"{'Strategy':16s} {'Match% (mean±SD)':>20s} {'Capable% (m±SD)':>20s} {'Redisp% (m±SD)':>20s} {'AvgRes min (m±SD)':>20s}")
+    print("─" * 96)
+    for name in strategy_names:
+        a = agg[name]
+        print(f"{name:16s} "
+              f"{a['match_rate_mean']*100:7.2f} ± {a['match_rate_sd']*100:5.2f}     "
+              f"{a['provider_capable_rate_mean']*100:6.2f} ± {a['provider_capable_rate_sd']*100:5.2f}     "
+              f"{a['re_dispatch_rate_mean']*100:6.2f} ± {a['re_dispatch_rate_sd']*100:5.2f}     "
+              f"{a['avg_resolution_time_min_mean']:7.2f} ± {a['avg_resolution_time_min_sd']:5.2f}")
+    print("─" * 96)
+
+    # ── Pooled significance across all seeds ─────────────────────────
+    tests: dict[str, dict[str, float]] = {}
+    pooled = {name: [l for seed_logs in all_seed_logs for l in seed_logs if l.strategy == name]
+              for name in strategy_names}
+    uado_res = [l.resolution_time_min for l in pooled["UADO"]]
+    uado_hit = [l.matched              for l in pooled["UADO"]]
+
+    print("\nPooled significance across seeds (UADO vs each other strategy):")
+    for name in strategy_names:
+        if name == "UADO":
+            continue
+        base_res = [l.resolution_time_min for l in pooled[name]]
+        base_hit = [l.matched              for l in pooled[name]]
+        t_r, p_r = paired_t_test(uado_res, base_res)
+        mc       = mcnemars_test(uado_hit, base_hit)
+        tests[name] = {
+            "paired_t":            float(t_r),
+            "paired_t_p_value":    float(p_r),
+            "mcnemar_chi2":        float(mc["chi2"]),
+            "mcnemar_p_value":     float(mc["p_value"]),
+            "mcnemar_b":           float(mc["b"]),
+            "mcnemar_c":           float(mc["c"]),
+        }
+        sig_r = "SIG" if p_r < 0.05 else "n.s."
+        sig_m = "SIG" if mc["p_value"] < 0.05 else "n.s."
+        print(f"  UADO vs {name:16s} resolution_time: paired-t t={t_r:+7.3f} p={p_r:.4f} [{sig_r}]")
+        print(f"  UADO vs {name:16s} match_rate:      McNemar χ²={mc['chi2']:8.2f} "
+              f"(b={int(mc['b'])}, c={int(mc['c'])}) p={mc['p_value']:.4f} [{sig_m}]")
+
+    return agg, tests
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="UADO dispatch simulation")
+    parser.add_argument("--n",           type=int,   default=1000, help="Number of incidents per seed")
+    parser.add_argument("--seed",        type=int,   default=42,   help="RNG seed (or starting seed for multi-seed)")
+    parser.add_argument("--n-seeds",     type=int,   default=1,    help="Number of seeds — 1 for single-run, 30+ for statistical protocol")
+    parser.add_argument("--n-providers", type=int,   default=20,   help="Provider network size")
+    parser.add_argument("--traffic",     type=float, default=5.0,  help="Traffic impact score 1-10")
+    parser.add_argument("--out",         type=Path,  default=None, help="Output directory (default: sim/outputs/)")
+    args = parser.parse_args()
+
+    out_dir = args.out or (Path(__file__).parent / "outputs")
+    strategy_names = [s.name for s in _build_strategies()]
+
+    # ── Single-seed (backward-compat, full per-incident logs + plots) ─
+    if args.n_seeds == 1:
+        print(f"[sim] Single-seed run: seed={args.seed}, n={args.n}, providers={args.n_providers}")
+        t0 = time.time()
+        seed_logs = _run_one_seed(args.seed, args.n, args.n_providers, args.traffic)
+        print(f"[sim] All strategies done in {time.time()-t0:.2f}s")
+
+        summaries = _print_single_seed_report(seed_logs, strategy_names)
+
+        out_dir.mkdir(parents=True, exist_ok=True)
+        write_logs_csv(seed_logs, out_dir / "dispatch_logs.csv")
+        write_summaries_csv(summaries, out_dir / "summaries.csv")
+        uado_logs = [l for l in seed_logs if l.strategy == "UADO"]
+        plot_convergence(uado_logs, batch_size=max(1, args.n // 20), output_path=out_dir / "convergence.png")
+        plot_comparison(summaries, output_path=out_dir / "comparison.png")
+        print(f"\n[sim] Outputs written to {out_dir}")
+        print(f"[sim] Total dispatches: {args.n * len(strategy_names)}")
+        return 0
+
+    # ── Multi-seed protocol (30-seed statistical run) ────────────────
+    print(f"[sim] Multi-seed run: seeds={args.seed}..{args.seed + args.n_seeds - 1}, "
+          f"n={args.n}/seed, providers={args.n_providers}")
+    t0 = time.time()
+    all_seed_logs: list[list[DispatchLog]] = []
+    for i in range(args.n_seeds):
+        seed = args.seed + i
+        seed_t0 = time.time()
+        seed_logs = _run_one_seed(seed, args.n, args.n_providers, args.traffic)
+        all_seed_logs.append(seed_logs)
+        if (i + 1) % 5 == 0 or i == args.n_seeds - 1:
+            print(f"[sim]   seed {seed} done ({i+1}/{args.n_seeds}) — {time.time()-seed_t0:.2f}s")
+    print(f"[sim] All {args.n_seeds} seeds done in {time.time()-t0:.1f}s")
+
+    agg, tests = _print_multi_seed_report(all_seed_logs, strategy_names)
 
     # ── Persist ──────────────────────────────────────────────────────
     out_dir.mkdir(parents=True, exist_ok=True)
-    write_logs_csv(all_logs, out_dir / "dispatch_logs.csv")
-    write_summaries_csv(summaries, out_dir / "summaries.csv")
-    print(f"\n[sim] CSVs written to {out_dir}")
+    import json as _json
+    report = {
+        "protocol":       "30-seed" if args.n_seeds == 30 else f"{args.n_seeds}-seed",
+        "n_per_seed":     args.n,
+        "n_seeds":        args.n_seeds,
+        "n_providers":    args.n_providers,
+        "traffic_impact": args.traffic,
+        "strategies":     strategy_names,
+        "aggregate":      agg,
+        "significance":   tests,
+    }
+    (out_dir / "multi_seed_report.json").write_text(_json.dumps(report, indent=2), encoding="utf-8")
 
-    # ── Plots ────────────────────────────────────────────────────────
-    plot_convergence(uado_logs, batch_size=max(1, args.n // 20), output_path=out_dir / "convergence.png")
-    plot_comparison(summaries, output_path=out_dir / "comparison.png")
-
-    print(f"[sim] Done. Total incidents processed: {args.n * len(strategies)}")
+    # Also write a compact per-strategy CSV of mean ± SD.
+    import csv as _csv
+    with (out_dir / "multi_seed_summaries.csv").open("w", newline="", encoding="utf-8") as f:
+        w = _csv.writer(f)
+        w.writerow(["strategy", "match_mean", "match_sd", "capable_mean", "capable_sd",
+                    "redisp_mean", "redisp_sd", "avg_res_min_mean", "avg_res_min_sd"])
+        for name in strategy_names:
+            a = agg[name]
+            w.writerow([name,
+                        round(a['match_rate_mean'], 6),              round(a['match_rate_sd'], 6),
+                        round(a['provider_capable_rate_mean'], 6),   round(a['provider_capable_rate_sd'], 6),
+                        round(a['re_dispatch_rate_mean'], 6),        round(a['re_dispatch_rate_sd'], 6),
+                        round(a['avg_resolution_time_min_mean'], 4), round(a['avg_resolution_time_min_sd'], 4)])
+    print(f"\n[sim] Multi-seed report + summaries written to {out_dir}")
+    print(f"[sim] Total dispatches: {args.n * len(strategy_names) * args.n_seeds}")
     return 0
 
 

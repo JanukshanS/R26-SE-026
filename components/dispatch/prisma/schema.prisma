@@ -289,10 +289,23 @@ model BayesianPrior {
   // Hash of the symptom combination this prior covers
   symptomKey          String      @unique
 
-  probabilities       Json        // {ServiceType: prob}
+  // Dirichlet pseudo-count vector over the 19 ML classes: {MLServiceType: α_k}.
+  // Nullable for backwards-compat with pre-v3 rows; all new writes populate it.
+  // See ARCHITECTURE.md §5.3 (discounted Dirichlet-Multinomial formulation).
+  alpha               Json?
 
+  // Denormalised probability distribution (29 ServiceType keys) derived from
+  // `alpha` on write. Kept so read paths and the /bayesian/priors/:key
+  // endpoint can return probabilities without re-normalising in the app.
+  probabilities       Json
+
+  // Count of REAL resolution outcomes recorded for this symptom key. Used
+  // as `n_x` in the inference-time blend; independent of the discounted α mass.
   observationCount    Int         @default(0)
-  currentLearningRate Float       @default(0.1)
+
+  // Retained for schema stability; under the Dirichlet-multinomial formulation
+  // this is now a fixed discount factor γ (0.99 by default), not a decayed α.
+  currentLearningRate Float       @default(0.99)
 
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt

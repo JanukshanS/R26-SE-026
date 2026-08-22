@@ -3,168 +3,175 @@
  * Bayesian Engine — pure-function unit tests
  * ============================================================================
  *
- * These tests validate the update math without touching Postgres. They are
- * the load-bearing evidence that the Bayesian layer is correct — the DB
- * wrapper (bayesian-service.ts) just forwards results from these functions,
- * so if these are green, the update logic is proven.
+ * Validates the discounted Dirichlet-Multinomial update rule without
+ * touching Postgres. These are the load-bearing evidence that the Bayesian
+ * layer is correct — the DB wrapper (bayesian-service.ts) just forwards
+ * results from these functions, so if these are green, the update logic
+ * is proven.
  *
- * The convergence test in particular is the empirical proof we cite in the
- * thesis: "given a uniform prior and observations drawn from a specific
- * target distribution, the posterior converges to that target within N
- * observations."
+ * The three "reference" tests (§ 7.3 in ARCHITECTURE.md) — clean
+ * convergence, noise robustness, drift adaptivity — are ported directly
+ * from `ml/files/dirichlet_bayesian.py` and must reproduce its numbers
+ * to within a small tolerance. If they don't, the TypeScript port has
+ * diverged from the validated reference implementation.
  */
 
-import { describe, expect, it, vi } from 'vitest';
-
-// Mock the config BEFORE importing the engine — the engine reads
-// initialLearningRate / minLearningRate / windowSize at call time from the
-// config module, and the test needs deterministic values regardless of
-// whatever .env is loaded on the machine running the tests.
-vi.mock('../src/config', () => ({
-  config: {
-    bayesian: {
-      initialLearningRate: 0.1,
-      minLearningRate:     0.01,
-      windowSize:          100,
-    },
-  },
-}));
+import { describe, expect, it } from 'vitest';
 
 import {
   argmaxServiceType,
   blendPriorWithTree,
-  computeLearningRate,
+  DISCOUNT_FACTOR,
+  DirichletCounts,
+  INITIAL_ALPHA_PSEUDOCOUNT,
   MIN_OBSERVATIONS_TO_BLEND,
-  normalise,
-  shannonEntropy,
   TREE_EFFECTIVE_WEIGHT,
+  initialDirichletCounts,
+  normalise,
+  posteriorFromCounts,
+  shannonEntropy,
   uniformPrior,
-  updatePrior,
+  updateDirichletCounts,
 } from '../src/services/bayesian-engine';
-import { SERVICE_TYPES, ServiceType, ServiceTypeProbabilities } from '../src/types';
+import {
+  ML_SERVICE_TYPES,
+  MLServiceType,
+  SERVICE_TYPES,
+  ServiceType,
+  ServiceTypeProbabilities,
+} from '../src/types';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────
 
-function oneHot(st: ServiceType): ServiceTypeProbabilities {
+function oneHotProbs(st: ServiceType): ServiceTypeProbabilities {
   const out = {} as ServiceTypeProbabilities;
   for (const s of SERVICE_TYPES) out[s] = s === st ? 1 : 0;
   return out;
 }
 
-function sum(p: ServiceTypeProbabilities): number {
+function sumProbs(p: ServiceTypeProbabilities): number {
   return Object.values(p).reduce((s, v) => s + v, 0);
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// uniformPrior + normalise
-// ─────────────────────────────────────────────────────────────────────────
+function sumCounts(a: DirichletCounts): number {
+  return ML_SERVICE_TYPES.reduce((s, c) => s + a[c], 0);
+}
 
-describe('uniformPrior', () => {
-  it('sums to 1 and gives every service type equal mass', () => {
-    const u = uniformPrior();
-    expect(sum(u)).toBeCloseTo(1, 10);
-    const expected = 1 / SERVICE_TYPES.length;
-    for (const st of SERVICE_TYPES) expect(u[st]).toBeCloseTo(expected, 10);
-  });
-});
-
-describe('normalise', () => {
-  it('scales a positive distribution to sum 1', () => {
-    const scaled = {} as ServiceTypeProbabilities;
-    for (const st of SERVICE_TYPES) scaled[st] = 2;
-    const n = normalise(scaled);
-    expect(sum(n)).toBeCloseTo(1, 10);
-  });
-
-  it('defends against a zero distribution by returning a uniform prior', () => {
-    const zero = {} as ServiceTypeProbabilities;
-    for (const st of SERVICE_TYPES) zero[st] = 0;
-    const n = normalise(zero);
-    expect(sum(n)).toBeCloseTo(1, 10);
-  });
-});
+/** Deterministic seeded RNG (LCG). Enough for reproducible tests. */
+function makeRng(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1103515245 + 12345) & 0x7fffffff;
+    return state / 0x7fffffff;
+  };
+}
 
 // ─────────────────────────────────────────────────────────────────────────
-// computeLearningRate
+// initialDirichletCounts + posteriorFromCounts
 // ─────────────────────────────────────────────────────────────────────────
 
-describe('computeLearningRate', () => {
-  it('returns the initial rate when there are no observations', () => {
-    expect(computeLearningRate(0)).toBeCloseTo(0.1, 10);
-  });
-
-  it('decays linearly toward the floor across the window', () => {
-    // With initial=0.1, min=0.01, window=100 → slope = (0.1-0.01)/100 = 0.0009
-    expect(computeLearningRate(50)).toBeCloseTo(0.1 - 50 * 0.0009, 10);
-  });
-
-  it('never falls below the minimum learning rate', () => {
-    expect(computeLearningRate(1000)).toBeCloseTo(0.01, 10);
-    expect(computeLearningRate(10_000)).toBeCloseTo(0.01, 10);
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────
-// updatePrior
-// ─────────────────────────────────────────────────────────────────────────
-
-describe('updatePrior', () => {
-  it('produces a valid probability distribution (sums to 1)', () => {
-    const p = updatePrior(uniformPrior(), 'BATTERY_JUMP', 0.1);
-    expect(sum(p)).toBeCloseTo(1, 10);
-  });
-
-  it('moves mass toward the observed service type', () => {
-    const before = uniformPrior();
-    const after  = updatePrior(before, 'BATTERY_JUMP', 0.5);
-    expect(after.BATTERY_JUMP).toBeGreaterThan(before.BATTERY_JUMP);
-  });
-
-  it('with alpha=0 leaves the prior unchanged (renormalised)', () => {
-    const p = uniformPrior();
-    const same = updatePrior(p, 'ALTERNATOR_ISSUE', 0);
-    for (const st of SERVICE_TYPES) expect(same[st]).toBeCloseTo(p[st], 10);
-  });
-
-  it('with alpha=1 collapses to a delta on the observed type', () => {
-    const p = updatePrior(uniformPrior(), 'FUEL_PUMP', 1);
-    expect(p.FUEL_PUMP).toBeCloseTo(1, 10);
-    for (const st of SERVICE_TYPES) {
-      if (st !== 'FUEL_PUMP') expect(p[st]).toBeCloseTo(0, 10);
+describe('initialDirichletCounts', () => {
+  it('assigns INITIAL_ALPHA_PSEUDOCOUNT to every ML class', () => {
+    const a = initialDirichletCounts();
+    for (const c of ML_SERVICE_TYPES) {
+      expect(a[c]).toBeCloseTo(INITIAL_ALPHA_PSEUDOCOUNT, 12);
     }
   });
 
-  it('throws on out-of-range alpha', () => {
-    expect(() => updatePrior(uniformPrior(), 'BATTERY_JUMP', -0.1)).toThrow();
-    expect(() => updatePrior(uniformPrior(), 'BATTERY_JUMP',  1.1)).toThrow();
+  it('has no keys outside ML_SERVICE_TYPES', () => {
+    const a = initialDirichletCounts();
+    expect(Object.keys(a).sort()).toEqual([...ML_SERVICE_TYPES].sort());
+  });
+});
+
+describe('posteriorFromCounts', () => {
+  it('yields uniform-over-ML from a uniform initial count vector', () => {
+    const p = posteriorFromCounts(initialDirichletCounts());
+    const expected = 1 / ML_SERVICE_TYPES.length;
+    for (const c of ML_SERVICE_TYPES) expect(p[c]).toBeCloseTo(expected, 12);
+    expect(sumProbs(p)).toBeCloseTo(1, 10);
+  });
+
+  it('never assigns mass to fast-path service types', () => {
+    const p = posteriorFromCounts(initialDirichletCounts());
+    for (const st of SERVICE_TYPES) {
+      if (!(ML_SERVICE_TYPES as readonly string[]).includes(st)) {
+        expect(p[st]).toBe(0);
+      }
+    }
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// blendPriorWithTree
+// updateDirichletCounts
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('updateDirichletCounts', () => {
+  it('increments the observed class by 1 when γ=1', () => {
+    const a0 = initialDirichletCounts();
+    const a1 = updateDirichletCounts(a0, 'BATTERY_JUMP', 1.0);
+    expect(a1.BATTERY_JUMP).toBeCloseTo(INITIAL_ALPHA_PSEUDOCOUNT + 1, 12);
+    for (const c of ML_SERVICE_TYPES) {
+      if (c !== 'BATTERY_JUMP') expect(a1[c]).toBeCloseTo(INITIAL_ALPHA_PSEUDOCOUNT, 12);
+    }
+  });
+
+  it('applies discount to all classes then adds 1 to the observed class', () => {
+    const a0 = initialDirichletCounts();     // 0.5 per class
+    const a1 = updateDirichletCounts(a0, 'ALTERNATOR_ISSUE', 0.99);
+    expect(a1.ALTERNATOR_ISSUE).toBeCloseTo(0.99 * 0.5 + 1, 10);
+    for (const c of ML_SERVICE_TYPES) {
+      if (c !== 'ALTERNATOR_ISSUE') expect(a1[c]).toBeCloseTo(0.99 * 0.5, 10);
+    }
+  });
+
+  it('throws on out-of-range gamma', () => {
+    expect(() => updateDirichletCounts(initialDirichletCounts(), 'BATTERY_JUMP', -0.1)).toThrow();
+    expect(() => updateDirichletCounts(initialDirichletCounts(), 'BATTERY_JUMP',  1.1)).toThrow();
+  });
+
+  it('is defensive against fast-path service types (discounts, but adds no mass)', () => {
+    const a0 = initialDirichletCounts();
+    const a1 = updateDirichletCounts(a0, 'LOCKOUT' as ServiceType, 0.99);
+    // Every ML count should be discounted but nothing added.
+    for (const c of ML_SERVICE_TYPES) {
+      expect(a1[c]).toBeCloseTo(0.99 * 0.5, 10);
+    }
+  });
+
+  it('does not mutate the input', () => {
+    const a0 = initialDirichletCounts();
+    const before = a0.BATTERY_JUMP;
+    updateDirichletCounts(a0, 'BATTERY_JUMP', 0.99);
+    expect(a0.BATTERY_JUMP).toBe(before);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// blendPriorWithTree (unchanged in form from previous EMA version)
 // ─────────────────────────────────────────────────────────────────────────
 
 describe('blendPriorWithTree', () => {
-  it('returns the tree unmodified below the observation threshold', () => {
-    const tree  = uniformPrior();
-    const prior = oneHot('ALTERNATOR_ISSUE');
+  it('returns the tree unchanged below the observation threshold', () => {
+    const tree  = posteriorFromCounts(initialDirichletCounts());
+    const prior = oneHotProbs('ALTERNATOR_ISSUE');
     const blended = blendPriorWithTree(tree, prior, MIN_OBSERVATIONS_TO_BLEND - 1);
-    for (const st of SERVICE_TYPES) expect(blended[st]).toBeCloseTo(tree[st], 10);
+    for (const st of SERVICE_TYPES) expect(blended[st]).toBeCloseTo(tree[st], 12);
   });
 
   it('at n = TREE_EFFECTIVE_WEIGHT gives a 50/50 blend', () => {
-    const tree  = oneHot('BATTERY_JUMP');
-    const prior = oneHot('ALTERNATOR_ISSUE');
+    const tree  = oneHotProbs('BATTERY_JUMP');
+    const prior = oneHotProbs('ALTERNATOR_ISSUE');
     const blended = blendPriorWithTree(tree, prior, TREE_EFFECTIVE_WEIGHT);
     expect(blended.BATTERY_JUMP).toBeCloseTo(0.5, 6);
     expect(blended.ALTERNATOR_ISSUE).toBeCloseTo(0.5, 6);
   });
 
   it('at large n the prior dominates', () => {
-    const tree  = oneHot('BATTERY_JUMP');
-    const prior = oneHot('ALTERNATOR_ISSUE');
+    const tree  = oneHotProbs('BATTERY_JUMP');
+    const prior = oneHotProbs('ALTERNATOR_ISSUE');
     const blended = blendPriorWithTree(tree, prior, 1000);
     expect(blended.ALTERNATOR_ISSUE).toBeGreaterThan(0.9);
     expect(blended.BATTERY_JUMP).toBeLessThan(0.1);
@@ -172,30 +179,30 @@ describe('blendPriorWithTree', () => {
 
   it('always returns a valid probability distribution', () => {
     const tree  = uniformPrior();
-    const prior = oneHot('FUEL_PUMP');
+    const prior = oneHotProbs('FUEL_PUMP');
     for (const n of [3, 10, 20, 50, 200]) {
-      expect(sum(blendPriorWithTree(tree, prior, n))).toBeCloseTo(1, 10);
+      expect(sumProbs(blendPriorWithTree(tree, prior, n))).toBeCloseTo(1, 10);
     }
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// shannonEntropy + argmax
+// shannonEntropy + argmax (unchanged behaviour)
 // ─────────────────────────────────────────────────────────────────────────
 
 describe('shannonEntropy', () => {
-  it('is log2(K) for a uniform distribution over K classes', () => {
+  it('is log2(K) for a uniform distribution over K service types', () => {
     expect(shannonEntropy(uniformPrior())).toBeCloseTo(Math.log2(SERVICE_TYPES.length), 6);
   });
 
   it('is 0 for a one-hot distribution', () => {
-    expect(shannonEntropy(oneHot('BATTERY_JUMP'))).toBeCloseTo(0, 10);
+    expect(shannonEntropy(oneHotProbs('BATTERY_JUMP'))).toBeCloseTo(0, 10);
   });
 });
 
 describe('argmaxServiceType', () => {
-  it('picks the service type with the highest probability', () => {
-    const p = oneHot('CLUTCH_WORN');
+  it('picks the highest-probability class', () => {
+    const p = oneHotProbs('CLUTCH_WORN');
     p['CLUTCH_WORN'] = 0.6;
     p['TRANSMISSION_ISSUE'] = 0.3;
     p['BRAKE_FAILURE'] = 0.1;
@@ -206,47 +213,84 @@ describe('argmaxServiceType', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// Convergence — the load-bearing evidence for the thesis
+// Reference convergence tests — ported from ml/files/dirichlet_bayesian.py
+// (§ 7.3 in ARCHITECTURE.md). These must reproduce the reference numbers.
 // ─────────────────────────────────────────────────────────────────────────
 
-describe('convergence: repeated observations pull the posterior toward the truth', () => {
-  it('with a decaying schedule, posterior mass on the truth strictly exceeds the initial mass', () => {
-    // Simulate: symptom key K's true failure is always ALTERNATOR_ISSUE.
-    // Feed 200 observations through the update loop with the decayed alpha.
-    let posterior = uniformPrior();
-    const start = posterior.ALTERNATOR_ISSUE;
-    for (let n = 0; n < 200; n++) {
-      const alpha = computeLearningRate(n);
-      posterior = updatePrior(posterior, 'ALTERNATOR_ISSUE', alpha);
+describe('reference test 1: clean convergence at γ=1 (no discounting)', () => {
+  it('posterior mass on true class exceeds 95% after 200 clean observations', () => {
+    const truth: MLServiceType = 'BATTERY_JUMP';
+    let counts = initialDirichletCounts();
+    for (let i = 0; i < 200; i++) {
+      counts = updateDirichletCounts(counts, truth, 1.0);
     }
-    // Posterior on truth should be very close to 1 after 200 observations
-    // with alpha ~0.01 sustained. Not exactly 1 because α is bounded.
-    expect(posterior.ALTERNATOR_ISSUE).toBeGreaterThan(start);
-    expect(posterior.ALTERNATOR_ISSUE).toBeGreaterThan(0.85);
-    expect(sum(posterior)).toBeCloseTo(1, 6);
+    const p = posteriorFromCounts(counts);
+    // Python reference: 0.957 with the same setup.
+    expect(p[truth]).toBeGreaterThan(0.95);
+    // Sanity: sum still 1, no drift.
+    expect(sumProbs(p)).toBeCloseTo(1, 10);
+  });
+});
+
+describe('reference test 2: noise robustness (30% label noise, γ=1)', () => {
+  it('argmax at obs 200 is the true class despite 30% label flips', () => {
+    const truth: MLServiceType = 'BATTERY_JUMP';
+    const rng = makeRng(42);
+    let counts = initialDirichletCounts();
+    for (let i = 0; i < 200; i++) {
+      const observed: MLServiceType = rng() < 0.30
+        ? ML_SERVICE_TYPES[Math.floor(rng() * ML_SERVICE_TYPES.length)]
+        : truth;
+      counts = updateDirichletCounts(counts, observed, 1.0);
+    }
+    const { serviceType } = argmaxServiceType(posteriorFromCounts(counts));
+    expect(serviceType).toBe(truth);
+  });
+});
+
+describe('reference test 3: drift adaptivity at γ=0.99', () => {
+  it('after regime switch the new true class dominates the stale one within 150 observations', () => {
+    // First 300 obs: truth = BATTERY_JUMP. Then drift: truth = COOLANT_LOW.
+    const truth1: MLServiceType = 'BATTERY_JUMP';
+    const truth2: MLServiceType = 'COOLANT_LOW';
+    let counts = initialDirichletCounts();
+    for (let i = 0; i < 300; i++) counts = updateDirichletCounts(counts, truth1, 0.99);
+    for (let i = 0; i < 150; i++) counts = updateDirichletCounts(counts, truth2, 0.99);
+    const p = posteriorFromCounts(counts);
+    // Python reference: P(truth2) ≈ 0.786, P(truth1) much smaller.
+    expect(p[truth2]).toBeGreaterThan(p[truth1]);
+    expect(p[truth2]).toBeGreaterThan(0.7);
   });
 
-  it('under noisy observations (70% truth, 30% other), argmax converges to truth', () => {
-    // A more realistic scenario: mechanic sometimes mis-reports.
-    // Even with 30% noise, argmax should end on the true class within 200
-    // observations because 70% > 1/K for K=29.
-    let posterior = uniformPrior();
-    // Seed a reproducible RNG so the test is deterministic across runs.
-    let seed = 1234567;
-    const rand = () => {
-      seed = (seed * 9301 + 49297) % 233280;
-      return seed / 233280;
-    };
-    const noiseTypes: ServiceType[] = [
-      'BATTERY_JUMP', 'STARTER_MOTOR', 'FUEL_PUMP', 'IGNITION_SYSTEM',
-    ];
-    for (let n = 0; n < 200; n++) {
-      const truth  = 'ALTERNATOR_ISSUE' as const;
-      const actual: ServiceType = rand() < 0.7
-        ? truth
-        : noiseTypes[Math.floor(rand() * noiseTypes.length)];
-      posterior = updatePrior(posterior, actual, computeLearningRate(n));
-    }
-    expect(argmaxServiceType(posterior).serviceType).toBe('ALTERNATOR_ISSUE');
+  it('non-discounted (γ=1) control fails to adapt on the same schedule', () => {
+    // Same schedule as above but γ=1 — old observations never fade.
+    const truth1: MLServiceType = 'BATTERY_JUMP';
+    const truth2: MLServiceType = 'COOLANT_LOW';
+    let counts = initialDirichletCounts();
+    for (let i = 0; i < 300; i++) counts = updateDirichletCounts(counts, truth1, 1.0);
+    for (let i = 0; i < 150; i++) counts = updateDirichletCounts(counts, truth2, 1.0);
+    const p = posteriorFromCounts(counts);
+    // Stale class still dominates because γ=1 never forgets it.
+    expect(p[truth1]).toBeGreaterThan(p[truth2]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Basic normalise sanity checks (kept from prior test file)
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('normalise', () => {
+  it('scales a positive distribution to sum 1', () => {
+    const scaled = {} as ServiceTypeProbabilities;
+    for (const st of SERVICE_TYPES) scaled[st] = 2;
+    const n = normalise(scaled);
+    expect(sumProbs(n)).toBeCloseTo(1, 10);
+  });
+
+  it('defends against a zero distribution by returning a uniform prior', () => {
+    const zero = {} as ServiceTypeProbabilities;
+    for (const st of SERVICE_TYPES) zero[st] = 0;
+    const n = normalise(zero);
+    expect(sumProbs(n)).toBeCloseTo(1, 10);
   });
 });
