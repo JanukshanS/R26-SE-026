@@ -12,13 +12,22 @@ import {
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
+import { TextField } from "@components/ui/text-input";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
 import { unpairElm327 } from "@lib/elm327";
 import { endTrip, isTripActive } from "@lib/tripRecorder";
-import type { Vehicle, VehicleInput } from "@lib/vehicleApi";
+import { VehicleApiError, type Vehicle, type VehicleInput } from "@lib/vehicleApi";
 import { listInsuranceCompanies, type InsuranceCompany } from "@lib/insuranceCompaniesApi";
 import { getVehicleInsurance, upsertVehicleInsurance } from "@lib/vehicleInsuranceApi";
+import {
+  formatExpireMonth,
+  formatLicenceNumber,
+  formatNicNumber,
+  isValidExpireMonth,
+  isValidLicenceNumber,
+  isValidNicNumber,
+} from "@lib/insurer-field-format";
 
 const FUEL_TYPES = ["petrol", "diesel", "hybrid", "electric"] as const;
 
@@ -30,7 +39,13 @@ const EMPTY_FORM: Partial<VehicleInput> = {
 export default function ManageVehiclesScreen() {
   const insets = useSafeAreaInsets();
   const { user, vehicles, vehiclesLoading, vehicleError, refreshVehicles, selectedVehicle, selectVehicle, addVehicle, editVehicle, removeVehicle, setDefault, updateMe, logout } = useVehicle();
-  const { editVehicleId } = useLocalSearchParams<{ editVehicleId?: string }>();
+  // "addVehicle" param renamed on destructure — the context already exposes an
+  // `addVehicle` function above, and the two would otherwise collide.
+  const { editVehicleId, addVehicle: autoOpenAddParam } = useLocalSearchParams<{
+    editVehicleId?: string;
+    addVehicle?: string;
+  }>();
+  const autoOpenedAdd = useRef(false);
 
   const [showForm, setShowForm] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
@@ -44,14 +59,22 @@ export default function ManageVehiclesScreen() {
   // so it's fetched/saved separately from `form`.
   const [insuranceProvider, setInsuranceProvider] = useState("");
   const [insurancePolicyNumber, setInsurancePolicyNumber] = useState("");
+  const [insuranceExpireMonth, setInsuranceExpireMonth] = useState("");
+  const [showProviderPicker, setShowProviderPicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [policyError, setPolicyError] = useState("");
+  const [licenceError, setLicenceError] = useState("");
+  const [nicError, setNicError] = useState("");
+  const [expireMonthError, setExpireMonthError] = useState("");
   const [companies, setCompanies] = useState<InsuranceCompany[]>([]);
   const [reminderVisible, setReminderVisible] = useState(false);
   const [missingLabels, setMissingLabels] = useState<string[]>([]);
   const [confirmSaveVisible, setConfirmSaveVisible] = useState(false);
   // Vehicle tapped in the list, awaiting confirmation before actually switching.
   const [pendingVehicle, setPendingVehicle] = useState<Vehicle | null>(null);
+  // Vehicle's Delete button tapped, awaiting confirmation before actually deleting.
+  const [pendingDeleteVehicle, setPendingDeleteVehicle] = useState<Vehicle | null>(null);
   const autoOpenedForId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -86,6 +109,7 @@ export default function ManageVehiclesScreen() {
       const missing: string[] = [];
       if (!insurance?.insuranceProvider) missing.push("Your insurance provider");
       if (!insurance?.insurancePolicyNumber) missing.push("Your insurance policy number");
+      if (!insurance?.insuranceExpireMonth) missing.push("Your insurance expiry date");
       if (!user?.licenceNumber) missing.push("Your Driving Licence Number");
       if (!user?.nicNumber) missing.push("NIC Number");
       if (missing.length > 0) {
@@ -95,12 +119,29 @@ export default function ManageVehiclesScreen() {
     })();
   }, [editVehicleId, vehicles, vehiclesLoading, user]);
 
+  // Arriving from Home's Insurance button with no vehicle on file at all: auto-open
+  // the Add Vehicle form so there's nothing extra to tap first.
+  useEffect(() => {
+    if (autoOpenAddParam !== "1" || autoOpenedAdd.current) return;
+    autoOpenedAdd.current = true;
+    openAdd();
+  }, [autoOpenAddParam]);
+
+  function clearFieldErrors() {
+    setError("");
+    setPolicyError("");
+    setLicenceError("");
+    setNicError("");
+    setExpireMonthError("");
+  }
+
   function openAdd() {
     setEditingVehicle(null);
     setForm(EMPTY_FORM);
     setInsuranceProvider("");
     setInsurancePolicyNumber("");
-    setError("");
+    setInsuranceExpireMonth("");
+    clearFieldErrors();
     setShowForm(true);
   }
 
@@ -114,20 +155,48 @@ export default function ManageVehiclesScreen() {
     });
     setInsuranceProvider("");
     setInsurancePolicyNumber("");
-    setError("");
+    setInsuranceExpireMonth("");
+    clearFieldErrors();
     setShowForm(true);
     try {
       const insurance = await getVehicleInsurance(v._id);
       setInsuranceProvider(insurance?.insuranceProvider ?? "");
       setInsurancePolicyNumber(insurance?.insurancePolicyNumber ?? "");
+      setInsuranceExpireMonth(insurance?.insuranceExpireMonth ?? "");
     } catch {
-      // best-effort — form still usable, just starts blank for these two fields
+      // best-effort — form still usable, just starts blank for these fields
     }
   }
 
   function handleSave() {
     if (!form.make || !form.model || !form.plateNumber) {
       setError("Make, model and plate number are required.");
+      return;
+    }
+    // Policy Number/Expiry Month are disabled in the form until a provider is picked, so
+    // this shouldn't be reachable in practice — kept as a safety net regardless.
+    if (!insuranceProvider && (insurancePolicyNumber.trim() || insuranceExpireMonth.trim())) {
+      setError("Select an insurance provider before adding a policy number or expiry date.");
+      return;
+    }
+    // Licence/NIC/Policy Number stay optional — only enforce the format once something's
+    // actually been typed, same convention as the Add your Insurer onboarding screen.
+    const nextLicenceError =
+      licenceNumber.trim() && !isValidLicenceNumber(licenceNumber.trim())
+        ? "Must be 1 letter followed by 7 digits (e.g. B4818153)."
+        : "";
+    const nextNicError =
+      nicNumber.trim() && !isValidNicNumber(nicNumber.trim())
+        ? "Must be 12 digits, or 9 digits followed by V (e.g. 200221458V)."
+        : "";
+    const nextExpireMonthError =
+      insuranceExpireMonth.trim() && !isValidExpireMonth(insuranceExpireMonth.trim())
+        ? "Must be a valid future month in YY/MM format (e.g. 26/09)."
+        : "";
+    setLicenceError(nextLicenceError);
+    setNicError(nextNicError);
+    setExpireMonthError(nextExpireMonthError);
+    if (nextLicenceError || nextNicError || nextExpireMonthError) {
       return;
     }
     // Only editing an existing vehicle's data needs confirmation — adding a
@@ -142,6 +211,7 @@ export default function ManageVehiclesScreen() {
   async function performSave() {
     setSaving(true);
     setError("");
+    setPolicyError("");
     try {
       let vehicleId: string;
       if (editingVehicle) {
@@ -154,22 +224,41 @@ export default function ManageVehiclesScreen() {
       await upsertVehicleInsurance(vehicleId, {
         insuranceProvider,
         insurancePolicyNumber,
+        insuranceExpireMonth,
       });
     } catch (err: any) {
-      setError(err.message ?? "Failed to save vehicle. Check your connection and try again.");
+      // 23505 = Postgres unique-violation — same handling as Add your Insurer, since
+      // these fields share the exact same DB constraints. Only policy_number can
+      // violate here; licence/NIC belong to the profile write below.
+      if (err instanceof VehicleApiError && err.code === "23505") {
+        if (err.message.includes("policy_number")) {
+          setPolicyError("This Policy Number is already registered to another vehicle.");
+        } else {
+          setError("One of the details you entered is already registered elsewhere.");
+        }
+      } else {
+        setError(err.message ?? "Failed to save vehicle. Check your connection and try again.");
+      }
       setSaving(false);
       return;
     }
     // The vehicle write already went through, so the form is closed before the
     // profile write below: leaving it open on a licence/NIC failure invites a
-    // second tap of "Add Vehicle" and a duplicate car.
+    // second tap of "Add Vehicle" and a duplicate car (vehicles has no unique
+    // plate constraint to catch the retry).
     setShowForm(false);
     try {
       await updateMe({ licenceNumber: licenceNumber.trim(), nicNumber: nicNumber.trim() });
     } catch (err: any) {
+      const duplicate =
+        err instanceof VehicleApiError && err.code === "23505"
+          ? err.message.includes("nic_number")
+            ? "This NIC Number is already registered to another account."
+            : "This Driving Licence Number is already registered to another account."
+          : null;
       Alert.alert(
         "Licence and NIC not saved",
-        `${err.message ?? "The server didn't respond."}\n\nYour vehicle was saved. Tap Edit on it to enter them again.`
+        `${duplicate ?? err.message ?? "The server didn't respond."}\n\nYour vehicle was saved. Tap Edit on it to enter them again.`
       );
     } finally {
       setSaving(false);
@@ -177,18 +266,7 @@ export default function ManageVehiclesScreen() {
   }
 
   function confirmDelete(v: Vehicle) {
-    Alert.alert(
-      "Delete Vehicle",
-      `Remove ${v.nickname || `${v.make} ${v.model}`} (${v.plateNumber})?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => removeVehicle(v._id),
-        },
-      ]
-    );
+    setPendingDeleteVehicle(v);
   }
 
   return (
@@ -348,8 +426,8 @@ export default function ManageVehiclesScreen() {
           <View
             style={{
               backgroundColor: palette.surface,
-              borderTopLeftRadius: radii.xl,
-              borderTopRightRadius: radii.xl,
+              borderTopLeftRadius: 15,
+              borderTopRightRadius: 15,
               paddingTop: spacing.lg,
               paddingHorizontal: spacing.lg,
               paddingBottom: insets.bottom + spacing.lg,
@@ -414,59 +492,87 @@ export default function ManageVehiclesScreen() {
                   </View>
                 </View>
 
-                {/* Insurance provider selector — per-vehicle, since a driver's
-                    two cars can be insured with different providers/policies. */}
+                {/* Insurance provider selector — per-vehicle, since a driver's two cars
+                    can be insured with different providers/policies. Same bottom-sheet
+                    dropdown pattern as the Add your Insurer onboarding screen, rather
+                    than an inline pill list, for consistency. */}
                 <View style={{ gap: spacing.xs }}>
                   <Text style={{ ...typography.caption, color: palette.textMuted }}>Insurance Provider</Text>
-                  <View style={{ flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" }}>
-                    {companies.map(({ companyName: name }) => (
-                      <Pressable
-                        key={name}
-                        onPress={() => setInsuranceProvider(name)}
-                        style={{
-                          paddingHorizontal: spacing.md,
-                          paddingVertical: spacing.sm,
-                          borderRadius: radii.pill,
-                          borderWidth: 1.5,
-                          borderColor: insuranceProvider === name ? palette.brand : palette.border,
-                          backgroundColor: insuranceProvider === name ? palette.brandSoft : "transparent",
-                        }}
-                      >
-                        <Text
-                          style={{
-                            ...typography.caption,
-                            color: insuranceProvider === name ? palette.brand : palette.textMuted,
-                            fontWeight: "600",
-                          }}
-                        >
-                          {name}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
+                  <Pressable
+                    style={{
+                      backgroundColor: palette.surface,
+                      borderRadius: radii.lg,
+                      borderCurve: "continuous",
+                      borderWidth: 1,
+                      borderColor: palette.border,
+                      paddingHorizontal: spacing.lg,
+                      paddingVertical: 14,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                    onPress={() => setShowProviderPicker(true)}
+                  >
+                    <Text style={{ color: palette.text, ...typography.body }}>
+                      {insuranceProvider || "Select your insurance provider"}
+                    </Text>
+                    <Icon name="ChevronDown" size={18} color={palette.textMuted} />
+                  </Pressable>
                 </View>
-                <Field
+                <TextField
                   label="Insurance Policy Number"
                   value={insurancePolicyNumber}
-                  onChangeText={setInsurancePolicyNumber}
+                  onChangeText={(t) => {
+                    setInsurancePolicyNumber(t);
+                    setPolicyError("");
+                  }}
                   placeholder="ALCI-254-VP"
                   autoCapitalize="characters"
+                  editable={Boolean(insuranceProvider)}
+                  error={policyError}
+                  helperText={insuranceProvider ? undefined : "Select an insurance provider first."}
                 />
                 {/* Profile-level (one per driver) — same value regardless of which
                     vehicle is being edited, kept here so it can be completed later
-                    if it was skipped during onboarding. */}
-                <Field
+                    if it was skipped during onboarding. Same format/validation as the
+                    Add your Insurer onboarding screen (lib/insurer-field-format.ts). */}
+                <TextField
                   label="Your Driving Licence Number"
                   value={licenceNumber}
-                  onChangeText={setLicenceNumber}
+                  onChangeText={(t) => {
+                    setLicenceNumber(formatLicenceNumber(t));
+                    setLicenceError("");
+                  }}
                   placeholder="B4818153"
                   autoCapitalize="characters"
+                  maxLength={8}
+                  error={licenceError}
                 />
-                <Field
+                <TextField
                   label="NIC Number"
                   value={nicNumber}
-                  onChangeText={setNicNumber}
+                  onChangeText={(t) => {
+                    setNicNumber(formatNicNumber(t));
+                    setNicError("");
+                  }}
                   placeholder="200221458936"
+                  keyboardType="numbers-and-punctuation"
+                  maxLength={12}
+                  error={nicError}
+                />
+                <TextField
+                  label="Insurance Expiry Month"
+                  value={insuranceExpireMonth}
+                  onChangeText={(t) => {
+                    setInsuranceExpireMonth(formatExpireMonth(t));
+                    setExpireMonthError("");
+                  }}
+                  placeholder="YY/MM"
+                  keyboardType="number-pad"
+                  maxLength={5}
+                  editable={Boolean(insuranceProvider)}
+                  error={expireMonthError}
+                  helperText={insuranceProvider ? undefined : "Select an insurance provider first."}
                 />
 
                 {error ? (
@@ -497,6 +603,80 @@ export default function ManageVehiclesScreen() {
         </View>
       </Modal>
 
+      {/* Insurance provider picker — same bottom-sheet pattern as Add your Insurer. */}
+      <Modal visible={showProviderPicker} transparent animationType="slide">
+        <Pressable
+          style={{ flex: 1, backgroundColor: palette.overlay, justifyContent: "flex-end" }}
+          onPress={() => setShowProviderPicker(false)}
+        >
+          <Pressable
+            style={{
+              backgroundColor: palette.surface,
+              borderTopLeftRadius: 15,
+              borderTopRightRadius: 15,
+              paddingTop: spacing.lg,
+              paddingHorizontal: spacing.lg,
+              paddingBottom: insets.bottom + spacing.lg,
+              gap: spacing.md,
+              maxHeight: "70%",
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>
+                Select Insurance Provider
+              </Text>
+              <Pressable
+                onPress={() => setShowProviderPicker(false)}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
+                <Icon name="X" size={20} color={palette.textMuted} />
+              </Pressable>
+            </View>
+
+            {companies.length === 0 ? (
+              <View style={{ paddingVertical: spacing.xxl, alignItems: "center" }}>
+                <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
+                  Could not load insurance providers. Check your connection and try again.
+                </Text>
+              </View>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={{ gap: spacing.sm }}>
+                  {companies.map(({ companyName: name }) => (
+                    <Pressable
+                      key={name}
+                      onPress={() => {
+                        setInsuranceProvider(name);
+                        setShowProviderPicker(false);
+                      }}
+                      style={({ pressed }) => ({
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: spacing.md,
+                        padding: spacing.md,
+                        borderRadius: radii.lg,
+                        backgroundColor: pressed ? palette.homeBackground : palette.surface,
+                        borderWidth: 1.5,
+                        borderColor: insuranceProvider === name ? palette.brand : palette.border,
+                      })}
+                    >
+                      <Text style={{ ...typography.body, color: palette.text, flex: 1 }}>
+                        {name}
+                      </Text>
+                      {insuranceProvider === name && (
+                        <Icon name="CheckCircle" size={18} color={palette.brand} />
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Shown when redirected here from Home's Insurance button because required
           details were missing — names the specific fields still needed, in orange. */}
       <Modal visible={reminderVisible} transparent animationType="fade" onRequestClose={() => setReminderVisible(false)}>
@@ -512,7 +692,7 @@ export default function ManageVehiclesScreen() {
           <View
             style={{
               backgroundColor: palette.surface,
-              borderRadius: radii.xl,
+              borderRadius: 15,
               padding: spacing.xl,
               gap: spacing.lg,
               width: "100%",
@@ -591,7 +771,7 @@ export default function ManageVehiclesScreen() {
           <View
             style={{
               backgroundColor: palette.surface,
-              borderRadius: radii.xl,
+              borderRadius: 15,
               padding: spacing.xl,
               gap: spacing.lg,
               width: "100%",
@@ -679,7 +859,7 @@ export default function ManageVehiclesScreen() {
           <View
             style={{
               backgroundColor: palette.surface,
-              borderRadius: radii.xl,
+              borderRadius: 15,
               padding: spacing.xl,
               gap: spacing.lg,
               width: "100%",
@@ -751,6 +931,99 @@ export default function ManageVehiclesScreen() {
                 })}
               >
                 <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Switch</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Vehicle confirmation — same icon-circle popup style as the other
+          confirmations on this screen, replacing the native Alert.alert dialog for
+          visual consistency; danger-colored instead of brand since this is destructive. */}
+      <Modal visible={pendingDeleteVehicle != null} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: palette.overlay,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: spacing.xl,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: palette.surface,
+              borderRadius: 15,
+              padding: spacing.xl,
+              gap: spacing.lg,
+              width: "100%",
+              alignItems: "center",
+            }}
+          >
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: palette.brandSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="Trash2" size={32} color={palette.brand} />
+            </View>
+
+            <View style={{ gap: spacing.sm, alignItems: "center" }}>
+              <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
+                Delete Vehicle
+              </Text>
+              <Text
+                style={{
+                  ...typography.body,
+                  color: palette.textMuted,
+                  textAlign: "center",
+                  lineHeight: 22,
+                }}
+              >
+                {pendingDeleteVehicle
+                  ? `Remove ${pendingDeleteVehicle.nickname || `${pendingDeleteVehicle.make} ${pendingDeleteVehicle.model}`} (${pendingDeleteVehicle.plateNumber})?`
+                  : ""}
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: spacing.md, width: "100%" }}>
+              <Pressable
+                onPress={() => setPendingDeleteVehicle(null)}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  borderWidth: 1.5,
+                  borderColor: palette.border,
+                  backgroundColor: pressed ? palette.homeBackground : "transparent",
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  if (pendingDeleteVehicle) {
+                    removeVehicle(pendingDeleteVehicle._id);
+                  }
+                  setPendingDeleteVehicle(null);
+                }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: pressed ? palette.brandPressed : palette.brand,
+                })}
+              >
+                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Delete</Text>
               </Pressable>
             </View>
           </View>

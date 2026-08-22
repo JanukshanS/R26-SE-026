@@ -10,12 +10,15 @@ export interface VehicleInsurance {
   vehicleId: string;
   insuranceProvider?: string;
   insurancePolicyNumber?: string;
+  /** "YY/MM" format, e.g. "26/09" — validated in app/(onboarding)/add-insurer.tsx. */
+  insuranceExpireMonth?: string;
 }
 
 interface VehicleInsuranceRow {
   vehicle_id: string;
   insurance_provider: string | null;
   insurance_policy_number: string | null;
+  insurance_expire_month: string | null;
 }
 
 function mapVehicleInsurance(r: VehicleInsuranceRow): VehicleInsurance {
@@ -23,6 +26,7 @@ function mapVehicleInsurance(r: VehicleInsuranceRow): VehicleInsurance {
     vehicleId: r.vehicle_id,
     insuranceProvider: r.insurance_provider ?? undefined,
     insurancePolicyNumber: r.insurance_policy_number ?? undefined,
+    insuranceExpireMonth: r.insurance_expire_month ?? undefined,
   };
 }
 
@@ -57,6 +61,7 @@ export async function getVehicleInsurance(vehicleId: string): Promise<VehicleIns
 export interface VehicleInsuranceInput {
   insuranceProvider?: string;
   insurancePolicyNumber?: string;
+  insuranceExpireMonth?: string;
 }
 
 /** One row per vehicle — insert on first save, update on every save after. */
@@ -68,12 +73,14 @@ export async function upsertVehicleInsurance(
   if (data.insuranceProvider !== undefined) row.insurance_provider = data.insuranceProvider || null;
   if (data.insurancePolicyNumber !== undefined)
     row.insurance_policy_number = data.insurancePolicyNumber || null;
+  if (data.insuranceExpireMonth !== undefined)
+    row.insurance_expire_month = data.insuranceExpireMonth || null;
   const { data: result, error } = await supabase
     .from("vehicle_insurance")
     .upsert(row, { onConflict: "vehicle_id" })
     .select()
     .single();
-  if (error) throw new VehicleApiError(error.message);
+  if (error) throw new VehicleApiError(error.message, error.code);
   const mapped = mapVehicleInsurance(result as VehicleInsuranceRow);
   insuranceCache.set(vehicleId, mapped);
   return mapped;

@@ -52,10 +52,15 @@ function getImageSize(uri: string): Promise<{ width: number; height: number }> {
   });
 }
 
+// Was fetch(uri).then(r => r.blob()).size — loaded the entire image into a JS
+// Blob just to read its byte count. Called up to ~48 times per captured photo
+// (binary-search loop below), this piled up large in-memory allocations fast
+// enough to crash the app on some devices ("sometimes" — memory-pressure bugs
+// are inherently non-deterministic). FileSystem.getInfoAsync reads the size
+// from the filesystem directly, no file contents ever loaded into JS.
 async function localUriByteLength(uri: string): Promise<number> {
-  const res = await fetch(uri);
-  const blob = await res.blob();
-  return blob.size;
+  const info = await FileSystem.getInfoAsync(uri);
+  return info.exists && 'size' in info ? info.size : 0;
 }
 
 async function resizeOriginalToMaxEdge(
@@ -72,8 +77,15 @@ async function resizeOriginalToMaxEdge(
   const scale = maxEdgePx / maxDim;
   const width = Math.max(1, Math.round(w * scale));
   const height = Math.max(1, Math.round(h * scale));
+  // compress: 1 (max quality) here meant every attempt started by decoding the full-
+  // resolution original into a near-lossless re-encode — the single most memory-heavy
+  // step in this function, run up to 4x per photo (once per outer attempt). A detail-
+  // dense image (e.g. licence text) rarely needs that full pass since the binary search
+  // below is about to compress it down anyway — starting at a lower quality gets most
+  // photos under targetMaxBytes in fewer/no binary-search iterations, cutting both the
+  // number and peak memory of native manipulateAsync calls chained right after capture.
   const out = await manipulateAsync(sourceUri, [{ resize: { width, height } }], {
-    compress: 1,
+    compress: 0.6,
     format: SaveFormat.JPEG,
   });
   return { uri: out.uri, width: out.width, height: out.height };
@@ -87,6 +99,19 @@ async function reencodeJpegSameDimensions(
   const { manipulateAsync, SaveFormat } = manipulator;
   const out = await manipulateAsync(uri, [], { compress, format: SaveFormat.JPEG });
   return out.uri;
+}
+
+/** Discards a rejected intermediate JPEG from the binary-search loop below — never the
+ * original captured photo, which resizeOriginalToMaxEdge returns as-is (no copy) when no
+ * resize was needed. Without this, every rejected candidate stayed on disk for the rest
+ * of the session. */
+async function deleteTempIfNotSource(uri: string, sourceUri: string): Promise<void> {
+  if (uri === sourceUri) return;
+  try {
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+  } catch {
+    // best-effort
+  }
 }
 
 /**
@@ -133,17 +158,34 @@ export async function prepareImageForZeroDce(
         const candidate = await reencodeJpegSameDimensions(manipulator, resizedUri, mid);
         const candidateSize = await localUriByteLength(candidate);
         if (candidateSize <= targetMaxBytes) {
+          if (bestUri !== resizedUri) {
+            await deleteTempIfNotSource(bestUri, sourceUri);
+          }
           bestUri = candidate;
           bestSize = candidateSize;
           lo = mid;
         } else {
+          await deleteTempIfNotSource(candidate, sourceUri);
           hi = mid;
         }
       }
 
       if (bestSize <= targetMaxBytes) {
+        // bestUri won (a re-encoded candidate) — resizedUri (the compress-0.6 baseline
+        // it was re-encoded from) is now an orphaned temp file, never returned to the
+        // caller, so it must be cleaned up here too, not just on the failure paths below.
+        if (bestUri !== resizedUri) {
+          await deleteTempIfNotSource(resizedUri, sourceUri);
+        }
         return bestUri;
       }
+
+      // Neither this attempt's resize nor any re-encode hit the target — clean up
+      // before the next attempt resizes from scratch at a smaller edge.
+      if (bestUri !== resizedUri) {
+        await deleteTempIfNotSource(bestUri, sourceUri);
+      }
+      await deleteTempIfNotSource(resizedUri, sourceUri);
     }
 
     return sourceUri;

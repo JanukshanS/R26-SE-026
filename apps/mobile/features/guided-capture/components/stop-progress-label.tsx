@@ -21,12 +21,16 @@ type StopProgressLabelProps = {
 };
 
 /** "Stop N of M" pill, optionally with the current pose — shared by the pose-ready
- * and walk-to-next-stop screens so both use one progress-indicator system. */
+ * and walk-to-next-stop screens so both use one progress-indicator system. Once past
+ * the required stopCount (extra stops beyond the required set), "of M" is dropped —
+ * there's no fixed total to be "of" any more, so it just reads "Stop N". */
 export function StopProgressLabel({ stopIndex, stopCount, heightStep }: StopProgressLabelProps) {
+  const displayNumber = stopIndex + 1;
+  const isExtraStop = displayNumber > stopCount;
   return (
     <View style={styles.pill}>
       <Text style={styles.text}>
-        {`Stop ${stopIndex + 1} of ${stopCount}`}
+        {isExtraStop ? `Stop ${displayNumber}` : `Stop ${displayNumber} of ${stopCount}`}
         {heightStep ? ` • ${POSE_LABELS[heightStep]}` : ''}
       </Text>
     </View>
