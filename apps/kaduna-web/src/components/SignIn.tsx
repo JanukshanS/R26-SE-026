@@ -41,13 +41,26 @@ export default function SignIn() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    function startOneTap() {
+    async function startOneTap() {
+      // Google mints a nonce of its own under FedCM, and Supabase rejects a
+      // token whose nonce claim it wasn't told about ("Passed nonce and nonce
+      // in id_token should either both exist or not"). So supply our own on
+      // both sides: Google gets the SHA-256 hex digest, signInWithIdToken gets
+      // the raw value and hashes it to compare.
+      const nonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))));
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(nonce));
+      const hashedNonce = Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+
       window.google?.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
+        nonce: hashedNonce,
         callback: async (response: { credential: string }) => {
           const { error: idError } = await supabase.auth.signInWithIdToken({
             provider: "google",
             token: response.credential,
+            nonce,
           });
           if (idError) setError(idError.message);
         },
@@ -56,13 +69,13 @@ export default function SignIn() {
     }
 
     if (window.google) {
-      startOneTap();
+      void startOneTap();
       return;
     }
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
-    script.onload = startOneTap;
+    script.onload = () => void startOneTap();
     document.head.appendChild(script);
     return () => {
       script.onload = null;
