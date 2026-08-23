@@ -16,12 +16,17 @@ export default function PortalShell({
   title,
   tabs = [],
   active,
+  onBeforeSignOut,
   children,
 }: {
   title: string;
   tabs?: PortalTab[];
   /* Label, not href: the P1 tabs all point at the same placeholder route. */
   active?: string;
+  /** Runs before the session is destroyed — e.g. the provider console flips
+   *  its provider OFFLINE so a signed-out operator stops being dispatched.
+   *  Failures are swallowed: sign-out must never be blocked by it. */
+  onBeforeSignOut?: () => Promise<void>;
   children: React.ReactNode;
 }) {
   const { session } = useAuth();
@@ -42,7 +47,10 @@ export default function PortalShell({
             </span>
             <button
               type="button"
-              onClick={() => supabase.auth.signOut()}
+              onClick={async () => {
+                await onBeforeSignOut?.().catch(() => {});
+                await supabase.auth.signOut();
+              }}
               className="rounded-md border border-input px-3 py-1.5 font-medium hover:bg-accent"
             >
               Sign out
