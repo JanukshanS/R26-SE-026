@@ -6,13 +6,8 @@
  *   PULL_ONE_SIDE → caliper or hose issue
  *   SOFT_PEDAL    → hydraulic failure — DO NOT DRIVE
  */
-import { Text } from "react-native";
-import { router } from "expo-router";
-import { Button } from "@components/ui/button";
-import { HeaderBar } from "@components/ui/header-bar";
 import { OptionCard } from "@components/ui/option-card";
-import { Screen } from "@components/ui/screen";
-import { palette, typography } from "@theme/index";
+import { QuestionScreen } from "@components/ui/question-screen";
 import { useEmergency, type BrakeDetailChoice } from "@lib/emergencyContext";
 
 const OPTIONS: { value: NonNullable<BrakeDetailChoice>; title: string; description: string; tone?: "warning" | "danger" }[] = [
@@ -26,32 +21,22 @@ export default function BrakeDetailScreen() {
   const { brakeDetail, setBrakeDetail } = useEmergency();
 
   return (
-    <Screen
-      footer={
-        <Button
-          title="Next Step"
-          disabled={!brakeDetail}
-          onPress={() => router.push("/(emergency)/diagnosis-lights")}
-        />
-      }
+    <QuestionScreen
+      route="brake-detail"
+      prompt={"What's the brake doing?"}
+      canNext={!!brakeDetail}
     >
-      <HeaderBar />
-      <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Process</Text>
-      <Text style={{ ...typography.body, color: palette.textMuted }}>
-        What&apos;s the brake doing?
-      </Text>
-
       {OPTIONS.map((o) => (
         <OptionCard
           key={o.value}
           title={o.title}
           description={o.description}
-          badge={o.tone ? "⚠" : undefined}
+          accent={o.tone}
           badgeTone={o.tone}
           selected={brakeDetail === o.value}
           onPress={() => setBrakeDetail(o.value)}
         />
       ))}
-    </Screen>
+    </QuestionScreen>
   );
 }

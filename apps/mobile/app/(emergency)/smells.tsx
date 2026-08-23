@@ -1,10 +1,5 @@
-import { Text } from "react-native";
-import { router } from "expo-router";
-import { Button } from "@components/ui/button";
-import { HeaderBar } from "@components/ui/header-bar";
 import { OptionCard } from "@components/ui/option-card";
-import { Screen } from "@components/ui/screen";
-import { palette, typography } from "@theme/index";
+import { QuestionScreen } from "@components/ui/question-screen";
 import { useEmergency, type SmellChoice } from "@lib/emergencyContext";
 
 const OPTIONS: { value: NonNullable<SmellChoice>; title: string; description: string; tone?: "danger" | "warning" }[] = [
@@ -20,32 +15,22 @@ export default function SmellsScreen() {
   const { smells, setSmells } = useEmergency();
 
   return (
-    <Screen
-      footer={
-        <Button
-          title="Next Step"
-          disabled={!smells}
-          onPress={() => router.push("/(emergency)/recent")}
-        />
-      }
+    <QuestionScreen
+      route="smells"
+      prompt={"Do you notice any unusual smells?"}
+      canNext={!!smells}
     >
-      <HeaderBar />
-      <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Process</Text>
-      <Text style={{ ...typography.body, color: palette.textMuted }}>
-        Do you notice any unusual smells?
-      </Text>
-
       {OPTIONS.map((o) => (
         <OptionCard
           key={o.value}
           title={o.title}
           description={o.description}
-          badge={o.tone ? "⚠" : undefined}
+          accent={o.tone}
           badgeTone={o.tone}
           selected={smells === o.value}
           onPress={() => setSmells(o.value)}
         />
       ))}
-    </Screen>
+    </QuestionScreen>
   );
 }

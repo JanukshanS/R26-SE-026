@@ -4,8 +4,15 @@
  * adaptive questionnaire entirely; sets Q1_intent directly and runs the full
  * pipeline (incident → triage fast-path → dispatch) in one go.
  *
+ * Also the destination of the questionnaire's "Skip — send help now" button.
+ * Called with no `intent` param it files whatever the driver has answered so
+ * far instead of a fast-path payload: buildTriageResponses() already defaults
+ * every unanswered field, and dispatch's validators carry no cross-field rules,
+ * so a partial payload is valid on every branch.
+ *
  * Route params:
- *   intent      — Q1FastIntent value (FLAT_TIRE, FUEL_EMPTY, LOCKOUT, ...)
+ *   intent      — Q1FastIntent value (FLAT_TIRE, FUEL_EMPTY, LOCKOUT, ...).
+ *                 Absent when the driver skipped out of the questionnaire.
  *   label       — Human-readable label for the loading screen ("Flat tire")
  */
 
@@ -52,8 +59,12 @@ export default function QuickDispatchScreen() {
   const { intent, label } = useLocalSearchParams<{ intent: string; label: string }>();
   const {
     setIncidentId, setTriageResult, setDispatchResult, setError,
-    dispatchResult, error,
+    dispatchResult, error, incidentId, buildTriageResponses,
   } = useEmergency();
+
+  // No intent param means the driver bailed out of the questionnaire rather
+  // than tapping a fast-path tile.
+  const skipped = !intent;
 
   // The pipeline keeps running if the user leaves via back/home mid-flight;
   // without this the continuation yanks them back onto the connected screen,
@@ -62,12 +73,20 @@ export default function QuickDispatchScreen() {
 
   // What this attempt already filed, so "Try again" after a failure at triage
   // or dispatch resumes instead of filing a second incident for the same job.
-  const incidentIdRef = useRef<string | null>(null);
+  // Seeded from context: the questionnaire files the incident at the warning-
+  // lights step, so a driver who skips after that already has one. Filing a
+  // second would orphan the first.
+  const incidentIdRef = useRef<string | null>(incidentId);
   const triageDoneRef = useRef(false);
   const inFlightRef = useRef(false);
 
+  // Snapshot the answers once. buildTriageResponses' identity changes as the
+  // pipeline writes incidentId / triageResult back into context, and this
+  // screen must not restart itself when that happens.
+  const responsesRef = useRef(skipped ? buildTriageResponses() : null);
+
   const runDispatchFlow = useCallback(async () => {
-    if (!intent || inFlightRef.current) return;
+    if (inFlightRef.current) return;
     inFlightRef.current = true;
     setError(null);
     try {
@@ -77,7 +96,9 @@ export default function QuickDispatchScreen() {
         const incident = await createIncident({
           location:    { latitude: driver.latitude, longitude: driver.longitude },
           vehicleInfo: DEMO_VEHICLE,
-          description: `Quick-dispatch from home: ${label ?? intent}`,
+          description: skipped
+            ? "Roadside assistance requested via mobile app (questions skipped)"
+            : `Quick-dispatch from home: ${label ?? intent}`,
         });
         id = incident.id;
         incidentIdRef.current = id;
@@ -87,7 +108,7 @@ export default function QuickDispatchScreen() {
       if (!triageDoneRef.current) {
         const triage = await submitTriage({
           incidentId: id,
-          responses: {
+          responses: responsesRef.current ?? {
             Q1_intent: intent,
             ...buildFastPathDefaults(),
           },
@@ -114,7 +135,7 @@ export default function QuickDispatchScreen() {
     } finally {
       inFlightRef.current = false;
     }
-  }, [intent, label, setIncidentId, setTriageResult, setDispatchResult, setError]);
+  }, [intent, label, skipped, setIncidentId, setTriageResult, setDispatchResult, setError]);
 
   useEffect(() => {
     mounted.current = true;
@@ -131,8 +152,16 @@ export default function QuickDispatchScreen() {
   return (
     <Screen>
       <HeaderBar />
-      <Text style={{ ...typography.h1, color: palette.text }}>
-        {label ? `Getting ${label.toLowerCase()}...` : "Dispatching..."}
+      {/* One headline for both entries. Interpolating the tile label into the
+          title read badly for half the tiles ("Getting lost my key..."), so the
+          label sits underneath as its own line instead. */}
+      <Text style={{ ...typography.h1, color: palette.text }}>Sending help...</Text>
+      <Text style={{ ...typography.body, color: palette.textMuted }}>
+        {skipped
+          ? "We're using the answers you gave. You can add the rest once someone is on the way."
+          : label
+            ? `${label} — finding the nearest provider.`
+            : "Finding the nearest provider."}
       </Text>
 
       {error ? (

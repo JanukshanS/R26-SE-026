@@ -1,9 +1,6 @@
 import { Pressable, Text, View } from "react-native";
-import { router } from "expo-router";
-import { Button } from "@components/ui/button";
-import { HeaderBar } from "@components/ui/header-bar";
 import { Icon } from "@components/ui/icon";
-import { Screen } from "@components/ui/screen";
+import { QuestionScreen } from "@components/ui/question-screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useEmergency, type RecentSign } from "@lib/emergencyContext";
 
@@ -21,23 +18,12 @@ export default function RecentScreen() {
   const { recentSigns, toggleRecentSign } = useEmergency();
 
   return (
-    <Screen
-      footer={
-        <Button
-          title="Next Step"
-          disabled={recentSigns.size === 0}
-          onPress={() => router.push("/(emergency)/context")}
-        />
-      }
+    <QuestionScreen
+      route="recent"
+      prompt="Any warning signs in the past few days?"
+      hint="Tap all that apply."
+      canNext={recentSigns.size > 0}
     >
-      <HeaderBar />
-      <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Process</Text>
-      <Text style={{ ...typography.body, color: palette.textMuted }}>
-        Any warning signs in the past few days?
-      </Text>
-      <Text style={{ ...typography.caption, color: palette.textMuted }}>
-        Tap all that apply.
-      </Text>
 
       {OPTIONS.map((o) => {
         const active = recentSigns.has(o.value);
@@ -76,6 +62,6 @@ export default function RecentScreen() {
           </Pressable>
         );
       })}
-    </Screen>
+    </QuestionScreen>
   );
 }

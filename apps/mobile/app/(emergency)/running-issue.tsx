@@ -3,13 +3,8 @@
  * STARTS_BUT_ISSUE. The answer routes into one of three deep-dive screens
  * (overheat / noise / smoke) or skips straight to lights for NO_POWER/STALLING.
  */
-import { Text } from "react-native";
-import { router } from "expo-router";
-import { Button } from "@components/ui/button";
-import { HeaderBar } from "@components/ui/header-bar";
 import { OptionCard } from "@components/ui/option-card";
-import { Screen } from "@components/ui/screen";
-import { palette, typography } from "@theme/index";
+import { QuestionScreen } from "@components/ui/question-screen";
 import { useEmergency, type RunningIssueChoice } from "@lib/emergencyContext";
 
 const OPTIONS: { value: NonNullable<RunningIssueChoice>; title: string; description: string }[] = [
@@ -23,23 +18,13 @@ const OPTIONS: { value: NonNullable<RunningIssueChoice>; title: string; descript
 export default function RunningIssueScreen() {
   const { runningIssue, setRunningIssue } = useEmergency();
 
-  function handleNext() {
-    if (!runningIssue) return;
-    if (runningIssue === "OVERHEATING") router.push("/(emergency)/overheat-detail");
-    else if (runningIssue === "NOISE")  router.push("/(emergency)/noise-detail");
-    else if (runningIssue === "SMOKE")  router.push("/(emergency)/smoke-color");
-    // NO_POWER / STALLING — no further detail screen; head to dashboard lights.
-    else router.push("/(emergency)/diagnosis-lights");
-  }
 
   return (
-    <Screen footer={<Button title="Next Step" disabled={!runningIssue} onPress={handleNext} />}>
-      <HeaderBar />
-      <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Process</Text>
-      <Text style={{ ...typography.body, color: palette.textMuted }}>
-        What&apos;s the main problem while the engine runs?
-      </Text>
-
+    <QuestionScreen
+      route="running-issue"
+      prompt={"What's the main problem while the engine runs?"}
+      canNext={!!runningIssue}
+    >
       {OPTIONS.map((o) => (
         <OptionCard
           key={o.value}
@@ -49,6 +34,6 @@ export default function RunningIssueScreen() {
           onPress={() => setRunningIssue(o.value)}
         />
       ))}
-    </Screen>
+    </QuestionScreen>
   );
 }
