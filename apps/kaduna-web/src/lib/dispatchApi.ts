@@ -109,6 +109,102 @@ export async function getProvider(providerId: string): Promise<ProviderRecord> {
   return request(`/api/v1/providers/${providerId}`);
 }
 
+// ─── Reporting a breakdown (/report) ─────────────────────────────────────
+
+export interface VehicleInfo {
+  make?: string;
+  model?: string;
+  year?: number;
+  fuelType?: "PETROL" | "DIESEL" | "HYBRID" | "ELECTRIC";
+  /** Copied to the incident's `registrationNo` — the only link back to a
+   *  driver, so listMyIncidents on /app matches on it. */
+  registrationNumber?: string;
+  hasOBD?: boolean;
+}
+
+export async function createIncident(input: {
+  location: { latitude: number; longitude: number };
+  vehicleInfo?: VehicleInfo;
+  description?: string;
+}): Promise<Incident> {
+  return request<Incident>("/api/v1/incidents", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export interface TriageResult {
+  probabilities: Record<string, number>;
+  predictedServiceType: ServiceType;
+  confidence: number;
+  tier: "QUESTIONNAIRE_ONLY" | "OBD_ENHANCED" | "BAYESIAN_LEARNED";
+  entropy: number;
+  obdDataUsed: boolean;
+  bayesianPriorsApplied: boolean;
+}
+
+/** `obdData` is omitted entirely: the browser has no ELM327 bridge, and the
+ *  backend's submitTriageSchema marks the field optional (Tier-1 diagnosis). */
+export async function submitTriage(input: {
+  incidentId: string;
+  responses: Record<string, unknown>;
+}): Promise<{ triageRecordId: string | null; result: TriageResult; message: string }> {
+  return request("/api/v1/triage/submit", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export interface DispatchResultData {
+  incidentId: string;
+  selectedProvider: {
+    id: string;
+    name: string;
+    type: ProviderType;
+    expectedCost: number;
+    mismatchRisk: number;
+    estimatedTravelTimeMin: number;
+  };
+  allRankedProviders: Array<{
+    rank: number;
+    providerId: string;
+    name: string;
+    type: ProviderType;
+    travelTimeMin: number;
+  }>;
+  metadata: {
+    computationTimeMs: number;
+    trafficImpactScore: number;
+    providersEvaluated: number;
+    triageTier: string;
+    triageConfidence: number;
+  };
+  message: string;
+}
+
+/** `trafficImpactScore` is deliberately omitted — dispatch sources it live
+ *  from geo-intelligence, exactly as the mobile screens leave it. */
+export async function runDispatch(input: {
+  incidentId: string;
+  maxProviders?: number;
+}): Promise<DispatchResultData> {
+  return request("/api/v1/dispatch/optimize", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function providerTypeLabel(pt: ProviderType): string {
+  const labels: Record<ProviderType, string> = {
+    MOBILE_MECHANIC: "Mobile Mechanic",
+    FUEL_DELIVERY: "Fuel Delivery",
+    LOCKSMITH: "Locksmith",
+    TOW_LIGHT: "Tow Truck (Light)",
+    TOW_HEAVY: "Tow Truck (Heavy)",
+  };
+  return labels[pt] ?? pt;
+}
+
 /** Every registered provider. Signed-in-only backend-side, no ownership check. */
 export async function listProviders(
   limit = 100

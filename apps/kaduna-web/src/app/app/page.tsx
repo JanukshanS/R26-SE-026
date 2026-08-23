@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 
 import PortalShell, { EmptyCard } from "@/components/portal/PortalShell";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -365,6 +366,16 @@ function DriverPortal() {
     <PortalShell title="My Kaduna" tabs={TABS} active={tab}>
       {tab === "Overview" && (
         <div className="space-y-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h2 className="font-display text-xl font-semibold tracking-tight">Overview</h2>
+            <Link
+              href="/report"
+              className="rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+            >
+              Report a breakdown
+            </Link>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-3">
             <StatCard label="Vehicles" value={vehicles?.length ?? null} />
             <StatCard label="Open incidents" value={incidents ? openIncidents.length : null} />
