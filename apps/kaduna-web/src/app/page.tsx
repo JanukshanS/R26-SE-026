@@ -151,6 +151,12 @@ export default function LandingPage() {
             >
               Technology
             </a>
+            <Link
+              href="/dashboard"
+              className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+            >
+              Dashboard
+            </Link>
             <Button asChild size="sm" className="ml-2">
               <a href="#download">Get the app</a>
             </Button>
