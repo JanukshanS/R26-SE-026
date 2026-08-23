@@ -59,19 +59,25 @@ export default function PortalShell({
 
           {tabs.length > 0 && (
             <nav className="-mb-4 flex w-full gap-1 overflow-x-auto">
-              {tabs.map((t) => (
-                <Link
-                  key={t.label}
-                  href={t.href}
-                  className={`border-b-2 px-3 py-2 text-sm ${
-                    t.label === active
-                      ? "border-primary font-medium text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {t.label}
-                </Link>
-              ))}
+              {tabs.map((t) => {
+                const className = `border-b-2 px-3 py-2 text-sm ${
+                  t.label === active
+                    ? "border-primary font-medium text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`;
+                // A plain anchor for in-page hashes: next/link routes them through
+                // history.pushState, which never fires `hashchange`, so a page that
+                // keeps its tab state in the fragment would never hear about it.
+                return t.href.startsWith("#") ? (
+                  <a key={t.label} href={t.href} className={className}>
+                    {t.label}
+                  </a>
+                ) : (
+                  <Link key={t.label} href={t.href} className={className}>
+                    {t.label}
+                  </Link>
+                );
+              })}
             </nav>
           )}
         </div>

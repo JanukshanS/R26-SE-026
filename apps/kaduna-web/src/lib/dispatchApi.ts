@@ -41,6 +41,7 @@ export interface Incident {
   vehicleMake?: string;
   vehicleModel?: string;
   vehicleYear?: number;
+  registrationNo?: string | null;
   description?: string | null;
   assignedProviderId?: string | null;
   createdAt: string;
@@ -147,6 +148,36 @@ export async function listAssignedIncidents(
   if (opts?.limit !== undefined) params.set("limit", String(opts.limit));
   if (opts?.offset !== undefined) params.set("offset", String(opts.offset));
   return request(`/api/v1/incidents?${params.toString()}`);
+}
+
+/** Incident statuses that will never change again — polling stops on these. */
+export const TERMINAL_INCIDENT_STATUSES = ["RESOLVED", "ESCALATED", "CANCELLED"];
+
+/** Plates are typed by hand in several places; compare them shape-insensitively. */
+function plateKey(plate: string): string {
+  return plate.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+/**
+ * The signed-in driver's own incidents, newest first.
+ *
+ * The dispatch Incident model has NO user or driver column — the only link back
+ * to a person is `registrationNo`, which incident creation copies from the
+ * reporting vehicle. So this reads the (unscoped, signed-in-only) listing and
+ * keeps the rows whose registration matches one of the caller's own plates.
+ * `limit` is deliberately generous: the filter runs client-side, so a small page
+ * would hide the driver's incidents behind other people's newer ones.
+ */
+export async function listMyIncidents(
+  plates: string[],
+  limit = 100
+): Promise<AssignedIncident[]> {
+  if (plates.length === 0) return [];
+  const mine = new Set(plates.map(plateKey));
+  const page = await request<{ incidents: AssignedIncident[] }>(
+    `/api/v1/incidents?limit=${limit}`
+  );
+  return page.incidents.filter((i) => i.registrationNo && mine.has(plateKey(i.registrationNo)));
 }
 
 /** Accepting is idempotent backend-side, so a failed accept is safe to retry. */
