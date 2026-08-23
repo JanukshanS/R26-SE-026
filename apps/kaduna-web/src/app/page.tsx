@@ -1,14 +1,19 @@
 import Link from "next/link";
+import {
+  BatteryCharging,
+  Camera,
+  Download,
+  Fuel,
+  Truck,
+  Wrench,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import hotspots from "../../public/data/hotspots.json";
-import stats from "../../public/data/stats.json";
 
 /* Static data imported from public/data at build time — fetch() with a
    relative URL is not available inside a server component. */
 
-const byHour = stats.byHour as Record<string, number>;
-
-/* ── Scatter projection (equirectangular, Colombo core frame) ── */
+/* ── Hotspot map projection (equirectangular, Colombo core frame) ── */
 const FRAME = { lngMin: 79.83, lngMax: 80.05, latMin: 6.73, latMax: 6.97 };
 const W = 640;
 const H = Math.round(
@@ -26,8 +31,7 @@ const inFrame = (h: { lat: number; lng: number }) =>
   h.lat >= FRAME.latMin && h.lat <= FRAME.latMax;
 
 const framed = hotspots.filter(inFrame);
-const offFrame = hotspots.length - framed.length;
-const ranked = [...hotspots].sort((a, b) => b.risk - a.risk);
+const ranked = [...hotspots].sort((a, b) => b.avgScore - a.avgScore);
 const top5 = ranked.slice(0, 5);
 const rankOf = new Map(ranked.map((h, i) => [h.id, i + 1]));
 
@@ -43,156 +47,219 @@ const scoreColor = (s: number) =>
 const label = (s: string) => s.replace(/_/g, " ");
 const hh = (h: number) => `${String(h).padStart(2, "0")}:00`;
 
-/* 5-factor worked example. Weights and the 3.9 MEDIUM output are the model's
-   real values; the per-factor sub-scores are illustrative and reconstruct the
-   total exactly: Σ(weight × factor) = 3.90. */
-const factors = [
-  { name: "capacity_loss", weight: 0.25, value: 4.8 },
-  { name: "traffic_volume", weight: 0.25, value: 4.4 },
-  { name: "temporal", weight: 0.2, value: 3.5 },
-  { name: "location", weight: 0.15, value: 4.0 },
-  { name: "incident_severity", weight: 0.15, value: 2.0 },
-];
-
-const hours = Array.from({ length: 24 }, (_, h) => ({
-  h,
-  v: byHour[String(h)] ?? 0,
-}));
-const peak = hours.reduce((a, b) => (b.v > a.v ? b : a));
-
-const gridLngs = [79.85, 79.9, 79.95, 80.0, 80.05];
+const gridLngs = [79.85, 79.9, 79.95, 80.0];
 const gridLats = [6.75, 6.8, 6.85, 6.9, 6.95];
+
+const APK = "/downloads/kaduna-beta.apk";
+
+const services = [
+  {
+    icon: Truck,
+    name: "Towing",
+    desc: "For when the car isn't going anywhere on its own.",
+  },
+  {
+    icon: Wrench,
+    name: "Mechanic on-site",
+    desc: "Common faults fixed at the roadside, not the garage.",
+  },
+  {
+    icon: BatteryCharging,
+    name: "Battery jumpstart",
+    desc: "A dead battery brought back in minutes.",
+  },
+  {
+    icon: Fuel,
+    name: "Fuel delivery",
+    desc: "Petrol or diesel, carried to where you ran dry.",
+  },
+  {
+    icon: Camera,
+    name: "Claim photos",
+    desc: "Guided capture, so your insurer gets it right the first time.",
+  },
+];
 
 const steps = [
   {
     n: "1",
-    title: "Report the breakdown",
-    body: "A stranded driver opens the app. Location comes from the phone; the symptom questionnaire and OBD telemetry, when a dongle is plugged in, come along with it.",
+    title: "Tell us what happened",
+    body: "A few guided questions about what you're seeing and hearing. If your car's telemetry is plugged in, the app reads that too.",
   },
   {
     n: "2",
-    title: "Adaptive triage classifies it",
-    body: "Answers and telemetry narrow the fault to a service type — tow, mechanic, battery, or fuel — so the request goes out already knowing what kind of help it needs.",
+    title: "We identify the problem",
+    body: "Before anyone is dispatched, the app narrows down the fault — a battery that won't hold, a tank that's dry, damage that needs a tow.",
   },
   {
     n: "3",
-    title: "The right provider responds",
-    body: "Dispatch matches the classified request to a nearby provider of that type, while geo-intelligence scores the incident's traffic impact for the ops view.",
+    title: "The right specialist heads your way",
+    body: "Not just the nearest help — the right kind, already briefed on your car and your situation before they start driving.",
   },
 ];
 
-const services = [
+const providerPoints = [
   {
-    name: "Dispatch",
-    desc: "Symptom-and-telemetry triage classifies the fault, then matches the request to an available provider of the right service type.",
+    title: "Jobs matched to your skill",
+    body: "A battery call goes to someone carrying a jump kit, not whoever happens to be closest. You get work you can actually finish.",
   },
   {
-    name: "Geo-Intelligence",
-    desc: "Scores every incident's traffic impact on a 1–10 scale from five weighted factors, and clusters Colombo's history into 25 hotspots.",
+    title: "You set your hours",
+    body: "Go on and off shift from the app. Take the jobs that fit your day.",
   },
   {
-    name: "Predictive Maintenance",
-    desc: "Reads OBD trip data to track component health and estimate remaining useful life — a warning before the breakdown, not after it.",
+    title: "Every job arrives triaged",
+    body: "You see what the breakdown is before you accept — no more driving out blind to “car won't start.”",
   },
-  {
-    name: "Claims Capture",
-    desc: "Guides the driver through photographing the scene so the evidence an insurer needs is captured correctly the first time.",
-  },
+];
+
+const scoreBands = [
+  { name: "Low", range: "1–3", color: "var(--priority-low)" },
+  { name: "Medium", range: "4–5", color: "var(--priority-medium)" },
+  { name: "High", range: "6–7", color: "var(--priority-high)" },
+  { name: "Critical", range: "8–10", color: "var(--priority-critical)" },
 ];
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground [--radius:0.9rem]">
       {/* ── Header ── */}
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <Link href="/" className="text-lg font-semibold tracking-tight">
-          Kaduna<span style={{ color: "var(--priority-high)" }}>.lk</span>
-        </Link>
-        <nav className="flex items-center gap-2">
-          <a
-            href="#how"
-            className="hidden px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground sm:block"
+      <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+          <Link
+            href="/"
+            className="font-display text-xl font-bold tracking-tight"
           >
-            How it works
-          </a>
-          <a
-            href="#intelligence"
-            className="hidden px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground sm:block"
-          >
-            Intelligence
-          </a>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/dashboard">Live Dashboard</Link>
-          </Button>
-        </nav>
+            Kaduna<span className="text-primary">.lk</span>
+          </Link>
+          <nav className="flex items-center gap-1 sm:gap-2">
+            <a
+              href="#how"
+              className="hidden px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground sm:block"
+            >
+              How it works
+            </a>
+            <a
+              href="#providers"
+              className="hidden px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground sm:block"
+            >
+              For providers
+            </a>
+            <a
+              href="#technology"
+              className="hidden px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground sm:block"
+            >
+              Technology
+            </a>
+            <Button asChild size="sm" className="ml-2">
+              <a href="#download">Get the app</a>
+            </Button>
+          </nav>
+        </div>
       </header>
 
       {/* ── Hero ── */}
-      <section className="mx-auto max-w-6xl px-6 pt-16 pb-20 sm:pt-24">
-        <p className="font-mono text-xs tracking-[0.25em] text-muted-foreground uppercase">
-          Colombo · Sri Lanka
-        </p>
-        <h1 className="mt-6 max-w-3xl text-5xl font-semibold tracking-[-0.03em] text-balance sm:text-7xl">
-          Roadside assistance,{" "}
-          <span style={{ color: "var(--priority-high)" }}>
-            intelligently dispatched.
-          </span>
-        </h1>
-        <p className="mt-6 max-w-xl text-lg text-muted-foreground">
-          Kaduna.lk connects stranded drivers with tow trucks, mechanics,
-          battery and fuel providers across Colombo — and understands each
-          breakdown before help is sent: what went wrong, how urgent it is, and
-          what it does to the traffic around it.
-        </p>
-        <div className="mt-8 flex flex-wrap items-center gap-3">
-          <Button asChild size="lg">
-            <Link href="/dashboard">Open Live Dashboard</Link>
-          </Button>
-          <Button asChild variant="ghost" size="lg">
-            <a href="#how">How it works ↓</a>
-          </Button>
+      <section className="relative overflow-hidden">
+        <svg
+          viewBox="0 0 520 560"
+          aria-hidden="true"
+          className="pointer-events-none absolute top-0 -right-16 hidden h-full w-auto lg:block"
+        >
+          <path
+            d="M60 600 C 150 440, 60 340, 200 265 S 420 185, 450 110"
+            fill="none"
+            stroke="var(--foreground)"
+            strokeOpacity="0.07"
+            strokeWidth="52"
+            strokeLinecap="round"
+          />
+          <path
+            d="M60 600 C 150 440, 60 340, 200 265 S 420 185, 450 110"
+            fill="none"
+            stroke="var(--primary)"
+            strokeOpacity="0.55"
+            strokeWidth="3.5"
+            strokeDasharray="16 20"
+          />
+          <circle cx="450" cy="110" r="13" fill="var(--primary)" />
+          <circle cx="450" cy="110" r="4.5" fill="var(--primary-foreground)" />
+        </svg>
+
+        <div className="relative mx-auto max-w-6xl px-6 pt-20 pb-24 sm:pt-28">
+          <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
+            Roadside assistance · Colombo
+          </p>
+          <h1 className="font-display mt-6 max-w-3xl text-5xl leading-[1.02] font-bold tracking-[-0.02em] text-balance sm:text-7xl">
+            Stranded? Help that already knows{" "}
+            <span className="text-primary">what&apos;s wrong.</span>
+          </h1>
+          <p className="mt-7 max-w-xl text-lg leading-relaxed text-muted-foreground">
+            Kaduna.lk connects stranded drivers across Colombo with tow trucks,
+            on-site mechanics, battery jumpstarts and fuel delivery — and works
+            out the fault before anyone is sent, so the help that arrives is
+            the help you need.
+          </p>
+          <div className="mt-10 flex flex-wrap items-center gap-4">
+            <Button asChild size="lg" className="h-12 px-6 text-base">
+              <a href={APK} download>
+                <Download data-icon="inline-start" />
+                Download for Android (beta)
+              </a>
+            </Button>
+            <Button
+              asChild
+              variant="ghost"
+              size="lg"
+              className="h-12 px-5 text-base"
+            >
+              <a href="#how">How it works ↓</a>
+            </Button>
+          </div>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Android 10+ · ~58 MB · free
+          </p>
         </div>
-        <dl className="mt-14 grid max-w-2xl grid-cols-2 gap-x-8 gap-y-6 border-t border-border pt-6 font-mono text-sm sm:grid-cols-4">
-          {[
-            [`${stats.totalIncidents}`, "incidents scored*"],
-            [`${hotspots.length}`, "hotspot clusters"],
-            ["5-factor", "impact model"],
-            [hh(peak.h), `peak hour · avg ${peak.v.toFixed(1)}`],
-          ].map(([v, k]) => (
-            <div key={k}>
-              <dt className="sr-only">{k}</dt>
-              <dd className="text-2xl text-foreground">{v}</dd>
-              <dd className="mt-1 text-xs text-muted-foreground">{k}</dd>
-            </div>
-          ))}
-        </dl>
-        <p className="mt-4 font-mono text-xs text-muted-foreground/70">
-          *synthetic incident set generated on real Colombo OSM road geometry
-        </p>
+      </section>
+
+      {/* ── Services ── */}
+      <section className="border-y border-border bg-secondary/60">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <h2 className="font-display max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">
+            Whatever stopped you, someone&apos;s coming.
+          </h2>
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {services.map((s) => (
+              <div
+                key={s.name}
+                className="rounded-xl border border-border bg-card p-5"
+              >
+                <s.icon className="size-6 text-primary" aria-hidden="true" />
+                <h3 className="mt-4 font-semibold">{s.name}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                  {s.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* ── How it works ── */}
-      <section id="how" className="border-y border-border bg-card/40">
-        <div className="mx-auto max-w-6xl px-6 py-20">
-          <p className="font-mono text-xs tracking-[0.25em] text-muted-foreground uppercase">
+      <section id="how" className="scroll-mt-16">
+        <div className="mx-auto max-w-6xl px-6 py-24">
+          <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
             How it works
           </p>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
-            From breakdown to the right help
+          <h2 className="font-display mt-4 max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">
+            Three steps between stranded and sorted.
           </h2>
-          <ol className="mt-12 grid gap-10 sm:grid-cols-3">
+          <ol className="mt-14 grid gap-12 sm:grid-cols-3">
             {steps.map((s) => (
               <li key={s.n}>
-                <div
-                  className="flex size-8 items-center justify-center rounded-full font-mono text-sm"
-                  style={{
-                    color: "var(--priority-high)",
-                    border: "1px solid var(--priority-high)",
-                  }}
-                >
+                <span className="font-display flex size-10 items-center justify-center rounded-full border-2 border-primary text-lg font-bold text-primary">
                   {s.n}
-                </div>
-                <h3 className="mt-4 text-lg font-medium">{s.title}</h3>
+                </span>
+                <h3 className="mt-5 text-lg font-semibold">{s.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   {s.body}
                 </p>
@@ -202,279 +269,259 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Intelligence showcase ── */}
-      <section id="intelligence" className="mx-auto max-w-6xl px-6 py-20">
-        <p className="font-mono text-xs tracking-[0.25em] text-muted-foreground uppercase">
-          Geo-Intelligence
-        </p>
-        <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
-          The platform sees the city.
-        </h2>
-        <p className="mt-4 max-w-2xl text-muted-foreground">
-          Every incident gets a 1–10 traffic-impact score, and the history
-          clusters into hotspots. The result is severity triage and hotspot
-          awareness for the ops team — the data below is the model&apos;s
-          actual output on the modelled incident set.
-        </p>
+      {/* ── Technology (the one dark band) ── */}
+      <section
+        id="technology"
+        className="dark scroll-mt-16 bg-background text-foreground"
+      >
+        <div className="mx-auto max-w-6xl px-6 py-24">
+          <p
+            className="text-sm font-medium tracking-[0.18em] uppercase"
+            style={{ color: "var(--priority-high)" }}
+          >
+            The technology
+          </p>
+          <h2 className="font-display mt-4 max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">
+            Built on a live model of Colombo&apos;s roads.
+          </h2>
+          <p className="mt-5 max-w-2xl leading-relaxed text-muted-foreground">
+            The platform continuously scores each incident&apos;s impact on the
+            traffic around it and maps where trouble clusters across the city.
+            Urgent situations get urgency, and providers are positioned where
+            breakdowns actually happen.
+          </p>
 
-        <div className="mt-12 grid gap-10 lg:grid-cols-[1.2fr_1fr]">
-          {/* Scatter */}
-          <figure className="rounded-lg border border-border bg-card p-4">
-            <svg
-              viewBox={`0 0 ${W} ${H}`}
-              role="img"
-              aria-label={`Scatter plot of ${framed.length} incident hotspot clusters across Colombo, drawn to geographic scale and colored by average impact score`}
-              className="w-full"
-            >
-              {gridLngs.map((g) => (
-                <g key={`lng${g}`}>
+          <div className="mt-14 grid gap-10 lg:grid-cols-[1.25fr_1fr]">
+            {/* Hotspot map */}
+            <figure className="rounded-xl border border-border bg-card p-4">
+              <svg
+                viewBox={`0 0 ${W} ${H}`}
+                role="img"
+                aria-label={`Map of ${hotspots.length} breakdown hotspot clusters across Colombo, drawn to geographic scale and colored by impact`}
+                className="w-full"
+              >
+                {gridLngs.map((g) => (
                   <line
+                    key={`lng${g}`}
                     x1={px(g)}
                     y1={0}
                     x2={px(g)}
                     y2={H}
                     stroke="var(--border)"
                   />
-                  <text
-                    x={px(g) + 4}
-                    y={H - 6}
-                    fontSize="10"
-                    fill="var(--muted-foreground)"
-                    fontFamily="var(--font-mono)"
-                  >
-                    {g.toFixed(2)}°E
-                  </text>
-                </g>
-              ))}
-              {gridLats.map((g) => (
-                <g key={`lat${g}`}>
+                ))}
+                {gridLats.map((g) => (
                   <line
+                    key={`lat${g}`}
                     x1={0}
                     y1={py(g)}
                     x2={W}
                     y2={py(g)}
                     stroke="var(--border)"
                   />
-                  <text
-                    x={6}
-                    y={py(g) - 4}
-                    fontSize="10"
-                    fill="var(--muted-foreground)"
-                    fontFamily="var(--font-mono)"
-                  >
-                    {g.toFixed(2)}°N
-                  </text>
-                </g>
-              ))}
-              {framed.map((h) => {
-                const c = scoreColor(h.avgScore);
-                const r = Math.max(6, h.radiusM * PX_PER_M);
-                const rank = rankOf.get(h.id)!;
-                return (
-                  <g key={h.id}>
-                    <circle
-                      cx={px(h.lng)}
-                      cy={py(h.lat)}
-                      r={r}
-                      fill={c}
-                      fillOpacity="0.14"
-                      stroke={c}
-                      strokeOpacity="0.55"
-                    />
-                    <circle cx={px(h.lng)} cy={py(h.lat)} r={3.5} fill={c} />
-                    {rank <= 5 && (
-                      <text
-                        x={px(h.lng) + 7}
-                        y={py(h.lat) - 7}
-                        fontSize="12"
-                        fontWeight="700"
+                ))}
+                {framed.map((h) => {
+                  const c = scoreColor(h.avgScore);
+                  const r = Math.max(6, h.radiusM * PX_PER_M);
+                  const rank = rankOf.get(h.id)!;
+                  return (
+                    <g key={h.id}>
+                      <circle
+                        cx={px(h.lng)}
+                        cy={py(h.lat)}
+                        r={r}
                         fill={c}
-                        fontFamily="var(--font-mono)"
-                      >
-                        #{rank}
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-            </svg>
-            <figcaption className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-muted-foreground">
-              <span>ring = cluster radius, to scale</span>
-              <span className="flex items-center gap-1.5">
-                avg score
-                {(["low", "medium", "high", "critical"] as const).map((b) => (
-                  <span
-                    key={b}
-                    className="size-2.5 rounded-full"
-                    style={{ background: `var(--priority-${b})` }}
-                  />
-                ))}
-              </span>
-              {offFrame > 0 && <span>+{offFrame} clusters east of frame</span>}
-            </figcaption>
-          </figure>
+                        fillOpacity="0.14"
+                        stroke={c}
+                        strokeOpacity="0.55"
+                        className={rank <= 5 ? "hotspot-pulse" : undefined}
+                      />
+                      <circle cx={px(h.lng)} cy={py(h.lat)} r={3.5} fill={c} />
+                      {rank <= 5 && (
+                        <text
+                          x={px(h.lng) + 7}
+                          y={py(h.lat) - 7}
+                          fontSize="12"
+                          fontWeight="700"
+                          fill={c}
+                          fontFamily="var(--font-mono)"
+                        >
+                          #{rank}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+              </svg>
+              <figcaption className="mt-3 font-mono text-xs text-muted-foreground">
+                {hotspots.length} breakdown hotspots across Colombo district ·
+                ring = cluster reach, to scale
+              </figcaption>
+            </figure>
 
-          {/* Ranked hotspots + hourly profile */}
-          <div className="flex flex-col gap-8">
-            <div>
-              <h3 className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase">
-                Highest-risk clusters
-              </h3>
-              <ul className="mt-3 divide-y divide-border border-y border-border">
-                {top5.map((h, i) => (
-                  <li key={h.id} className="flex items-center gap-4 py-3">
-                    <span className="font-mono text-sm text-muted-foreground">
-                      #{i + 1}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium capitalize">
-                        {label(h.incidentType)} · {h.roadType}
-                      </p>
-                      <p className="font-mono text-xs text-muted-foreground">
-                        {h.count} incidents · avg {h.avgScore.toFixed(1)} ·
-                        peak {hh(h.peakHour)}
-                      </p>
-                    </div>
-                    <span
-                      className="font-mono text-sm"
-                      style={{ color: scoreColor(h.avgScore) }}
-                    >
-                      {h.risk.toFixed(1)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-2 font-mono text-xs text-muted-foreground/70">
-                risk = incident count × avg impact score
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase">
-                Avg impact by hour
-              </h3>
-              <div
-                className="mt-3 flex h-20 items-end gap-[3px]"
-                role="img"
-                aria-label={`Average impact score by hour of day, peaking at ${hh(peak.h)} with ${peak.v.toFixed(1)}`}
-              >
-                {hours.map(({ h, v }) => (
-                  <div
-                    key={h}
-                    className="flex-1 rounded-t-xs"
-                    style={{
-                      height: `${(v / 7.5) * 100}%`,
-                      background:
-                        h === peak.h
-                          ? "var(--priority-high)"
-                          : "var(--secondary)",
-                    }}
-                  />
-                ))}
-              </div>
-              <div className="mt-1 flex justify-between font-mono text-xs text-muted-foreground">
-                <span>00</span>
-                <span>06</span>
-                <span>12</span>
-                <span>18</span>
-                <span>23</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Worked example */}
-        <div className="mt-12 rounded-lg border border-border bg-card p-6 sm:p-8">
-          <div className="flex flex-wrap items-baseline justify-between gap-4">
-            <div>
-              <h3 className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase">
-                One score, worked
-              </h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Flat tire on a secondary road, mid-afternoon. Five weighted
-                factors, one number.
-              </p>
-            </div>
-            <p className="font-mono text-sm">
-              <span className="text-3xl" style={{ color: "var(--priority-medium)" }}>
-                3.9
-              </span>{" "}
-              <span className="text-muted-foreground">/ 10 ·</span>{" "}
-              <span style={{ color: "var(--priority-medium)" }}>MEDIUM</span>
-            </p>
-          </div>
-          <div className="mt-6 space-y-3 font-mono text-xs sm:text-sm">
-            {factors.map((f) => (
-              <div key={f.name} className="grid grid-cols-[10rem_1fr_5.5rem] items-center gap-3 sm:grid-cols-[13rem_1fr_6rem]">
-                <span className="truncate text-muted-foreground">
-                  {f.name}{" "}
-                  <span className="text-muted-foreground/60">× {f.weight}</span>
-                </span>
-                <div className="h-2 rounded-full bg-secondary">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${f.value * 10}%`,
-                      background: "var(--priority-medium)",
-                      opacity: 0.45 + f.weight,
-                    }}
-                  />
+            {/* Impact scale + top clusters */}
+            <div className="flex flex-col gap-10">
+              <div>
+                <h3 className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase">
+                  Every incident scored 1–10
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                  A stalled truck on the A2 at rush hour is not a flat tire on
+                  a side street at midnight. The score tells dispatch which is
+                  which.
+                </p>
+                <div className="mt-4 flex h-2.5 overflow-hidden rounded-full">
+                  {scoreBands.map((b) => (
+                    <div
+                      key={b.name}
+                      className="flex-1"
+                      style={{ background: b.color }}
+                    />
+                  ))}
                 </div>
-                <span className="text-right">
-                  {f.value.toFixed(1)} → {(f.value * f.weight).toFixed(2)}
-                </span>
+                <div className="mt-2 flex justify-between font-mono text-xs">
+                  {scoreBands.map((b) => (
+                    <span key={b.name} style={{ color: b.color }}>
+                      {b.name} {b.range}
+                    </span>
+                  ))}
+                </div>
               </div>
-            ))}
-            <div className="grid grid-cols-[10rem_1fr_5.5rem] gap-3 border-t border-border pt-3 sm:grid-cols-[13rem_1fr_6rem]">
-              <span className="text-muted-foreground">Σ weighted</span>
-              <span />
-              <span className="text-right font-semibold">3.90</span>
+
+              <div>
+                <h3 className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase">
+                  Where trouble clusters
+                </h3>
+                <ul className="mt-3 divide-y divide-border border-y border-border">
+                  {top5.map((h, i) => (
+                    <li key={h.id} className="flex items-center gap-4 py-3">
+                      <span className="font-mono text-sm text-muted-foreground">
+                        #{i + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium capitalize">
+                          {label(h.incidentType)} · {h.roadType} road
+                        </p>
+                        <p className="font-mono text-xs text-muted-foreground">
+                          peaks around {hh(h.peakHour)}
+                        </p>
+                      </div>
+                      <span
+                        className="font-mono text-sm font-semibold"
+                        style={{ color: scoreColor(h.avgScore) }}
+                      >
+                        {h.avgScore.toFixed(1)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 font-mono text-xs text-muted-foreground/70">
+                  avg impact score per cluster
+                </p>
+              </div>
             </div>
           </div>
-          <p className="mt-4 font-mono text-xs text-muted-foreground/70">
-            Weights and the 3.9 MEDIUM output are the deployed model&apos;s;
-            per-factor sub-scores shown are illustrative.
-          </p>
         </div>
       </section>
 
-      {/* ── Components ── */}
-      <section className="border-t border-border bg-card/40">
-        <div className="mx-auto max-w-6xl px-6 py-20">
-          <p className="font-mono text-xs tracking-[0.25em] text-muted-foreground uppercase">
-            The platform
-          </p>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
-            Four services, one spine
-          </h2>
-          <div className="mt-12 grid gap-6 sm:grid-cols-2">
-            {services.map((s) => (
-              <div
-                key={s.name}
-                className="rounded-lg border border-border bg-card p-6"
-              >
-                <h3 className="font-medium">{s.name}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {s.desc}
-                </p>
+      {/* ── For providers ── */}
+      <section id="providers" className="scroll-mt-16">
+        <div className="mx-auto max-w-6xl px-6 py-24">
+          <div className="grid gap-12 lg:grid-cols-[1fr_1.2fr]">
+            <div>
+              <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
+                For providers
+              </p>
+              <h2 className="font-display mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+                Run a tow truck, a workshop, or a fuel bowser? Join the
+                network.
+              </h2>
+              <div className="mt-8 flex flex-wrap items-center gap-4">
+                <Button asChild size="lg" className="h-12 px-6 text-base">
+                  <a href="#download">Join as a provider</a>
+                </Button>
               </div>
-            ))}
+              <p className="mt-3 max-w-xs text-sm text-muted-foreground">
+                Provider registration happens inside the app — download it and
+                switch to provider mode.
+              </p>
+            </div>
+            <ul className="flex flex-col justify-center gap-8">
+              {providerPoints.map((p) => (
+                <li key={p.title} className="border-l-2 border-primary pl-5">
+                  <h3 className="font-semibold">{p.title}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                    {p.body}
+                  </p>
+                </li>
+              ))}
+            </ul>
           </div>
+        </div>
+      </section>
+
+      {/* ── Download strip ── */}
+      <section
+        id="download"
+        className="scroll-mt-16 border-y border-border bg-accent/60"
+      >
+        <div className="mx-auto flex max-w-6xl flex-col items-center px-6 py-16 text-center">
+          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            Kaduna.lk is in beta on Android.
+          </h2>
+          <p className="mt-3 max-w-md text-muted-foreground">
+            Drivers and providers use the same app. Install it before you need
+            it.
+          </p>
+          <Button asChild size="lg" className="mt-7 h-12 px-6 text-base">
+            <a href={APK} download>
+              <Download data-icon="inline-start" />
+              Download for Android (beta)
+            </a>
+          </Button>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Android 10+ · ~58 MB · free
+          </p>
         </div>
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-8 font-mono text-xs text-muted-foreground">
-          <p>R26-SE-026 · SLIIT · team Kaduna.lk</p>
-          <a
-            href="https://github.com/JanukshanS/R26-SE-026"
-            className="hover:text-foreground"
-            target="_blank"
-            rel="noreferrer"
-          >
-            github.com/JanukshanS/R26-SE-026
-          </a>
+      <footer>
+        <div className="mx-auto max-w-6xl px-6 py-12">
+          <div className="flex flex-wrap items-start justify-between gap-8">
+            <div>
+              <p className="font-display text-lg font-bold tracking-tight">
+                Kaduna<span className="text-primary">.lk</span>
+              </p>
+              <p className="mt-2 max-w-xs text-sm text-muted-foreground">
+                Roadside assistance for Colombo that understands the breakdown
+                before help is sent.
+              </p>
+            </div>
+            <nav className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:gap-6">
+              <a href="#how" className="hover:text-foreground">
+                How it works
+              </a>
+              <a href="#providers" className="hover:text-foreground">
+                For providers
+              </a>
+              <a href="#technology" className="hover:text-foreground">
+                Technology
+              </a>
+              <Link href="/dashboard" className="hover:text-foreground">
+                Ops dashboard
+              </Link>
+              <a
+                href="mailto:hello@kaduna.lk"
+                className="hover:text-foreground"
+              >
+                hello@kaduna.lk
+              </a>
+            </nav>
+          </div>
+          <p className="mt-10 text-xs text-muted-foreground">
+            © 2026 Kaduna.lk
+          </p>
         </div>
       </footer>
     </div>

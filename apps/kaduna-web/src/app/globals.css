@@ -13,6 +13,54 @@
   --priority-low:      oklch(0.78 0.16 158);
 }
 
+/* ── Light theme (landing) ──
+   Warm cream + orange, matching the mobile app brand. Every key here is also
+   defined in .dark, so the dashboard (wrapped in a .dark div) is unaffected.
+   --radius is intentionally NOT set here: the dashboard has never had it, and
+   defining it globally would round its corners. The landing sets it on its
+   root element instead. */
+:root {
+  --background:       oklch(0.965 0.017 84);
+  --foreground:       oklch(0.25 0.02 55);
+  --card:             oklch(0.988 0.01 84);
+  --card-foreground:  oklch(0.25 0.02 55);
+  --popover:          oklch(0.988 0.01 84);
+  --popover-foreground: oklch(0.25 0.02 55);
+  --primary:          oklch(0.646 0.2 41);
+  --primary-foreground: oklch(0.985 0.008 84);
+  --secondary:        oklch(0.93 0.028 80);
+  --secondary-foreground: oklch(0.25 0.02 55);
+  --muted:            oklch(0.93 0.02 84);
+  --muted-foreground: oklch(0.46 0.025 58);
+  --accent:           oklch(0.93 0.05 70);
+  --accent-foreground: oklch(0.25 0.02 55);
+  --destructive:      oklch(0.577 0.245 27.3);
+  --border:           oklch(0.3 0.04 60 / 14%);
+  --input:            oklch(0.3 0.04 60 / 18%);
+  --ring:             oklch(0.646 0.2 41);
+  --chart-1:          oklch(0.646 0.2 41);
+  --chart-2:          oklch(0.55 0.12 60);
+  --chart-3:          oklch(0.46 0.06 70);
+  --chart-4:          oklch(0.7 0.15 80);
+  --chart-5:          oklch(0.6 0.1 50);
+  --sidebar:          oklch(0.988 0.01 84);
+  --sidebar-foreground: oklch(0.25 0.02 55);
+  --sidebar-primary:  oklch(0.646 0.2 41);
+  --sidebar-primary-foreground: oklch(0.985 0.008 84);
+  --sidebar-accent:   oklch(0.93 0.028 80);
+  --sidebar-accent-foreground: oklch(0.25 0.02 55);
+  --sidebar-border:   oklch(0.3 0.04 60 / 14%);
+  --sidebar-ring:     oklch(0.646 0.2 41);
+}
+
+/* Slow breathing on the landing map's top-risk rings. Reduced-motion media
+   query below zeroes it. */
+@keyframes hotspot-breathe {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 0.8; }
+}
+.hotspot-pulse { animation: hotspot-breathe 3.2s ease-in-out infinite; }
+
 /* ── Leaflet ── */
 /* Leaflet assigns its panes z-index 200-600 and its controls 1000, all of
    which outrank the z-50 that Radix popovers ship with — so selects and
@@ -56,6 +104,7 @@
 @theme inline {
   --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
+  --font-display: var(--font-bricolage), "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring:       var(--sidebar-ring);
   --color-sidebar-border:       var(--sidebar-border);
   --color-sidebar-accent-foreground:       var(--sidebar-accent-foreground);

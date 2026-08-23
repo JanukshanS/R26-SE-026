@@ -1,20 +1,27 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
+const bricolage = Bricolage_Grotesque({
+  subsets: ["latin"],
+  variable: "--font-bricolage",
+});
 
 export const metadata: Metadata = {
-  title: "Kaduna.lk — Roadside Assistance, Intelligently Dispatched",
+  title: "Kaduna.lk — Roadside assistance for Colombo",
   description:
-    "Sri Lanka's smart roadside assistance platform: adaptive triage, geo-intelligent incident scoring, and a live view of Colombo's traffic hotspots.",
+    "Stranded in Colombo? Kaduna.lk sends tow trucks, mechanics, battery jumpstarts and fuel — and understands the breakdown before help is sent.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`dark ${geistSans.variable} ${geistMono.variable}`}>
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} ${bricolage.variable}`}
+    >
       <head>
         <link
           rel="stylesheet"
