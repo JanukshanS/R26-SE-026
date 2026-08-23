@@ -9,28 +9,32 @@
  * ── Why this order ──────────────────────────────────────────────────────
  * The screens are sequenced by how much the trained tree actually leans on
  * each answer, measured off components/dispatch/ml/exported_tree_tier1.json
- * (sample-weighted share of split decisions):
+ * (sample-weighted share of split decisions). Re-measured against the v3
+ * real-data retrain (depth 19, 213 leaves), which reshuffled the weights:
  *
- *     Q2b_running_issue  29.0%   ← root split
- *     Q5_lights          17.3%
- *     Q2_engine_start    15.2%
- *     Q9_recent          14.9%
- *     location_type       4.9%
- *     Q3_sound            4.9%
- *     Q1_intent           2.6%
- *     ...everything else  <2% each
+ *     Q5_lights          22.0%
+ *     Q9_recent          15.1%
+ *     Q2_engine_start    14.9%
+ *     Q6_smells          10.8%   ← was 1.9% and asked last, pre-v3
+ *     Q2b_running_issue   7.2%   ← was 29.0% and the root split, pre-v3
+ *     Q3_sound            4.3%
+ *     ...everything else  <4% each
  *
- * The old order asked Q5 sixth and Q9 eighth, behind branch questions worth
- * under 2% — and behind two (Q4_noise_detail, Q8_smoke_color) that never
- * appear as a split feature in EITHER exported tree. Since the driver can now
- * bail at any step (see SKIP below), question order decides how much signal
- * the model gets from someone who stops early.
+ * Since the driver can bail at any step (see SKIP below), question order
+ * decides how much signal the model gets from someone who stops early. The
+ * first five screens now carry 66.3% of the routing weight, which is the
+ * ceiling: Q1 must be step one (it is the grid that picks the branch), so the
+ * best any ordering can do is Q1 plus the four heaviest questions.
  *
- * Moving Q5 and Q9 earlier is answer-preserving: both are asked unconditionally
- * on every path, so re-sequencing them cannot change WHICH questions a given
- * driver sees — only the order. Every conditional branch below keeps exactly the
- * predicate it had before, so the model never sees a combination it wasn't
- * trained on.
+ * The v3 retrain also dropped location_type and vehicle_age_bucket from the
+ * feature set entirely. `context` still earns its place — it collects
+ * last_fueled, recent_rain and parked_overnight too, worth 8.3% between them —
+ * but its location question is now a dead input.
+ *
+ * Reordering is answer-preserving: Q5, Q9 and Q6 are asked unconditionally on
+ * every path, so re-sequencing them cannot change WHICH questions a given
+ * driver sees. Every conditional predicate below is unchanged, and
+ * running-issue still follows engine-state, which sets the state it reads.
  *
  * ── SKIP ────────────────────────────────────────────────────────────────
  * Any step can be abandoned via "Send help now", which routes to
@@ -89,16 +93,19 @@ const ENGINE_INTENTS: Q1MLIntent[] = ["WONT_START", "ENGINE_PROBLEM", "WEIRD_BEH
  */
 const STEPS: StepDef[] = [
   { route: "whats-wrong",      title: "What's wrong?" },
-  // Q2 — 15.2%
+  // Q2 — 14.9%
   { route: "engine-state",     title: "Engine",
     when: (s) => s.q1Intent != null && ENGINE_INTENTS.includes(s.q1Intent) },
-  // Q2b — 29.0%, the tree's root split
+  // Q5 — 22.0%, the single heaviest question. Always asked.
+  { route: "diagnosis-lights", title: "Warning lights" },
+  // Q9 — 15.1%. Always asked.
+  { route: "recent",           title: "Recent warning signs" },
+  // Q6 — 10.8%. Always asked. The v3 retrain promoted this out of the tail.
+  { route: "smells",           title: "Smell" },
+  // Q2b — 7.2%. Was the root split pre-v3; now mid-weight, so it drops out of
+  // the top five. Still ahead of every branch detail that reads runningIssue.
   { route: "running-issue",    title: "Running problem",
     when: (s) => s.engineState === "STARTS_NORMAL" || s.engineState === "STARTS_BUT_ISSUE" },
-  // Q5 — 17.3%. Always asked, moved up from step 6.
-  { route: "diagnosis-lights", title: "Warning lights" },
-  // Q9 — 14.9%. Always asked, moved up from step 8.
-  { route: "recent",           title: "Recent warning signs" },
   // Branch detail — at most one of these is ever active.
   { route: "diagnosis-sound",  title: "Sound",
     when: (s) => s.engineState === "CRANKS_NO_START" },
@@ -114,8 +121,9 @@ const STEPS: StepDef[] = [
     when: (s) => s.q1Intent === "BRAKE_ISSUE" },
   { route: "gear-detail",      title: "Gears",
     when: (s) => s.q1Intent === "GEAR_ISSUE" },
-  // Tail — 1.9% and 3.6% combined, so they go last.
-  { route: "smells",           title: "Smell" },
+  // 8.3% across last_fueled, recent_rain and parked_overnight. Its fourth
+  // question, location_type, was dropped from the feature set by the v3 retrain
+  // and now feeds nothing.
   { route: "context",          title: "One last thing" },
 ];
 

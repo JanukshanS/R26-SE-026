@@ -78,14 +78,20 @@ describe("emergency questionnaire order", () => {
     }
   });
 
-  it("captures at least 75% of routing signal in the first 5 steps", () => {
+  // 65%, not a round 75%: Q1 has to be step one (it is the grid that picks the
+  // branch) and is only worth 3.6%, so the ceiling is Q1 plus the four heaviest
+  // questions — 66.3% against the v3 tree. This is a drift alarm sitting just
+  // under that ceiling, not an aspiration. If a retrain pushes the achievable
+  // maximum up, raise this with it; if it fails, STEPS needs re-measuring.
+  it("captures at least 65% of routing signal in the first 5 steps", () => {
     const captured = path.slice(0, 5).reduce((sum, q) => sum + (share[q] ?? 0), 0);
-    expect(captured).toBeGreaterThanOrEqual(75);
+    expect(captured).toBeGreaterThanOrEqual(65);
   });
 
   it("puts questions the tree never splits on behind the ones it does", () => {
-    // Q4_noise_detail and Q8_smoke_color are in feature_names but appear in no
-    // split, in either tier. They must not sit in front of a question that counts.
+    // Some questions sit in feature_names but appear in no split. Against the v3
+    // tree that is Q8_smoke_color and location_type (the latter was dropped from
+    // the feature set outright). They must not sit in front of one that counts.
     const dead = path.filter((q) => !(q in share));
     expect(dead.length, "expected at least one never-split question on this path").toBeGreaterThan(0);
 
