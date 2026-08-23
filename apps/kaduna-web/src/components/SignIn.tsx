@@ -1,60 +1,73 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
 
-const SessionContext = createContext<Session | null>(null);
+/**
+ * Web OAuth client "Kaduna" in Google Cloud project kaduna-lk — the same
+ * client Supabase's Google provider is configured with, so One Tap ID tokens
+ * carry an audience Supabase already trusts. Public by design.
+ */
+const GOOGLE_CLIENT_ID =
+  "163099306411-kueu6f5ph9ufova4c4ppop92ufejidu6.apps.googleusercontent.com";
 
-/** The signed-in Supabase session. Non-null anywhere below AuthGate. */
-export function useSession() {
-  return useContext(SessionContext);
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: object) => void;
+          prompt: () => void;
+        };
+      };
+    };
+  }
 }
 
 /**
- * Gates the dashboard behind a Supabase session, because the backend services
- * now require a bearer token and the panels are useless without one.
+ * Shared sign-in for every gated area. Purely token-styled, so it reads
+ * correctly on the dark dashboard and on the warm-light portals.
  *
- * Any authenticated Supabase user gets in — there is no role check yet. Once
- * profiles carry an operator role, gate on that here. Identity display and
- * sign-out live in the AppShell account menu, fed via useSession().
+ * Two Google paths: the button uses the redirect flow (always works), and the
+ * Google One Tap prompt is offered on load via signInWithIdToken. One Tap only
+ * appears on origins listed in the OAuth client's Authorized JavaScript
+ * Origins (kaduna.lk) — elsewhere GIS logs a console warning and stays quiet.
  */
-export default function AuthGate({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setReady(true);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  if (!ready) {
-    return (
-      <main className="grid min-h-screen place-items-center text-sm text-muted-foreground">
-        Loading…
-      </main>
-    );
-  }
-
-  if (!session) {
-    return <SignIn />;
-  }
-
-  return <SessionContext.Provider value={session}>{children}</SessionContext.Provider>;
-}
-
-function SignIn() {
+export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    function startOneTap() {
+      window.google?.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: async (response: { credential: string }) => {
+          const { error: idError } = await supabase.auth.signInWithIdToken({
+            provider: "google",
+            token: response.credential,
+          });
+          if (idError) setError(idError.message);
+        },
+      });
+      window.google?.accounts.id.prompt();
+    }
+
+    if (window.google) {
+      startOneTap();
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.onload = startOneTap;
+    document.head.appendChild(script);
+    return () => {
+      script.onload = null;
+    };
+  }, []);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -73,11 +86,12 @@ function SignIn() {
   async function onGoogle() {
     setBusy(true);
     setError(null);
-    // Redirect flow: the browser navigates to Google and returns to /dashboard,
-    // where supabase-js reads the session from the URL and AuthGate re-renders.
+    // Redirect flow: the browser navigates to Google and returns to the page it
+    // left, where supabase-js reads the session from the URL and the gate
+    // re-renders.
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/dashboard` },
+      options: { redirectTo: window.location.href },
     });
     if (oauthError) {
       setError(oauthError.message);
@@ -92,9 +106,9 @@ function SignIn() {
         className="w-full max-w-sm space-y-4 rounded-lg border border-border p-6"
       >
         <div>
-          <h1 className="text-lg font-semibold">Kaduna.lk Dashboard</h1>
+          <h1 className="text-lg font-semibold">Sign in to Kaduna.lk</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Sign in with your Kaduna.lk account.
+            Use your Kaduna.lk account.
           </p>
         </div>
 

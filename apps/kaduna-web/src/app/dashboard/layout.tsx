@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import AuthGate from "@/components/AuthGate";
+import RequireAuth from "@/lib/auth";
 import ThemeClass from "./theme-class";
 
 export const metadata: Metadata = {
@@ -14,7 +14,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="dark min-h-screen bg-background text-foreground">
       <ThemeClass />
-      <AuthGate>{children}</AuthGate>
+      <RequireAuth role="ops">{children}</RequireAuth>
     </div>
   );
 }

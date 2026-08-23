@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { Layers, MapPin, Flame, Target } from "lucide-react";
 
 import { AppShell, DataSourceBadge, MobileNav, SECTIONS, type Section } from "@/components/shell/AppShell";
-import { useSession } from "@/components/AuthGate";
+import { useSession } from "@/lib/auth";
 import DayRibbon from "@/components/DayRibbon";
 import DispatchPanel from "@/components/DispatchPanel";
 import IncidentPanel from "@/components/IncidentPanel";
