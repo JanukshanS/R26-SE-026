@@ -237,16 +237,31 @@ function schedule(delayMs: number): void {
   }, delayMs);
 }
 
+/**
+ * Demo-only poll acceleration. OFF by default — the real intervals below are
+ * tuned for a car, where responsiveness is worth far less than not draining the
+ * battery and not ending a trip by mistake.
+ *
+ * The problem it solves is presentational: confirming a stop takes
+ * STOP_SAMPLES(4) x POLL_RUNNING_MS(10s) = up to ~40 s, which is correct
+ * behaviour and unwatchable in a live demo.
+ *
+ * This scales only the POLL CADENCE, never the sample counts or the voltage
+ * thresholds — so the detection logic being demonstrated is exactly the logic
+ * that ships. Set EXPO_PUBLIC_ENGINE_POLL_FAST=true to enable.
+ */
+const POLL_SPEEDUP = process.env.EXPO_PUBLIC_ENGINE_POLL_FAST === "true" ? 4 : 1;
+
 function nextDelay(): number {
   if (state === "adapter-lost") {
     return LOST_BACKOFF_MS[Math.min(failCount - LOST_SAMPLES, LOST_BACKOFF_MS.length - 1)] ?? 30_000;
   }
-  if (state === "running") return POLL_RUNNING_MS;
+  if (state === "running") return POLL_RUNNING_MS / POLL_SPEEDUP;
   if (state === "engine-off" && engineOffSince !== null && Date.now() - engineOffSince > IDLE_SLOW_AFTER_MS) {
     // Parked a long time: back off to save phone battery and BLE airtime.
-    return POLL_IDLE_MS;
+    return POLL_IDLE_MS / POLL_SPEEDUP;
   }
-  return POLL_OFF_MS;
+  return POLL_OFF_MS / POLL_SPEEDUP;
 }
 
 async function poll(): Promise<void> {
