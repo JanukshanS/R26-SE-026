@@ -8,6 +8,7 @@ import { Screen } from "@components/ui/screen";
 import { TextField } from "@components/ui/text-input";
 import { palette, typography } from "@theme/index";
 import { createVehicle } from "@lib/vehicleApi";
+import { normalizePlate, plateError } from "@lib/plate-number";
 
 /**
  * Optional vehicle step shown right after account creation (the user is already
@@ -24,8 +25,13 @@ export default function AddVehicleScreen() {
 
   async function handleSave() {
     setError("");
-    if (!brand.trim() || !model.trim() || !registration.trim()) {
-      setError("Brand, model and registration number are required.");
+    if (!brand.trim() || !model.trim()) {
+      setError("Brand and model are required.");
+      return;
+    }
+    const plateProblem = plateError(registration);
+    if (plateProblem) {
+      setError(plateProblem);
       return;
     }
     setSubmitting(true);
@@ -34,7 +40,7 @@ export default function AddVehicleScreen() {
         make: brand.trim(),
         model: model.trim(),
         year: year ? Number(year) : undefined,
-        plateNumber: registration.trim(),
+        plateNumber: normalizePlate(registration),
         fuelType: "petrol",
         currentMileage: 0,
         isDefault: true,
@@ -102,9 +108,10 @@ export default function AddVehicleScreen() {
       />
       <TextField
         label="Vehicle registration number"
+        helperText="CAB-1234, WP-CAB-1234, or an older 62-1234"
         value={registration}
         onChangeText={setRegistration}
-        placeholder="ABC-1234"
+        placeholder="CAB-1234"
         autoCapitalize="characters"
       />
       {error ? <ErrorState title="Couldn't save vehicle" message={error} /> : null}

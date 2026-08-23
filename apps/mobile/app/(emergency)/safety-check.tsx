@@ -169,10 +169,11 @@ export default function SafetyCheckScreen() {
         setDispatchResult(null);
       }
       setError(null);
-      // Intent picker is the top-level branch of the adaptive form. From
-      // there the user enters either the ENGINE subtree (engine-state →
-      // sound / electrical / running-issue) or the BRAKE / GEAR subtrees.
-      router.push("/(emergency)/intent");
+      // They tapped Accident but there is no real damage, so a crash tow is
+      // the wrong call. Back to the grid to say what they actually need -
+      // popping to the existing instance rather than stacking a second one.
+      if (router.canGoBack()) router.back();
+      else router.replace("/(emergency)/whats-wrong");
     }
   }
 
@@ -186,7 +187,7 @@ export default function SafetyCheckScreen() {
     <Screen
       footer={
         <Button
-          title={ctxLoading ? "Dispatching..." : "Next Step"}
+          title={ctxLoading ? "Dispatching..." : "Next"}
           disabled={!choice || ctxLoading || signedIn === false}
           onPress={handleNext}
         />

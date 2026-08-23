@@ -90,7 +90,7 @@ function EmergencyCenterButton() {
     <Pressable
       onPress={() => {
         haptics.press();
-        router.push("/(emergency)/safety-check");
+        router.push("/(emergency)/whats-wrong");
       }}
       accessibilityRole="button"
       accessibilityLabel="Emergency assistance"

@@ -1,10 +1,8 @@
 import { useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
-import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
-import { HeaderBar } from "@components/ui/header-bar";
-import { Screen } from "@components/ui/screen";
+import { QuestionScreen } from "@components/ui/question-screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useEmergency, type SLContext } from "@lib/emergencyContext";
 import { submitTriage, DispatchApiError } from "@lib/dispatchApi";
@@ -114,20 +112,13 @@ export default function ContextScreen() {
   }
 
   return (
-    <Screen
-      footer={
-        <Button
-          title={submitting ? "Diagnosing..." : "Get Diagnosis"}
-          disabled={submitting}
-          onPress={handleSubmit}
-        />
-      }
+    <QuestionScreen
+      route="context"
+      prompt="These help us narrow down the most likely fault for Sri Lankan conditions."
+      nextLabel={submitting ? "Diagnosing..." : "Get Diagnosis"}
+      canNext={!submitting}
+      onNext={handleSubmit}
     >
-      <HeaderBar />
-      <Text style={{ ...typography.h1, color: palette.text }}>One last thing</Text>
-      <Text style={{ ...typography.body, color: palette.textMuted }}>
-        These help us narrow down the most likely fault for Sri Lankan conditions.
-      </Text>
 
       <Card>
         <Field label="Where are you?">
@@ -203,7 +194,7 @@ export default function ContextScreen() {
             : "No OBD device paired — Tier-1 (questionnaire only)."}
         </Text>
       )}
-    </Screen>
+    </QuestionScreen>
   );
 }
 

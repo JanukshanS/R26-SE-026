@@ -22,8 +22,20 @@ export default function DriverLayout() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: palette.background },
+          animation: "slide_from_right",
         }}
-      />
+      >
+        {/*
+          The four tab destinations cross-fade instead of sliding. Tabs are
+          siblings, so sliding one in from the right reads as "you went a level
+          deeper" when you have only moved across. Everything else in this group
+          is a genuine push and keeps the slide.
+        */}
+        <Stack.Screen name="home" options={{ animation: "fade" }} />
+        <Stack.Screen name="health" options={{ animation: "fade" }} />
+        <Stack.Screen name="order-parts" options={{ animation: "fade" }} />
+        <Stack.Screen name="profile" options={{ animation: "fade" }} />
+      </Stack>
     </VehicleProvider>
   );
 }

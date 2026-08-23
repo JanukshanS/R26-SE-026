@@ -9,7 +9,6 @@ export default function EmergencyLayout() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: palette.background },
-          animation: "slide_from_right",
         }}
       />
     </EmergencyProvider>

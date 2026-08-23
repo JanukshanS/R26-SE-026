@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, type IconName } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import type { ComponentKey } from "@lib/maintenanceApi";
+import { BottomNavBar } from "@components/ui/bottom-nav-bar";
+import { useTabBack } from "@lib/useTabBack";
 
 interface Part {
   id: string;
@@ -58,6 +60,7 @@ const STORE_CATEGORIES: { key: ComponentKey; label: string; icon: IconName; blur
 ];
 
 export default function OrderPartsScreen() {
+  const { canGoBack, goBack } = useTabBack();
   const insets = useSafeAreaInsets();
   const { component } = useLocalSearchParams<{ component: ComponentKey }>();
   const key = component as ComponentKey | undefined;
@@ -86,9 +89,11 @@ export default function OrderPartsScreen() {
           gap: spacing.md,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
-          <Icon name="ChevronLeft" size={24} color={palette.text} />
-        </Pressable>
+        {canGoBack ? (
+          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+            <Icon name="ChevronLeft" size={24} color={palette.text} />
+          </Pressable>
+        ) : null}
         <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>
           {TITLES[key]}
         </Text>
@@ -154,11 +159,13 @@ export default function OrderPartsScreen() {
           <Text style={{ ...typography.bodyStrong, color: palette.brand }}>Go Back</Text>
         </Pressable>
       </View>
+      <BottomNavBar activeTab="store" />
     </View>
   );
 }
 
 function StoreLanding({ topInset, bottomInset }: { topInset: number; bottomInset: number }) {
+  const { canGoBack, goBack } = useTabBack();
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
       <View
@@ -174,9 +181,11 @@ function StoreLanding({ topInset, bottomInset }: { topInset: number; bottomInset
           gap: spacing.md,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
-          <Icon name="ChevronLeft" size={24} color={palette.text} />
-        </Pressable>
+        {canGoBack ? (
+          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+            <Icon name="ChevronLeft" size={24} color={palette.text} />
+          </Pressable>
+        ) : null}
         <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>Parts Store</Text>
       </View>
 
@@ -223,6 +232,7 @@ function StoreLanding({ topInset, bottomInset }: { topInset: number; bottomInset
           ))}
         </View>
       </ScrollView>
+      <BottomNavBar activeTab="store" />
     </View>
   );
 }

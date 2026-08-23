@@ -6,6 +6,12 @@ type Tone = "danger" | "warning" | "success" | "neutral";
 
 type Props = {
   badge?: string;
+  /**
+   * Draws a coloured left edge to flag a risky answer. Preferred over a badge
+   * in the row: it costs no horizontal space, so badged and unbadged options
+   * still start their text at the same x.
+   */
+  accent?: Tone;
   badgeTone?: Tone;
   title: string;
   description?: string;
@@ -15,6 +21,7 @@ type Props = {
 
 export function OptionCard({
   badge,
+  accent,
   badgeTone = "neutral",
   title,
   description,
@@ -37,6 +44,7 @@ export function OptionCard({
         borderCurve: "continuous",
         borderWidth: selected ? 2 : 1,
         borderColor: selected ? palette.brand : palette.border,
+        ...(accent ? { borderLeftWidth: 4, borderLeftColor: bgFor(accent) } : {}),
         padding: spacing.lg,
         flexDirection: "row",
         alignItems: "center",

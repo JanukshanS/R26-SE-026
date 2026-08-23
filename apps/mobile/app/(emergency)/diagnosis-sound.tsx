@@ -1,9 +1,6 @@
 import { Pressable, Text, View } from "react-native";
-import { router } from "expo-router";
-import { Button } from "@components/ui/button";
-import { HeaderBar } from "@components/ui/header-bar";
 import { Icon } from "@components/ui/icon";
-import { Screen } from "@components/ui/screen";
+import { QuestionScreen } from "@components/ui/question-screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useEmergency, MobileSoundId } from "@lib/emergencyContext";
 
@@ -22,26 +19,12 @@ export default function DiagnosisSoundScreen() {
   const { sound, setSound } = useEmergency();
 
   return (
-    <Screen
-      footer={
-        <Button
-          title="Next Step"
-          disabled={!sound}
-          // Only reached when engine-state = CRANKS_NO_START (the engine
-          // turns over but won't fire). After capturing the sound we
-          // proceed to dashboard lights.
-          onPress={() => router.push("/(emergency)/diagnosis-lights")}
-        />
-      }
+    <QuestionScreen
+      route="diagnosis-sound"
+      prompt="What sound does your vehicle make?"
+      hint="Select the sound that best matches when you turn the key."
+      canNext={!!sound}
     >
-      <HeaderBar />
-      <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Process</Text>
-      <Text style={{ ...typography.body, color: palette.textMuted }}>
-        What sound does your vehicle make?
-      </Text>
-      <Text style={{ ...typography.caption, color: palette.textMuted }}>
-        Select the sound that best matches when you turn the key.
-      </Text>
 
       {SOUNDS.map((s) => (
         <SoundOption
@@ -51,7 +34,7 @@ export default function DiagnosisSoundScreen() {
           onPress={() => setSound(s.id)}
         />
       ))}
-    </Screen>
+    </QuestionScreen>
   );
 }
 

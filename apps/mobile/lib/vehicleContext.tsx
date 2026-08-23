@@ -39,7 +39,10 @@ interface VehicleContextValue {
   login: (email: string, password: string) => Promise<User>;
   register: (name: string, email: string, password: string, phone?: string, role?: string) => Promise<User>;
   loginWithGoogle: () => Promise<void>;
-  updateProfile: (data: { name?: string; phone?: string; location?: string }) => Promise<void>;
+  updateProfile: (data: {
+    name?: string; phone?: string; location?: string;
+    licenceNumber?: string; nicNumber?: string;
+  }) => Promise<void>;
   updateMe: (data: ProfilePatch) => Promise<User>;
   refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
@@ -266,7 +269,10 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateProfile = async (data: { name?: string; phone?: string; location?: string }) => {
+  const updateProfile = async (data: {
+    name?: string; phone?: string; location?: string;
+    licenceNumber?: string; nicNumber?: string;
+  }) => {
     const u = await vehicleApi.updateMyProfile(data);
     setUser(u);
   };

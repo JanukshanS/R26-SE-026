@@ -7,13 +7,8 @@
  *   - WHINE  → alternator bearing / power steering pump
  *   - CLUNK  → drivetrain (CV joints, mounts, suspension)
  */
-import { Text } from "react-native";
-import { router } from "expo-router";
-import { Button } from "@components/ui/button";
-import { HeaderBar } from "@components/ui/header-bar";
 import { OptionCard } from "@components/ui/option-card";
-import { Screen } from "@components/ui/screen";
-import { palette, typography } from "@theme/index";
+import { QuestionScreen } from "@components/ui/question-screen";
 import { useEmergency, type NoiseChoice } from "@lib/emergencyContext";
 
 const OPTIONS: { value: NonNullable<NoiseChoice>; title: string; description: string }[] = [
@@ -28,21 +23,11 @@ export default function NoiseDetailScreen() {
   const { noiseDetail, setNoiseDetail } = useEmergency();
 
   return (
-    <Screen
-      footer={
-        <Button
-          title="Next Step"
-          disabled={!noiseDetail}
-          onPress={() => router.push("/(emergency)/diagnosis-lights")}
-        />
-      }
+    <QuestionScreen
+      route="noise-detail"
+      prompt={"What kind of noise are you hearing?"}
+      canNext={!!noiseDetail}
     >
-      <HeaderBar />
-      <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Process</Text>
-      <Text style={{ ...typography.body, color: palette.textMuted }}>
-        What kind of noise are you hearing?
-      </Text>
-
       {OPTIONS.map((o) => (
         <OptionCard
           key={o.value}
@@ -52,6 +37,6 @@ export default function NoiseDetailScreen() {
           onPress={() => setNoiseDetail(o.value)}
         />
       ))}
-    </Screen>
+    </QuestionScreen>
   );
 }
