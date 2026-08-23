@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import ImpactChip from "@/components/ImpactChip";
 import PortalShell, { EmptyCard } from "@/components/portal/PortalShell";
 import RequireAuth, { useAuth } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
 import {
   DispatchApiError,
   enumLabel,
@@ -18,12 +18,6 @@ import {
   type AssignedIncident,
   type ProviderRecord,
 } from "@/lib/dispatchApi";
-
-const TABS = [
-  { label: "Jobs", href: "/provider" },
-  { label: "Availability", href: "/provider" },
-  { label: "History", href: "/provider" },
-];
 
 /** Statuses that mean "this job is still mine" — the backend filters one at a time. */
 const ACTIVE_JOB_STATUSES = ["PROVIDER_ASSIGNED", "EN_ROUTE", "ON_SCENE"];
@@ -94,6 +88,13 @@ function JobCard({
           {service ? enumLabel(service) : "Roadside assistance"}
         </h3>
         <Badge status={job.status} />
+        <ImpactChip
+          id={job.id}
+          latitude={job.latitude}
+          longitude={job.longitude}
+          serviceType={service}
+          createdAt={job.createdAt}
+        />
         {job.triageResponse?.confidence != null && (
           <span className="text-xs text-muted-foreground">
             {(job.triageResponse.confidence * 100).toFixed(0)}% confidence
@@ -622,33 +623,29 @@ function ProviderBody() {
 }
 
 /** Mobile parity: flip the provider OFFLINE before the session dies, so a
- *  signed-out operator stops receiving dispatches. Reads provider_id fresh
- *  because PortalShell sits above the session context. */
-async function goOfflineBeforeSignOut() {
-  const { data } = await supabase.auth.getUser();
-  const uid = data.user?.id;
-  if (!uid) return;
-  const { data: prof } = await supabase
-    .from("profiles")
-    .select("provider_id")
-    .eq("id", uid)
-    .maybeSingle();
-  if (prof?.provider_id) {
-    await updateProviderStatus(prof.provider_id, "OFFLINE");
-  }
+ *  signed-out operator stops receiving dispatches. */
+function ProviderPortal() {
+  const providerId = useAuth().profile?.provider_id;
+  return (
+    <PortalShell
+      title="Provider Console"
+      onBeforeSignOut={
+        providerId
+          ? async () => {
+              await updateProviderStatus(providerId, "OFFLINE");
+            }
+          : undefined
+      }
+    >
+      <ProviderBody />
+    </PortalShell>
+  );
 }
 
 export default function ProviderPortalPage() {
   return (
     <RequireAuth>
-      <PortalShell
-        title="Provider Console"
-        tabs={TABS}
-        active="Jobs"
-        onBeforeSignOut={goOfflineBeforeSignOut}
-      >
-        <ProviderBody />
-      </PortalShell>
+      <ProviderPortal />
     </RequireAuth>
   );
 }

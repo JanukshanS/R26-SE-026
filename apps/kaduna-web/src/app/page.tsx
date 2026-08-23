@@ -8,6 +8,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import SignInLink from "@/components/SignInLink";
 import hotspots from "../../public/data/hotspots.json";
 
 /* Static data imported from public/data at build time — fetch() with a
@@ -151,12 +152,7 @@ export default function LandingPage() {
             >
               Technology
             </a>
-            <Link
-              href="/dashboard"
-              className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
-            >
-              Dashboard
-            </Link>
+            <SignInLink className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground" />
             <Button asChild size="sm" className="ml-2">
               <a href="#download">Get the app</a>
             </Button>

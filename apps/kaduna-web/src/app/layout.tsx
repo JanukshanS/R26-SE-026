@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SessionProvider } from "@/lib/auth";
 
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
@@ -30,7 +31,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="antialiased">
-        <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+        {/* One session for the whole site: the landing, the portals and the
+            dashboard share it, so navigating between areas never re-authenticates. */}
+        <SessionProvider>
+          <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+        </SessionProvider>
       </body>
     </html>
   );

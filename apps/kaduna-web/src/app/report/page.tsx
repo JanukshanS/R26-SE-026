@@ -624,13 +624,14 @@ function DispatchCard({
   if (!result) return null;
 
   const p = result.selectedProvider;
+  const impact = result.metadata.trafficImpactScore;
   return (
     <div className="rounded-xl border border-border bg-card p-6">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Provider assigned
       </p>
       <p className="font-display mt-1 text-2xl font-bold tracking-tight">{p.name}</p>
-      <dl className="mt-4 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-3">
+      <dl className="mt-4 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <dt className="text-xs uppercase tracking-wide text-muted-foreground">Type</dt>
           <dd className="mt-0.5 font-medium">{providerTypeLabel(p.type)}</dd>
@@ -650,6 +651,19 @@ function DispatchCard({
             {result.metadata.providersEvaluated === 1 ? "" : "s"}
           </dd>
         </div>
+        {Number.isFinite(impact) && impact > 0 && (
+          <div>
+            <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+              Traffic impact
+            </dt>
+            <dd
+              className="mt-0.5 font-medium tabular-nums"
+              title="What this breakdown does to city traffic, scored 1-10 by the geo-intelligence service while dispatch was running. Context for road operators, not a ranking of who gets helped first."
+            >
+              {impact.toFixed(1)}/10
+            </dd>
+          </div>
+        )}
       </dl>
     </div>
   );

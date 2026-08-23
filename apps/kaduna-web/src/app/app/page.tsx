@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
+import ImpactChip from "@/components/ImpactChip";
 import PortalShell, { EmptyCard } from "@/components/portal/PortalShell";
 import { Skeleton } from "@/components/ui/skeleton";
 import RequireAuth from "@/lib/auth";
@@ -179,6 +180,13 @@ function IncidentCard({ incident }: { incident: AssignedIncident }) {
           {service ? enumLabel(service) : "Roadside assistance"}
         </h3>
         <Badge status={incident.status} />
+        <ImpactChip
+          id={incident.id}
+          latitude={incident.latitude}
+          longitude={incident.longitude}
+          serviceType={service}
+          createdAt={incident.createdAt}
+        />
         <span className="ml-auto text-sm text-muted-foreground">
           {timeAgo(incident.createdAt)}
         </span>
@@ -533,7 +541,7 @@ function DriverPortal() {
               body={
                 noVehicles
                   ? "Incidents are matched to you by your vehicle's plate number. Add a vehicle in the mobile app first."
-                  : "Report a breakdown from the mobile app and you'll be able to follow it here — status, assigned provider and their phone number, refreshed every few seconds."
+                  : "Report a breakdown — here or in the mobile app — and you'll follow it here: status, assigned provider and their phone number, refreshed every few seconds."
               }
             />
           ) : (

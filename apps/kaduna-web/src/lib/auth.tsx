@@ -6,14 +6,10 @@ import type { Session } from "@supabase/supabase-js";
 import SignIn from "@/components/SignIn";
 import { supabase } from "@/lib/supabase";
 
-export type Role = "driver" | "provider" | "ops";
-
-export type Profile = {
-  id: string;
-  name: string | null;
-  role: Role;
-  provider_id: string | null;
-};
+/* Area/role routing lives in a React-free module so it can be unit tested;
+   re-exported here because every consumer already imports from auth. */
+export { AREAS, areasFor, roleHome, type Profile, type Role } from "./areas";
+import type { Profile, Role } from "./areas";
 
 type Auth = {
   session: Session | null;
@@ -134,7 +130,13 @@ function Gate({ role, children }: { role?: Role; children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/** Session (and optionally role) gate. Renders children only when authorized. */
+/**
+ * Session (and optionally role) gate. Renders children only when authorized.
+ *
+ * The provider lives once in the root layout, so this is a pure gate: moving
+ * between /app, /provider, /admin and /dashboard reuses the same session and
+ * profile instead of re-fetching both on every navigation.
+ */
 export default function RequireAuth({
   role,
   children,
@@ -142,9 +144,5 @@ export default function RequireAuth({
   role?: Role;
   children: React.ReactNode;
 }) {
-  return (
-    <SessionProvider>
-      <Gate role={role}>{children}</Gate>
-    </SessionProvider>
-  );
+  return <Gate role={role}>{children}</Gate>;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Map as MapIcon, SlidersHorizontal, CheckCircle2, Truck, ChevronDown } from "lucide-react";
+import { Activity, Map as MapIcon, SlidersHorizontal, CheckCircle2, Truck, ChevronDown, ExternalLink } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
+import Link from "next/link";
+import { areasFor, useAuth } from "@/lib/auth";
 
 export type Section = "overview" | "whatif" | "validation" | "dispatch";
 
@@ -89,6 +91,8 @@ export function AppShell({
               );
             })}
           </ul>
+
+          <PlatformLinks />
         </div>
 
         <Separator />
@@ -124,6 +128,37 @@ export function AppShell({
 
       <div className="flex min-w-0 flex-1 flex-col">{children}</div>
     </div>
+  );
+}
+
+/**
+ * The rest of the platform, reachable from the dashboard rail. The dashboard
+ * is one seat in a system, not a standalone research page: an evaluator can
+ * step from the ops view straight into the driver, provider or admin surface
+ * and back. The list is role-derived from the same source the portals use.
+ */
+function PlatformLinks() {
+  const { profile } = useAuth();
+  const areas = areasFor(profile).filter((a) => a.href !== "/dashboard");
+  if (areas.length === 0) return null;
+
+  return (
+    <>
+      <p className="px-2 pt-5 pb-1.5 text-xs font-medium text-muted-foreground">Platform</p>
+      <ul className="space-y-0.5">
+        {areas.map((a) => (
+          <li key={a.href}>
+            <Link
+              href={a.href}
+              className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+            >
+              <ExternalLink className="size-4 shrink-0" aria-hidden />
+              {a.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 
