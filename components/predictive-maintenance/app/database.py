@@ -34,18 +34,25 @@ else:
         pool_pre_ping=True,
         pool_size=5,
         max_overflow=5,
-        connect_args={"options": f"-csearch_path={PG_SCHEMA},public"},
     )
 
     @event.listens_for(engine, "connect", insert=True)
     def _ensure_schema(dbapi_conn, _record):
-        """Create the schema before SQLAlchemy tries to use it.
+        """Create the schema and select it, on every new connection.
 
-        create_all() will happily create TABLES but never the SCHEMA that holds
-        them, so a first boot against a fresh project fails on search_path.
+        search_path is set with an explicit SET rather than the libpq "options"
+        startup parameter, because Supabase's connection pooler SILENTLY DROPS
+        options. That failure is nasty: the connection succeeds, search_path
+        quietly falls back to public, and create_all cheerfully builds a second
+        copy of every table in the wrong schema - which is exactly what happened
+        the first time this ran through the pooler.
+
+        create_all makes TABLES but never the SCHEMA that holds them, so the
+        CREATE SCHEMA has to happen here too, before anything else runs.
         """
         cur = dbapi_conn.cursor()
         cur.execute(f'CREATE SCHEMA IF NOT EXISTS "{PG_SCHEMA}"')
+        cur.execute(f'SET search_path TO "{PG_SCHEMA}", public')
         dbapi_conn.commit()
         cur.close()
 
