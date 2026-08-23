@@ -154,16 +154,29 @@ export function pairElm327(vehicleId: string): PairingInfo {
 }
 
 /**
- * ASYNC pairing — tries BLE first, then classic Bluetooth, then falls back
- * to the simulation so pairing never hard-fails the user. Returns the
- * `PairingInfo` either way.
+ * ASYNC pairing — tries BLE first, then classic Bluetooth. Returns `null` if
+ * neither transport can reach an adapter.
  *
- * `home.tsx` awaits this behind a "Connecting…" state. On a successful real
- * connect, `isElm327Paired()` returns true and reads flow from the dongle.
+ * DOES NOT FALL BACK TO THE SIMULATION. That fallback was the only route from
+ * the UI into `elm327.sim.ts`, and it made every failure look like a success:
+ * a user with a flat dongle battery got a plausible-looking trip recorded from
+ * synthetic data, with nothing but a small modal caption to tell them apart.
+ * Fake telemetry is now produced ONLY by the external simulator app, which has
+ * to be deliberately started on a second phone — so it can never be mistaken
+ * for a real reading.
  *
- * @throws never — always resolves (real or simulated).
+ * The sim module itself is untouched and `pairElm327()` still works, so a dev
+ * screen can call it directly. Setting EXPO_PUBLIC_ALLOW_SIM_FALLBACK=true
+ * restores the old behaviour in one step if the external simulator is ever
+ * unavailable.
+ *
+ * Returns `null` rather than throwing ON PURPOSE: `home.tsx` wraps this in
+ * try/finally with NO catch, so a rejection would leave the modal stuck on
+ * "Connecting…" forever. A null is impossible to ignore at the type level.
+ *
+ * @throws never — always resolves, with `null` meaning "no adapter found".
  */
-export async function pairElm327Async(vehicleId: string): Promise<PairingInfo> {
+export async function pairElm327Async(vehicleId: string): Promise<PairingInfo | null> {
   console.log(`[ELM327:Facade] pairElm327Async — bleAvailable=${ble.isBleAvailable()} classicAvailable=${classic.isClassicAvailable()}`);
 
   if (ble.isBleAvailable()) {
@@ -186,8 +199,16 @@ export async function pairElm327Async(vehicleId: string): Promise<PairingInfo> {
     }
   }
 
-  console.log(`[ELM327:Facade] Falling back to simulation.`);
-  return pairElm327(vehicleId);
+  // Escape hatch, off by default. Kept so that if the external simulator app
+  // fails the night before a demo, the old behaviour is one env var away
+  // rather than a code change under pressure.
+  if (process.env.EXPO_PUBLIC_ALLOW_SIM_FALLBACK === "true") {
+    console.log(`[ELM327:Facade] No adapter found — EXPO_PUBLIC_ALLOW_SIM_FALLBACK is set, using the simulation.`);
+    return pairElm327(vehicleId);
+  }
+
+  console.log(`[ELM327:Facade] No ELM327 adapter reachable over BLE or classic Bluetooth.`);
+  return null;
 }
 
 /**

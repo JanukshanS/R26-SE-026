@@ -56,10 +56,12 @@ export default function DriverHomeScreen() {
   // (Expo Go, web, Bluetooth off, or nothing found) — so we don't need an
   // error branch here; we just close the modal once it settles.
   const [pairingObd, setPairingObd] = useState(false);
-  // Set once pairElm327Async resolves, so the modal can show exactly what
-  // happened (real dongle vs simulated fallback) instead of just closing
-  // silently — the user has no other way to know which one they got.
-  const [pairResult, setPairResult] = useState<{ source: "ble" | "classic" | "sim"; deviceName?: string } | null>(null);
+  // Set once pairElm327Async settles, so the modal can say exactly what
+  // happened instead of just closing silently — the user has no other way to
+  // know. `source: "none"` means no adapter was reachable; pairing no longer
+  // falls back to simulated data, so that is now a real, reportable failure
+  // rather than a silent downgrade.
+  const [pairResult, setPairResult] = useState<{ source: "ble" | "classic" | "none"; deviceName?: string } | null>(null);
   const isRealPairResult = pairResult?.source === "ble" || pairResult?.source === "classic";
 
   const vehicleId = selectedVehicle?.plateNumber ?? "CBD-3742";
@@ -106,12 +108,17 @@ export default function DriverHomeScreen() {
   const handlePairObd = useCallback(async () => {
     setPairingObd(true);
     try {
-      // Tries a real ELM327 dongle over Bluetooth first; transparently falls
-      // back to the on-device simulation if none is reachable. Persists for
-      // the session so subsequent triage submissions read live OBD telemetry
-      // and run at Tier-2 (OBD-enhanced) on the dispatch backend.
+      // Tries a real ELM327 dongle over BLE then classic Bluetooth. Returns
+      // null when none is reachable — it no longer falls back to simulated
+      // data, so a failure here is reported rather than hidden. A successful
+      // pairing persists for the session, so later triage submissions read
+      // live telemetry and run at Tier-2 on the dispatch backend.
       const info = await pairElm327Async(vehicleId);
-      setPairResult({ source: info.source, deviceName: info.deviceName });
+      setPairResult(
+        info
+          ? { source: info.source as "ble" | "classic", deviceName: info.deviceName }
+          : { source: "none" }
+      );
     } finally {
       setPairingObd(false);
     }
@@ -332,7 +339,14 @@ export default function DriverHomeScreen() {
         {/* Engine-state detection readout — dev builds only while the
             thresholds are still being validated against a real car. */}
         {__DEV__ && <EngineStateDebug />}
-        <TripCard vehicleId={vehicleId} driverId={user?._id ?? "guest"} />
+        <TripCard
+          vehicleId={vehicleId}
+          driverId={user?._id ?? "guest"}
+          onNeedsObd={() => {
+            setPairResult(null);
+            setShowObd(true);
+          }}
+        />
 
         <View style={{ gap: spacing.md }}>
           <Text style={{ ...typography.h3, color: palette.text }}>Quick Actions</Text>
@@ -741,7 +755,7 @@ export default function DriverHomeScreen() {
             <View style={{ gap: spacing.sm, alignItems: "center" }}>
               <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
                 {pairResult
-                  ? isRealPairResult ? "Connected!" : "Using Simulated Data"
+                  ? isRealPairResult ? "Connected!" : "No Adapter Found"
                   : "Connect OBD-II"}
               </Text>
               <Text
@@ -755,18 +769,20 @@ export default function DriverHomeScreen() {
                 {pairResult
                   ? isRealPairResult
                     ? `Connected to ${pairResult.deviceName || "your ELM327 adapter"} (${pairResult.source === "ble" ? "BLE" : "classic Bluetooth"}). Trips will use live sensor data from your car.`
-                    : "No physical adapter was reachable, so this session will use realistic simulated OBD-II data instead of your car's real sensors."
+                    : "No OBD-II adapter was reachable. Check that the adapter is plugged in, Bluetooth is on, and the adapter is paired in your phone's Bluetooth settings — then try again."
                   : pairingObd
                   ? "Scanning for your OBD-II adapter over Bluetooth…"
                   : "Pair an OBD-II adapter to let the app read live data from your vehicle and track its real health."}
               </Text>
-              {/* In Expo Go / web the native Bluetooth module isn't loaded, so
-                  pairing uses a realistic on-device simulation instead. */}
+              {/* In Expo Go / web the native Bluetooth module isn't loaded at
+                  all, so pairing cannot succeed here by any route. Said plainly
+                  rather than implying a simulated session will start — that is
+                  no longer what happens. */}
               {!pairResult && !isRealBleSupported() && !pairingObd && (
                 <Text
                   style={{ ...typography.micro, color: palette.textMuted, textAlign: "center" }}
                 >
-                  Bluetooth scanning needs a dev build — simulated telemetry will be used here.
+                  Bluetooth needs a dev build — pairing is unavailable in Expo Go and on web.
                 </Text>
               )}
             </View>
@@ -774,7 +790,11 @@ export default function DriverHomeScreen() {
             {pairResult ? (
               <Pressable
                 onPress={() => {
-                  setShowObd(false);
+                  // A failed pair returns to the pair/skip buttons so the user
+                  // can retry without reopening the modal; a successful one
+                  // closes it. Sending "no adapter found" straight to Continue
+                  // would read as though the failure had been accepted.
+                  if (isRealPairResult) setShowObd(false);
                   setPairResult(null);
                 }}
                 style={({ pressed }) => ({
@@ -785,7 +805,9 @@ export default function DriverHomeScreen() {
                   backgroundColor: pressed ? palette.brandPressed : palette.brand,
                 })}
               >
-                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Continue</Text>
+                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
+                  {isRealPairResult ? "Continue" : "Try Again"}
+                </Text>
               </Pressable>
             ) : (
               <View style={{ flexDirection: "row", gap: spacing.md, width: "100%" }}>
@@ -862,7 +884,15 @@ function HealthAlertPill({ text, danger = true }: { text: string; danger?: boole
   );
 }
 
-function TripCard({ vehicleId, driverId }: { vehicleId: string; driverId: string }) {
+function TripCard({
+  vehicleId,
+  driverId,
+  onNeedsObd,
+}: {
+  vehicleId: string;
+  driverId: string;
+  onNeedsObd: () => void;
+}) {
   const [tripActive, setTripActive] = useState(isTripActive());
 
   function handlePress() {
@@ -871,7 +901,12 @@ function TripCard({ vehicleId, driverId }: { vehicleId: string; driverId: string
       return;
     }
     if (!isElm327Paired()) {
-      router.push("/(driver)/home");
+      // Previously this pushed "/(driver)/home" — the screen the card is
+      // already on — so the tap did nothing at all. That was masked while
+      // pairing silently fell back to the simulation and isElm327Paired() was
+      // therefore almost always true. With no fallback it is the normal
+      // unpaired case, so open the pairing modal instead of dead-ending.
+      onNeedsObd();
       return;
     }
     startTrip(vehicleId, driverId);
