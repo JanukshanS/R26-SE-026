@@ -9,6 +9,8 @@ COPY apps/kaduna-web/package.json apps/kaduna-web/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY apps/kaduna-web/ ./
+# tsconfig maps contracts/* to ../../contracts — the shared contract files must be in the image.
+COPY contracts /repo/contracts
 
 # NEXT_PUBLIC_* values are inlined at build time; all are publishable, not secrets.
 ARG NEXT_PUBLIC_SUPABASE_URL=https://huynmjagdlkvqcmgdipk.supabase.co
