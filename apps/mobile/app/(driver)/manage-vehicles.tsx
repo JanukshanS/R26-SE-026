@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
   Pressable,
   ScrollView,
@@ -20,6 +21,7 @@ import { endTrip, isTripActive } from "@lib/tripRecorder";
 import { VehicleApiError, type Vehicle, type VehicleInput } from "@lib/vehicleApi";
 import { listInsuranceCompanies, type InsuranceCompany } from "@lib/insuranceCompaniesApi";
 import { getVehicleInsurance, upsertVehicleInsurance } from "@lib/vehicleInsuranceApi";
+import { normalizePlate, plateError } from "@lib/plate-number";
 import {
   formatExpireMonth,
   formatLicenceNumber,
@@ -173,6 +175,11 @@ export default function ManageVehiclesScreen() {
       setError("Make, model and plate number are required.");
       return;
     }
+    const plateProblem = plateError(form.plateNumber ?? "");
+    if (plateProblem) {
+      setError(plateProblem);
+      return;
+    }
     // Policy Number/Expiry Month are disabled in the form until a provider is picked, so
     // this shouldn't be reachable in practice — kept as a safety net regardless.
     if (!insuranceProvider && (insurancePolicyNumber.trim() || insuranceExpireMonth.trim())) {
@@ -215,10 +222,10 @@ export default function ManageVehiclesScreen() {
     try {
       let vehicleId: string;
       if (editingVehicle) {
-        await editVehicle(editingVehicle._id, form);
+        await editVehicle(editingVehicle._id, { ...form, plateNumber: normalizePlate(form.plateNumber ?? "") });
         vehicleId = editingVehicle._id;
       } else {
-        const vehicle = await addVehicle(form);
+        const vehicle = await addVehicle({ ...form, plateNumber: normalizePlate(form.plateNumber ?? "") });
         vehicleId = vehicle._id;
       }
       await upsertVehicleInsurance(vehicleId, {
@@ -415,8 +422,19 @@ export default function ManageVehiclesScreen() {
       </View>
 
       {/* Add / Edit modal */}
-      <Modal visible={showForm} transparent animationType="slide" onRequestClose={() => setShowForm(false)}>
-        <View
+      {/* statusBarTranslucent + KeyboardAvoidingView: an Android Modal is its own
+          window and does not inherit the activity's adjustResize, so without this
+          the keyboard covers the lower half of the form - including the submit
+          button - with no way to scroll to it. */}
+      <Modal
+        visible={showForm}
+        transparent
+        statusBarTranslucent
+        animationType="slide"
+        onRequestClose={() => setShowForm(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={process.env.EXPO_OS === "ios" ? "padding" : "height"}
           style={{
             flex: 1,
             backgroundColor: palette.overlay,
@@ -432,6 +450,9 @@ export default function ManageVehiclesScreen() {
               paddingHorizontal: spacing.lg,
               paddingBottom: insets.bottom + spacing.lg,
               gap: spacing.md,
+              // Never taller than the sheet's own window; the ScrollView inside
+              // takes the remaining space rather than a hardcoded 440px.
+              maxHeight: "92%",
             }}
           >
             {/* Modal header */}
@@ -444,7 +465,7 @@ export default function ManageVehiclesScreen() {
               </Pressable>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 440 }}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={{ gap: spacing.md }}>
                 <Row>
                   <Field label="Make *" value={form.make ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, make: v }))} placeholder="Toyota" />
@@ -575,11 +596,29 @@ export default function ManageVehiclesScreen() {
                   helperText={insuranceProvider ? undefined : "Select an insurance provider first."}
                 />
 
-                {error ? (
-                  <Text style={{ ...typography.caption, color: palette.danger }}>{error}</Text>
-                ) : null}
               </View>
             </ScrollView>
+
+            {/* Sits with the submit button, not at the end of the scroll area.
+                Down there a failed validation rendered off-screen, so tapping
+                Save looked like it simply did nothing. */}
+            {error ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: spacing.sm,
+                  padding: spacing.md,
+                  borderRadius: radii.md,
+                  backgroundColor: palette.dangerSoft,
+                }}
+              >
+                <Icon name="AlertCircle" size={14} color={palette.danger} />
+                <Text style={{ ...typography.caption, color: palette.danger, flex: 1 }}>
+                  {error}
+                </Text>
+              </View>
+            ) : null}
 
             <Pressable
               onPress={handleSave}
@@ -600,7 +639,7 @@ export default function ManageVehiclesScreen() {
               </Text>
             </Pressable>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Insurance provider picker — same bottom-sheet pattern as Add your Insurer. */}

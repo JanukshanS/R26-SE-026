@@ -17,6 +17,7 @@ import {
   type VehicleHealthResponse,
 } from "@lib/maintenanceApi";
 import { useVehicle } from "@lib/vehicleContext";
+import { useTabBack } from "@lib/useTabBack";
 
 const COMPONENT_META: Record<ComponentKey, { label: string; icon: string }> = {
   engine: { label: "Engine", icon: "Gauge" },
@@ -77,6 +78,7 @@ function RingProgress({
 }
 
 export default function HealthScreen() {
+  const { canGoBack, goBack } = useTabBack();
   const insets = useSafeAreaInsets();
   const { selectedVehicle } = useVehicle();
   const vehicleId = selectedVehicle?.plateNumber ?? "";
@@ -153,9 +155,11 @@ export default function HealthScreen() {
           gap: spacing.md,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
-          <Icon name="ChevronLeft" size={24} color={palette.text} />
-        </Pressable>
+        {canGoBack ? (
+          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+            <Icon name="ChevronLeft" size={24} color={palette.text} />
+          </Pressable>
+        ) : null}
         <View style={{ flex: 1 }}>
           <Text style={{ ...typography.h3, color: palette.text }}>Vehicle Health</Text>
           <Text style={{ ...typography.caption, color: palette.textMuted }}>

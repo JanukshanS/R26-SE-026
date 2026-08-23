@@ -17,6 +17,10 @@ export default function RootLayout() {
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: palette.background },
+            // Declared once here rather than per group: only (emergency) and
+            // (onboarding) used to set this, so the same push felt different
+            // depending on which part of the app you were in.
+            animation: "slide_from_right",
           }}
         >
           <Stack.Screen name="index" />

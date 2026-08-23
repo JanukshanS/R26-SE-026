@@ -18,13 +18,13 @@ import {
   rulToLabel,
   type VehicleHealthResponse,
 } from "@lib/maintenanceApi";
-import { isElm327Paired, isRealBleSupported, pairElm327Async, unpairElm327 } from "@lib/elm327";
+import { isElm327Paired, isRealBleSupported, pairElm327Async } from "@lib/elm327";
 import { useVehicle } from "@lib/vehicleContext";
 import type { Vehicle } from "@lib/vehicleApi";
 import { getVehicleInsurance, type VehicleInsurance } from "@lib/vehicleInsuranceApi";
 import { isExpiringSoon } from "@lib/insurer-field-format";
 import { useHardwareBack } from "@lib/useHardwareBack";
-import { endTrip, isTripActive, startTrip } from "@lib/tripRecorder";
+import { isTripActive, startTrip } from "@lib/tripRecorder";
 import { getCachedClaims, listMyClaims } from "@lib/claims-api";
 import { loadDismissedClaimId } from "@lib/claim-upload-dedupe";
 import { useIncompleteUploadStatus } from "@/features/report-accident/hooks/use-incomplete-upload-status";
@@ -36,7 +36,7 @@ export default function DriverHomeScreen() {
   const insets = useSafeAreaInsets();
   const bottomReserve = BOTTOM_SCROLL_PADDING + insets.bottom;
 
-  const { user, logout, selectedVehicle, vehicles, vehiclesLoading, selectVehicle } = useVehicle();
+  const { user, selectedVehicle, vehicles, vehiclesLoading, selectVehicle } = useVehicle();
   const incompleteUpload = useIncompleteUploadStatus();
 
   // Home is the post-auth root: block the Android back button so it can never
@@ -45,7 +45,11 @@ export default function DriverHomeScreen() {
   const [health, setHealth] = useState<VehicleHealthResponse | null>(null);
   const [healthError, setHealthError] = useState(false);
   const [loadingHealth, setLoadingHealth] = useState(true);
-  const [showObd, setShowObd] = useState(() => !isElm327Paired());
+  // Opened on demand only - from the trip card's onNeedObd, which is the moment
+  // pairing actually matters. Initialising this from isElm327Paired() popped the
+  // modal every single time home mounted, and the tab bar re-mounts home on
+  // every switch back to it.
+  const [showObd, setShowObd] = useState(false);
   const [showVehiclePicker, setShowVehiclePicker] = useState(false);
   // Vehicle tapped in the picker, awaiting confirmation before actually switching.
   const [pendingVehicle, setPendingVehicle] = useState<Vehicle | null>(null);
@@ -260,40 +264,9 @@ export default function DriverHomeScreen() {
             </Text>
           </View>
 
-          {/* Authenticated users get a real Log out (clears the session +
-              unpairs the ELM327); guests get a Sign in shortcut instead — the
-              same corner never shows "Log out" to someone who isn't signed in. */}
-          {user ? (
-            <Pressable
-              onPress={async () => {
-                // A recording left running would keep sampling under the previous
-                // driver's id and surface as "Trip in progress" for whoever signs in next.
-                if (isTripActive()) await endTrip().catch(() => {});
-                unpairElm327();
-                await logout();
-                router.replace("/");
-              }}
-              style={({ pressed }) => ({
-                opacity: pressed ? 0.7 : 1,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 4,
-                paddingHorizontal: spacing.md,
-                paddingVertical: spacing.sm,
-                borderRadius: radii.pill,
-                borderWidth: 1,
-                borderColor: palette.border,
-                backgroundColor: palette.surface,
-              })}
-              accessibilityRole="button"
-              accessibilityLabel="Log out"
-            >
-              <Icon name="LogOut" size={14} color={palette.textMuted} />
-              <Text style={{ ...typography.caption, color: palette.textMuted, fontWeight: "600" }}>
-                Log out
-              </Text>
-            </Pressable>
-          ) : (
+          {/* Signed-in drivers get nothing here - Log out lives on Profile,
+              where account actions belong. Guests keep a Sign in shortcut. */}
+          {user ? null : (
             <Pressable
               onPress={() => router.push("/(driver)/auth")}
               style={({ pressed }) => ({
@@ -348,6 +321,90 @@ export default function DriverHomeScreen() {
             <Icon name="ChevronDown" size={16} color={palette.brand} />
           </View>
         </Pressable>
+
+        {/*
+          The one thing this app exists to do, so it sits above the fold and
+          outweighs everything else on the screen. It used to be the last
+          element below the health dashboard, the trip card and six quick
+          actions - the driver had to scroll past their maintenance stats to
+          ask for help.
+        */}
+        <Pressable
+          onPress={() => router.push("/(emergency)/whats-wrong")}
+          accessibilityRole="button"
+          accessibilityLabel="Get roadside help"
+          style={({ pressed }) => ({
+            opacity: pressed ? 0.92 : 1,
+            borderRadius: radii.xl,
+            borderCurve: "continuous",
+            backgroundColor: palette.supportCoral,
+            paddingVertical: spacing.xxxl,
+            paddingHorizontal: spacing.xl,
+            alignItems: "center",
+            justifyContent: "center",
+            gap: spacing.sm,
+            ...Platform.select({
+              ios: {
+                shadowColor: palette.supportCoral,
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.3,
+                shadowRadius: 14,
+              },
+              android: { elevation: 6 },
+            }),
+          })}
+        >
+          <Icon name="Siren" size={34} color={palette.textOnBrand} />
+          <Text style={{ color: palette.textOnBrand, fontSize: 26, fontWeight: "700" }}>
+            Need help?
+          </Text>
+          <Text style={{ ...typography.body, color: palette.textOnBrand, opacity: 0.95 }}>
+            Tell us what&apos;s wrong — we&apos;ll send someone
+          </Text>
+        </Pressable>
+
+        <View style={{ gap: spacing.md }}>
+          <Text style={{ ...typography.h3, color: palette.text }}>Know what you need?</Text>
+          <Text style={{ ...typography.caption, color: palette.textMuted }}>
+            Skip the questions — we&apos;ll dispatch straight away.
+          </Text>
+          <View style={{ flexDirection: "row", gap: spacing.md }}>
+            {/* Quick actions = fast-path dispatch to the nearest provider of
+                the relevant type. No diagnostic questions; we know what's
+                needed. Routes through (emergency)/quick-dispatch which runs
+                the full incident -> triage -> dispatch pipeline. */}
+            <Animated.View entering={FadeInDown.delay(0).springify()} style={{ flex: 1 }}>
+              <QuickAction
+                icon="Disc"
+                label="Tyre"
+                onPress={() => router.push({
+                  pathname: "/(emergency)/quick-dispatch",
+                  params:   { intent: "FLAT_TIRE", label: "Flat tire" },
+                })}
+              />
+            </Animated.View>
+            <Animated.View entering={FadeInDown.delay(60).springify()} style={{ flex: 1 }}>
+              <QuickAction
+                icon="Fuel"
+                label="Fuel"
+                onPress={() => router.push({
+                  pathname: "/(emergency)/quick-dispatch",
+                  params:   { intent: "FUEL_EMPTY", label: "Fuel delivery" },
+                })}
+              />
+            </Animated.View>
+            <Animated.View entering={FadeInDown.delay(120).springify()} style={{ flex: 1 }}>
+              <QuickAction
+                icon="KeyRound"
+                label="Locksmith"
+                onPress={() => router.push({
+                  pathname: "/(emergency)/quick-dispatch",
+                  params:   { intent: "LOCKOUT", label: "Locksmith" },
+                })}
+              />
+            </Animated.View>
+          </View>
+        </View>
 
         {/* Vehicle health card — taps through to health screen */}
         <Pressable
@@ -452,43 +509,7 @@ export default function DriverHomeScreen() {
         />
 
         <View style={{ gap: spacing.md }}>
-          <Text style={{ ...typography.h3, color: palette.text }}>Quick Actions</Text>
-          <View style={{ flexDirection: "row", gap: spacing.md }}>
-            {/* Quick actions = fast-path dispatch to the nearest provider of
-                the relevant type. No diagnostic questions; we know what's
-                needed. Routes through (emergency)/quick-dispatch which runs
-                the full incident -> triage -> dispatch pipeline. */}
-            <Animated.View entering={FadeInDown.delay(0).springify()} style={{ flex: 1 }}>
-              <QuickAction
-                icon="Disc"
-                label="Tyre"
-                onPress={() => router.push({
-                  pathname: "/(emergency)/quick-dispatch",
-                  params:   { intent: "FLAT_TIRE", label: "Flat tire" },
-                })}
-              />
-            </Animated.View>
-            <Animated.View entering={FadeInDown.delay(60).springify()} style={{ flex: 1 }}>
-              <QuickAction
-                icon="Fuel"
-                label="Fuel"
-                onPress={() => router.push({
-                  pathname: "/(emergency)/quick-dispatch",
-                  params:   { intent: "FUEL_EMPTY", label: "Fuel delivery" },
-                })}
-              />
-            </Animated.View>
-            <Animated.View entering={FadeInDown.delay(120).springify()} style={{ flex: 1 }}>
-              <QuickAction
-                icon="KeyRound"
-                label="Locksmith"
-                onPress={() => router.push({
-                  pathname: "/(emergency)/quick-dispatch",
-                  params:   { intent: "LOCKOUT", label: "Locksmith" },
-                })}
-              />
-            </Animated.View>
-          </View>
+          <Text style={{ ...typography.h3, color: palette.text }}>Your vehicle</Text>
           <View style={{ flexDirection: "row", gap: spacing.md }}>
             <Animated.View entering={FadeInDown.delay(180).springify()} style={{ flex: 1 }}>
               <QuickAction icon="Truck" label="Service" onPress={() => router.push("/(driver)/health")} />
@@ -536,37 +557,6 @@ export default function DriverHomeScreen() {
             </Animated.View>
           </View>
         </View>
-
-        <Pressable
-          onPress={() => router.push("/(emergency)/safety-check")}
-          style={({ pressed }) => ({
-            opacity: pressed ? 0.92 : 1,
-            borderRadius: radii.xl,
-            borderCurve: "continuous",
-            backgroundColor: palette.supportCoral,
-            paddingVertical: spacing.xl,
-            paddingHorizontal: spacing.xl,
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 4,
-            ...Platform.select({
-              ios: {
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.12,
-                shadowRadius: 8,
-              },
-              android: { elevation: 4 },
-            }),
-          })}
-        >
-          <Text style={{ ...typography.caption, color: palette.textOnBrand, opacity: 0.95 }}>
-            Stuck on the road?
-          </Text>
-          <Text style={{ color: palette.textOnBrand, fontSize: 18, fontWeight: "700" }}>
-            Get the Support
-          </Text>
-        </Pressable>
       </Screen>
 
       <BottomNavBar activeTab="home" />
