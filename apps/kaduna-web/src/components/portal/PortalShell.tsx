@@ -9,14 +9,13 @@ import { supabase } from "@/lib/supabase";
 export type PortalTab = { label: string; href: string };
 
 /**
- * Chrome shared by /app, /report, /provider and /admin: wordmark, the areas
- * this account may enter, the account chip, then the page's own title and tabs.
+ * Chrome shared by every signed-in area, operations included: wordmark, the
+ * areas this account may enter, the account chip, then the page's own title
+ * and tabs.
  *
- * The area nav is what makes these one system rather than four URLs — it is
+ * The area nav is what makes these one system rather than five URLs — it is
  * derived from the signed-in profile, so a driver never sees the operator
  * areas and an operator can walk the whole platform without retyping a URL.
- * The dashboard keeps its own dark AppShell and links back through the same
- * list.
  */
 export default function PortalShell({
   title,

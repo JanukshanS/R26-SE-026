@@ -44,7 +44,7 @@ export default function IncidentPanel({
         </div>
         <button
           onClick={onClose}
-          className="text-muted-foreground hover:text-white transition-colors text-lg leading-none"
+          className="text-muted-foreground hover:text-foreground transition-colors text-lg leading-none"
         >
           &times;
         </button>

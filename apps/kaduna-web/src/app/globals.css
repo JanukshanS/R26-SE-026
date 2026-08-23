@@ -4,13 +4,21 @@
 /* ---break---  */
 @custom-variant dark (&:is(.dark *));
 
-/* Priority colours map to the model's four output bands. Raised to WCAG-AA
-   contrast on the dark surface — the previous values failed as small text. */
+/* Priority colours map to the model's four output bands. The base set is for
+   fills — map markers, dots, meter bars — where saturation has to carry across
+   a pale basemap. The -ink set is the same four bands darkened to pass AA as
+   text on the light card; use it anywhere the colour spells out a word or a
+   number. */
 :root {
   --priority-critical: oklch(0.68 0.20 22);
   --priority-high:     oklch(0.76 0.16 55);
   --priority-medium:   oklch(0.85 0.15 92);
   --priority-low:      oklch(0.78 0.16 158);
+
+  --priority-critical-ink: oklch(0.50 0.19 22);
+  --priority-high-ink:     oklch(0.52 0.15 48);
+  --priority-medium-ink:   oklch(0.52 0.12 85);
+  --priority-low-ink:      oklch(0.48 0.13 158);
 }
 
 /* ── Light theme (landing) ──
@@ -228,9 +236,26 @@
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: #fca5a5;
-  background: oklch(0.205 0 0 / 85%);
+  color: #b91c1c;
+  background: oklch(1 0 0 / 88%);
   padding: 0 3px;
   border-radius: 3px;
   pointer-events: none;
+}
+
+/* Draggable pin used by the breakdown location picker. */
+.pin-marker {
+  background: transparent !important;
+  border: 0 !important;
+  cursor: grab;
+}
+
+.pin-marker .pin-dot {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--primary);
+  border: 3px solid oklch(1 0 0);
+  box-shadow: 0 0 0 1.5px var(--primary), 0 4px 12px rgba(0, 0, 0, 0.3);
 }

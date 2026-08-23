@@ -140,9 +140,9 @@ export default function DispatchPanel() {
         Priority Dispatch (H2)
       </h3>
       <p className="text-xs text-muted-foreground leading-relaxed">
-        Mean network <span className="text-white font-semibold">VHL</span> (relative index)
+        Mean network <span className="text-foreground font-semibold">VHL</span> (relative index)
         across {data.kernel.seeds} seeds at N={data.headlineN} providers — lower is better.
-        The headline is the <span className="text-white font-semibold">relative</span> VHL
+        The headline is the <span className="text-foreground font-semibold">relative</span> VHL
         reduction of impact-priority vs nearest-first.
       </p>
 

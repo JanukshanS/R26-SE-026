@@ -44,7 +44,7 @@ export default function Map({ incidents, hotspots, blackspots, onSelectIncident,
 
       L.control.zoom({ position: "topright" }).addTo(map);
 
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
         attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
         maxZoom: 19,
       }).addTo(map);
@@ -101,7 +101,7 @@ export default function Map({ incidents, hotspots, blackspots, onSelectIncident,
         const marker = L.circleMarker([inc.lat, inc.lng], {
           radius: (inc.live ? 7 : 4) + inc.impactScore * 0.5,
           fillColor: PRIORITY_COLORS[inc.priority] || "#888",
-          color: inc.live ? "#111827" : "rgba(255,255,255,0.3)",
+          color: inc.live ? "#111827" : "rgba(0,0,0,0.28)",
           weight: inc.live ? 3 : 1,
           fillOpacity: inc.live ? 0.95 : 0.8,
         });
@@ -116,7 +116,7 @@ export default function Map({ incidents, hotspots, blackspots, onSelectIncident,
               ? `Dispatched: <strong>${inc.providerName}</strong>`
               : `Queue: ${inc.queueKm}km | VHL: ${inc.vhl}`}
           </div>`,
-          { className: "dark-popup" }
+          { className: "kaduna-popup" }
         );
 
         marker.on("click", () => onSelectIncident(inc));
@@ -163,9 +163,9 @@ export default function Map({ incidents, hotspots, blackspots, onSelectIncident,
             <strong>${b.name}</strong><br/>
             <span style="color:#6B7280">${b.roadType}</span><br/>
             ${b.notes}<br/>
-            <span style="color:#fca5a5;font-weight:600">Real accident blackspot — NTC 2024 / data.gov.lk</span>
+            <span style="color:#b91c1c;font-weight:600">Real accident blackspot — NTC 2024 / data.gov.lk</span>
           </div>`,
-          { className: "dark-popup" }
+          { className: "kaduna-popup" }
         );
         marker.addTo(layersRef.current.blackspots);
       });

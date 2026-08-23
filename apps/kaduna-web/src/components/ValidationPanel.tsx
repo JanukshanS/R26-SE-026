@@ -166,12 +166,12 @@ export default function ValidationPanel() {
 
       <div className="rounded-lg bg-muted border border-border p-3">
         <p className="text-xs leading-relaxed text-muted-foreground">
-          The <span className="text-white font-semibold">deployed</span> 5-factor model
-          scores Pearson <span className="text-white font-semibold">r = 0.60</span> against
+          The <span className="text-foreground font-semibold">deployed</span> 5-factor model
+          scores Pearson <span className="text-foreground font-semibold">r = 0.60</span> against
           SUMO speed reduction. The SUMO-fitted sensitivity weights reach{" "}
           <span className="text-indigo-400 font-semibold">r = 0.93</span> (held-out CV{" "}
           <span className="text-indigo-400 font-semibold">0.924</span>) — a sensitivity
-          result, <span className="text-white font-semibold">not</span> the shipped model.
+          result, <span className="text-foreground font-semibold">not</span> the shipped model.
         </p>
       </div>
     </div>

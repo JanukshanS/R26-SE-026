@@ -31,6 +31,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import LocationPicker, { type Coords } from "@/components/LocationPicker";
 import PortalShell from "@/components/portal/PortalShell";
 import RequireAuth from "@/lib/auth";
 import {
@@ -189,11 +190,8 @@ function OptionCard({
 // ─── Step 1: where and what vehicle ──────────────────────────────────────
 
 function WhereStep({
-  latText,
-  lngText,
-  setLatText,
-  setLngText,
   coords,
+  setCoords,
   vehicles,
   vehiclesError,
   reloadVehicles,
@@ -205,11 +203,8 @@ function WhereStep({
   setDescription,
   onNext,
 }: {
-  latText: string;
-  lngText: string;
-  setLatText: (v: string) => void;
-  setLngText: (v: string) => void;
-  coords: { latitude: number; longitude: number } | null;
+  coords: Coords | null;
+  setCoords: (c: Coords) => void;
   vehicles: Vehicle[] | null;
   vehiclesError: string | null;
   reloadVehicles: () => void;
@@ -226,28 +221,27 @@ function WhereStep({
 
   const locate = useCallback(() => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      setGeoError("This browser can't share your location. Enter the coordinates below.");
+      setGeoError("This browser can't share your location. Click the map below instead.");
       return;
     }
     setGeoError(null);
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLatText(pos.coords.latitude.toFixed(6));
-        setLngText(pos.coords.longitude.toFixed(6));
+        setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
         setLocating(false);
       },
       (err) => {
         setGeoError(
           err.code === err.PERMISSION_DENIED
-            ? "Location permission was denied. Allow it in your browser, or enter the coordinates below — we can't send anyone without them."
-            : `Couldn't read your location (${err.message}). Enter the coordinates below instead.`
+            ? "Location permission was denied. Allow it in your browser, or just click the map below where you've broken down."
+            : `Couldn't read your location (${err.message}). Click the map below instead.`
         );
         setLocating(false);
       },
       { enableHighAccuracy: true, timeout: 10_000 }
     );
-  }, [setLatText, setLngText]);
+  }, [setCoords]);
 
   const noVehicles = vehicles?.length === 0;
   const ready = !!coords && (noVehicles ? plate.trim().length > 0 : !!vehicleId);
@@ -257,7 +251,8 @@ function WhereStep({
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="font-display text-lg font-semibold tracking-tight">Where are you?</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          The provider is matched to your coordinates, so this has to be right.
+          The provider is sent to this pin, so it has to be right. Phone GPS is often a block
+          off — check the map and drag the pin if it&apos;s wrong.
         </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -267,11 +262,6 @@ function WhereStep({
               {locating ? "Finding you…" : "Use my location"}
             </span>
           </button>
-          {coords && (
-            <span className="rounded-full bg-primary/15 px-3 py-1 text-sm font-medium text-primary">
-              {coords.latitude.toFixed(5)}, {coords.longitude.toFixed(5)}
-            </span>
-          )}
         </div>
 
         {geoError && (
@@ -280,37 +270,9 @@ function WhereStep({
           </p>
         )}
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label className="text-sm">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">
-              Latitude
-            </span>
-            <input
-              value={latText}
-              onChange={(e) => setLatText(e.target.value)}
-              inputMode="decimal"
-              placeholder="6.9147"
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2"
-            />
-          </label>
-          <label className="text-sm">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">
-              Longitude
-            </span>
-            <input
-              value={lngText}
-              onChange={(e) => setLngText(e.target.value)}
-              inputMode="decimal"
-              placeholder="79.9724"
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2"
-            />
-          </label>
+        <div className="mt-4">
+          <LocationPicker value={coords} onChange={setCoords} />
         </div>
-        {(latText || lngText) && !coords && (
-          <p className="mt-2 text-sm text-red-700">
-            Latitude must be between -90 and 90, longitude between -180 and 180.
-          </p>
-        )}
       </section>
 
       <section className="rounded-xl border border-border bg-card p-6">
@@ -676,21 +638,9 @@ type Stage = "where" | "questions" | "submit" | "done";
 function ReportFlow() {
   const [stage, setStage] = useState<Stage>("where");
 
-  // Location lives in the two inputs; `coords` is whatever parses out of them,
-  // so "Use my location" and hand-typed values can never disagree.
-  const [latText, setLatText] = useState("");
-  const [lngText, setLngText] = useState("");
-  const lat = Number(latText);
-  const lng = Number(lngText);
-  const coords =
-    latText.trim() &&
-    lngText.trim() &&
-    Number.isFinite(lat) &&
-    Number.isFinite(lng) &&
-    Math.abs(lat) <= 90 &&
-    Math.abs(lng) <= 180
-      ? { latitude: lat, longitude: lng }
-      : null;
+  // One source of truth for the location: the pin. Both "Use my location" and
+  // a map click write here, so they can never disagree.
+  const [coords, setCoords] = useState<Coords | null>(null);
 
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [vehiclesError, setVehiclesError] = useState<string | null>(null);
@@ -819,11 +769,8 @@ function ReportFlow() {
     <PortalShell title="Report a breakdown">
       {stage === "where" && (
         <WhereStep
-          latText={latText}
-          lngText={lngText}
-          setLatText={setLatText}
-          setLngText={setLngText}
           coords={coords}
+          setCoords={setCoords}
           vehicles={vehicles}
           vehiclesError={vehiclesError}
           reloadVehicles={loadVehicles}

@@ -18,10 +18,10 @@ const INCIDENT_TYPES = [
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const PRIORITY_TOKEN: Record<string, string> = {
-  CRITICAL: "var(--priority-critical)",
-  HIGH: "var(--priority-high)",
-  MEDIUM: "var(--priority-medium)",
-  LOW: "var(--priority-low)",
+  CRITICAL: "var(--priority-critical-ink)",
+  HIGH: "var(--priority-high-ink)",
+  MEDIUM: "var(--priority-medium-ink)",
+  LOW: "var(--priority-low-ink)",
 };
 
 const titled = (s: string) => s.replace(/_/g, " ");
