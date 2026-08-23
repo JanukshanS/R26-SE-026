@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -14,6 +15,8 @@ import { Icon } from "@components/ui/icon";
 import { TextField } from "@components/ui/text-input";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
+import { unpairElm327 } from "@lib/elm327";
+import { endTrip, isTripActive } from "@lib/tripRecorder";
 import { VehicleApiError, type Vehicle, type VehicleInput } from "@lib/vehicleApi";
 import { listInsuranceCompanies, type InsuranceCompany } from "@lib/insuranceCompaniesApi";
 import { getVehicleInsurance, upsertVehicleInsurance } from "@lib/vehicleInsuranceApi";
@@ -35,7 +38,7 @@ const EMPTY_FORM: Partial<VehicleInput> = {
 
 export default function ManageVehiclesScreen() {
   const insets = useSafeAreaInsets();
-  const { user, vehicles, vehiclesLoading, selectedVehicle, selectVehicle, addVehicle, editVehicle, removeVehicle, setDefault, updateMe, logout } = useVehicle();
+  const { user, vehicles, vehiclesLoading, vehicleError, refreshVehicles, selectedVehicle, selectVehicle, addVehicle, editVehicle, removeVehicle, setDefault, updateMe, logout } = useVehicle();
   // "addVehicle" param renamed on destructure — the context already exposes an
   // `addVehicle` function above, and the two would otherwise collide.
   const { editVehicleId, addVehicle: autoOpenAddParam } = useLocalSearchParams<{
@@ -223,24 +226,40 @@ export default function ManageVehiclesScreen() {
         insurancePolicyNumber,
         insuranceExpireMonth,
       });
-      await updateMe({ licenceNumber: licenceNumber.trim(), nicNumber: nicNumber.trim() });
-      setShowForm(false);
     } catch (err: any) {
       // 23505 = Postgres unique-violation — same handling as Add your Insurer, since
-      // these three fields share the exact same DB constraints.
+      // these fields share the exact same DB constraints. Only policy_number can
+      // violate here; licence/NIC belong to the profile write below.
       if (err instanceof VehicleApiError && err.code === "23505") {
-        if (err.message.includes("nic_number")) {
-          setNicError("This NIC Number is already registered to another account.");
-        } else if (err.message.includes("licence_number")) {
-          setLicenceError("This Driving Licence Number is already registered to another account.");
-        } else if (err.message.includes("policy_number")) {
+        if (err.message.includes("policy_number")) {
           setPolicyError("This Policy Number is already registered to another vehicle.");
         } else {
           setError("One of the details you entered is already registered elsewhere.");
         }
-        return;
+      } else {
+        setError(err.message ?? "Failed to save vehicle. Check your connection and try again.");
       }
-      setError(err.message ?? "Failed to save vehicle");
+      setSaving(false);
+      return;
+    }
+    // The vehicle write already went through, so the form is closed before the
+    // profile write below: leaving it open on a licence/NIC failure invites a
+    // second tap of "Add Vehicle" and a duplicate car (vehicles has no unique
+    // plate constraint to catch the retry).
+    setShowForm(false);
+    try {
+      await updateMe({ licenceNumber: licenceNumber.trim(), nicNumber: nicNumber.trim() });
+    } catch (err: any) {
+      const duplicate =
+        err instanceof VehicleApiError && err.code === "23505"
+          ? err.message.includes("nic_number")
+            ? "This NIC Number is already registered to another account."
+            : "This Driving Licence Number is already registered to another account."
+          : null;
+      Alert.alert(
+        "Licence and NIC not saved",
+        `${duplicate ?? err.message ?? "The server didn't respond."}\n\nYour vehicle was saved. Tap Edit on it to enter them again.`
+      );
     } finally {
       setSaving(false);
     }
@@ -303,6 +322,30 @@ export default function ManageVehiclesScreen() {
       >
         {vehiclesLoading ? (
           <ActivityIndicator size="large" color={palette.brand} style={{ marginTop: 40 }} />
+        ) : vehicleError && vehicles.length === 0 ? (
+          /* Without this the failed fetch looks like an empty garage, and the
+             driver re-registers a car they already have. */
+          <View style={{ alignItems: "center", paddingTop: 60, gap: spacing.md }}>
+            <Icon name="TriangleAlert" size={48} color={palette.danger} />
+            <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
+              Couldn&apos;t load your vehicles. {vehicleError}
+            </Text>
+            <Pressable
+              onPress={() => { void refreshVehicles(); }}
+              style={({ pressed }) => ({
+                paddingHorizontal: spacing.lg,
+                paddingVertical: spacing.sm,
+                borderRadius: radii.md,
+                borderWidth: 1,
+                borderColor: palette.border,
+                backgroundColor: pressed ? palette.brandSoft : "transparent",
+              })}
+            >
+              <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "600" }}>
+                Try again
+              </Text>
+            </Pressable>
+          </View>
         ) : vehicles.length === 0 ? (
           <View style={{ alignItems: "center", paddingTop: 60, gap: spacing.md }}>
             <Icon name="Car" size={48} color={palette.border} />
@@ -347,7 +390,17 @@ export default function ManageVehiclesScreen() {
         }}
       >
         <Pressable
-          onPress={() => { logout(); router.back(); }}
+          onPress={async () => {
+            // Same teardown as Home: a recording left running would keep sampling
+            // under the previous driver's id, and router.back() would drop the
+            // signed-out user back inside the authenticated stack.
+            if (isTripActive()) await endTrip().catch(() => {});
+            unpairElm327();
+            await logout();
+            router.replace("/");
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Log out"
           style={({ pressed }) => ({
             borderRadius: radii.lg,
             paddingVertical: spacing.md,
@@ -362,7 +415,7 @@ export default function ManageVehiclesScreen() {
       </View>
 
       {/* Add / Edit modal */}
-      <Modal visible={showForm} transparent animationType="slide">
+      <Modal visible={showForm} transparent animationType="slide" onRequestClose={() => setShowForm(false)}>
         <View
           style={{
             flex: 1,
@@ -626,7 +679,7 @@ export default function ManageVehiclesScreen() {
 
       {/* Shown when redirected here from Home's Insurance button because required
           details were missing — names the specific fields still needed, in orange. */}
-      <Modal visible={reminderVisible} transparent animationType="fade">
+      <Modal visible={reminderVisible} transparent animationType="fade" onRequestClose={() => setReminderVisible(false)}>
         <View
           style={{
             flex: 1,

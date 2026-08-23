@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@components/ui/button";
-import { Card } from "@components/ui/card";
 import { ErrorState } from "@components/ui/error-state";
 import { HeaderBar } from "@components/ui/header-bar";
 import { Icon } from "@components/ui/icon";
@@ -32,6 +31,7 @@ export default function AddInsurerScreen() {
   const [policy, setPolicy] = useState("");
   const [licence, setLicence] = useState("");
   const [nic, setNic] = useState("");
+  const [companiesError, setCompaniesError] = useState("");
   const [expireMonth, setExpireMonth] = useState("");
   const [error, setError] = useState("");
   const [policyError, setPolicyError] = useState("");
@@ -40,22 +40,34 @@ export default function AddInsurerScreen() {
   const [expireMonthError, setExpireMonthError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  // A stale response — from a superseded retry, or after the screen is gone —
+  // must not write state. loadId supersedes, mounted stops writes entirely.
+  const loadId = useRef(0);
+  const mounted = useRef(true);
+
+  const loadCompanies = useCallback(() => {
+    const id = ++loadId.current;
+    const isCurrent = () => mounted.current && id === loadId.current;
+    setCompaniesLoading(true);
+    setCompaniesError("");
     void listInsuranceCompanies()
       .then((list) => {
-        if (cancelled) return;
-        setCompanies(list);
-        setProvider((prev) => prev || list[0]?.companyName || "");
+        if (isCurrent()) setCompanies(list);
       })
-      .catch(() => {})
+      .catch(() => {
+        if (isCurrent()) setCompaniesError("Check your connection and try again.");
+      })
       .finally(() => {
-        if (!cancelled) setCompaniesLoading(false);
+        if (isCurrent()) setCompaniesLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    loadCompanies();
+    return () => {
+      mounted.current = false;
+    };
+  }, [loadCompanies]);
 
   async function handleSave() {
     setError("");
@@ -92,12 +104,18 @@ export default function AddInsurerScreen() {
       );
       return;
     }
+    // Licence/NIC belong to the driver (profiles); insurer/policy belong to a specific
+    // vehicle (a driver's two cars can have different insurers), so they're attached to
+    // the vehicle id passed in from the previous Add Vehicle step — never re-derived by
+    // guessing "the default vehicle", which could resolve to a different, older vehicle.
+    // Without that id there is nothing to attach the insurer to, so stop before saving
+    // anything rather than navigating away as if it had been saved.
+    if (!vehicleId) {
+      setError("Add a vehicle first — insurer details are saved against a vehicle, not your profile.");
+      return;
+    }
     setSubmitting(true);
     try {
-      // Licence/NIC belong to the driver (profiles); insurer/policy belong to a specific
-      // vehicle (a driver's two cars can have different insurers), so they're attached to
-      // the vehicle id passed in from the previous Add Vehicle step — never re-derived by
-      // guessing "the default vehicle", which could resolve to a different, older vehicle.
       await updateMyProfile({
         licenceNumber: licence.trim(),
         nicNumber: nic.trim(),
@@ -147,13 +165,6 @@ export default function AddInsurerScreen() {
           <Button
             title="Skip"
             variant="secondary"
-            disabled={submitting}
-            onPress={() => router.replace("/(driver)/home")}
-          />
-          {/* Frictionless: never block entry — continue as a guest. */}
-          <Button
-            title="Continue as guest"
-            variant="ghost"
             disabled={submitting}
             onPress={() => router.replace("/(driver)/home")}
           />
@@ -248,22 +259,14 @@ export default function AddInsurerScreen() {
         helperText={provider ? undefined : "Select an insurance provider first."}
       />
 
-      {error ? <ErrorState title="Couldn't save insurer details" message={error} /> : null}
-
-      {/* <Card variant="muted">
-        <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-          Register Vehicle Photos
-        </Text>
-        <Text style={{ ...typography.caption, color: palette.textMuted }}>
-          This step is required for the insurer to compare vehicle images after an accident.
-        </Text>
-        <Button
-          title="Go to Guided Capture"
-          variant="secondary"
-          size="md"
-          onPress={() => {}}
+      {companiesError ? (
+        <ErrorState
+          title="Couldn't load insurance providers"
+          message={companiesError}
+          onRetry={loadCompanies}
         />
-      </Card> */}
+      ) : null}
+      {error ? <ErrorState title="Couldn't save insurer details" message={error} /> : null}
 
       {/* Insurance provider picker — same bottom-sheet pattern as the Home vehicle picker. */}
       <Modal visible={showProviderPicker} transparent animationType="slide">

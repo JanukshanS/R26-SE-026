@@ -4,6 +4,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export type InsuranceTabId = 'home' | 'tools' | 'store' | 'profile';
 
+type SecondaryTab = {
+  id: Exclude<InsuranceTabId, 'home'>;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  /** Tools has no screen yet, so it renders dimmed and inert rather than alerting on tap. */
+  available: boolean;
+};
+
+const SECONDARY_TABS: SecondaryTab[] = [
+  { id: 'tools', icon: 'construct-outline', label: 'Tools', available: false },
+  { id: 'store', icon: 'storefront-outline', label: 'Store', available: true },
+  { id: 'profile', icon: 'person-outline', label: 'Profile', available: true },
+];
+
 const COLORS = {
   screen: '#ffffff',
   border: '#e0e0e0',
@@ -23,20 +37,33 @@ export function InsuranceBottomTabBar({ onTabPress }: InsuranceBottomTabBarProps
           style={styles.tabItem}
           onPress={() => onTabPress('home')}
           accessibilityRole="tab"
+          accessibilityLabel="Home"
           accessibilityState={{ selected: true }}>
           <View style={[styles.tabIconCircle, styles.tabIconCircleActive]}>
             <Ionicons name="home" size={22} color="#fff" />
           </View>
         </Pressable>
-        <Pressable style={styles.tabItem} onPress={() => onTabPress('tools')} accessibilityRole="tab">
-          <Ionicons name="construct-outline" size={26} color={COLORS.tabInactive} />
-        </Pressable>
-        <Pressable style={styles.tabItem} onPress={() => onTabPress('store')} accessibilityRole="tab">
-          <Ionicons name="storefront-outline" size={26} color={COLORS.tabInactive} />
-        </Pressable>
-        <Pressable style={styles.tabItem} onPress={() => onTabPress('profile')} accessibilityRole="tab">
-          <Ionicons name="person-outline" size={26} color={COLORS.tabInactive} />
-        </Pressable>
+        {SECONDARY_TABS.map((tab) =>
+          tab.available ? (
+            <Pressable
+              key={tab.id}
+              style={styles.tabItem}
+              onPress={() => onTabPress(tab.id)}
+              accessibilityRole="tab"
+              accessibilityLabel={tab.label}>
+              <Ionicons name={tab.icon} size={26} color={COLORS.tabInactive} />
+            </Pressable>
+          ) : (
+            <View
+              key={tab.id}
+              style={[styles.tabItem, styles.tabItemUnavailable]}
+              accessibilityRole="tab"
+              accessibilityLabel={`${tab.label}, not available yet`}
+              accessibilityState={{ disabled: true }}>
+              <Ionicons name={tab.icon} size={26} color={COLORS.tabInactive} />
+            </View>
+          ),
+        )}
       </View>
     </SafeAreaView>
   );
@@ -70,6 +97,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 48,
+  },
+  tabItemUnavailable: {
+    opacity: 0.4,
   },
   tabIconCircle: {
     width: 48,

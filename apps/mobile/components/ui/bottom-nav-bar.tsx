@@ -1,5 +1,5 @@
 import { Platform, Pressable, Text, View } from "react-native";
-import { router } from "expo-router";
+import { router, usePathname } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, type IconName } from "@components/ui/icon";
 import { palette, spacing, typography } from "@theme/index";
@@ -8,6 +8,12 @@ import { useVehicle } from "@lib/vehicleContext";
 
 // Exported so screens can calculate scroll content padding correctly
 export const NAV_BAR_HEIGHT = 56;
+
+// How far the emergency button overhangs the top of the bar. The outer container
+// reserves the same amount as transparent padding: on Android a touch landing
+// outside a parent's bounds is never dispatched, so without it the overhanging
+// top half of the button is not tappable.
+const EMERGENCY_OVERHANG = 28;
 
 type TabKey = "home" | "maintenance" | "store" | "profile";
 type TabDef = { key: TabKey; label: string; icon: IconName };
@@ -21,28 +27,28 @@ const TABS_RIGHT: TabDef[] = [
   { key: "profile", label: "Profile", icon: "User" },
 ];
 
+// Resolved pathnames of each tab's destination (route groups don't appear in
+// the URL). Compared against the current path so a tab is only inert when it
+// really is the screen on screen — "maintenance" is the active tab on
+// service-records and trip-summary too, and must still return to health.
+const TAB_PATHS: Record<TabKey, string> = {
+  home: "/home",
+  maintenance: "/health",
+  store: "/order-parts",
+  profile: "/profile",
+};
+
 export function BottomNavBar({ activeTab }: { activeTab: TabKey }) {
   const insets = useSafeAreaInsets();
   return (
     <View
+      pointerEvents="box-none"
       style={{
         position: "absolute",
         left: 0,
         right: 0,
         bottom: 0,
-        paddingBottom: insets.bottom,
-        backgroundColor: palette.surface,
-        borderTopWidth: 1,
-        borderTopColor: palette.border,
-        ...Platform.select({
-          ios: {
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.06,
-            shadowRadius: 4,
-          },
-          android: { elevation: 12 },
-        }),
+        paddingTop: EMERGENCY_OVERHANG,
       }}
     >
       <View
@@ -50,8 +56,21 @@ export function BottomNavBar({ activeTab }: { activeTab: TabKey }) {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-around",
-          paddingVertical: spacing.sm,
+          paddingTop: spacing.sm,
+          paddingBottom: spacing.sm + insets.bottom,
           paddingHorizontal: spacing.xs,
+          backgroundColor: palette.surface,
+          borderTopWidth: 1,
+          borderTopColor: palette.border,
+          ...Platform.select({
+            ios: {
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: -2 },
+              shadowOpacity: 0.06,
+              shadowRadius: 4,
+            },
+            android: { elevation: 12 },
+          }),
         }}
       >
         {TABS_LEFT.map((tab) => (
@@ -73,6 +92,8 @@ function EmergencyCenterButton() {
         haptics.press();
         router.push("/(emergency)/safety-check");
       }}
+      accessibilityRole="button"
+      accessibilityLabel="Emergency assistance"
       style={({ pressed }) => ({
         opacity: pressed ? 0.88 : 1,
         width: 56,
@@ -81,7 +102,7 @@ function EmergencyCenterButton() {
         backgroundColor: palette.brand,
         alignItems: "center",
         justifyContent: "center",
-        marginTop: -28,
+        marginTop: -EMERGENCY_OVERHANG,
         ...Platform.select({
           ios: {
             shadowColor: palette.brand,
@@ -100,6 +121,7 @@ function EmergencyCenterButton() {
 
 function TabItem({ tab, active }: { tab: TabDef; active: boolean }) {
   const { user } = useVehicle();
+  const pathname = usePathname();
   const initials = user?.name
     .split(" ")
     .map((w) => w[0])
@@ -107,15 +129,21 @@ function TabItem({ tab, active }: { tab: TabDef; active: boolean }) {
     .join("")
     .toUpperCase();
 
+  // replace, not push: these are tabs, so switching between them must not stack a
+  // new screen every time — home blocks the Android back button, so a stack built
+  // by tab-hopping can never be popped again.
   return (
     <Pressable
       onPress={() => {
+        if (pathname === TAB_PATHS[tab.key]) return;
         haptics.select();
-        if (tab.key === "home") router.push("/(driver)/home");
-        if (tab.key === "maintenance") router.push("/(driver)/health");
-        if (tab.key === "store") router.push("/(driver)/order-parts");
-        if (tab.key === "profile") router.push("/(driver)/profile");
+        if (tab.key === "home") router.replace("/(driver)/home");
+        if (tab.key === "maintenance") router.replace("/(driver)/health");
+        if (tab.key === "store") router.replace("/(driver)/order-parts");
+        if (tab.key === "profile") router.replace("/(driver)/profile");
       }}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
       style={({ pressed }) => ({
         alignItems: "center",
         justifyContent: "center",

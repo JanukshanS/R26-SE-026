@@ -212,6 +212,9 @@ export default function DrunkTestScreen() {
         const previousUri = videoUriRef.current;
         try {
           const storedUri = await persistRecordedVideo(recorded.uri);
+          // Persist directly, not via the videoUri effect — that effect never runs
+          // if the screen was left mid-recording, and the take would be lost.
+          await saveDrunkTestState({ videoUri: storedUri });
           setVideoUri(storedUri);
           if (previousUri && previousUri !== storedUri) {
             void deleteDrunkTestVideo(previousUri);
@@ -309,8 +312,14 @@ export default function DrunkTestScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.center}>
           <Text style={styles.centerText}>Camera access is required for the drunk test.</Text>
-          <Pressable style={styles.permissionButton} onPress={requestPermission}>
-            <Text style={styles.permissionButtonText}>Grant Camera Permission</Text>
+          {/* Once the OS refuses to ask again, requestPermission() resolves without showing
+              anything — the button has to send the driver to Settings instead of doing nothing. */}
+          <Pressable
+            style={styles.permissionButton}
+            onPress={() => void (permission.canAskAgain ? requestPermission() : Linking.openSettings())}>
+            <Text style={styles.permissionButtonText}>
+              {permission.canAskAgain ? 'Grant Camera Permission' : 'Open Settings'}
+            </Text>
           </Pressable>
           <Pressable style={styles.textButton} onPress={() => router.back()}>
             <Text style={styles.textButtonLabel}>Go back</Text>
@@ -337,8 +346,14 @@ export default function DrunkTestScreen() {
             <Text style={styles.centerText}>
               Microphone access is required on Android so your drunk test video can include sound.
             </Text>
-            <Pressable style={styles.permissionButton} onPress={requestMicPermission}>
-              <Text style={styles.permissionButtonText}>Grant Microphone Permission</Text>
+            <Pressable
+              style={styles.permissionButton}
+              onPress={() =>
+                void (micPermission.canAskAgain ? requestMicPermission() : Linking.openSettings())
+              }>
+              <Text style={styles.permissionButtonText}>
+                {micPermission.canAskAgain ? 'Grant Microphone Permission' : 'Open Settings'}
+              </Text>
             </Pressable>
             <Pressable style={styles.textButton} onPress={() => router.back()}>
               <Text style={styles.textButtonLabel}>Go back</Text>

@@ -70,7 +70,9 @@ export default function AddVehicleScreen() {
         </>
       }
     >
-      <HeaderBar />
+      {/* No back control: add-account replaced itself on the way here, so the only
+          screen behind this one is the pre-signup welcome wall. */}
+      <HeaderBar showBack={false} />
       <Text style={{ ...typography.h1, color: palette.text }}>Add your vehicle</Text>
       <Text style={{ ...typography.body, color: palette.textMuted }}>
         Optional — we use this to dispatch the right help. You can add or change it

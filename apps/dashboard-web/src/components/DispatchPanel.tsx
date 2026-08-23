@@ -39,23 +39,23 @@ function VariantCard({
     <div
       className={`rounded-lg border p-3 ${
         highlight
-          ? "bg-[var(--surface-2)] border-indigo-500/60"
-          : "bg-[var(--surface-2)] border-[var(--border)]"
+          ? "bg-muted border-indigo-500/60"
+          : "bg-muted border-border"
       }`}
     >
       <div className="flex items-center justify-between mb-2">
         <div>
           <p className="text-xs font-semibold">{title}</p>
-          <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider">
+          <p className="text-xs text-muted-foreground ">
             {subtitle}
           </p>
         </div>
         {cite ? (
-          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border border-green-500/50 bg-green-500/10 text-green-400 uppercase tracking-wider">
+          <span className="text-xs font-bold px-1.5 py-0.5 rounded border border-green-500/50 bg-green-500/10 text-green-400 ">
             Cite this
           </span>
         ) : (
-          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border border-red-500/50 bg-red-500/10 text-red-400 uppercase tracking-wider">
+          <span className="text-xs font-bold px-1.5 py-0.5 rounded border border-red-500/50 bg-red-500/10 text-red-400 ">
             Circular
           </span>
         )}
@@ -68,14 +68,14 @@ function VariantCard({
           const pct = maxVHL > 0 ? (v / maxVHL) * 100 : 0;
           return (
             <div key={p.key} className="flex items-center gap-2">
-              <span className="text-[10px] w-20 truncate">{p.label}</span>
-              <div className="flex-1 h-2.5 bg-[var(--bg)] rounded-full overflow-hidden">
+              <span className="text-xs w-20 truncate">{p.label}</span>
+              <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all"
                   style={{ width: `${pct}%`, backgroundColor: p.color }}
                 />
               </div>
-              <span className="text-[10px] text-[var(--text-muted)] w-14 text-right font-mono">
+              <span className="text-xs text-muted-foreground w-14 text-right font-mono">
                 {v.toLocaleString()}
               </span>
             </div>
@@ -84,15 +84,15 @@ function VariantCard({
       </div>
 
       {/* Headline relative reduction */}
-      <div className="flex items-baseline justify-between border-t border-[var(--border)] pt-2">
-        <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
+      <div className="flex items-baseline justify-between border-t border-border pt-2">
+        <span className="text-xs text-muted-foreground ">
           Impact vs nearest (relative)
         </span>
         <span className="text-lg">
           <ReductionBadge pct={variant.relReductionPct} />
         </span>
       </div>
-      <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
+      <p className="text-xs text-muted-foreground mt-0.5">
         95% CI [{variant.ci95[0].toFixed(1)}%, {variant.ci95[1].toFixed(1)}%] · seeds C&gt;A{" "}
         {variant.seedsCbeatsA}/{variant.seeds} · Spearman(cost,score){" "}
         {variant.spearmanCostVsScore.toFixed(2)}
@@ -103,10 +103,10 @@ function VariantCard({
         {variant.nSweep.map((s) => (
           <div
             key={s.N}
-            className="rounded bg-[var(--bg)] p-1.5 text-center"
+            className="rounded bg-muted p-1.5 text-center"
             title={`N=${s.N}: seeds C beats A = ${s.seedsCbeatsA}/${variant.seeds}`}
           >
-            <p className="text-[9px] text-[var(--text-muted)]">N={s.N}</p>
+            <p className="text-xs text-muted-foreground">N={s.N}</p>
             <p className="text-xs font-bold">
               <ReductionBadge pct={s.relReductionPct} />
             </p>
@@ -136,13 +136,13 @@ export default function DispatchPanel() {
 
   return (
     <div className="space-y-3">
-      <h3 className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-semibold">
+      <h3 className="text-xs  text-muted-foreground font-semibold">
         Priority Dispatch (H2)
       </h3>
-      <p className="text-[10px] text-[var(--text-muted)] leading-relaxed">
-        Mean network <span className="text-[var(--text)] font-semibold">VHL</span> (relative index)
+      <p className="text-xs text-muted-foreground leading-relaxed">
+        Mean network <span className="text-white font-semibold">VHL</span> (relative index)
         across {data.kernel.seeds} seeds at N={data.headlineN} providers — lower is better.
-        The headline is the <span className="text-[var(--text)] font-semibold">relative</span> VHL
+        The headline is the <span className="text-white font-semibold">relative</span> VHL
         reduction of impact-priority vs nearest-first.
       </p>
 
@@ -163,24 +163,24 @@ export default function DispatchPanel() {
       />
 
       <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3">
-        <p className="text-[10px] font-bold text-yellow-400 uppercase tracking-wider mb-1">
+        <p className="text-xs font-bold text-yellow-400  mb-1">
           Balanced regime
         </p>
-        <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
+        <p className="text-xs leading-relaxed text-muted-foreground">
           {data.balancedNote}
         </p>
       </div>
 
       <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3">
-        <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-1">
+        <p className="text-xs font-bold text-red-400  mb-1">
           Honest caveat — read before citing
         </p>
-        <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
+        <p className="text-xs leading-relaxed text-muted-foreground">
           {data.honestCaveat}
         </p>
       </div>
 
-      <p className="text-[9px] text-[var(--text-muted)] break-words">
+      <p className="text-xs text-muted-foreground break-words">
         Source: {data.source}
       </p>
     </div>

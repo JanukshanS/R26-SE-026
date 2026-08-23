@@ -1,153 +1,112 @@
 "use client";
 
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import type { Stats } from "@/lib/types";
 
-const PRIORITY_COLORS: Record<string, string> = {
-  CRITICAL: "text-red-500",
-  HIGH: "text-orange-500",
-  MEDIUM: "text-yellow-500",
-  LOW: "text-green-500",
+const PRIORITY_TOKEN: Record<string, string> = {
+  CRITICAL: "var(--priority-critical)",
+  HIGH: "var(--priority-high)",
+  MEDIUM: "var(--priority-medium)",
+  LOW: "var(--priority-low)",
 };
 
+const ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
+
+/** A labelled proportion bar. The number is the value; the bar is the shape. */
+function Meter({ value, max, color }: { value: number; max: number; color: string }) {
+  return (
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted" aria-hidden>
+      <div
+        className="h-full rounded-full"
+        style={{ width: `${max > 0 ? (value / max) * 100 : 0}%`, background: color }}
+      />
+    </div>
+  );
+}
+
 export default function StatsPanel({ stats }: { stats: Stats }) {
-  const cards = [
-    { label: "Total Incidents", value: stats.totalIncidents, unit: "" },
-    { label: "Avg Impact Score", value: stats.avgScore, unit: "/10" },
-    { label: "Total Vehicle-Hours Lost", value: stats.totalVHL.toLocaleString(), unit: "hrs" },
-    { label: "Total Queue Length", value: stats.totalQueueKm, unit: "km" },
-  ];
+  const total = Object.values(stats.priorityDist).reduce((a, b) => a + b, 0);
+  const roads = Object.entries(stats.byRoadType).sort((a, b) => b[1] - a[1]);
+  const types = Object.entries(stats.byIncidentType).sort((a, b) => b[1] - a[1]);
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        {cards.map((c) => (
-          <div
-            key={c.label}
-            className="rounded-lg bg-[var(--surface-2)] border border-[var(--border)] p-3"
-          >
-            <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider">{c.label}</p>
-            <p className="text-2xl font-bold mt-1">
-              {c.value}
-              <span className="text-sm font-normal text-[var(--text-muted)] ml-1">{c.unit}</span>
-            </p>
-          </div>
-        ))}
-      </div>
-
-      <div className="rounded-lg bg-[var(--surface-2)] border border-[var(--border)] p-3">
-        <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">Priority Distribution</p>
-        <div className="space-y-1.5">
-          {Object.entries(stats.priorityDist)
-            .sort(([a], [b]) => {
-              const order = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
-              return order.indexOf(a) - order.indexOf(b);
-            })
-            .map(([priority, count]) => {
-              const pct = ((count / stats.totalIncidents) * 100).toFixed(1);
-              return (
-                <div key={priority} className="flex items-center gap-2">
-                  <span className={`text-xs font-mono w-16 ${PRIORITY_COLORS[priority]}`}>
-                    {priority}
-                  </span>
-                  <div className="flex-1 h-2 bg-[var(--bg)] rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${pct}%`,
-                        backgroundColor:
-                          priority === "CRITICAL" ? "#ef4444" :
-                          priority === "HIGH" ? "#f97316" :
-                          priority === "MEDIUM" ? "#eab308" : "#22c55e",
-                      }}
-                    />
-                  </div>
-                  <span className="text-xs text-[var(--text-muted)] w-16 text-right">
-                    {count} ({pct}%)
-                  </span>
-                </div>
-              );
-            })}
-        </div>
-      </div>
-
-      <div className="rounded-lg bg-[var(--surface-2)] border border-[var(--border)] p-3">
-        <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">Avg Score by Road Type</p>
-        <div className="space-y-1">
-          {Object.entries(stats.byRoadType)
-            .sort(([, a], [, b]) => b - a)
-            .map(([road, score]) => (
-              <div key={road} className="flex items-center gap-2">
-                <span className="text-xs w-20 truncate">{road}</span>
-                <div className="flex-1 h-2 bg-[var(--bg)] rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-orange-500"
-                    style={{ width: `${(score / 10) * 100}%` }}
-                  />
-                </div>
-                <span className="text-xs text-[var(--text-muted)] w-8 text-right">{score}</span>
-              </div>
-            ))}
-        </div>
-      </div>
-
-      <div className="rounded-lg bg-[var(--surface-2)] border border-[var(--border)] p-3">
-        <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">Avg Score by Incident Type</p>
-        <div className="space-y-1">
-          {Object.entries(stats.byIncidentType)
-            .sort(([, a], [, b]) => b - a)
-            .map(([type, score]) => (
-              <div key={type} className="flex items-center gap-2">
-                <span className="text-xs w-24 truncate">{type.replace(/_/g, " ")}</span>
-                <div className="flex-1 h-2 bg-[var(--bg)] rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-purple-500"
-                    style={{ width: `${(score / 10) * 100}%` }}
-                  />
-                </div>
-                <span className="text-xs text-[var(--text-muted)] w-8 text-right">{score}</span>
-              </div>
-            ))}
-        </div>
-      </div>
-
-      <div className="rounded-lg bg-[var(--surface-2)] border border-[var(--border)] p-3">
-        <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">Hourly Impact Profile</p>
-        <div className="flex items-end gap-px h-16">
-          {Array.from({ length: 24 }, (_, h) => {
-            const score = stats.byHour[String(h)] ?? 0;
-            const maxScore = Math.max(...Object.values(stats.byHour));
-            const height = maxScore > 0 ? (score / maxScore) * 100 : 0;
-            const isPeak = h >= 7 && h <= 9 || h >= 17 && h <= 19;
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Priority distribution</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 pt-0">
+          {ORDER.filter((p) => p in stats.priorityDist).map((p) => {
+            const count = stats.priorityDist[p] ?? 0;
             return (
-              <div key={h} className="flex-1 flex flex-col items-center gap-0.5" title={`${String(h).padStart(2, "0")}:00 — ${score}/10`}>
-                <div
-                  className={`w-full rounded-t-sm transition-all ${isPeak ? "bg-orange-500" : "bg-orange-500/60"}`}
-                  style={{ height: `${height}%`, minHeight: score > 0 ? "2px" : "0" }}
-                />
+              <div key={p} className="space-y-1.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="flex items-center gap-2 text-sm">
+                    <span
+                      className="size-2 shrink-0 rounded-full"
+                      style={{ background: PRIORITY_TOKEN[p] }}
+                      aria-hidden
+                    />
+                    {p.charAt(0) + p.slice(1).toLowerCase()}
+                  </span>
+                  <span className="text-sm tabular-nums text-muted-foreground">
+                    <span className="font-medium text-foreground">{count}</span>{" "}
+                    ({total > 0 ? ((count / total) * 100).toFixed(1) : "0.0"}%)
+                  </span>
+                </div>
+                <Meter value={count} max={total} color={PRIORITY_TOKEN[p]} />
               </div>
             );
           })}
-        </div>
-        <div className="flex justify-between mt-1">
-          <span className="text-[9px] text-[var(--text-muted)]">00</span>
-          <span className="text-[9px] text-[var(--text-muted)]">06</span>
-          <span className="text-[9px] text-[var(--text-muted)]">12</span>
-          <span className="text-[9px] text-[var(--text-muted)]">18</span>
-          <span className="text-[9px] text-[var(--text-muted)]">23</span>
-        </div>
-        <p className="text-[9px] text-[var(--text-muted)] text-center mt-0.5">
-          <span className="inline-block w-2 h-2 bg-orange-500 rounded-sm mr-1" />Peak hours highlighted
-        </p>
-      </div>
+        </CardContent>
+      </Card>
 
-      <div className="rounded-lg bg-[var(--surface-2)] border border-[var(--border)] p-3">
-        <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">Real-Data Sources</p>
-        <p className="text-[10px] text-[var(--text-muted)] leading-relaxed">
-          Synthetic incidents are anchored to real accident geography: 18 known Colombo
-          blackspots (NTC 2024) and regional severity stats from data.gov.lk 2012, where
-          the Colombo district accounted for ~26.9% of national road accidents.
-        </p>
-      </div>
+      <BreakdownCard title="Average impact by road type" rows={roads} />
+      <BreakdownCard title="Average impact by incident type" rows={types} />
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">Real-data sources</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Synthetic incidents are anchored to real accident geography: 18 known Colombo
+            blackspots (NTC 2024) and regional severity stats from data.gov.lk 2012, where
+            the Colombo district accounted for ~26.9% of national road accidents.
+          </p>
+        </CardContent>
+      </Card>
     </div>
+  );
+}
+
+function BreakdownCard({ title, rows }: { title: string; rows: [string, number][] }) {
+  const max = Math.max(...rows.map(([, v]) => v), 1);
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <Table>
+          <TableBody>
+            {rows.map(([key, value]) => (
+              <TableRow key={key} className="border-0 hover:bg-transparent">
+                <TableCell className="py-1.5 pl-0 text-sm capitalize">
+                  {key.replace(/_/g, " ")}
+                </TableCell>
+                <TableCell className="w-[45%] py-1.5">
+                  <Meter value={value} max={max} color="var(--primary)" />
+                </TableCell>
+                <TableCell className="w-12 py-1.5 pr-0 text-right text-sm font-medium tabular-nums">
+                  {value.toFixed(1)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }

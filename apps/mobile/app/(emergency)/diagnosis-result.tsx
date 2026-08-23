@@ -1,6 +1,6 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Text, View } from "react-native";
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
 import { DispatchProgress } from "@components/ui/dispatch-progress";
@@ -36,8 +36,13 @@ export default function DiagnosisResultScreen() {
   // Kick off /dispatch/optimize automatically once we land here (matches the
   // "Fetching a Service Provider" loading state in the reference UI). Lifted
   // into a callback so the inline error state can re-invoke it on retry.
+  // The error card's Try again only disappears on the next render, which leaves
+  // a double-tap window open that would run dispatch twice for one incident.
+  const inFlightRef = useRef(false);
+
   const runDispatchFlow = useCallback(async () => {
-    if (!incidentId) return;
+    if (!incidentId || inFlightRef.current) return;
+    inFlightRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -53,6 +58,7 @@ export default function DiagnosisResultScreen() {
       haptics.error();
       setError(msg);
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   }, [incidentId, setDispatchResult, setError, setLoading]);
@@ -62,8 +68,31 @@ export default function DiagnosisResultScreen() {
     runDispatchFlow();
   }, [dispatchResult, runDispatchFlow]);
 
-  const predicted = triageResult?.predictedServiceType ?? "BATTERY_JUMP";
-  const confidence = triageResult?.confidence ?? 0;
+  // Nothing to show without the in-memory answers (web reload / deep link):
+  // never fabricate a diagnosis, send the driver back to start over.
+  if (!triageResult || !incidentId) {
+    return (
+      <Screen
+        footer={
+          <Button
+            title="Back to Home screen"
+            onPress={() => router.replace("/(driver)/home")}
+          />
+        }
+      >
+        <Stack.Screen options={{ gestureEnabled: false }} />
+        <HeaderBar showBack={false} />
+        <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Result</Text>
+        <ErrorState
+          title="We lost this diagnosis"
+          message="Your answers are gone, so there is no result to show. Start the diagnosis again from the home screen."
+        />
+      </Screen>
+    );
+  }
+
+  const predicted = triageResult.predictedServiceType;
+  const confidence = triageResult.confidence ?? 0;
   const tierLabel = triageResult?.tier === "OBD_ENHANCED"
     ? "Tier-2 (OBD enhanced)"
     : triageResult?.tier === "BAYESIAN_LEARNED"
@@ -78,7 +107,11 @@ export default function DiagnosisResultScreen() {
       footer={
         <>
           <Button
-            title={dispatchResult ? "See Connected Mechanic" : "Waiting for provider..."}
+            title={
+              dispatchResult ? "See Connected Mechanic"
+                : error ? "No provider yet"
+                  : "Waiting for provider..."
+            }
             disabled={!dispatchResult || loading}
             onPress={() => router.push("/(emergency)/connected")}
           />
@@ -90,6 +123,7 @@ export default function DiagnosisResultScreen() {
         </>
       }
     >
+      <Stack.Screen options={{ gestureEnabled: false }} />
       <HeaderBar showBack={false} />
       <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Result</Text>
 
@@ -122,23 +156,19 @@ export default function DiagnosisResultScreen() {
             valueColor={palette.danger}
           />
           <Row label="SERVICE" value={serviceTypeAction(predicted)} />
-          {triageResult && (
-            <>
-              <Row
-                label="CONFIDENCE"
-                value={`${(confidence * 100).toFixed(0)}%`}
-              />
-              <Row label="MODEL" value={tierLabel} />
-            </>
-          )}
+          <Row
+            label="CONFIDENCE"
+            value={`${(confidence * 100).toFixed(0)}%`}
+          />
+          <Row label="MODEL" value={tierLabel} />
         </View>
       </Card>
 
       {/* Loading / connected card — matches the reference UI's "Fetching..." state */}
       {error ? (
         <ErrorState
-          title="Dispatch failed"
-          message={error}
+          title="Couldn't reach a provider"
+          message={`${error}\n\nYour diagnosis above is saved. Tap Try again to search for a provider, or head back to the home screen and retry from there.`}
           onRetry={runDispatchFlow}
         />
       ) : (
@@ -160,7 +190,7 @@ export default function DiagnosisResultScreen() {
                 ...typography.caption, color: palette.textMuted, textAlign: "center",
               }}
             >
-              You will be connected to a {providerTypeLabel("MOBILE_MECHANIC")}
+              Finding the closest provider — {serviceTypeAction(predicted)}
             </Text>
           )}
         </Card>

@@ -131,6 +131,21 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
         // so previously made every logout look like "real account → guest",
         // which wiped local claim data (photos, the "already submitted"
         // lock) even when the very same account logged back in right after.
+        // Local development escape hatch: stand in a synthetic signed-in user
+        // so the flows can be exercised without a real sign-in. Requires
+        // EXPO_PUBLIC_DEV_AUTH_BYPASS=1 and a debug build (__DEV__ is
+        // compile-time false in release, so this is stripped from a production
+        // bundle). Set EXPO_PUBLIC_DEV_PROVIDER_ID to land on the provider side.
+        if (__DEV__ && process.env.EXPO_PUBLIC_DEV_AUTH_BYPASS === "1") {
+          setUser({
+            _id: "dev-local-user",
+            email: "dev@localhost",
+            name: "Dev Local",
+            role: process.env.EXPO_PUBLIC_DEV_PROVIDER_ID ? "provider" : "driver",
+            providerId: process.env.EXPO_PUBLIC_DEV_PROVIDER_ID ?? null,
+          });
+          return;
+        }
         setUser(null);
         setVehicles([]);
         setSelectedVehicle(null);
@@ -159,13 +174,26 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
         await saveLastAuthenticatedUserId(currentId);
       });
 
+      // A live session whose profile row fails to load is still a signed-in
+      // user: retry once, then fall back to the identity the session already
+      // carries — including the signup role, so a provider is not silently
+      // treated as a driver — rather than downgrading them to a guest until
+      // the app is restarted. Every write is still guarded against a straggling
+      // response from a since-switched account.
       vehicleApi
         .getMyUser()
+        .catch(() => vehicleApi.getMyUser())
         .then((u) => {
           if (getActiveSessionId() === currentId) setUser(u);
         })
         .catch(() => {
-          if (getActiveSessionId() === currentId) setUser(null);
+          if (getActiveSessionId() !== currentId) return;
+          setUser({
+            _id: session.user.id,
+            email: session.user.email ?? "",
+            name: (session.user.user_metadata?.name as string) || "",
+            role: (session.user.user_metadata?.role as string) || "driver",
+          });
         });
       void refreshVehicles();
       // Warms claims-api's cache so Home's Insurance button can read it instantly

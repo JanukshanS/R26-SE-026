@@ -280,9 +280,9 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
   const [damage, setDamage] = useState<DamageChoice>(null);
   const [sound, setSound] = useState<MobileSoundId | null>(null);
   const [mobileLights, setMobileLights] = useState<Set<string>>(new Set());
-  const [intent, setIntent] = useState<IntentCohort>(null);
-  const [engineState, setEngineState] = useState<EngineStateChoice>(null);
-  const [runningIssue, setRunningIssue] = useState<RunningIssueChoice>(null);
+  const [intent, setIntentValue] = useState<IntentCohort>(null);
+  const [engineState, setEngineStateValue] = useState<EngineStateChoice>(null);
+  const [runningIssue, setRunningIssueValue] = useState<RunningIssueChoice>(null);
   const [overheatDetail, setOverheatDetail] = useState<OverheatChoice>(null);
   const [noiseDetail, setNoiseDetail] = useState<NoiseChoice>(null);
   const [smokeColor, setSmokeColor] = useState<SmokeColorChoice>(null);
@@ -297,6 +297,47 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
   const [incidentId, setIncidentId] = useState<string | null>(null);
   const [triageResult, setTriageResult] = useState<TriageResult | null>(null);
   const [dispatchResult, setDispatchResult] = useState<DispatchResultData | null>(null);
+
+  /**
+   * A deep-dive answer is only valid for the branch that asked it. Switching a
+   * branch selector clears everything below it, so answers from a path the user
+   * backed out of can never reach the triage payload.
+   */
+  const clearRunningDetails = useCallback(() => {
+    setOverheatDetail(null);
+    setNoiseDetail(null);
+    setSmokeColor(null);
+  }, []);
+
+  const setIntent = useCallback((next: IntentCohort) => {
+    if (next !== intent) {
+      setSound(null);
+      setEngineStateValue(null);
+      setRunningIssueValue(null);
+      setElectrical(null);
+      setBrakeDetail(null);
+      setGearDetail(null);
+      clearRunningDetails();
+    }
+    setIntentValue(next);
+  }, [intent, clearRunningDetails]);
+
+  const setEngineState = useCallback((next: EngineStateChoice) => {
+    if (next !== engineState) {
+      setSound(null);
+      setElectrical(null);
+      setRunningIssueValue(null);
+      clearRunningDetails();
+    }
+    setEngineStateValue(next);
+  }, [engineState, clearRunningDetails]);
+
+  const setRunningIssue = useCallback((next: RunningIssueChoice) => {
+    if (next !== runningIssue) {
+      clearRunningDetails();
+    }
+    setRunningIssueValue(next);
+  }, [runningIssue, clearRunningDetails]);
 
   const toggleLight = useCallback((id: string) => {
     setMobileLights((prev) => {
@@ -329,9 +370,9 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
     setDamage(null);
     setSound(null);
     setMobileLights(new Set());
-    setIntent(null);
-    setEngineState(null);
-    setRunningIssue(null);
+    setIntentValue(null);
+    setEngineStateValue(null);
+    setRunningIssueValue(null);
     setOverheatDetail(null);
     setNoiseDetail(null);
     setSmokeColor(null);
@@ -384,6 +425,7 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
       gearDetail, smells, recentSigns, slContext,
       incidentId, triageResult, dispatchResult,
       loading, error, toggleLight, toggleRecentSign, setSLContext,
+      setIntent, setEngineState, setRunningIssue,
       buildTriageResponses, reset,
     ]
   );

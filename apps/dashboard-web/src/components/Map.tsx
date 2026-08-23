@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import type { Incident, HotspotCluster, Blackspot } from "@/lib/types";
 
 const PRIORITY_COLORS: Record<string, string> = {
-  CRITICAL: "#ef4444",
-  HIGH: "#f97316",
-  MEDIUM: "#eab308",
-  LOW: "#22c55e",
+  CRITICAL: "oklch(0.68 0.20 22)",
+  HIGH: "oklch(0.76 0.16 55)",
+  MEDIUM: "oklch(0.85 0.15 92)",
+  LOW: "oklch(0.78 0.16 158)",
 };
 
 interface MapProps {
@@ -15,7 +15,7 @@ interface MapProps {
   hotspots: HotspotCluster[];
   blackspots: Blackspot[];
   onSelectIncident: (incident: Incident) => void;
-  filters: { priority: string[]; roadType: string };
+  filters: { priority: string[]; roadType: string; hour: number | null };
   layers: { incidents: boolean; hotspots: boolean; heatmap: boolean; blackspots: boolean };
 }
 
@@ -44,15 +44,10 @@ export default function Map({ incidents, hotspots, blackspots, onSelectIncident,
 
       L.control.zoom({ position: "topright" }).addTo(map);
 
-      L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-        {
-          attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-          subdomains: "abcd",
-          maxZoom: 20,
-        },
-      ).addTo(map);
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+        maxZoom: 19,
+      }).addTo(map);
 
       localMap = map;
       leafletMap.current = map;
@@ -98,6 +93,7 @@ export default function Map({ incidents, hotspots, blackspots, onSelectIncident,
       const filtered = incidents.filter((inc) => {
         if (filters.priority.length > 0 && !filters.priority.includes(inc.priority)) return false;
         if (filters.roadType && filters.roadType !== "all" && inc.roadType !== filters.roadType) return false;
+        if (filters.hour !== null && inc.hour !== filters.hour) return false;
         return true;
       });
 
@@ -167,7 +163,7 @@ export default function Map({ incidents, hotspots, blackspots, onSelectIncident,
             <strong>${b.name}</strong><br/>
             <span style="color:#6B7280">${b.roadType}</span><br/>
             ${b.notes}<br/>
-            <span style="color:#7f1d1d;font-weight:600">Real accident blackspot — NTC 2024 / data.gov.lk</span>
+            <span style="color:#fca5a5;font-weight:600">Real accident blackspot — NTC 2024 / data.gov.lk</span>
           </div>`,
           { className: "dark-popup" }
         );

@@ -23,7 +23,7 @@ export default function ValidationPanel() {
   if (!data) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -50,33 +50,33 @@ export default function ValidationPanel() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-semibold">
+      <h3 className="text-xs  text-muted-foreground font-semibold">
         SUMO Validation
       </h3>
 
       <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-lg bg-[var(--surface-2)] border border-[var(--border)] p-2">
+        <div className="rounded-lg bg-muted border border-border p-2">
           <p className="text-2xl font-bold">{data.rDeployed.toFixed(2)}</p>
-          <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider mt-0.5">
+          <p className="text-xs text-muted-foreground  mt-0.5">
             Deployed r
           </p>
         </div>
-        <div className="rounded-lg bg-[var(--surface-2)] border border-[var(--border)] p-2">
-          <p className="text-2xl font-bold text-orange-400">{data.rFitted.toFixed(2)}</p>
-          <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider mt-0.5">
+        <div className="rounded-lg bg-muted border border-border p-2">
+          <p className="text-2xl font-bold text-indigo-400">{data.rFitted.toFixed(2)}</p>
+          <p className="text-xs text-muted-foreground  mt-0.5">
             SUMO-fitted r
           </p>
         </div>
-        <div className="rounded-lg bg-[var(--surface-2)] border border-[var(--border)] p-2">
-          <p className="text-2xl font-bold text-orange-400">{data.cvFitted.toFixed(3)}</p>
-          <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider mt-0.5">
+        <div className="rounded-lg bg-muted border border-border p-2">
+          <p className="text-2xl font-bold text-indigo-400">{data.cvFitted.toFixed(3)}</p>
+          <p className="text-xs text-muted-foreground  mt-0.5">
             Held-out CV
           </p>
         </div>
       </div>
 
-      <div className="rounded-lg bg-[var(--surface-2)] border border-[var(--border)] p-3">
-        <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">
+      <div className="rounded-lg bg-muted border border-border p-3">
+        <p className="mb-2 text-sm font-medium text-muted-foreground">
           Impact Score vs SUMO Speed Reduction ({data.n} scenarios)
         </p>
         <svg
@@ -100,7 +100,7 @@ export default function ValidationPanel() {
                 x={PAD_L - 4}
                 y={sy(t) + 3}
                 textAnchor="end"
-                className="fill-[var(--text-muted)]"
+                className="fill-[var(--muted-foreground)]"
                 fontSize={8}
               >
                 {t}
@@ -113,7 +113,7 @@ export default function ValidationPanel() {
               x={sx(t)}
               y={H - PAD_B + 12}
               textAnchor="middle"
-              className="fill-[var(--text-muted)]"
+              className="fill-[var(--muted-foreground)]"
               fontSize={8}
             >
               {t}
@@ -126,7 +126,7 @@ export default function ValidationPanel() {
             y1={sy(Math.max(yMin, Math.min(yMax, lineY(x0))))}
             x2={sx(x1)}
             y2={sy(Math.max(yMin, Math.min(yMax, lineY(x1))))}
-            stroke="#F97316"
+            stroke="#818cf8"
             strokeWidth={1.5}
             strokeDasharray="4 3"
           />
@@ -138,7 +138,7 @@ export default function ValidationPanel() {
               cx={sx(p.x)}
               cy={sy(p.y)}
               r={2.2}
-              fill="#f97316"
+              fill="#6366f1"
               fillOpacity={0.55}
             />
           ))}
@@ -156,21 +156,21 @@ export default function ValidationPanel() {
           </text>
         </svg>
         <div className="flex justify-between mt-1">
-          <span className="text-[9px] text-[var(--text-muted)]">{data.xLabel}</span>
+          <span className="text-xs text-muted-foreground">{data.xLabel}</span>
         </div>
-        <p className="text-[9px] text-[var(--text-muted)] text-center mt-0.5">
-          <span className="inline-block w-3 border-t border-dashed border-orange-400 align-middle mr-1" />
+        <p className="text-xs text-muted-foreground text-center mt-0.5">
+          <span className="inline-block w-3 border-t border-dashed border-indigo-400 align-middle mr-1" />
           fitted line · y-axis: {data.yLabel}
         </p>
       </div>
 
-      <div className="rounded-lg bg-[var(--surface-2)] border border-[var(--border)] p-3">
-        <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+      <div className="rounded-lg bg-muted border border-border p-3">
+        <p className="text-xs leading-relaxed text-muted-foreground">
           The <span className="text-white font-semibold">deployed</span> 5-factor model
           scores Pearson <span className="text-white font-semibold">r = 0.60</span> against
           SUMO speed reduction. The SUMO-fitted sensitivity weights reach{" "}
-          <span className="text-orange-400 font-semibold">r = 0.93</span> (held-out CV{" "}
-          <span className="text-orange-400 font-semibold">0.924</span>) — a sensitivity
+          <span className="text-indigo-400 font-semibold">r = 0.93</span> (held-out CV{" "}
+          <span className="text-indigo-400 font-semibold">0.924</span>) — a sensitivity
           result, <span className="text-white font-semibold">not</span> the shipped model.
         </p>
       </div>

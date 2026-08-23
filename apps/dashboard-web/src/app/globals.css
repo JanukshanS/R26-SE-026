@@ -1,53 +1,150 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+/* ---break---  */
+@custom-variant dark (&:is(.dark *));
 
-@theme {
-  --color-brand: #F97316;
-  --color-brand-soft: #FFEDD5;
-  --color-brand-pressed: #EA6A0F;
-}
-
+/* Priority colours map to the model's four output bands. Raised to WCAG-AA
+   contrast on the dark surface — the previous values failed as small text. */
 :root {
-  --bg: #FFF7E6;
-  --surface: #FFFFFF;
-  --surface-2: #FAF1DC;
-  --border: #F0E2C8;
-  --text: #1B1B1B;
-  --text-muted: #6B7280;
-  --accent: #F97316;
-  --critical: #ef4444;
-  --high: #f97316;
-  --medium: #eab308;
-  --low: #22c55e;
+  --priority-critical: oklch(0.68 0.20 22);
+  --priority-high:     oklch(0.76 0.16 55);
+  --priority-medium:   oklch(0.85 0.15 92);
+  --priority-low:      oklch(0.78 0.16 158);
 }
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: system-ui, -apple-system, sans-serif;
-}
+/* ── Leaflet ── */
+/* Leaflet assigns its panes z-index 200-600 and its controls 1000, all of
+   which outrank the z-50 that Radix popovers ship with — so selects and
+   dropdowns opened above the map rendered behind it. Cap Leaflet below the
+   overlay layer rather than raising every popover. */
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom { z-index: 10 !important; }
+.leaflet-control-container .leaflet-control { z-index: 11 !important; }
 
-.leaflet-container {
-  background: var(--surface-2) !important;
-  border-radius: 0.75rem;
-}
-
+.leaflet-container { background: var(--background) !important; }
 .leaflet-popup-content-wrapper {
-  background: var(--surface) !important;
-  color: var(--text) !important;
+  background: var(--popover) !important;
+  color: var(--popover-foreground) !important;
   border: 1px solid var(--border) !important;
-  border-radius: 0.5rem !important;
-  box-shadow: 0 8px 32px rgba(15, 15, 15, 0.12) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,.55) !important;
 }
-
-.leaflet-popup-tip {
-  background: var(--surface) !important;
+.leaflet-popup-tip { background: var(--popover) !important; }
+.leaflet-bar a {
+  background: var(--popover) !important;
+  color: var(--popover-foreground) !important;
+  border-color: var(--border) !important;
 }
+.leaflet-bar a:hover { background: var(--accent) !important; }
 
-.priority-critical { color: var(--critical); }
-.priority-high { color: var(--high); }
-.priority-medium { color: var(--medium); }
-.priority-low { color: var(--low); }
 
+/* ── Quality floor ── */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
+/* ---break---  */
+@theme inline {
+  --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
+  --color-sidebar-ring:       var(--sidebar-ring);
+  --color-sidebar-border:       var(--sidebar-border);
+  --color-sidebar-accent-foreground:       var(--sidebar-accent-foreground);
+  --color-sidebar-accent:       var(--sidebar-accent);
+  --color-sidebar-primary-foreground:       var(--sidebar-primary-foreground);
+  --color-sidebar-primary:       var(--sidebar-primary);
+  --color-sidebar-foreground:       var(--sidebar-foreground);
+  --color-sidebar:       var(--sidebar);
+  --color-chart-5:       var(--chart-5);
+  --color-chart-4:       var(--chart-4);
+  --color-chart-3:       var(--chart-3);
+  --color-chart-2:       var(--chart-2);
+  --color-chart-1:       var(--chart-1);
+  --color-ring:       var(--ring);
+  --color-input:       var(--input);
+  --color-border:       var(--border);
+  --color-destructive:       var(--destructive);
+  --color-accent-foreground:       var(--accent-foreground);
+  --color-accent:       var(--accent);
+  --color-muted-foreground:       var(--muted-foreground);
+  --color-muted:       var(--muted);
+  --color-secondary-foreground:       var(--secondary-foreground);
+  --color-secondary:       var(--secondary);
+  --color-primary-foreground:       var(--primary-foreground);
+  --color-primary:       var(--primary);
+  --color-popover-foreground:       var(--popover-foreground);
+  --color-popover:       var(--popover);
+  --color-card-foreground:       var(--card-foreground);
+  --color-card:       var(--card);
+  --color-foreground:       var(--foreground);
+  --color-background:       var(--background);
+  --radius-sm:       calc(var(--radius) * 0.6);
+  --radius-md:       calc(var(--radius) * 0.8);
+  --radius-lg:       var(--radius);
+  --radius-xl:       calc(var(--radius) * 1.4);
+  --radius-2xl:       calc(var(--radius) * 1.8);
+  --radius-3xl:       calc(var(--radius) * 2.2);
+  --radius-4xl:       calc(var(--radius) * 2.6);
+}
+/* ---break---  */
+.dark {
+  --background:       oklch(0.145 0 0);
+  --foreground:       oklch(0.985 0 0);
+  --card:       oklch(0.205 0 0);
+  --card-foreground:       oklch(0.985 0 0);
+  --popover:       oklch(0.205 0 0);
+  --popover-foreground:       oklch(0.985 0 0);
+  --primary:       oklch(0.922 0 0);
+  --primary-foreground:       oklch(0.205 0 0);
+  --secondary:       oklch(0.269 0 0);
+  --secondary-foreground:       oklch(0.985 0 0);
+  --muted:       oklch(0.269 0 0);
+  --muted-foreground:       oklch(0.708 0 0);
+  --accent:       oklch(0.269 0 0);
+  --accent-foreground:       oklch(0.985 0 0);
+  --destructive:       oklch(0.704 0.191 22.216);
+  --border:       oklch(1 0 0 / 10%);
+  --input:       oklch(1 0 0 / 15%);
+  --ring:       oklch(0.556 0 0);
+  --chart-1:       oklch(0.87 0 0);
+  --chart-2:       oklch(0.556 0 0);
+  --chart-3:       oklch(0.439 0 0);
+  --chart-4:       oklch(0.371 0 0);
+  --chart-5:       oklch(0.269 0 0);
+  --sidebar:       oklch(0.205 0 0);
+  --sidebar-foreground:       oklch(0.985 0 0);
+  --sidebar-primary:       oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground:       oklch(0.985 0 0);
+  --sidebar-accent:       oklch(0.269 0 0);
+  --sidebar-accent-foreground:       oklch(0.985 0 0);
+  --sidebar-border:       oklch(1 0 0 / 10%);
+  --sidebar-ring:       oklch(0.556 0 0);
+}
+/* ---break---  */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+/* ── Blackspot markers ──
+   Real accident blackspots (NTC 2024 / data.gov.lk) render as a dark-red
+   diamond + crosshair with a name label — visually distinct from the model's
+   priority dots and hotspot rings so "ground truth" never reads as model output. */
 .blackspot-marker {
   background: transparent !important;
   border: 0 !important;
@@ -58,8 +155,8 @@ body {
   height: 14px;
   transform: rotate(45deg);
   background: #7f1d1d;
-  border: 2px solid #fff7e6;
-  box-shadow: 0 0 0 1.5px #7f1d1d, 0 1px 4px rgba(15, 15, 15, 0.4);
+  border: 2px solid oklch(0.985 0 0);
+  box-shadow: 0 0 0 1.5px #7f1d1d, 0 1px 4px rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -69,8 +166,8 @@ body {
   width: 7px;
   height: 7px;
   background:
-    linear-gradient(#fff7e6, #fff7e6) center / 100% 1.5px no-repeat,
-    linear-gradient(#fff7e6, #fff7e6) center / 1.5px 100% no-repeat;
+    linear-gradient(oklch(0.985 0 0), oklch(0.985 0 0)) center / 100% 1.5px no-repeat,
+    linear-gradient(oklch(0.985 0 0), oklch(0.985 0 0)) center / 1.5px 100% no-repeat;
 }
 
 .blackspot-marker .bs-label {
@@ -79,12 +176,11 @@ body {
   left: 50%;
   transform: translateX(-50%);
   white-space: nowrap;
-  font-family: system-ui, -apple-system, sans-serif;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: #7f1d1d;
-  background: rgba(255, 247, 230, 0.85);
+  color: #fca5a5;
+  background: oklch(0.205 0 0 / 85%);
   padding: 0 3px;
   border-radius: 3px;
   pointer-events: none;

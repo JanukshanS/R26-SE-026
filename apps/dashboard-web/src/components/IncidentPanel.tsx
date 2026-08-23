@@ -12,14 +12,14 @@ const PRIORITY_BG: Record<string, string> = {
 function FactorBar({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] w-8">{label}</span>
-      <div className="flex-1 h-1.5 bg-[var(--bg)] rounded-full overflow-hidden">
+      <span className="text-xs  text-muted-foreground w-8">{label}</span>
+      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
         <div
-          className="h-full rounded-full bg-orange-500 transition-all"
+          className="h-full rounded-full bg-indigo-500 transition-all"
           style={{ width: `${value * 100}%` }}
         />
       </div>
-      <span className="text-[10px] text-[var(--text-muted)] w-8 text-right">{value.toFixed(2)}</span>
+      <span className="text-xs text-muted-foreground w-8 text-right">{value.toFixed(2)}</span>
     </div>
   );
 }
@@ -34,17 +34,17 @@ export default function IncidentPanel({
   if (!incident) return null;
 
   return (
-    <div className="absolute top-4 right-4 w-80 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-2xl z-[1000] overflow-hidden">
-      <div className="flex items-center justify-between p-3 border-b border-[var(--border)]">
+    <div className="absolute top-4 right-4 w-80 bg-card border border-border rounded-xl shadow-2xl z-[1000] overflow-hidden">
+      <div className="flex items-center justify-between p-3 border-b border-border">
         <div className="flex items-center gap-2">
           <span className={`text-xs font-bold px-2 py-0.5 rounded border ${PRIORITY_BG[incident.priority]}`}>
             {incident.priority}
           </span>
-          <span className="text-sm font-mono text-[var(--text-muted)]">{incident.id}</span>
+          <span className="text-sm font-mono text-muted-foreground">{incident.id}</span>
         </div>
         <button
           onClick={onClose}
-          className="text-[var(--text-muted)] hover:text-white transition-colors text-lg leading-none"
+          className="text-muted-foreground hover:text-white transition-colors text-lg leading-none"
         >
           &times;
         </button>
@@ -54,28 +54,28 @@ export default function IncidentPanel({
         <div className="text-center">
           <p className="text-4xl font-black">
             {incident.impactScore}
-            <span className="text-lg font-normal text-[var(--text-muted)]">/10</span>
+            <span className="text-lg font-normal text-muted-foreground">/10</span>
           </p>
-          <p className="text-xs text-[var(--text-muted)] mt-0.5">Impact Score</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Impact Score</p>
         </div>
 
         <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="bg-[var(--surface-2)] rounded-lg p-2">
+          <div className="bg-muted rounded-lg p-2">
             <p className="text-lg font-bold">{incident.queueKm}</p>
-            <p className="text-[10px] text-[var(--text-muted)]">Queue km</p>
+            <p className="text-xs text-muted-foreground">Queue km</p>
           </div>
-          <div className="bg-[var(--surface-2)] rounded-lg p-2">
+          <div className="bg-muted rounded-lg p-2">
             <p className="text-lg font-bold">{incident.vhl}</p>
-            <p className="text-[10px] text-[var(--text-muted)]">VHL</p>
+            <p className="text-xs text-muted-foreground">VHL</p>
           </div>
-          <div className="bg-[var(--surface-2)] rounded-lg p-2">
+          <div className="bg-muted rounded-lg p-2">
             <p className="text-lg font-bold">{incident.recoveryMin}</p>
-            <p className="text-[10px] text-[var(--text-muted)]">Recovery min</p>
+            <p className="text-xs text-muted-foreground">Recovery min</p>
           </div>
         </div>
 
         <div className="space-y-1">
-          <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Factor Breakdown</p>
+          <p className="text-xs  text-muted-foreground">Factor Breakdown</p>
           <FactorBar label="CLF" value={incident.clf} />
           <FactorBar label="TVF" value={incident.tvf} />
           <FactorBar label="TF" value={incident.tf} />
@@ -84,13 +84,13 @@ export default function IncidentPanel({
         </div>
 
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          <div className="text-[var(--text-muted)]">Road</div>
+          <div className="text-muted-foreground">Road</div>
           <div>{incident.roadType}</div>
-          <div className="text-[var(--text-muted)]">Lanes</div>
+          <div className="text-muted-foreground">Lanes</div>
           <div>{incident.lanesBlocked}/{incident.totalLanes} blocked</div>
-          <div className="text-[var(--text-muted)]">Type</div>
+          <div className="text-muted-foreground">Type</div>
           <div>{incident.incidentType.replace(/_/g, " ")}</div>
-          <div className="text-[var(--text-muted)]">Time</div>
+          <div className="text-muted-foreground">Time</div>
           <div>{String(incident.hour).padStart(2, "0")}:00 {incident.dayName}</div>
         </div>
       </div>

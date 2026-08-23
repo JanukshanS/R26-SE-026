@@ -197,6 +197,10 @@ class SUMOSimulator:
             "--no-step-log", "true",
             "--statistic-output", stats_file,
             "--no-warnings", "true",
+            # Prevent jammed vehicles from teleporting away under oversaturation,
+            # which would understate queue/congestion. Required for the
+            # non-degenerate randomized scenario design (oversaturated volume_frac).
+            "--time-to-teleport", "-1",
         ]
 
         result = subprocess.run(cfg, capture_output=True, text=True)

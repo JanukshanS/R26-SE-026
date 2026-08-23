@@ -33,3 +33,27 @@ export function mapServiceTypeToIncidentType(serviceType: string | undefined): s
   if (!serviceType) return "engine_failure";
   return SERVICE_TO_INCIDENT_TYPE[serviceType] ?? "engine_failure";
 }
+
+/**
+ * Lanes blocked by the stopped vehicle, keyed by dispatch ServiceType, for the
+ * 2-lane default road geometry callers send to geo-intelligence. This drives the
+ * capacity-loss factor, so a fixed value would pin a quarter of the score weight
+ * to a constant and make the CRITICAL band unreachable.
+ *   2 — scene needs recovery equipment or emergency response; carriageway closed.
+ *   1 — default: one immobilised vehicle occupying its own lane.
+ * The floor is 1, not 0: the default geometry models no shoulder, so even a secured
+ * vehicle sits in a running lane. 0 is also outside what the model can represent —
+ * score_with_uncertainty clips its lane draws to >= 1, so a 0 would return a
+ * confidence band that excludes its own point score.
+ */
+export const SERVICE_TO_LANES_BLOCKED: Record<string, number> = {
+  MAJOR_ACCIDENT: 2,
+  URGENT_TOW: 2,
+  SEVERE_MECHANICAL_TOW: 2,
+  FLOOD_RECOVERY: 2,
+};
+
+export function mapServiceTypeToLanesBlocked(serviceType: string | undefined): number {
+  if (!serviceType) return 1;
+  return SERVICE_TO_LANES_BLOCKED[serviceType] ?? 1;
+}

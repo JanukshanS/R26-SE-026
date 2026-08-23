@@ -1,20 +1,36 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import type { ModelConfig, WhatIfInput } from "@/lib/types";
+import { useMemo, useState } from "react";
+
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Slider } from "@/components/ui/slider";
 import { calculateImpactScore } from "@/lib/scoring";
+import type { ModelConfig, WhatIfInput } from "@/lib/types";
 
 const ROAD_TYPES = ["motorway", "trunk", "primary", "secondary", "tertiary", "residential"];
-const INCIDENT_TYPES = ["accident_major", "accident_minor", "engine_failure", "overheating", "flat_tire", "battery_dead", "fuel_empty"];
+const INCIDENT_TYPES = [
+  "accident_major", "accident_minor", "engine_failure",
+  "overheating", "flat_tire", "battery_dead", "fuel_empty",
+];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-const PRIORITY_STYLE: Record<string, string> = {
-  CRITICAL: "bg-red-500/20 border-red-500 text-red-400",
-  HIGH: "bg-orange-500/20 border-orange-500 text-orange-400",
-  MEDIUM: "bg-yellow-500/20 border-yellow-500 text-yellow-400",
-  LOW: "bg-green-500/20 border-green-500 text-green-400",
+const PRIORITY_TOKEN: Record<string, string> = {
+  CRITICAL: "var(--priority-critical)",
+  HIGH: "var(--priority-high)",
+  MEDIUM: "var(--priority-medium)",
+  LOW: "var(--priority-low)",
 };
 
+const titled = (s: string) => s.replace(/_/g, " ");
+
+/**
+ * Scores a hypothetical incident against the deployed 5-factor model. Results
+ * recompute as controls move — there is no submit step, so the panel reads as
+ * a live instrument rather than a form.
+ */
 export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
   const [input, setInput] = useState<WhatIfInput>({
     roadType: "primary",
@@ -26,116 +42,149 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
   });
 
   const result = useMemo(() => calculateImpactScore(input, model), [input, model]);
-
-  const selectClass =
-    "w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-orange-500 transition-colors";
+  const blocked = Math.min(input.lanesBlocked, input.totalLanes);
+  const accent = PRIORITY_TOKEN[result.priority];
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-semibold">
-        What-If Simulator
-      </h3>
-
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="text-[10px] text-[var(--text-muted)] uppercase">Road Type</label>
-          <select
-            className={selectClass}
+    <div className="space-y-6">
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="wi-road">Road type</Label>
+          <Select
             value={input.roadType}
-            onChange={(e) => setInput({ ...input, roadType: e.target.value })}
+            onValueChange={(v) => setInput({ ...input, roadType: v })}
           >
-            {ROAD_TYPES.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
+            <SelectTrigger id="wi-road" className="w-full capitalize">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ROAD_TYPES.map((r) => (
+                <SelectItem key={r} value={r} className="capitalize">{r}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <div>
-          <label className="text-[10px] text-[var(--text-muted)] uppercase">Incident</label>
-          <select
-            className={selectClass}
-            value={input.incidentType}
-            onChange={(e) => setInput({ ...input, incidentType: e.target.value })}
-          >
-            {INCIDENT_TYPES.map((t) => (
-              <option key={t} value={t}>{t.replace(/_/g, " ")}</option>
-            ))}
-          </select>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="text-[10px] text-[var(--text-muted)] uppercase">Total Lanes</label>
-          <input
-            type="range"
+        <div className="space-y-2">
+          <Label htmlFor="wi-incident">Incident type</Label>
+          <Select
+            value={input.incidentType}
+            onValueChange={(v) => setInput({ ...input, incidentType: v })}
+          >
+            <SelectTrigger id="wi-incident" className="w-full capitalize">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {INCIDENT_TYPES.map((t) => (
+                <SelectItem key={t} value={t} className="capitalize">{titled(t)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <Label htmlFor="wi-lanes">Total lanes</Label>
+            <span className="text-sm font-medium tabular-nums">{input.totalLanes}</span>
+          </div>
+          <Slider
+            id="wi-lanes"
             min={1}
             max={6}
-            value={input.totalLanes}
-            onChange={(e) => setInput({ ...input, totalLanes: +e.target.value })}
-            className="w-full accent-orange-500"
+            step={1}
+            value={[input.totalLanes]}
+            onValueChange={([v]) =>
+              setInput((i) => ({ ...i, totalLanes: v, lanesBlocked: Math.min(i.lanesBlocked, v) }))
+            }
           />
-          <p className="text-xs text-center">{input.totalLanes}</p>
         </div>
-        <div>
-          <label className="text-[10px] text-[var(--text-muted)] uppercase">Lanes Blocked</label>
-          <input
-            type="range"
+
+        <div className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <Label htmlFor="wi-blocked">Lanes blocked</Label>
+            <span className="text-sm font-medium tabular-nums">{blocked}</span>
+          </div>
+          <Slider
+            id="wi-blocked"
             min={1}
             max={input.totalLanes}
-            value={Math.min(input.lanesBlocked, input.totalLanes)}
-            onChange={(e) => setInput({ ...input, lanesBlocked: +e.target.value })}
-            className="w-full accent-red-500"
+            step={1}
+            value={[blocked]}
+            onValueChange={([v]) => setInput((i) => ({ ...i, lanesBlocked: v }))}
           />
-          <p className="text-xs text-center">{Math.min(input.lanesBlocked, input.totalLanes)}</p>
         </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="text-[10px] text-[var(--text-muted)] uppercase">Hour ({String(input.hour).padStart(2, "0")}:00)</label>
-          <input
-            type="range"
+        <div className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <Label htmlFor="wi-hour">Time of day</Label>
+            <span className="text-sm font-medium tabular-nums">
+              {String(input.hour).padStart(2, "0")}:00
+            </span>
+          </div>
+          <Slider
+            id="wi-hour"
             min={0}
             max={23}
-            value={input.hour}
-            onChange={(e) => setInput({ ...input, hour: +e.target.value })}
-            className="w-full accent-orange-500"
+            step={1}
+            value={[input.hour]}
+            onValueChange={([v]) => setInput((i) => ({ ...i, hour: v }))}
           />
         </div>
-        <div>
-          <label className="text-[10px] text-[var(--text-muted)] uppercase">Day</label>
-          <select
-            className={selectClass}
-            value={input.dayOfWeek}
-            onChange={(e) => setInput({ ...input, dayOfWeek: +e.target.value })}
+
+        <div className="space-y-2">
+          <Label htmlFor="wi-day">Day</Label>
+          <Select
+            value={String(input.dayOfWeek)}
+            onValueChange={(v) => setInput({ ...input, dayOfWeek: Number(v) })}
           >
-            {DAYS.map((d, i) => (
-              <option key={d} value={i}>{d}</option>
-            ))}
-          </select>
+            <SelectTrigger id="wi-day" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DAYS.map((d, i) => (
+                <SelectItem key={d} value={String(i)}>{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      <div className={`rounded-xl border-2 p-4 text-center transition-all ${PRIORITY_STYLE[result.priority]}`}>
-        <p className="text-5xl font-black">
-          {result.score}
-          <span className="text-lg font-normal opacity-60">/10</span>
-        </p>
-        <p className="text-sm font-bold mt-1">{result.priority}</p>
-      </div>
+      <Separator />
 
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="bg-[var(--surface-2)] rounded-lg p-2">
-          <p className="text-lg font-bold">{result.queueKm}</p>
-          <p className="text-[10px] text-[var(--text-muted)]">Queue km</p>
-        </div>
-        <div className="bg-[var(--surface-2)] rounded-lg p-2">
-          <p className="text-lg font-bold">{result.vhl}</p>
-          <p className="text-[10px] text-[var(--text-muted)]">VHL</p>
-        </div>
-        <div className="bg-[var(--surface-2)] rounded-lg p-2">
-          <p className="text-lg font-bold">{result.recoveryMin}</p>
-          <p className="text-[10px] text-[var(--text-muted)]">Recovery min</p>
+      <div className="grid gap-4 sm:grid-cols-[1fr_2fr]">
+        <Card style={{ borderColor: accent }}>
+          <CardContent className="flex flex-col items-center justify-center p-6">
+            <p className="flex items-baseline gap-1">
+              <span
+                className="text-5xl font-semibold tabular-nums tracking-tight"
+                style={{ color: accent }}
+              >
+                {result.score}
+              </span>
+              <span className="text-lg text-muted-foreground">of 10</span>
+            </p>
+            <p className="mt-1 text-sm font-medium" style={{ color: accent }}>
+              {result.priority.charAt(0) + result.priority.slice(1).toLowerCase()} priority
+            </p>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "Queue", value: result.queueKm, unit: "km" },
+            { label: "Vehicle-hours lost", value: result.vhl, unit: "hrs" },
+            { label: "Recovery", value: result.recoveryMin, unit: "min" },
+          ].map((m) => (
+            <Card key={m.label}>
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">{m.label}</p>
+                <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
+                  <span className="text-xl font-semibold tabular-nums">{m.value}</span>
+                  <span className="text-sm text-muted-foreground">{m.unit}</span>
+                </p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     </div>

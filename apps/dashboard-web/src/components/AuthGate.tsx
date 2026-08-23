@@ -1,16 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 
 import { supabase } from "@/lib/supabase";
+
+const SessionContext = createContext<Session | null>(null);
+
+/** The signed-in Supabase session. Non-null anywhere below AuthGate. */
+export function useSession() {
+  return useContext(SessionContext);
+}
 
 /**
  * Gates the dashboard behind a Supabase session, because the backend services
  * now require a bearer token and the panels are useless without one.
  *
  * Any authenticated Supabase user gets in — there is no role check yet. Once
- * profiles carry an operator role, gate on that here.
+ * profiles carry an operator role, gate on that here. Identity display and
+ * sign-out live in the AppShell account menu, fed via useSession().
  */
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -29,7 +37,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (!ready) {
     return (
-      <main className="grid min-h-screen place-items-center text-sm text-neutral-400">
+      <main className="grid min-h-screen place-items-center text-sm text-muted-foreground">
         Loading…
       </main>
     );
@@ -39,27 +47,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     return <SignIn />;
   }
 
-  return (
-    <>
-      <SignedInBar email={session.user.email ?? "signed in"} />
-      {children}
-    </>
-  );
-}
-
-function SignedInBar({ email }: { email: string }) {
-  return (
-    <div className="flex items-center justify-end gap-3 border-b border-neutral-800 px-4 py-2 text-xs text-neutral-400">
-      <span>{email}</span>
-      <button
-        type="button"
-        onClick={() => void supabase.auth.signOut()}
-        className="rounded border border-neutral-700 px-2 py-1 hover:bg-neutral-800"
-      >
-        Sign out
-      </button>
-    </div>
-  );
+  return <SessionContext.Provider value={session}>{children}</SessionContext.Provider>;
 }
 
 function SignIn() {
@@ -86,41 +74,41 @@ function SignIn() {
     <main className="grid min-h-screen place-items-center p-6">
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-sm space-y-4 rounded-lg border border-neutral-800 p-6"
+        className="w-full max-w-sm space-y-4 rounded-lg border border-border p-6"
       >
         <div>
           <h1 className="text-lg font-semibold">Kaduna.lk Dashboard</h1>
-          <p className="mt-1 text-sm text-neutral-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             Sign in with your Kaduna.lk account.
           </p>
         </div>
 
         <label className="block text-sm">
-          <span className="text-neutral-400">Email</span>
+          <span className="text-muted-foreground">Email</span>
           <input
             type="email"
             required
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded border border-neutral-700 bg-neutral-900 px-3 py-2"
+            className="mt-1 w-full rounded border border-input bg-card px-3 py-2"
           />
         </label>
 
         <label className="block text-sm">
-          <span className="text-neutral-400">Password</span>
+          <span className="text-muted-foreground">Password</span>
           <input
             type="password"
             required
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded border border-neutral-700 bg-neutral-900 px-3 py-2"
+            className="mt-1 w-full rounded border border-input bg-card px-3 py-2"
           />
         </label>
 
         {error && (
-          <p role="alert" className="text-sm text-red-400">
+          <p role="alert" className="text-sm text-destructive">
             {error}
           </p>
         )}
@@ -128,7 +116,7 @@ function SignIn() {
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded bg-neutral-100 px-3 py-2 font-medium text-neutral-900 disabled:opacity-50"
+          className="w-full rounded bg-primary px-3 py-2 font-medium text-primary-foreground disabled:opacity-50"
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>

@@ -3,7 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useMemo, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
@@ -91,8 +91,11 @@ export default function DrivingLicencePhotoScreen() {
     setIsCameraReady(false);
   }, [cameraFacing]);
 
+  // Not gated on the current step: after retaking one slot the other two are still
+  // captured, so the primary button must go back to "Continue" as soon as that slot
+  // is refilled rather than forcing a replacement shot of the next photo.
   const allImagesCaptured =
-    side === 'selfie' && selfiePreviewUri !== null && frontPreviewUri !== null && backPreviewUri !== null;
+    frontPreviewUri !== null && backPreviewUri !== null && selfiePreviewUri !== null;
 
   const instructionHeadline = useMemo(() => {
     if (allImagesCaptured) {
@@ -219,8 +222,14 @@ export default function DrivingLicencePhotoScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.center}>
           <Text style={styles.centerText}>Camera access is required to photograph your licence.</Text>
-          <Pressable style={styles.permissionButton} onPress={requestPermission}>
-            <Text style={styles.permissionButtonText}>Grant Camera Permission</Text>
+          {/* Once the OS refuses to ask again, requestPermission() resolves without showing
+              anything — the button has to send the driver to Settings instead of doing nothing. */}
+          <Pressable
+            style={styles.permissionButton}
+            onPress={() => void (permission.canAskAgain ? requestPermission() : Linking.openSettings())}>
+            <Text style={styles.permissionButtonText}>
+              {permission.canAskAgain ? 'Grant Camera Permission' : 'Open Settings'}
+            </Text>
           </Pressable>
           <Pressable style={styles.textButton} onPress={() => router.back()}>
             <Text style={styles.textButtonLabel}>Go back</Text>
