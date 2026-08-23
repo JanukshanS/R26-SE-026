@@ -28,7 +28,7 @@ This is the team monorepo. It hosts every component, the user-facing apps, the c
 │   ├── predictive-maintenance/   Herath
 │   └── claims-privacy/           Dilnuk
 ├── apps/                user-facing applications that consume the components
-│   ├── dashboard-web/            Next.js web dashboard
+│   ├── kaduna-web/            Next.js web dashboard
 │   └── mobile/                   React Native (Expo) cross-platform app
 ├── contracts/           OpenAPI specs / shared types between components
 ├── docs/                team-level documentation

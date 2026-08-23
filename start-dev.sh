@@ -4,7 +4,7 @@
 # Starts, in the background:
 #   geo-intelligence      http://localhost:5001  (FastAPI)
 #   predictive-maintenance http://localhost:5000 (FastAPI)
-#   dashboard-web         http://localhost:3000  (Next.js)
+#   kaduna-web         http://localhost:3000  (Next.js)
 #   mobile (Expo web)     http://localhost:8090  (Expo/React Native)
 #   mobile (Expo dev server, real QR — separate visible window) port 8081
 #
@@ -24,7 +24,7 @@ mkdir -p "$LOG_DIR"
 
 GEO_DIR="$ROOT_DIR/components/geo-intelligence"
 PM_DIR="$ROOT_DIR/components/predictive-maintenance"
-WEB_DIR="$ROOT_DIR/apps/dashboard-web"
+WEB_DIR="$ROOT_DIR/apps/kaduna-web"
 MOBILE_DIR="$ROOT_DIR/apps/mobile"
 
 # predictive-maintenance ships compiled scikit-learn wheels. If this repo
@@ -34,7 +34,7 @@ MOBILE_DIR="$ROOT_DIR/apps/mobile"
 # is too long". Keeping this one venv shallow (in $HOME) sidesteps that.
 PM_VENV="$HOME/.kaduna-pm-venv"
 
-# geo-intelligence, predictive-maintenance and dashboard-web all verify/send
+# geo-intelligence, predictive-maintenance and kaduna-web all verify/send
 # Supabase bearer tokens now — every one of them 503s (or throws at import,
 # for the mobile/dashboard JS clients) without this. Same project as the
 # mobile app's hardcoded fallback in lib/supabase.ts.
@@ -103,7 +103,7 @@ fi
 ) > "$LOG_DIR/predictive-maintenance.log" 2>&1 &
 PIDS+=("$!")
 
-echo "== dashboard-web =="
+echo "== kaduna-web =="
 (cd "$WEB_DIR" && pnpm install)
 [ -f "$WEB_DIR/.env.local" ] || cat > "$WEB_DIR/.env.local" <<ENVEOF
 NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL
@@ -114,7 +114,7 @@ ENVEOF
 (
   cd "$WEB_DIR" || exit 1
   exec pnpm dev
-) > "$LOG_DIR/dashboard-web.log" 2>&1 &
+) > "$LOG_DIR/kaduna-web.log" 2>&1 &
 PIDS+=("$!")
 
 echo "== mobile (Expo web) =="
@@ -141,7 +141,7 @@ echo
 echo "Waiting for services to come up (logs in $LOG_DIR)..."
 wait_for geo-intelligence "http://localhost:5001/v1/health" 60
 wait_for predictive-maintenance "http://localhost:5000/health" 60
-wait_for dashboard-web "http://localhost:3000" 60
+wait_for kaduna-web "http://localhost:3000" 60
 wait_for mobile-web "http://localhost:8090" 90
 
 echo
@@ -223,7 +223,7 @@ cat <<EOF
 Kaduna.lk dev stack is running:
   geo-intelligence       http://localhost:5001/docs
   predictive-maintenance http://localhost:5000/docs
-  dashboard-web          http://localhost:3000
+  kaduna-web          http://localhost:3000
   mobile (Expo web)      http://localhost:8090
   mobile (Expo dev server, real QR) — see the separate terminal window
 

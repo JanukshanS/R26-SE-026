@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import AuthGate from "@/components/AuthGate";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
 export const metadata: Metadata = {
-  title: "Kaduna.lk — Geo-Intelligence Dashboard",
-  description: "Traffic Impact Analysis & Hotspot Intelligence for Colombo District",
+  title: "Kaduna.lk — Roadside Assistance, Intelligently Dispatched",
+  description:
+    "Sri Lanka's smart roadside assistance platform: adaptive triage, geo-intelligent incident scoring, and a live view of Colombo's traffic hotspots.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -23,9 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="antialiased">
-        <AuthGate>
-          <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
-        </AuthGate>
+        <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
       </body>
     </html>
   );

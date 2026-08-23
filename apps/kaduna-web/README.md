@@ -16,7 +16,7 @@ Migrated from `RP/dashboard/` on 2026-05-10; UI re-synced to the RP dashboard ov
 ## Run
 
 ```bash
-cd apps/dashboard-web
+cd apps/kaduna-web
 cp .env.example .env.local   # fill in before the first run
 pnpm install
 pnpm dev      # http://localhost:3000
@@ -59,8 +59,8 @@ Reads `public/data/{incidents,hotspots,stats,model}.json` produced by `RP/script
 cd ../../../RP    # back to the personal scratchpad
 source venv/bin/activate
 python scripts/prepare_dashboard_data.py
-# this writes to RP/dashboard/public/data/; copy to apps/dashboard-web/public/data/
-cp dashboard/public/data/*.json ../rp-group/Main-Repo/apps/dashboard-web/public/data/
+# this writes to RP/dashboard/public/data/; copy to apps/kaduna-web/public/data/
+cp dashboard/public/data/*.json ../rp-group/Main-Repo/apps/kaduna-web/public/data/
 ```
 
 (In PP2 this becomes a single API call once `components/geo-intelligence/` is wired up.)

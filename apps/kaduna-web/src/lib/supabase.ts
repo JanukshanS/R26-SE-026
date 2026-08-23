@@ -13,7 +13,7 @@ const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_KEY;
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   throw new Error(
     "Missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_KEY. " +
-      "Copy apps/dashboard-web/.env.example to .env.local and fill them in."
+      "Copy apps/kaduna-web/.env.example to .env.local and fill them in."
   );
 }
 

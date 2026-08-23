@@ -129,7 +129,7 @@ EAS Build config lives in `eas.json`. You'll need an Expo account once the team 
 ## Migration notes
 
 - Dilnuk's existing `Guided-Camera/frontend/` (Expo SDK 54, same stack) ports into `features/capture/` plus any shared assets into `assets/`
-- The web dashboard ports separately into `apps/dashboard-web/`
+- The web dashboard ports separately into `apps/kaduna-web/`
 
 ## State management
 

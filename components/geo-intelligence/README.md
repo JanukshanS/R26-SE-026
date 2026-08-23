@@ -135,7 +135,7 @@ is the canonical version.
 | done | Re-sync to ORIGINAL weights; alias accident types; add uncertainty + timeline endpoints |
 | done | Regenerate `data/hotspots.json`/`stats.json` to the canonical 25-cluster dataset |
 | done | Supabase bearer auth on every route except `/v1/health` |
-| done | Dashboard reads hotspots, stats and live incident scores from this API (`apps/dashboard-web/src/lib/geoData.ts`, `liveData.ts`), falling back to static JSON when the service is down |
+| done | Dashboard reads hotspots, stats and live incident scores from this API (`apps/kaduna-web/src/lib/geoData.ts`, `liveData.ts`), falling back to static JSON when the service is down |
 | next | Move the dashboard's 500-incident base layer off `public/data/incidents.json` — it is the last static read |
 | next | Calibrate the congestion prediction against SUMO so VHL is absolute rather than a relative index |
 | later | Real-time hotspot recomputation; integration tests vs SUMO ground truth |

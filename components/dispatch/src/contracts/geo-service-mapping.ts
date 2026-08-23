@@ -3,7 +3,7 @@
 // The canonical file lives in contracts/ but sits outside this service's
 // tsconfig rootDir and outside its Docker build context, so importing it
 // across that boundary breaks both `npm run build` and the image build.
-// apps/dashboard-web keeps a local copy for the same reason. Keep in sync
+// apps/kaduna-web keeps a local copy for the same reason. Keep in sync
 // with the canonical file when the service-type mapping changes.
 
 /**
