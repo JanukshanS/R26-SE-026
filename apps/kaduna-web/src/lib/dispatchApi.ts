@@ -109,6 +109,13 @@ export async function getProvider(providerId: string): Promise<ProviderRecord> {
   return request(`/api/v1/providers/${providerId}`);
 }
 
+/** Every registered provider. Signed-in-only backend-side, no ownership check. */
+export async function listProviders(
+  limit = 100
+): Promise<{ providers: ProviderRecord[]; total: number }> {
+  return request(`/api/v1/providers?limit=${limit}`);
+}
+
 export async function updateProviderStatus(
   providerId: string,
   status: ProviderStatus
