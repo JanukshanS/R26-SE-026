@@ -30,6 +30,7 @@ export default function TripSummaryScreen() {
   // new mileage appears without navigating away and back.
   const [attempt, setAttempt] = useState(0);
   const [showSimulator, setShowSimulator] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     setEmpty(false);
@@ -48,6 +49,28 @@ export default function TripSummaryScreen() {
       .catch(() => setLoadFailed(true))
       .finally(() => setLoading(false));
   }, [vehicleId, attempt]);
+
+  /**
+   * Append the next page. The aggregates on the response describe the whole
+   * history, not the page, so only `trips` accumulates — everything else is
+   * taken from the newest response and stays correct as you scroll.
+   */
+  function loadMore() {
+    if (!data?.has_more || data.next_offset == null || loadingMore) return;
+    setLoadingMore(true);
+    getVehicleTripSummary(vehicleId, { offset: data.next_offset })
+      .then((next) => {
+        if (!next) return;
+        setData((prev) =>
+          prev ? { ...next, trips: [...prev.trips, ...next.trips] } : next
+        );
+      })
+      .catch(() => {
+        // Leave what is already on screen alone: losing a page is not a
+        // reason to blank out the trips the driver is already reading.
+      })
+      .finally(() => setLoadingMore(false));
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
@@ -148,9 +171,38 @@ export default function TripSummaryScreen() {
             Individual Trips ({data.trip_count})
           </Text>
 
-          {[...data.trips].reverse().map((trip, idx) => (
+          {/* Already newest-first from the server. Reversing here would only
+              reverse the CURRENT page and interleave it wrongly with the next. */}
+          {data.trips.map((trip, idx) => (
             <TripCard key={trip.trip_id} trip={trip} index={data.trip_count - idx} />
           ))}
+
+          {data.has_more ? (
+            <Pressable
+              onPress={loadMore}
+              disabled={loadingMore}
+              accessibilityRole="button"
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: spacing.sm,
+                paddingVertical: spacing.md,
+                borderRadius: radii.lg,
+                borderWidth: 1.5,
+                borderColor: palette.border,
+                backgroundColor: pressed ? palette.surfaceMuted : "transparent",
+                opacity: loadingMore ? 0.6 : 1,
+              })}
+            >
+              {loadingMore && <ActivityIndicator size="small" color={palette.brand} />}
+              <Text style={{ ...typography.bodyStrong, color: palette.brand }}>
+                {loadingMore
+                  ? "Loading…"
+                  : `Show older trips (${data.trip_count - data.trips.length} more)`}
+              </Text>
+            </Pressable>
+          ) : null}
         </ScrollView>
       ) : null}
 

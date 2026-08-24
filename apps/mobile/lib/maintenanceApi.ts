@@ -430,18 +430,46 @@ export interface VehicleTripSummary {
   total_cornering_events: number;
   latest_trip: string;
   trips: TripSummary[];
+  /** Present only on the per-vehicle endpoint. */
+  has_more?: boolean;
+  next_offset?: number | null;
 }
 
-export async function getVehicleTripSummary(vehicleId: string): Promise<VehicleTripSummary | null> {
-  const { signal, cancel } = timeoutSignal(6000);
+/** Trips per request. Enough to fill a screen without a huge first payload. */
+export const TRIPS_PAGE_SIZE = 20;
+
+/**
+ * One vehicle's trip history, a page at a time, newest first.
+ *
+ * This used to GET /vehicles/summary — which returns every trip of EVERY
+ * vehicle — and then `.find()` the one it wanted, so rendering a single
+ * vehicle's screen downloaded the whole fleet's history and discarded almost
+ * all of it. Fine with a handful of trips; not fine once a vehicle has a few
+ * hundred, which the simulated-history feature makes trivial to produce. The
+ * payload grew with every trip anyone recorded, on any car.
+ *
+ * The aggregates on the response always describe the FULL history regardless
+ * of paging — only `trips` is windowed — so totals don't shift as you scroll.
+ *
+ * Returns null when the vehicle has no trips at all (the server answers 404),
+ * which callers already treat as the empty state.
+ */
+export async function getVehicleTripSummary(
+  vehicleId: string,
+  opts: { limit?: number; offset?: number } = {}
+): Promise<VehicleTripSummary | null> {
+  const limit = opts.limit ?? TRIPS_PAGE_SIZE;
+  const offset = opts.offset ?? 0;
+  const { signal, cancel } = timeoutSignal(10000);
   try {
-    const res = await fetch(`${BASE_URL}/vehicles/summary`, {
-      headers: await authHeaders(),
-      signal,
-    });
+    const res = await fetch(
+      `${BASE_URL}/vehicles/${encodeURIComponent(vehicleId)}/summary?limit=${limit}&offset=${offset}`,
+      { headers: await authHeaders(), signal }
+    );
+    // No trips recorded yet — an empty state, not a failure.
+    if (res.status === 404) return null;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const all: VehicleTripSummary[] = await res.json();
-    return all.find((s) => s.vehicle_id === vehicleId) ?? null;
+    return res.json();
   } finally {
     cancel();
   }

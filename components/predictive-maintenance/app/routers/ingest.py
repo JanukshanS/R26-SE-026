@@ -430,6 +430,92 @@ def process_trip(batch: TripBatch, db: Session = Depends(get_db)) -> TripMetrics
     return TripMetricsResponse.model_validate(record)
 
 
+@router.get("/vehicles/{vehicle_id}/summary", response_model=VehicleTripSummary)
+def vehicle_summary(
+    vehicle_id: str,
+    limit: int = 20,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+) -> VehicleTripSummary:
+    """One vehicle's trip history, newest first, a page at a time.
+
+    WHY THIS EXISTS SEPARATELY FROM /vehicles/summary: that endpoint returns
+    every trip of every vehicle, and the app was calling it to render ONE
+    vehicle's screen — downloading the entire fleet's history and discarding
+    all but one entry client-side. With a few hundred trips on the vehicle
+    (which the simulated-history feature makes trivial to produce) that is
+    megabytes of JSON to display twenty rows, and it grows with every trip
+    anyone records.
+
+    TWO THINGS ARE DELIBERATE HERE:
+
+    Aggregates are computed in SQL over the WHOLE history, not over the page.
+    A driver's total mileage must not change as they scroll. Only `trips` is
+    windowed.
+
+    Trips come back NEWEST FIRST, which is the order the screen shows them in.
+    The old endpoint returned oldest-first and the client reversed the whole
+    array; doing that to a page would reverse only the page.
+    """
+    # Clamp rather than reject: a bad page size is not worth a 422 to a screen
+    # that just wants to render, and an unbounded limit would reintroduce the
+    # exact problem this endpoint exists to solve.
+    limit = max(1, min(limit, 100))
+    offset = max(0, offset)
+
+    # One pass in the database for every aggregate, instead of loading every
+    # row into Python to sum it.
+    totals = (
+        db.query(
+            func.count(TripMetrics.trip_id),
+            func.sum(TripMetrics.distance_km),
+            func.sum(TripMetrics.duration_minutes),
+            func.sum(TripMetrics.braking_events),
+            func.sum(TripMetrics.cornering_events),
+            func.avg(TripMetrics.avg_speed_kmh),
+            func.avg(TripMetrics.avg_rpm),
+            func.max(TripMetrics.start_timestamp),
+        )
+        .filter(TripMetrics.vehicle_id == vehicle_id)
+        .one()
+    )
+    trip_count = totals[0] or 0
+
+    if trip_count == 0:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No trips recorded for vehicle {vehicle_id}.",
+        )
+
+    # Fetch one extra row: if it comes back there is another page, which is
+    # cheaper and race-free compared with a second COUNT query.
+    rows = (
+        db.query(TripMetrics)
+        .filter(TripMetrics.vehicle_id == vehicle_id)
+        .order_by(TripMetrics.start_timestamp.desc())
+        .offset(offset)
+        .limit(limit + 1)
+        .all()
+    )
+    has_more = len(rows) > limit
+    page = rows[:limit]
+
+    return VehicleTripSummary(
+        vehicle_id=vehicle_id,
+        trip_count=trip_count,
+        total_distance_km=round(float(totals[1] or 0.0), 2),
+        total_duration_minutes=round(float(totals[2] or 0.0), 1),
+        avg_speed_kmh=round(float(totals[5] or 0.0), 1),
+        avg_rpm=round(float(totals[6] or 0.0), 0),
+        total_braking_events=int(totals[3] or 0),
+        total_cornering_events=int(totals[4] or 0),
+        latest_trip=totals[7],
+        trips=[TripSummary.model_validate(t) for t in page],
+        has_more=has_more,
+        next_offset=offset + len(page) if has_more else None,
+    )
+
+
 @router.get("/vehicles/summary", response_model=List[VehicleTripSummary])
 def vehicles_summary(db: Session = Depends(get_db)) -> List[VehicleTripSummary]:
     """

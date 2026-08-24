@@ -221,6 +221,17 @@ class VehicleTripSummary(BaseModel):
     latest_trip: str
     trips: List[TripSummary]
 
+    # ── Paging, on the per-vehicle endpoint only ──────────────────────────
+    # Absent on /vehicles/summary, which still returns every trip it has.
+    #
+    # The aggregates ABOVE always describe the WHOLE history, never just the
+    # page: trip_count, total_distance_km and the averages are computed in SQL
+    # across every trip for the vehicle. Only `trips` is windowed. Paging the
+    # aggregates too would mean a driver's total mileage changed as they
+    # scrolled, which is worse than not paging at all.
+    has_more: Optional[bool] = None
+    next_offset: Optional[int] = None
+
 
 class ComponentHealth(BaseModel):
     component: str
