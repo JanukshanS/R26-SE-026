@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -24,25 +24,50 @@ export default function MyClaimsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Bumped per load and again on blur/unmount, so a response from a previous
+  // visit or a superseded retry cannot overwrite the current list.
+  const loadId = useRef(0);
+  const focused = useRef(true);
+
+  // Shared by focus and by the error state's Try again button, so a failed load
+  // is recoverable without backing out of the screen and returning to it.
+  const load = useCallback(() => {
+    setError("");
+    // Signed out, listMyClaims() resolves to [] — which would render as
+    // "No claims yet." rather than "you are not signed in".
+    if (!user) {
+      setClaims([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const id = ++loadId.current;
+    const isCurrent = () => focused.current && id === loadId.current;
+    void listMyClaims()
+      .then((result) => {
+        if (isCurrent()) setClaims(result);
+      })
+      .catch((err) => {
+        if (!isCurrent()) return;
+        setError(
+          err instanceof Error && err.message
+            ? err.message
+            : "Could not reach the claims service."
+        );
+      })
+      .finally(() => {
+        if (isCurrent()) setLoading(false);
+      });
+  }, [user]);
+
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
-      setLoading(true);
-      setError("");
-      void listMyClaims()
-        .then((result) => {
-          if (!cancelled) setClaims(result);
-        })
-        .catch((err) => {
-          if (!cancelled) setError(err instanceof Error ? err.message : "Could not load claims.");
-        })
-        .finally(() => {
-          if (!cancelled) setLoading(false);
-        });
+      focused.current = true;
+      load();
       return () => {
-        cancelled = true;
+        focused.current = false;
       };
-    }, [])
+    }, [load])
   );
 
   return (
@@ -79,12 +104,55 @@ export default function MyClaimsScreen() {
           paddingBottom: insets.bottom + 100,
         }}
       >
-        {loading ? (
+        {!user ? (
+          <View style={{ alignItems: "center", paddingTop: 60, gap: spacing.md }}>
+            <Icon name="User" size={48} color={palette.border} />
+            <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
+              Sign in to see the claims filed on your account.
+            </Text>
+            <Pressable
+              onPress={() => router.push("/(driver)/auth")}
+              accessibilityRole="button"
+              accessibilityLabel="Sign in"
+              style={({ pressed }) => ({
+                backgroundColor: pressed ? palette.brandPressed : palette.brand,
+                borderRadius: radii.lg,
+                paddingVertical: spacing.md,
+                paddingHorizontal: spacing.xl,
+              })}
+            >
+              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
+                Sign In / Register
+              </Text>
+            </Pressable>
+          </View>
+        ) : loading ? (
           <ActivityIndicator size="large" color={palette.brand} style={{ marginTop: 40 }} />
         ) : error ? (
           <View style={{ alignItems: "center", paddingTop: 60, gap: spacing.md }}>
             <Icon name="TriangleAlert" size={40} color={palette.danger} />
-            <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>{error}</Text>
+            <Text style={{ ...typography.body, color: palette.text, textAlign: "center" }}>
+              Couldn&apos;t load your claims
+            </Text>
+            <Text style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}>
+              {error}
+            </Text>
+            <Text style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}>
+              Check your connection and try again — no claim has been lost.
+            </Text>
+            <Pressable
+              onPress={load}
+              accessibilityRole="button"
+              accessibilityLabel="Try again"
+              style={({ pressed }) => ({
+                backgroundColor: pressed ? palette.brandPressed : palette.brand,
+                borderRadius: radii.lg,
+                paddingVertical: spacing.md,
+                paddingHorizontal: spacing.xl,
+              })}
+            >
+              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Try again</Text>
+            </Pressable>
           </View>
         ) : claims.length === 0 ? (
           <View style={{ alignItems: "center", paddingTop: 60, gap: spacing.md }}>

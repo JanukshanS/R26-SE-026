@@ -1,4 +1,4 @@
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
@@ -104,15 +104,18 @@ const SUGGESTIONS_BY_COMPONENT: Record<ComponentKey, Suggestion[]> = {
   ],
 };
 
+// Generic guidance only. This screen is reachable from the parts store with no
+// health context at all, so it cannot state a remaining-life figure for the
+// driver's car — the component detail screen shows the measured one.
 const ASSISTANT_TEXT: Record<ComponentKey, string> = {
   brake:
-    "Your brakes have about 4 weeks of pad life left — but it's best to replace them within 3 months. Shall I book the next available Saturday? Estimated total: LKR 10,900 — LKR 8,400 (brake pads) + LKR 2,500 (service).",
+    "Brake pads are a wear item — go by the health score on the component screen rather than a fixed interval. Fitting is around LKR 2,500 on top of the part price shown above.",
   engine:
-    "Your engine oil is showing signs of degradation. I recommend scheduling an oil change within 1 week. Estimated price is LKR 4,500 (oil) + LKR 14,800 (service) with total of LKR 19,300.",
+    "An oil and filter change is the usual first service. The labour is around LKR 14,800 on top of the oil price shown above.",
   tire:
-    "Your tyres have good remaining life. A rotation is recommended soon to extend tyre longevity. Estimated cost: LKR 1,500 for rotation service.",
+    "Rotating tyres evens out wear and extends their life. Rotation is around LKR 1,500.",
   battery:
-    "Battery is in good health. No immediate action needed, but a free test can confirm. Estimated test cost: LKR 500.",
+    "A load test is the quickest way to confirm a battery's condition before replacing it. A test is around LKR 500.",
 };
 
 /** Next upcoming Saturday, formatted "Sat, 4 Jul 2026". */
@@ -129,9 +132,24 @@ function nextSaturdayLabel(): string {
 
 export default function AutoScheduleScreen() {
   const insets = useSafeAreaInsets();
-  const { component } = useLocalSearchParams<{ component: ComponentKey }>();
+  const { component, partName, partSubtitle, partPrice } = useLocalSearchParams<{
+    component: ComponentKey;
+    partName?: string;
+    partSubtitle?: string;
+    partPrice?: string;
+  }>();
   const key: ComponentKey = (component as ComponentKey) ?? "brake";
-  const suggestions = SUGGESTIONS_BY_COMPONENT[key];
+  // The part the driver actually picked in the store, when they came from there.
+  const suggestions = SUGGESTIONS_BY_COMPONENT[key].map((s) =>
+    s.type === "part" && partName
+      ? {
+          ...s,
+          name: partName,
+          subtitle: partSubtitle ?? s.subtitle,
+          price: partPrice ?? s.price,
+        }
+      : s
+  );
   const assistantText = ASSISTANT_TEXT[key];
   const scheduleDate = nextSaturdayLabel();
 
@@ -220,8 +238,10 @@ export default function AutoScheduleScreen() {
             }}
           >
             <Icon name="CalendarCheck" size={14} color={palette.brand} />
+            {/* A suggestion, not an availability check — nothing here queries
+                the garage's calendar. */}
             <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "600" }}>
-              Next available: {scheduleDate}
+              Suggested: {scheduleDate}
             </Text>
           </View>
         </View>
@@ -243,72 +263,33 @@ export default function AutoScheduleScreen() {
           gap: spacing.sm,
         }}
       >
+        <Text
+          style={{
+            ...typography.caption,
+            color: palette.textMuted,
+            textAlign: "center",
+          }}
+        >
+          Booking and online payment aren&apos;t available yet — nothing has been scheduled.
+          Contact the garage directly to arrange a date.
+        </Text>
+
         <Pressable
-          onPress={() =>
-            Alert.alert(
-              "Booking & payment",
-              "Booking and online payment are coming soon. Your selected service has been noted for " +
-                scheduleDate +
-                "."
-            )
-          }
+          onPress={() => router.back()}
           accessibilityRole="button"
-          accessibilityLabel="Pay and schedule"
+          accessibilityLabel="Go back"
           style={({ pressed }) => ({
-            backgroundColor: pressed ? palette.brandPressed : palette.brand,
             borderRadius: radii.lg,
-            paddingVertical: spacing.md + 2,
-            flexDirection: "row",
+            paddingVertical: spacing.md,
             alignItems: "center",
             justifyContent: "center",
-            gap: spacing.sm,
+            borderWidth: 1.5,
+            borderColor: palette.border,
+            backgroundColor: pressed ? palette.homeBackground : "transparent",
           })}
         >
-          <Icon name="CreditCard" size={18} color={palette.textOnBrand} />
-          <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-            Pay & Schedule
-          </Text>
+          <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Go Back</Text>
         </Pressable>
-
-        <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <Pressable
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Cancel"
-            style={({ pressed }) => ({
-              flex: 1,
-              borderRadius: radii.lg,
-              paddingVertical: spacing.md,
-              alignItems: "center",
-              justifyContent: "center",
-              borderWidth: 1.5,
-              borderColor: palette.border,
-              backgroundColor: pressed ? palette.homeBackground : "transparent",
-            })}
-          >
-            <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Cancel</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() =>
-              Alert.alert("Change date", "Choosing a custom date is coming soon.")
-            }
-            accessibilityRole="button"
-            accessibilityLabel="Change date"
-            style={({ pressed }) => ({
-              flex: 1,
-              borderRadius: radii.lg,
-              paddingVertical: spacing.md,
-              alignItems: "center",
-              justifyContent: "center",
-              borderWidth: 1.5,
-              borderColor: palette.brand,
-              backgroundColor: pressed ? palette.brandSoft : "transparent",
-            })}
-          >
-            <Text style={{ ...typography.bodyStrong, color: palette.brand }}>Change date</Text>
-          </Pressable>
-        </View>
       </View>
     </View>
   );

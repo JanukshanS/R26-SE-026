@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import express from "express";
 import request from "supertest";
 
+// config reads TRAFFIC_LAMBDA at import time, so pin it before the imports below
+// run — the ranking assertions compare costs whose margins depend on lambda.
+vi.hoisted(() => {
+  process.env.TRAFFIC_LAMBDA = "0.3";
+});
+
 const { mockFetchGeo, mockPrisma } = vi.hoisted(() => ({
   mockFetchGeo: vi.fn(),
   mockPrisma: {
@@ -18,6 +24,7 @@ vi.mock("../src/services/geo-client", () => ({
 vi.mock("../src/utils/prisma", () => ({ prisma: mockPrisma }));
 
 import { dispatchRouter } from "../src/routes/dispatch.routes";
+import { ECMProvider, runDispatchOptimizer } from "../src/services/dispatch-optimizer";
 import { SERVICE_TYPES, ServiceTypeProbabilities } from "../src/types";
 
 function probFor(serviceType: string, value = 1.0): ServiceTypeProbabilities {
@@ -180,5 +187,50 @@ describe("POST /api/v1/dispatch/optimize — geo-intelligence wiring", () => {
     expect(mockPrisma.dispatchDecision.create).toHaveBeenCalled();
     const payload = mockPrisma.dispatchDecision.create.mock.calls[0][0].data;
     expect(payload.trafficImpactScore).toBe(7);
+  });
+});
+
+describe("runDispatchOptimizer — traffic impact influences ranking", () => {
+  // Both providers are MOBILE_MECHANIC and the incident is 100% BATTERY_JUMP,
+  // so neither carries a mismatch term and the only difference is travel time
+  // vs trust. The nearer provider is the less trusted one.
+  const incidentLocation = { latitude: 6.9271, longitude: 79.8612 };
+  const batteryOnly = probFor("BATTERY_JUMP");
+
+  const nearLowTrust: ECMProvider = {
+    id: "near",
+    name: "Near Low-Trust Mechanic",
+    type: "MOBILE_MECHANIC",
+    latitude: 6.9361,
+    longitude: 79.8612,
+    capabilities: ["BATTERY_JUMP"],
+    trustScore: 0.25,
+  };
+
+  const farHighTrust: ECMProvider = {
+    id: "far",
+    name: "Far High-Trust Mechanic",
+    type: "MOBILE_MECHANIC",
+    latitude: 7.1071,
+    longitude: 79.8612,
+    capabilities: ["BATTERY_JUMP"],
+    trustScore: 1.0,
+  };
+
+  const providers = [nearLowTrust, farHighTrust];
+  const rankedIds = (score: number) =>
+    runDispatchOptimizer(providers, incidentLocation, batteryOnly, score)
+      .rankedProviders.map((p) => p.provider.id);
+
+  it("ranks providers differently at low vs high traffic impact", () => {
+    expect(rankedIds(1)).not.toEqual(rankedIds(10));
+  });
+
+  it("prefers the far high-trust provider at low traffic impact", () => {
+    expect(rankedIds(1)[0]).toBe("far");
+  });
+
+  it("prefers the near provider at high traffic impact", () => {
+    expect(rankedIds(10)[0]).toBe("near");
   });
 });

@@ -1,0 +1,267 @@
+{
+  "transmission_faults": {
+    "id": "transmission_faults",
+    "type": "root",
+    "label": "Transmission Faults",
+    "categories": [
+      "Slipping",
+      "Noisy Operation",
+      "Fluid Leaks",
+      "Shifting Issues"
+    ],
+    "diagnostic_flow": {
+      "trigger": "Slipping",
+      "id": "check_transmission_fluid_level",
+      "type": "decision",
+      "label": "Check Transmission Fluid Level",
+      "branches": {
+        "Low": {
+          "id": "refill_fluid",
+          "type": "action",
+          "label": "Refill fluid",
+          "terminal": true
+        },
+        "Normal": {
+          "id": "check_transmission_fluid_condition",
+          "type": "decision",
+          "label": "Check Transmission Fluid Condition",
+          "branches": {
+            "Contaminated": {
+              "id": "replace_fluid_and_filter",
+              "type": "action",
+              "label": "Replace fluid and filter",
+              "terminal": true
+            },
+            "Clean": {
+              "id": "check_internal_wear",
+              "type": "decision",
+              "label": "Check for Internal Wear",
+              "branches": {
+                "Signs of wear": {
+                  "id": "repair_or_replace_transmission",
+                  "type": "action",
+                  "label": "Repair or replace transmission",
+                  "terminal": true
+                },
+                "No wear": {
+                  "id": "no_action_transmission",
+                  "type": "resolution",
+                  "label": "No further action required",
+                  "terminal": true
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "brake_faults": {
+    "id": "brake_faults",
+    "type": "root",
+    "label": "Brake Faults",
+    "categories": [
+      "Brake Pedal Soft",
+      "Brake Noise",
+      "Brake Fluid Leak",
+      "ABS Light On"
+    ],
+    "diagnostic_flow": {
+      "trigger": "Brake Pedal Soft",
+      "id": "check_brake_fluid_level",
+      "type": "decision",
+      "label": "Check Brake Fluid Level",
+      "branches": {
+        "Low": {
+          "id": "refill_brake_fluid",
+          "type": "action",
+          "label": "Refill brake fluid",
+          "terminal": true
+        },
+        "Normal": {
+          "id": "check_brake_fluid_leaks",
+          "type": "decision",
+          "label": "Check for Brake Fluid Leaks",
+          "branches": {
+            "Leak found": {
+              "id": "repair_leaks",
+              "type": "action",
+              "label": "Repair leaks",
+              "terminal": true
+            },
+            "No leaks": {
+              "id": "check_brake_pads_rotors",
+              "type": "decision",
+              "label": "Check Brake Pads and Rotors",
+              "branches": {
+                "Worn": {
+                  "id": "replace_brake_pads_or_rotors",
+                  "type": "action",
+                  "label": "Replace brake pads or rotors",
+                  "terminal": true
+                },
+                "Good": {
+                  "id": "check_brake_master_cylinder",
+                  "type": "decision",
+                  "label": "Check Brake Master Cylinder",
+                  "branches": {
+                    "Faulty": {
+                      "id": "replace_master_cylinder",
+                      "type": "action",
+                      "label": "Replace master cylinder",
+                      "terminal": true
+                    },
+                    "Working": {
+                      "id": "no_action_brakes",
+                      "type": "resolution",
+                      "label": "No further action required",
+                      "terminal": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "electrical_faults": {
+    "id": "electrical_faults",
+    "type": "root",
+    "label": "Electrical Faults",
+    "categories": [
+      "Battery Dead",
+      "Alternator Failure",
+      "Starter Motor Issues",
+      "Fuse Issues"
+    ],
+    "diagnostic_flow": {
+      "trigger": "Battery Dead",
+      "id": "check_battery_terminals",
+      "type": "decision",
+      "label": "Check Battery Terminals",
+      "branches": {
+        "Corroded": {
+          "id": "clean_terminals",
+          "type": "action",
+          "label": "Clean terminals",
+          "terminal": true
+        },
+        "Clean": {
+          "id": "check_battery_voltage",
+          "type": "decision",
+          "label": "Check Battery Voltage",
+          "branches": {
+            "Low voltage": {
+              "id": "charge_or_replace_battery",
+              "type": "action",
+              "label": "Charge or replace battery",
+              "terminal": true
+            },
+            "Normal voltage": {
+              "id": "check_alternator_output",
+              "type": "decision",
+              "label": "Check Alternator Output",
+              "branches": {
+                "Low output": {
+                  "id": "replace_alternator",
+                  "type": "action",
+                  "label": "Replace alternator",
+                  "terminal": true
+                },
+                "Normal output": {
+                  "id": "no_action_electrical",
+                  "type": "resolution",
+                  "label": "No further action required",
+                  "terminal": true
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "engine_overheating": {
+    "id": "engine_overheating",
+    "type": "root",
+    "label": "Engine Overheating",
+    "categories": [],
+    "diagnostic_flow": {
+      "trigger": "Engine Overheating",
+      "id": "check_coolant_level",
+      "type": "decision",
+      "label": "Check Coolant Level",
+      "branches": {
+        "Low": {
+          "id": "refill_coolant",
+          "type": "action",
+          "label": "Refill coolant and check for leaks",
+          "terminal": true
+        },
+        "Normal": {
+          "id": "check_radiator_fan",
+          "type": "decision",
+          "label": "Check Radiator Fan Operation",
+          "branches": {
+            "Not working": {
+              "id": "check_fan_motor_relay_fuse",
+              "type": "action",
+              "label": "Check fan motor, relay, and fuse",
+              "terminal": true
+            },
+            "Working": {
+              "id": "check_thermostat",
+              "type": "decision",
+              "label": "Check Thermostat",
+              "branches": {
+                "Stuck closed": {
+                  "id": "replace_thermostat",
+                  "type": "action",
+                  "label": "Replace thermostat",
+                  "terminal": true
+                },
+                "Functioning normally": {
+                  "id": "inspect_radiator",
+                  "type": "decision",
+                  "label": "Inspect Radiator",
+                  "branches": {
+                    "Blocked or damaged": {
+                      "id": "clean_or_replace_radiator",
+                      "type": "action",
+                      "label": "Clean or replace radiator",
+                      "terminal": true
+                    },
+                    "Clear": {
+                      "id": "check_head_gasket",
+                      "type": "decision",
+                      "label": "Check for Head Gasket Failure",
+                      "branches": {
+                        "Symptoms of failure": {
+                          "id": "replace_head_gasket",
+                          "type": "action",
+                          "label": "Replace head gasket",
+                          "terminal": true
+                        },
+                        "No symptoms": {
+                          "id": "no_action_engine",
+                          "type": "resolution",
+                          "label": "No further action required",
+                          "terminal": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

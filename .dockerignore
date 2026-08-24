@@ -1,0 +1,11 @@
+**/node_modules
+**/.next
+**/out
+**/.git
+**/android/app/build
+**/android/.gradle
+**/.venv
+**/venv
+**/__pycache__
+**/*.apk
+**/.expo

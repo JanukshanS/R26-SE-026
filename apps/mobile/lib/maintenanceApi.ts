@@ -37,22 +37,21 @@ export interface VehicleHealthResponse {
 }
 
 /**
- * Placeholder shown before the first health fetch resolves, and again if it
- * fails. In both cases we have no confirmed health for this vehicle — so this
- * mirrors the backend's OWN response for a vehicle with zero recorded trips
- * (health_pct=0, status="No data") rather than inventing a plausible-looking
- * number.
+ * Shape-only placeholder so a screen can render its "No data" state before the
+ * first response resolves, or when the service is unreachable. In both cases
+ * there is no confirmed health for this vehicle, so this mirrors the backend's
+ * OWN response for a vehicle with zero recorded trips (health_pct=0,
+ * status="No data") rather than inventing a plausible-looking number.
  *
  * This used to be a fabricated 87% overall / 72% engine / 58% brake — numbers
  * chosen to look like real output, indistinguishable on screen from an actual
  * reading. A network blip would silently draw a full health card with invented
  * percentages, alert pills for wear that was never measured, and a "Good"
  * badge for a car the app had no data on. Every screen that renders this
- * already branches on `status === "No data"` (health.tsx, home.tsx,
- * component-detail.tsx all show "—" for it), so representing "we don't know"
- * honestly costs nothing — the existing UI already knows how to say so.
+ * already branches on `status === "No data"` and shows "—" for it, so
+ * representing "we don't know" honestly costs nothing.
  */
-export const NO_DATA_HEALTH: VehicleHealthResponse = {
+export const EMPTY_HEALTH: VehicleHealthResponse = {
   vehicle_id: "",
   overall_health_pct: 0,
   overall_status: "No data",

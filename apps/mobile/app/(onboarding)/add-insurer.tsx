@@ -1,18 +1,25 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@components/ui/button";
-import { Card } from "@components/ui/card";
 import { ErrorState } from "@components/ui/error-state";
 import { HeaderBar } from "@components/ui/header-bar";
 import { Icon } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
 import { TextField } from "@components/ui/text-input";
 import { palette, radii, spacing, typography } from "@theme/index";
-import { updateMyProfile } from "@lib/vehicleApi";
+import { updateMyProfile, VehicleApiError } from "@lib/vehicleApi";
 import { upsertVehicleInsurance } from "@lib/vehicleInsuranceApi";
 import { listInsuranceCompanies, type InsuranceCompany } from "@lib/insuranceCompaniesApi";
+import {
+  formatExpireMonth,
+  formatLicenceNumber,
+  formatNicNumber,
+  isValidExpireMonth,
+  isValidLicenceNumber,
+  isValidNicNumber,
+} from "@lib/insurer-field-format";
 
 export default function AddInsurerScreen() {
   const insets = useSafeAreaInsets();
@@ -24,28 +31,71 @@ export default function AddInsurerScreen() {
   const [policy, setPolicy] = useState("");
   const [licence, setLicence] = useState("");
   const [nic, setNic] = useState("");
+  const [companiesError, setCompaniesError] = useState("");
+  const [expireMonth, setExpireMonth] = useState("");
   const [error, setError] = useState("");
+  const [policyError, setPolicyError] = useState("");
+  const [licenceError, setLicenceError] = useState("");
+  const [nicError, setNicError] = useState("");
+  const [expireMonthError, setExpireMonthError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  // A stale response — from a superseded retry, or after the screen is gone —
+  // must not write state. loadId supersedes, mounted stops writes entirely.
+  const loadId = useRef(0);
+  const mounted = useRef(true);
+
+  const loadCompanies = useCallback(() => {
+    const id = ++loadId.current;
+    const isCurrent = () => mounted.current && id === loadId.current;
+    setCompaniesLoading(true);
+    setCompaniesError("");
     void listInsuranceCompanies()
       .then((list) => {
-        if (cancelled) return;
-        setCompanies(list);
-        setProvider((prev) => prev || list[0]?.companyName || "");
+        if (isCurrent()) setCompanies(list);
       })
-      .catch(() => {})
+      .catch(() => {
+        if (isCurrent()) setCompaniesError("Check your connection and try again.");
+      })
       .finally(() => {
-        if (!cancelled) setCompaniesLoading(false);
+        if (isCurrent()) setCompaniesLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    loadCompanies();
+    return () => {
+      mounted.current = false;
+    };
+  }, [loadCompanies]);
 
   async function handleSave() {
     setError("");
+    setPolicyError("");
+
+    // Fields stay optional (Skip / Continue as guest bypass this screen entirely) — only
+    // enforce the format once the driver has actually typed something into a field. All
+    // three are checked up front (not one-at-a-time with an early return) so every
+    // invalid field shows its own error below it at once, not just the first one found.
+    const nextLicenceError =
+      licence.trim() && !isValidLicenceNumber(licence.trim())
+        ? "Must be 1 letter followed by 7 digits (e.g. B4818153)."
+        : "";
+    const nextNicError =
+      nic.trim() && !isValidNicNumber(nic.trim())
+        ? "Must be 12 digits, or 9 digits followed by V (e.g. 200221458V)."
+        : "";
+    const nextExpireMonthError =
+      expireMonth.trim() && !isValidExpireMonth(expireMonth.trim())
+        ? "Must be a valid future month in YY/MM format (e.g. 26/09)."
+        : "";
+    setLicenceError(nextLicenceError);
+    setNicError(nextNicError);
+    setExpireMonthError(nextExpireMonthError);
+    if (nextLicenceError || nextNicError || nextExpireMonthError) {
+      return;
+    }
+
     if (!provider.trim()) {
       setError(
         companiesLoading
@@ -54,12 +104,18 @@ export default function AddInsurerScreen() {
       );
       return;
     }
+    // Licence/NIC belong to the driver (profiles); insurer/policy belong to a specific
+    // vehicle (a driver's two cars can have different insurers), so they're attached to
+    // the vehicle id passed in from the previous Add Vehicle step — never re-derived by
+    // guessing "the default vehicle", which could resolve to a different, older vehicle.
+    // Without that id there is nothing to attach the insurer to, so stop before saving
+    // anything rather than navigating away as if it had been saved.
+    if (!vehicleId) {
+      setError("Add a vehicle first — insurer details are saved against a vehicle, not your profile.");
+      return;
+    }
     setSubmitting(true);
     try {
-      // Licence/NIC belong to the driver (profiles); insurer/policy belong to a specific
-      // vehicle (a driver's two cars can have different insurers), so they're attached to
-      // the vehicle id passed in from the previous Add Vehicle step — never re-derived by
-      // guessing "the default vehicle", which could resolve to a different, older vehicle.
       await updateMyProfile({
         licenceNumber: licence.trim(),
         nicNumber: nic.trim(),
@@ -68,12 +124,29 @@ export default function AddInsurerScreen() {
         await upsertVehicleInsurance(vehicleId, {
           insuranceProvider: provider,
           insurancePolicyNumber: policy.trim(),
+          insuranceExpireMonth: expireMonth.trim(),
         });
       } else if (__DEV__) {
         console.warn("add-insurer: no vehicleId param — insurer was not attached to any vehicle.");
       }
       router.replace("/(driver)/home");
     } catch (err) {
+      // 23505 = Postgres unique-violation. The three unique columns live across two
+      // different tables/calls above, so the constraint name in the error message is
+      // what tells us which field to blame — there's no single shared error shape here.
+      const apiErr = err instanceof VehicleApiError ? err : null;
+      if (apiErr?.code === "23505") {
+        if (apiErr.message.includes("nic_number")) {
+          setNicError("This NIC Number is already registered to another account.");
+        } else if (apiErr.message.includes("licence_number")) {
+          setLicenceError("This Driving Licence Number is already registered to another account.");
+        } else if (apiErr.message.includes("policy_number")) {
+          setPolicyError("This Policy Number is already registered to another vehicle.");
+        } else {
+          setError("One of the details you entered is already registered elsewhere.");
+        }
+        return;
+      }
       setError((err as Error).message ?? "Couldn't save your insurer details.");
     } finally {
       setSubmitting(false);
@@ -92,13 +165,6 @@ export default function AddInsurerScreen() {
           <Button
             title="Skip"
             variant="secondary"
-            disabled={submitting}
-            onPress={() => router.replace("/(driver)/home")}
-          />
-          {/* Frictionless: never block entry — continue as a guest. */}
-          <Button
-            title="Continue as guest"
-            variant="ghost"
             disabled={submitting}
             onPress={() => router.replace("/(driver)/home")}
           />
@@ -144,41 +210,63 @@ export default function AddInsurerScreen() {
       <TextField
         label="Your insurance policy number"
         value={policy}
-        onChangeText={setPolicy}
-        placeholder="ALCI-254-VP"
+        onChangeText={(t) => {
+          setPolicy(t);
+          setPolicyError("");
+        }}
+        placeholder="Policy Number"
         autoCapitalize="characters"
+        editable={Boolean(provider)}
+        error={policyError}
+        helperText={provider ? undefined : "Select an insurance provider first."}
       />
       <TextField
         label="Your Driving Licence Number"
         value={licence}
-        onChangeText={setLicence}
-        placeholder="B4818153"
+        onChangeText={(t) => {
+          setLicence(formatLicenceNumber(t));
+          setLicenceError("");
+        }}
+        placeholder="Licence Number"
         autoCapitalize="characters"
+        maxLength={8}
+        error={licenceError}
       />
       <TextField
         label="NIC Number"
         value={nic}
-        onChangeText={setNic}
-        placeholder="200221458936"
+        onChangeText={(t) => {
+          setNic(formatNicNumber(t));
+          setNicError("");
+        }}
+        placeholder="NIC Number"
         keyboardType="numbers-and-punctuation"
+        maxLength={12}
+        error={nicError}
+      />
+      <TextField
+        label="Insurance Expiry Month"
+        value={expireMonth}
+        onChangeText={(t) => {
+          setExpireMonth(formatExpireMonth(t));
+          setExpireMonthError("");
+        }}
+        placeholder="YY/MM"
+        keyboardType="number-pad"
+        maxLength={5}
+        editable={Boolean(provider)}
+        error={expireMonthError}
+        helperText={provider ? undefined : "Select an insurance provider first."}
       />
 
-      {error ? <ErrorState title="Couldn't save insurer details" message={error} /> : null}
-
-      {/* <Card variant="muted">
-        <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-          Register Vehicle Photos
-        </Text>
-        <Text style={{ ...typography.caption, color: palette.textMuted }}>
-          This step is required for the insurer to compare vehicle images after an accident.
-        </Text>
-        <Button
-          title="Go to Guided Capture"
-          variant="secondary"
-          size="md"
-          onPress={() => {}}
+      {companiesError ? (
+        <ErrorState
+          title="Couldn't load insurance providers"
+          message={companiesError}
+          onRetry={loadCompanies}
         />
-      </Card> */}
+      ) : null}
+      {error ? <ErrorState title="Couldn't save insurer details" message={error} /> : null}
 
       {/* Insurance provider picker — same bottom-sheet pattern as the Home vehicle picker. */}
       <Modal visible={showProviderPicker} transparent animationType="slide">
@@ -189,8 +277,8 @@ export default function AddInsurerScreen() {
           <Pressable
             style={{
               backgroundColor: palette.surface,
-              borderTopLeftRadius: radii.xl,
-              borderTopRightRadius: radii.xl,
+              borderTopLeftRadius: 15,
+              borderTopRightRadius: 15,
               paddingTop: spacing.lg,
               paddingHorizontal: spacing.lg,
               paddingBottom: insets.bottom + spacing.lg,

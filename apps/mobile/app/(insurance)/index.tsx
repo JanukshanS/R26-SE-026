@@ -35,9 +35,7 @@ import { getVehicles } from '@/lib/vehicleApi';
 import { getVehicleInsurance } from '@/lib/vehicleInsuranceApi';
 import { loadSelectedVehicleId } from '@/lib/selected-vehicle-store';
 import { computeClaimBundleUploadKey, isClaimReportSubmittedLocked } from '@/lib/claim-upload-dedupe';
-import { formatGeocodedLine } from '@/lib/format-geocoded-line';
-import { formatTimestamp } from '@/lib/format-timestamp';
-import { type LocationSnapshotMeta } from '@/lib/location-snapshot-store';
+import { captureLocationSnapshot } from '@/lib/location-snapshot-store';
 import {
   INSURANCE_BORDER_SOFT,
   INSURANCE_PILL_INCOMPLETE_BG,
@@ -81,54 +79,6 @@ type FlowTask = {
 };
 
 
-async function captureLocationSnapshot(): Promise<LocationSnapshotMeta> {
-  const capturedAt = new Date();
-  const base: LocationSnapshotMeta = {
-    capturedAtIso: capturedAt.toISOString(),
-    capturedAtDisplayLocal: formatTimestamp(capturedAt),
-    latitude: null,
-    longitude: null,
-    accuracyMeters: null,
-    locationPermission: 'unavailable',
-    locationLabel: null,
-  };
-
-  try {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      base.locationPermission = 'denied';
-      if (__DEV__) {
-        console.log('[Location captured]', base);
-      }
-      return base;
-    }
-    base.locationPermission = 'granted';
-    const pos = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
-    base.latitude = pos.coords.latitude;
-    base.longitude = pos.coords.longitude;
-    base.accuracyMeters = pos.coords.accuracy ?? null;
-    try {
-      const [geo] = await Location.reverseGeocodeAsync({
-        latitude: base.latitude,
-        longitude: base.longitude,
-      });
-      if (geo) {
-        base.locationLabel = formatGeocodedLine(geo);
-      }
-    } catch {
-      // keep null label
-    }
-  } catch {
-    base.locationPermission = 'unavailable';
-  }
-
-  if (__DEV__) {
-    console.log('[Location captured]', base);
-  }
-  return base;
-}
 
 const FLOW_TASKS: FlowTask[] = [
   { key: 'guided', title: 'Guided Capture', status: 'incomplete', href: '/(insurance)/guided-capture-intro' },
@@ -209,18 +159,23 @@ function TaskCard({
   task,
   glow,
   resolving,
+  disabled,
   onPress,
 }: {
   task: FlowTask;
   glow: boolean;
   resolving: boolean;
+  // Separate from `resolving`: this tile isn't necessarily the one loading, but
+  // something else on screen (another tile, or the Call button) is — blocked from
+  // being pressed without touching its style, so it doesn't look any different.
+  disabled: boolean;
   onPress: () => void;
 }) {
   return (
     <View style={styles.taskCardGlowWrap}>
       <GlowHalo active={glow} />
       <Pressable
-        disabled={resolving}
+        disabled={disabled}
         style={({ pressed }) => [styles.taskCard, glow && styles.taskCardGlowing, pressed && styles.taskCardPressed]}
         onPress={onPress}>
         <Text style={styles.taskTitle}>{task.title}</Text>
@@ -252,6 +207,7 @@ export default function InsuranceHomeScreen() {
   const [claimReportLocked, setClaimReportLocked] = useState(false);
   const [insuranceCompany, setInsuranceCompany] = useState<InsuranceCompany | null>(null);
   const [vehicleMissingInsurer, setVehicleMissingInsurer] = useState(false);
+  const [navigating, setNavigating] = useState(false);
   // True until the insurer lookup below finishes at least once — was used to show a
   // spinner in the button's place; the button now always reads the same static
   // label, so this no longer drives a visible loading state. Kept (unused) rather
@@ -371,6 +327,12 @@ export default function InsuranceHomeScreen() {
     }, [])
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      setNavigating(false);
+    }, [])
+  );
+
   const flowTasks = useMemo(
     () =>
       FLOW_TASKS.map((task) => {
@@ -406,6 +368,11 @@ export default function InsuranceHomeScreen() {
   const firstIncompleteTaskKey = hasCalledInsurer
     ? flowTasks.find((t) => t.status === 'incomplete')?.key ?? null
     : null;
+  // Call and Guided Capture both do an awaited location fetch before doing anything
+  // else (dialing / navigating), which can take a moment. While either is in flight,
+  // every other button on this screen is blocked from being pressed — not restyled,
+  // just non-interactive — so a second tap can't race the in-flight one.
+  const anyLoading = callingInsurer || resolvingTaskKey != null;
   /** Grey “disabled” look after submit, but the button stays pressable to open upload progress. */
   const reportLooksSubmitted = allFlowStepsComplete && claimReportLocked;
 
@@ -429,7 +396,7 @@ export default function InsuranceHomeScreen() {
 
   const onTaskPress = async (task: FlowTask) => {
     const href = task.href;
-    if (!href || resolvingTaskKey) {
+    if (!href || resolvingTaskKey || callingInsurer) {
       return;
     }
     if (task.key === 'guided') {
@@ -458,7 +425,7 @@ export default function InsuranceHomeScreen() {
   };
 
   const onCallInsurer = async () => {
-    if (!insuranceCompany || callingInsurer) {
+    if (!insuranceCompany || callingInsurer || resolvingTaskKey) {
       return;
     }
     // Stop the glow immediately on tap — don't wait for the next focus's
@@ -494,29 +461,47 @@ export default function InsuranceHomeScreen() {
   };
 
   const onReportAccident = () => {
-    if (!allFlowStepsComplete) {
+    if (!allFlowStepsComplete || navigating) {
       return;
     }
+    // computeClaimBundleUploadKey is async, so without this a double tap pushes
+    // two upload screens and files the same accident twice.
+    setNavigating(true);
     void (async () => {
-      const reportedAtIso = new Date().toISOString();
-      // Fire-and-forget GPS on first tap only; persists until reset.
-      void loadReportAccidentEntryMeta().then((existing) => {
-        if (existing) return;
-        void captureLocationSnapshot().then((meta) => {
-          void saveReportAccidentEntryMeta(meta);
+      try {
+        const reportedAtIso = new Date().toISOString();
+        // Fire-and-forget GPS on first tap only; persists until reset.
+        void loadReportAccidentEntryMeta().then((existing) => {
+          if (existing) return;
+          void captureLocationSnapshot().then((meta) => {
+            void saveReportAccidentEntryMeta(meta);
+          });
         });
-      });
-      const uploadKey = await computeClaimBundleUploadKey();
-      router.push({
-        pathname: '/(insurance)/upload-accident-details',
-        params: { uploadKey, reportedAtIso, vehicleId: effectiveVehicleId },
-      });
+        const uploadKey = await computeClaimBundleUploadKey();
+        router.push({
+          pathname: '/(insurance)/upload-accident-details',
+          params: { uploadKey, reportedAtIso, vehicleId: effectiveVehicleId },
+        });
+      } catch {
+        Alert.alert(
+          "Couldn't open your claim",
+          'Your captured photos are safe on this device. Try Report Accident again.',
+        );
+      } finally {
+        setNavigating(false);
+      }
     })();
   };
 
   const onTabPress = (tab: InsuranceTabId) => {
     if (tab === 'home') return;
-    Alert.alert('Coming soon', 'This section will be added in a future update.');
+    if (tab === 'store') {
+      router.push('/(driver)/order-parts');
+      return;
+    }
+    if (tab === 'profile') {
+      router.push('/(driver)/profile');
+    }
   };
 
   return (
@@ -576,7 +561,7 @@ export default function InsuranceHomeScreen() {
             <View style={styles.callInsurerGlowWrap}>
               <GlowHalo active={showGlow} />
               <Pressable
-                disabled={callingInsurer}
+                disabled={anyLoading}
                 style={({ pressed }) => [
                   styles.callInsurerBtn,
                   showGlow && styles.callInsurerBtnGlowing,
@@ -618,13 +603,14 @@ export default function InsuranceHomeScreen() {
                 task={task}
                 glow={task.key === firstIncompleteTaskKey}
                 resolving={resolvingTaskKey === task.key}
+                disabled={anyLoading}
                 onPress={() => void onTaskPress(task)}
               />
             ))}
           </View>
 
           <Pressable
-            disabled={!allFlowStepsComplete}
+            disabled={!allFlowStepsComplete || navigating || anyLoading}
             style={({ pressed }) => [
               styles.reportBtn,
               (!allFlowStepsComplete || reportLooksSubmitted) && styles.reportBtnDisabled,
@@ -638,7 +624,7 @@ export default function InsuranceHomeScreen() {
                 ? 'Opens upload status. Does not send again until you reset walkaround in Guided Capture.'
                 : undefined
             }
-            accessibilityState={{ disabled: !allFlowStepsComplete }}>
+            accessibilityState={{ disabled: !allFlowStepsComplete || navigating || anyLoading }}>
             <Text
               style={[
                 styles.reportBtnText,

@@ -12,7 +12,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
-import { logService, type ServiceType, SERVICE_TYPE_RESETS_WINDOW } from "@lib/maintenanceApi";
+import { logService, type ServiceType } from "@lib/maintenanceApi";
 import { useVehicle } from "@lib/vehicleContext";
 
 type ComponentKey = "engine" | "brake" | "tire" | "battery" | "full_service";
@@ -46,10 +46,13 @@ const SERVICE_TYPE_OPTIONS: ServiceTypeOption[] = [
 export default function AddServiceRecordScreen() {
   const insets = useSafeAreaInsets();
   const { vehicleId: paramVehicleId } = useLocalSearchParams<{ vehicleId?: string }>();
-  const { selectedVehicle } = useVehicle();
-  const vehicleId = paramVehicleId ?? selectedVehicle?.plateNumber ?? "CBD-3742";
+  const { selectedVehicle, vehiclesLoading } = useVehicle();
+  // No fallback plate — writing a record against a vehicle the driver doesn't
+  // own is worse than refusing the write. The param is only trustworthy when a
+  // vehicle is actually selected, since callers derive it from the same source.
+  const vehicleId = selectedVehicle ? (paramVehicleId ?? selectedVehicle.plateNumber) : null;
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [saved, setSaved] = useState(false);
 
   // Form state
   const [component, setComponent] = useState<ComponentKey>("engine");
@@ -64,15 +67,15 @@ export default function AddServiceRecordScreen() {
   const selectedTypeOption = SERVICE_TYPE_OPTIONS.find((o) => o.value === serviceType);
   const resetsWindow = selectedTypeOption?.resetsWindow ?? false;
 
-  const handleNext = () => {
+  const handleSubmit = async () => {
+    if (submitting || !vehicleId) return;
     if (!itemName.trim() && serviceType !== "full_service" && serviceType !== "inspection") {
       Alert.alert("Item name required", "Please enter what was serviced or replaced.");
       return;
     }
-    setStep(2);
-  };
-
-  const handleSubmit = async () => {
+    // parseFloat("-") / parseFloat("..") is NaN, which serialises to null and
+    // silently drops the cost the driver typed.
+    const cost = Number.parseFloat(costLkr);
     setSubmitting(true);
     try {
       await logService(vehicleId, {
@@ -83,12 +86,15 @@ export default function AddServiceRecordScreen() {
         item_name: itemName.trim() || undefined,
         is_original: isOriginal ?? undefined,
         garage_name: garageName.trim() || undefined,
-        cost_lkr: costLkr ? parseFloat(costLkr) : undefined,
+        cost_lkr: Number.isFinite(cost) ? cost : undefined,
         notes: notes.trim() || undefined,
       });
-      setStep(3);
+      setSaved(true);
     } catch (err: any) {
-      Alert.alert("Error", err.message ?? "Could not save service record.");
+      Alert.alert(
+        "Couldn't save service record",
+        `${err.message ?? "The maintenance service didn't respond."}\n\nYour details are still here — tap Save record to try again.`
+      );
     } finally {
       setSubmitting(false);
     }
@@ -120,30 +126,29 @@ export default function AddServiceRecordScreen() {
           gap: spacing.sm,
         }}
       >
-        <Pressable onPress={() => (step > 1 && step < 3 ? setStep((step - 1) as 1 | 2) : router.back())} hitSlop={12}>
-          <Icon name={step === 3 ? "X" : "ChevronLeft"} size={24} color={palette.text} />
+        <Pressable
+          onPress={() => (saved ? router.replace("/(driver)/service-records") : router.back())}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel={saved ? "Close" : "Go back"}
+        >
+          <Icon name={saved ? "X" : "ChevronLeft"} size={24} color={palette.text} />
         </Pressable>
         <Text style={{ ...typography.bodyStrong, color: palette.text, flex: 1 }}>Add Service Record</Text>
       </View>
 
-      {/* Progress bar */}
-      {step < 3 && (
-        <View style={{ flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.md }}>
-          {[1, 2].map((s) => (
-            <View
-              key={s}
-              style={{
-                flex: 1,
-                height: 4,
-                borderRadius: 2,
-                backgroundColor: step >= s ? palette.brand : palette.border,
-              }}
-            />
-          ))}
-        </View>
-      )}
-
-      {step === 1 && (
+      {!vehicleId ? (
+        vehiclesLoading ? (
+          <ActivityIndicator size="large" color={palette.brand} style={{ marginTop: 40 }} />
+        ) : (
+          <NoVehicle insets={insets} />
+        )
+      ) : saved ? (
+        <Step3
+          onBack={() => router.replace("/(driver)/service-records")}
+          insets={insets}
+        />
+      ) : (
         <Step1
           component={component}
           setComponent={setComponent}
@@ -160,27 +165,46 @@ export default function AddServiceRecordScreen() {
           notes={notes}
           setNotes={setNotes}
           resetsWindow={resetsWindow}
-          onNext={handleNext}
+          submitting={submitting}
+          onSubmit={handleSubmit}
           onClear={handleClear}
           insets={insets}
         />
       )}
+    </View>
+  );
+}
 
-      {step === 2 && (
-        <Step2
-          submitting={submitting}
-          onDone={handleSubmit}
-          onSkip={handleSubmit}
-          insets={insets}
-        />
-      )}
+// ─── No vehicle selected ──────────────────────────────────────────────────────
 
-      {step === 3 && (
-        <Step3
-          onBack={() => router.replace("/(driver)/service-records")}
-          insets={insets}
-        />
-      )}
+function NoVehicle({ insets }: { insets: { bottom: number } }) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        alignItems: "center",
+        paddingTop: 60,
+        paddingHorizontal: spacing.lg,
+        gap: spacing.md,
+        paddingBottom: insets.bottom + spacing.xxxl,
+      }}
+    >
+      <Icon name="Car" size={48} color={palette.border} />
+      <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
+        Select a vehicle first. A service record has to be logged against one of your vehicles.
+      </Text>
+      <Pressable
+        onPress={() => router.replace("/(driver)/manage-vehicles")}
+        style={({ pressed }) => ({
+          paddingVertical: spacing.md + 2,
+          paddingHorizontal: spacing.xl,
+          borderRadius: radii.lg,
+          alignItems: "center",
+          backgroundColor: pressed ? palette.brandPressed : palette.brand,
+        })}
+      >
+        <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Choose a vehicle</Text>
+      </Pressable>
     </View>
   );
 }
@@ -196,7 +220,8 @@ function Step1({
   costLkr, setCostLkr,
   notes, setNotes,
   resetsWindow,
-  onNext, onClear, insets,
+  submitting,
+  onSubmit, onClear, insets,
 }: {
   component: ComponentKey; setComponent: (c: ComponentKey) => void;
   serviceType: ServiceType; setServiceType: (t: ServiceType) => void;
@@ -206,7 +231,8 @@ function Step1({
   costLkr: string; setCostLkr: (v: string) => void;
   notes: string; setNotes: (v: string) => void;
   resetsWindow: boolean;
-  onNext: () => void; onClear: () => void;
+  submitting: boolean;
+  onSubmit: () => void; onClear: () => void;
   insets: { bottom: number };
 }) {
   return (
@@ -451,10 +477,11 @@ function Step1({
         />
       </View>
 
-      {/* Next / Clear buttons */}
+      {/* Save / Clear buttons */}
       <View style={{ flexDirection: "row", gap: spacing.sm }}>
         <Pressable
           onPress={onClear}
+          disabled={submitting}
           style={({ pressed }) => ({
             flex: 1,
             paddingVertical: spacing.md + 2,
@@ -468,99 +495,17 @@ function Step1({
           <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Clear</Text>
         </Pressable>
         <Pressable
-          onPress={onNext}
+          onPress={onSubmit}
+          disabled={submitting}
           style={({ pressed }) => ({
             flex: 2,
             paddingVertical: spacing.md + 2,
             borderRadius: radii.lg,
             alignItems: "center",
-            backgroundColor: pressed ? palette.brandPressed : palette.brand,
-            flexDirection: "row",
-            justifyContent: "center",
-            gap: spacing.sm,
-          })}
-        >
-          <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Next</Text>
-          <Icon name="ChevronRight" size={18} color={palette.textOnBrand} />
-        </Pressable>
-      </View>
-    </ScrollView>
-  );
-}
-
-// ─── Step 2: QR verification ──────────────────────────────────────────────────
-
-function Step2({
-  submitting,
-  onDone,
-  onSkip,
-  insets,
-}: {
-  submitting: boolean;
-  onDone: () => void;
-  onSkip: () => void;
-  insets: { bottom: number };
-}) {
-  return (
-    <View style={{ flex: 1, padding: spacing.lg, gap: spacing.xl, justifyContent: "space-between" }}>
-      <View style={{ gap: spacing.md, paddingTop: spacing.md }}>
-        <Text style={{ ...typography.h2, color: palette.text }}>Verify with QR</Text>
-        <Text style={{ ...typography.body, color: palette.textMuted }}>
-          Scan the QR code on the part or the invoice to verify authenticity. You can skip this step if unavailable.
-        </Text>
-      </View>
-
-      {/* Camera viewfinder placeholder */}
-      <View
-        style={{
-          flex: 1,
-          marginVertical: spacing.lg,
-          borderRadius: radii.xl,
-          backgroundColor: "#1B1B1B",
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
-        }}
-      >
-        {/* Corner brackets */}
-        <View style={{ position: "relative", width: 200, height: 200 }}>
-          {[
-            { top: 0, left: 0, borderTopWidth: 3, borderLeftWidth: 3 },
-            { top: 0, right: 0, borderTopWidth: 3, borderRightWidth: 3 },
-            { bottom: 0, left: 0, borderBottomWidth: 3, borderLeftWidth: 3 },
-            { bottom: 0, right: 0, borderBottomWidth: 3, borderRightWidth: 3 },
-          ].map((style, i) => (
-            <View
-              key={i}
-              style={{
-                position: "absolute",
-                width: 36,
-                height: 36,
-                borderColor: palette.brand,
-                ...style,
-              }}
-            />
-          ))}
-          <Icon name="QrCode" size={60} color="rgba(255,255,255,0.15)" />
-        </View>
-        <Text style={{ ...typography.caption, color: "rgba(255,255,255,0.5)", marginTop: spacing.md }}>
-          Camera access required
-        </Text>
-      </View>
-
-      {/* Buttons */}
-      <View style={{ gap: spacing.sm, paddingBottom: insets.bottom + spacing.md }}>
-        <Pressable
-          onPress={onDone}
-          disabled={submitting}
-          style={({ pressed }) => ({
-            paddingVertical: spacing.md + 2,
-            borderRadius: radii.lg,
-            alignItems: "center",
-            justifyContent: "center",
-            flexDirection: "row",
-            gap: spacing.sm,
             backgroundColor: submitting ? palette.border : pressed ? palette.brandPressed : palette.brand,
+            flexDirection: "row",
+            justifyContent: "center",
+            gap: spacing.sm,
           })}
         >
           {submitting ? (
@@ -569,26 +514,11 @@ function Step2({
             <Icon name="CheckCircle" size={18} color={palette.textOnBrand} />
           )}
           <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-            {submitting ? "Saving…" : "Done"}
+            {submitting ? "Saving…" : "Save record"}
           </Text>
         </Pressable>
-
-        <Pressable
-          onPress={onSkip}
-          disabled={submitting}
-          style={({ pressed }) => ({
-            paddingVertical: spacing.md + 2,
-            borderRadius: radii.lg,
-            alignItems: "center",
-            borderWidth: 1.5,
-            borderColor: palette.border,
-            backgroundColor: pressed ? palette.homeBackground : "transparent",
-          })}
-        >
-          <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Skip Verification</Text>
-        </Pressable>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 

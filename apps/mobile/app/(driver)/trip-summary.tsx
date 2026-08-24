@@ -17,27 +17,37 @@ export default function TripSummaryScreen() {
   const insets = useSafeAreaInsets();
   const { selectedVehicle, user } = useVehicle();
   const { vehicleId: paramId } = useLocalSearchParams<{ vehicleId?: string }>();
-  const vehicleId = paramId ?? selectedVehicle?.plateNumber ?? "CBD-3742";
+  // No stand-in plate: with nothing selected we ask for a vehicle rather than
+  // showing another driver's trips. Callers (health) pass "" when unselected,
+  // so this falls through on empty strings, not just on undefined.
+  const vehicleId = paramId || selectedVehicle?.plateNumber || "";
 
   const [data, setData] = useState<VehicleTripSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [empty, setEmpty] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  // Bumped to force a refetch — after a retry, and after a simulated run so the
+  // new mileage appears without navigating away and back.
+  const [attempt, setAttempt] = useState(0);
   const [showSimulator, setShowSimulator] = useState(false);
-  // Bumped after a simulated run so the summary refetches and the new mileage
-  // appears without the user having to navigate away and back.
-  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    setEmpty(false);
+    setLoadFailed(false);
+    if (!vehicleId) {
+      setData(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    setError(null);
     getVehicleTripSummary(vehicleId)
       .then((d) => {
-        if (!d) setError("No trip data recorded for this vehicle yet.");
+        if (!d) setEmpty(true);
         else setData(d);
       })
-      .catch(() => setError("Could not reach the maintenance server."))
+      .catch(() => setLoadFailed(true))
       .finally(() => setLoading(false));
-  }, [vehicleId, reloadKey]);
+  }, [vehicleId, attempt]);
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
@@ -55,12 +65,14 @@ export default function TripSummaryScreen() {
           gap: spacing.md,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
           <Icon name="ChevronLeft" size={24} color={palette.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={{ ...typography.h3, color: palette.text }}>Trip Behaviour</Text>
-          <Text style={{ ...typography.caption, color: palette.textMuted }}>{vehicleId}</Text>
+          <Text style={{ ...typography.caption, color: palette.textMuted }}>
+            {vehicleId || "No vehicle selected"}
+          </Text>
         </View>
         {loading && <ActivityIndicator size="small" color={palette.brand} />}
         <Pressable
@@ -87,10 +99,14 @@ export default function TripSummaryScreen() {
         </Pressable>
       </View>
 
-      {loading ? (
+      {!vehicleId ? (
+        <NoVehicleState />
+      ) : loading ? (
         <LoadingSkeleton />
-      ) : error ? (
-        <EmptyState message={error} />
+      ) : loadFailed ? (
+        <LoadFailedState onRetry={() => setAttempt((a) => a + 1)} />
+      ) : empty ? (
+        <EmptyState message="No trip data recorded for this vehicle yet." />
       ) : data ? (
         <ScrollView
           contentContainerStyle={{
@@ -143,7 +159,7 @@ export default function TripSummaryScreen() {
         onClose={() => setShowSimulator(false)}
         vehicleId={vehicleId}
         driverId={user?._id ?? "guest"}
-        onCompleted={() => setReloadKey((k) => k + 1)}
+        onCompleted={() => setAttempt((a) => a + 1)}
       />
 
       <BottomNavBar activeTab="maintenance" />
@@ -396,6 +412,72 @@ function EmptyState({ message }: { message: string }) {
       <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
         {message}
       </Text>
+    </View>
+  );
+}
+
+function NoVehicleState() {
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xxl, gap: spacing.lg }}>
+      <View
+        style={{
+          width: 64, height: 64, borderRadius: 32,
+          backgroundColor: palette.brandSoft,
+          alignItems: "center", justifyContent: "center",
+        }}
+      >
+        <Icon name="Car" size={28} color={palette.brand} />
+      </View>
+      <Text style={{ ...typography.h3, color: palette.text, textAlign: "center" }}>No vehicle selected</Text>
+      <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
+        Trip behaviour is recorded per vehicle. Add or select one to see its trips.
+      </Text>
+      <Pressable
+        onPress={() => router.push("/(driver)/manage-vehicles")}
+        accessibilityRole="button"
+        accessibilityLabel="Manage vehicles"
+        style={({ pressed }) => ({
+          backgroundColor: pressed ? palette.brandPressed : palette.brand,
+          borderRadius: radii.lg,
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.xl,
+        })}
+      >
+        <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Manage Vehicles</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function LoadFailedState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xxl, gap: spacing.lg }}>
+      <View
+        style={{
+          width: 64, height: 64, borderRadius: 32,
+          backgroundColor: palette.dangerSoft,
+          alignItems: "center", justifyContent: "center",
+        }}
+      >
+        <Icon name="TriangleAlert" size={28} color={palette.danger} />
+      </View>
+      <Text style={{ ...typography.h3, color: palette.text, textAlign: "center" }}>Couldn&apos;t load trips</Text>
+      <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
+        The maintenance server didn&apos;t respond. Check your connection and try again.
+      </Text>
+      <Pressable
+        onPress={onRetry}
+        accessibilityRole="button"
+        accessibilityLabel="Try again"
+        style={({ pressed }) => ({
+          backgroundColor: pressed ? palette.brandPressed : palette.brand,
+          borderRadius: radii.lg,
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.xl,
+        })}
+      >
+        <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Try again</Text>
+      </Pressable>
     </View>
   );
 }

@@ -214,10 +214,11 @@ class ImpactScoringModel:
         Lighthill-Whitham-Richards (LWR) shockwave solver -- there is no
         fundamental diagram and no shockwave-speed term. The constants
         (jam_density=120 veh/km, avg_delay=duration/4, 15 km cap) are
-        uncalibrated heuristics; predicted VHL currently over-estimates SUMO
-        by ~80x (reproduce: scripts/report_metrics.py), so the outputs should
-        be read as a RELATIVE index, not absolute predictions, until calibrated
-        against SUMO. Ref: Newell (1982), Applications of Queueing Theory.
+        uncalibrated heuristics; predicted VHL currently over-estimates SUMO by
+        a MEDIAN of 20x (range 0-357x) (reproduce: scripts/report_metrics.py),
+        so the outputs should be read as a RELATIVE index, not absolute
+        predictions, until calibrated against SUMO.
+        Ref: Newell (1982), Applications of Queueing Theory.
         """
         capacity = self.ROAD_CAPACITY_VPH.get(incident.road_type, 500)
         hour_mult = self.HOUR_VOLUME_MULTIPLIER.get(incident.hour, 0.5)

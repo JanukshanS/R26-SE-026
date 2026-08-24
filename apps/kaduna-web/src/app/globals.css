@@ -1,0 +1,261 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+/* ---break---  */
+@custom-variant dark (&:is(.dark *));
+
+/* Priority colours map to the model's four output bands. The base set is for
+   fills — map markers, dots, meter bars — where saturation has to carry across
+   a pale basemap. The -ink set is the same four bands darkened to pass AA as
+   text on the light card; use it anywhere the colour spells out a word or a
+   number. */
+:root {
+  --priority-critical: oklch(0.68 0.20 22);
+  --priority-high:     oklch(0.76 0.16 55);
+  --priority-medium:   oklch(0.85 0.15 92);
+  --priority-low:      oklch(0.78 0.16 158);
+
+  --priority-critical-ink: oklch(0.50 0.19 22);
+  --priority-high-ink:     oklch(0.52 0.15 48);
+  --priority-medium-ink:   oklch(0.52 0.12 85);
+  --priority-low-ink:      oklch(0.48 0.13 158);
+}
+
+/* ── Light theme (landing) ──
+   Warm cream + orange, matching the mobile app brand. Every key here is also
+   defined in .dark, so the dashboard (wrapped in a .dark div) is unaffected.
+   --radius is intentionally NOT set here: the dashboard has never had it, and
+   defining it globally would round its corners. The landing sets it on its
+   root element instead. */
+:root {
+  --background:       oklch(0.965 0.017 84);
+  --foreground:       oklch(0.25 0.02 55);
+  --card:             oklch(0.988 0.01 84);
+  --card-foreground:  oklch(0.25 0.02 55);
+  --popover:          oklch(0.988 0.01 84);
+  --popover-foreground: oklch(0.25 0.02 55);
+  --primary:          oklch(0.646 0.2 41);
+  --primary-foreground: oklch(0.985 0.008 84);
+  --secondary:        oklch(0.93 0.028 80);
+  --secondary-foreground: oklch(0.25 0.02 55);
+  --muted:            oklch(0.93 0.02 84);
+  --muted-foreground: oklch(0.46 0.025 58);
+  --accent:           oklch(0.93 0.05 70);
+  --accent-foreground: oklch(0.25 0.02 55);
+  --destructive:      oklch(0.577 0.245 27.3);
+  --border:           oklch(0.3 0.04 60 / 14%);
+  --input:            oklch(0.3 0.04 60 / 18%);
+  --ring:             oklch(0.646 0.2 41);
+  --chart-1:          oklch(0.646 0.2 41);
+  --chart-2:          oklch(0.55 0.12 60);
+  --chart-3:          oklch(0.46 0.06 70);
+  --chart-4:          oklch(0.7 0.15 80);
+  --chart-5:          oklch(0.6 0.1 50);
+  --sidebar:          oklch(0.988 0.01 84);
+  --sidebar-foreground: oklch(0.25 0.02 55);
+  --sidebar-primary:  oklch(0.646 0.2 41);
+  --sidebar-primary-foreground: oklch(0.985 0.008 84);
+  --sidebar-accent:   oklch(0.93 0.028 80);
+  --sidebar-accent-foreground: oklch(0.25 0.02 55);
+  --sidebar-border:   oklch(0.3 0.04 60 / 14%);
+  --sidebar-ring:     oklch(0.646 0.2 41);
+}
+
+/* Slow breathing on the landing map's top-risk rings. Reduced-motion media
+   query below zeroes it. */
+@keyframes hotspot-breathe {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 0.8; }
+}
+.hotspot-pulse { animation: hotspot-breathe 3.2s ease-in-out infinite; }
+
+/* ── Leaflet ── */
+/* Leaflet assigns its panes z-index 200-600 and its controls 1000, all of
+   which outrank the z-50 that Radix popovers ship with — so selects and
+   dropdowns opened above the map rendered behind it. Cap Leaflet below the
+   overlay layer rather than raising every popover. */
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom { z-index: 10 !important; }
+.leaflet-control-container .leaflet-control { z-index: 11 !important; }
+
+.leaflet-container { background: var(--background) !important; }
+.leaflet-popup-content-wrapper {
+  background: var(--popover) !important;
+  color: var(--popover-foreground) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,.55) !important;
+}
+.leaflet-popup-tip { background: var(--popover) !important; }
+.leaflet-bar a {
+  background: var(--popover) !important;
+  color: var(--popover-foreground) !important;
+  border-color: var(--border) !important;
+}
+.leaflet-bar a:hover { background: var(--accent) !important; }
+
+
+/* ── Quality floor ── */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
+/* ---break---  */
+@theme inline {
+  --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
+  --font-display: var(--font-bricolage), "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+  --color-sidebar-ring:       var(--sidebar-ring);
+  --color-sidebar-border:       var(--sidebar-border);
+  --color-sidebar-accent-foreground:       var(--sidebar-accent-foreground);
+  --color-sidebar-accent:       var(--sidebar-accent);
+  --color-sidebar-primary-foreground:       var(--sidebar-primary-foreground);
+  --color-sidebar-primary:       var(--sidebar-primary);
+  --color-sidebar-foreground:       var(--sidebar-foreground);
+  --color-sidebar:       var(--sidebar);
+  --color-chart-5:       var(--chart-5);
+  --color-chart-4:       var(--chart-4);
+  --color-chart-3:       var(--chart-3);
+  --color-chart-2:       var(--chart-2);
+  --color-chart-1:       var(--chart-1);
+  --color-ring:       var(--ring);
+  --color-input:       var(--input);
+  --color-border:       var(--border);
+  --color-destructive:       var(--destructive);
+  --color-accent-foreground:       var(--accent-foreground);
+  --color-accent:       var(--accent);
+  --color-muted-foreground:       var(--muted-foreground);
+  --color-muted:       var(--muted);
+  --color-secondary-foreground:       var(--secondary-foreground);
+  --color-secondary:       var(--secondary);
+  --color-primary-foreground:       var(--primary-foreground);
+  --color-primary:       var(--primary);
+  --color-popover-foreground:       var(--popover-foreground);
+  --color-popover:       var(--popover);
+  --color-card-foreground:       var(--card-foreground);
+  --color-card:       var(--card);
+  --color-foreground:       var(--foreground);
+  --color-background:       var(--background);
+  --radius-sm:       calc(var(--radius) * 0.6);
+  --radius-md:       calc(var(--radius) * 0.8);
+  --radius-lg:       var(--radius);
+  --radius-xl:       calc(var(--radius) * 1.4);
+  --radius-2xl:       calc(var(--radius) * 1.8);
+  --radius-3xl:       calc(var(--radius) * 2.2);
+  --radius-4xl:       calc(var(--radius) * 2.6);
+}
+/* ---break---  */
+.dark {
+  --background:       oklch(0.145 0 0);
+  --foreground:       oklch(0.985 0 0);
+  --card:       oklch(0.205 0 0);
+  --card-foreground:       oklch(0.985 0 0);
+  --popover:       oklch(0.205 0 0);
+  --popover-foreground:       oklch(0.985 0 0);
+  --primary:       oklch(0.922 0 0);
+  --primary-foreground:       oklch(0.205 0 0);
+  --secondary:       oklch(0.269 0 0);
+  --secondary-foreground:       oklch(0.985 0 0);
+  --muted:       oklch(0.269 0 0);
+  --muted-foreground:       oklch(0.708 0 0);
+  --accent:       oklch(0.269 0 0);
+  --accent-foreground:       oklch(0.985 0 0);
+  --destructive:       oklch(0.704 0.191 22.216);
+  --border:       oklch(1 0 0 / 10%);
+  --input:       oklch(1 0 0 / 15%);
+  --ring:       oklch(0.556 0 0);
+  --chart-1:       oklch(0.87 0 0);
+  --chart-2:       oklch(0.556 0 0);
+  --chart-3:       oklch(0.439 0 0);
+  --chart-4:       oklch(0.371 0 0);
+  --chart-5:       oklch(0.269 0 0);
+  --sidebar:       oklch(0.205 0 0);
+  --sidebar-foreground:       oklch(0.985 0 0);
+  --sidebar-primary:       oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground:       oklch(0.985 0 0);
+  --sidebar-accent:       oklch(0.269 0 0);
+  --sidebar-accent-foreground:       oklch(0.985 0 0);
+  --sidebar-border:       oklch(1 0 0 / 10%);
+  --sidebar-ring:       oklch(0.556 0 0);
+}
+/* ---break---  */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+/* ── Blackspot markers ──
+   Real accident blackspots (NTC 2024 / data.gov.lk) render as a dark-red
+   diamond + crosshair with a name label — visually distinct from the model's
+   priority dots and hotspot rings so "ground truth" never reads as model output. */
+.blackspot-marker {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.blackspot-marker .bs-diamond {
+  width: 14px;
+  height: 14px;
+  transform: rotate(45deg);
+  background: #7f1d1d;
+  border: 2px solid oklch(0.985 0 0);
+  box-shadow: 0 0 0 1.5px #7f1d1d, 0 1px 4px rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.blackspot-marker .bs-cross {
+  width: 7px;
+  height: 7px;
+  background:
+    linear-gradient(oklch(0.985 0 0), oklch(0.985 0 0)) center / 100% 1.5px no-repeat,
+    linear-gradient(oklch(0.985 0 0), oklch(0.985 0 0)) center / 1.5px 100% no-repeat;
+}
+
+.blackspot-marker .bs-label {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #b91c1c;
+  background: oklch(1 0 0 / 88%);
+  padding: 0 3px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+/* Draggable pin used by the breakdown location picker. */
+.pin-marker {
+  background: transparent !important;
+  border: 0 !important;
+  cursor: grab;
+}
+
+.pin-marker .pin-dot {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--primary);
+  border: 3px solid oklch(1 0 0);
+  box-shadow: 0 0 0 1.5px var(--primary), 0 4px 12px rgba(0, 0, 0, 0.3);
+}

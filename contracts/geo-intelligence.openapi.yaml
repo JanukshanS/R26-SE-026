@@ -28,6 +28,8 @@ paths:
       - scoring
       summary: Score
       operationId: score_v1_score_post
+      security:
+      - bearerAuth: []
       requestBody:
         content:
           application/json:
@@ -49,6 +51,27 @@ paths:
                 $ref: '#/components/schemas/HTTPErrorDetail'
               example:
                 detail: lanes_blocked cannot exceed total_lanes
+        '401':
+          description: Missing, invalid or expired bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPErrorDetail'
+              examples:
+                missing:
+                  value:
+                    detail: Missing bearer token.
+                invalid:
+                  value:
+                    detail: Invalid or expired token.
+        '503':
+          description: Auth backend not configured (SUPABASE_URL unset)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPErrorDetail'
+              example:
+                detail: SUPABASE_URL is not configured.
         '422':
           description: Validation Error
           content:
@@ -64,6 +87,8 @@ paths:
 
         genuinely uncertain inputs (incident duration, reported lanes-blocked).'
       operationId: score_uncertainty_v1_score_uncertainty_post
+      security:
+      - bearerAuth: []
       requestBody:
         content:
           application/json:
@@ -85,6 +110,27 @@ paths:
                 $ref: '#/components/schemas/HTTPErrorDetail'
               example:
                 detail: lanes_blocked cannot exceed total_lanes
+        '401':
+          description: Missing, invalid or expired bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPErrorDetail'
+              examples:
+                missing:
+                  value:
+                    detail: Missing bearer token.
+                invalid:
+                  value:
+                    detail: Invalid or expired token.
+        '503':
+          description: Auth backend not configured (SUPABASE_URL unset)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPErrorDetail'
+              example:
+                detail: SUPABASE_URL is not configured.
         '422':
           description: Validation Error
           content:
@@ -100,6 +146,8 @@ paths:
 
         builds while the incident is active, then drains — a rise-then-decay profile.'
       operationId: score_timeline_v1_score_timeline_post
+      security:
+      - bearerAuth: []
       requestBody:
         content:
           application/json:
@@ -123,6 +171,27 @@ paths:
                 $ref: '#/components/schemas/HTTPErrorDetail'
               example:
                 detail: lanes_blocked cannot exceed total_lanes
+        '401':
+          description: Missing, invalid or expired bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPErrorDetail'
+              examples:
+                missing:
+                  value:
+                    detail: Missing bearer token.
+                invalid:
+                  value:
+                    detail: Invalid or expired token.
+        '503':
+          description: Auth backend not configured (SUPABASE_URL unset)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPErrorDetail'
+              example:
+                detail: SUPABASE_URL is not configured.
         '422':
           description: Validation Error
           content:
@@ -135,6 +204,8 @@ paths:
       - spatial
       summary: Hotspots
       operationId: hotspots_v1_hotspots_get
+      security:
+      - bearerAuth: []
       responses:
         '200':
           description: Successful Response
@@ -145,20 +216,40 @@ paths:
                   $ref: '#/components/schemas/HotspotCluster'
                 type: array
                 title: Response Hotspots V1 Hotspots Get
-        '503':
-          description: Hotspot dataset unavailable
+        '401':
+          description: Missing, invalid or expired bearer token
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPErrorDetail'
-              example:
-                detail: hotspot dataset not available
+              examples:
+                missing:
+                  value:
+                    detail: Missing bearer token.
+                invalid:
+                  value:
+                    detail: Invalid or expired token.
+        '503':
+          description: Auth backend not configured (SUPABASE_URL unset), or hotspot dataset unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPErrorDetail'
+              examples:
+                auth_unconfigured:
+                  value:
+                    detail: SUPABASE_URL is not configured.
+                dataset_missing:
+                  value:
+                    detail: hotspot dataset not available
   /v1/stats:
     get:
       tags:
       - meta
       summary: Stats
       operationId: stats_v1_stats_get
+      security:
+      - bearerAuth: []
       responses:
         '200':
           description: Successful Response
@@ -168,15 +259,39 @@ paths:
                 additionalProperties: true
                 type: object
                 title: Response Stats V1 Stats Get
-        '503':
-          description: Stats dataset unavailable
+        '401':
+          description: Missing, invalid or expired bearer token
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPErrorDetail'
-              example:
-                detail: stats dataset not available
+              examples:
+                missing:
+                  value:
+                    detail: Missing bearer token.
+                invalid:
+                  value:
+                    detail: Invalid or expired token.
+        '503':
+          description: Auth backend not configured (SUPABASE_URL unset), or stats dataset unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPErrorDetail'
+              examples:
+                auth_unconfigured:
+                  value:
+                    detail: SUPABASE_URL is not configured.
+                dataset_missing:
+                  value:
+                    detail: stats dataset not available
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase Auth access token, ES256, verified against the project JWKS endpoint.
   schemas:
     HTTPErrorDetail:
       type: object
@@ -185,7 +300,8 @@ components:
       properties:
         detail:
           type: string
-      description: FastAPI-native error body; platform `{ error: { code, message } }` envelope deferred to v0.2
+      description: 'FastAPI-native error body; platform `{ error: { code, message } }` envelope
+        deferred to v0.2'
       title: HTTPErrorDetail
     HTTPValidationError:
       properties:
@@ -240,21 +356,29 @@ components:
           type: number
           title: Composite Risk
         road_type:
-          type: string
+          type:
+          - string
+          - 'null'
           title: Road Type
           example: motorway
         incident_type:
-          type: string
+          type:
+          - string
+          - 'null'
           title: Incident Type
           example: accident_major
         peak_hour:
-          type: integer
+          type:
+          - integer
+          - 'null'
           minimum: 0
           maximum: 23
           title: Peak Hour
           example: 17
         radius_m:
-          type: number
+          type:
+          - number
+          - 'null'
           minimum: 0
           title: Radius M
           example: 920.9

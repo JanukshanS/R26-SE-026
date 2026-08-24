@@ -10,6 +10,7 @@
  * @author Janukshan Sivakumar - IT22635266
  */
 
+import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from "react-native-maps";
 import { Icon } from "@components/ui/icon";
@@ -42,6 +43,41 @@ export function MapPreview({
   const latDelta = Math.max(0.02, Math.abs(driverLat - providerLat) * 2.5);
   const lngDelta = Math.max(0.02, Math.abs(driverLng - providerLng) * 2.5);
 
+  // Tiles never arriving — an unauthorised Maps key, no network, quota — has
+  // no callback, so the map would otherwise spin forever. Fall back to the
+  // coordinates, which is the part a provider actually needs.
+  const [ready, setReady] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+  useEffect(() => {
+    if (ready) return;
+    const t = setTimeout(() => setTimedOut(true), 8000);
+    return () => clearTimeout(t);
+  }, [ready]);
+
+  if (timedOut && !ready) {
+    return (
+      <View
+        style={{
+          height: 240,
+          borderRadius: radii.lg,
+          borderCurve: "continuous",
+          backgroundColor: palette.surfaceMuted,
+          alignItems: "center",
+          justifyContent: "center",
+          gap: spacing.xs,
+          padding: spacing.lg,
+        }}
+      >
+        <Icon name="MapPin" size={22} color={palette.textMuted} />
+        <Text style={{ ...typography.bodyStrong, color: palette.text }}>Map unavailable</Text>
+        <Text style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}>
+          {driverLat.toFixed(4)}, {driverLng.toFixed(4)}
+          {distanceText ? ` · ${distanceText}` : ""}
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View
       style={{
@@ -65,6 +101,9 @@ export function MapPreview({
         showsUserLocation={false}
         toolbarEnabled={false}
         loadingEnabled
+        // onMapLoaded, not onMapReady: the latter fires once the view is
+        // constructed even when tile authorisation later fails.
+        onMapLoaded={() => setReady(true)}
       >
         {/* Incident location (driver) */}
         <Marker

@@ -17,6 +17,7 @@ import {
   loadDrunkTestState,
   saveDrunkTestState,
 } from '@/features/drunk-test/storage/drunk-test-store';
+import { loadDrunkTestEntryMeta, saveDrunkTestEntryMeta } from '@/features/drunk-test/storage/drunk-test-entry-store';
 import {
   CAPTURE_ACTION_BLUE,
   CAPTURE_ACTION_BLUE_SOFT,
@@ -37,6 +38,8 @@ import {
   INSURANCE_VIDEO_TILE_SUBTEXT,
   WHITE,
 } from '@/features/guided-capture/capture-ui-theme';
+import { captureLocationSnapshot } from '@/lib/location-snapshot-store';
+import { savePhotoGps } from '@/lib/photo-gps-store';
 import { getCachedMyUser, getMyUser } from '@/lib/vehicleApi';
 
 /** Matches on-screen “Recording N seconds left” and `recordAsync.maxDuration`. */
@@ -184,6 +187,16 @@ export default function DrunkTestScreen() {
     setIsRecording(true);
     setRemainingSeconds(RECORD_DURATION_SEC);
 
+    // Fire-and-forget GPS at the moment recording starts, first take only — persists
+    // across retakes (same pattern as report-accident's entry location in
+    // app/(insurance)/index.tsx). Not awaited: recording shouldn't wait on a GPS fix.
+    void loadDrunkTestEntryMeta().then((existing) => {
+      if (existing) return;
+      void captureLocationSnapshot().then((meta) => {
+        void saveDrunkTestEntryMeta(meta);
+      });
+    });
+
     countdownTimerRef.current = setInterval(() => {
       setRemainingSeconds((s) => {
         if (s === null || s <= 0) return 0;
@@ -199,10 +212,28 @@ export default function DrunkTestScreen() {
         const previousUri = videoUriRef.current;
         try {
           const storedUri = await persistRecordedVideo(recorded.uri);
+          // Persist directly, not via the videoUri effect — that effect never runs
+          // if the screen was left mid-recording, and the take would be lost.
+          await saveDrunkTestState({ videoUri: storedUri });
           setVideoUri(storedUri);
           if (previousUri && previousUri !== storedUri) {
             void deleteDrunkTestVideo(previousUri);
           }
+          // Tag the stored video file with the same start-of-recording location saved
+          // above, keyed by its final URI — postOriginalMedia's existing loadPhotoGps(uri)
+          // call picks this up automatically and includes it as R2 object metadata, same
+          // as guided-capture photos. Without this, the location only ever reached the
+          // captures row (drunk_test_start_*), never the R2 object itself.
+          void loadDrunkTestEntryMeta().then((meta) => {
+            if (meta && meta.latitude !== null && meta.longitude !== null) {
+              void savePhotoGps(storedUri, {
+                lat: meta.latitude,
+                lng: meta.longitude,
+                accuracy: meta.accuracyMeters,
+                capturedAt: meta.capturedAtIso,
+              });
+            }
+          });
         } catch {
           // Fallback to the raw recorded URI so user can still play it until Retake.
           setVideoUri(recorded.uri);
@@ -281,8 +312,14 @@ export default function DrunkTestScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.center}>
           <Text style={styles.centerText}>Camera access is required for the drunk test.</Text>
-          <Pressable style={styles.permissionButton} onPress={requestPermission}>
-            <Text style={styles.permissionButtonText}>Grant Camera Permission</Text>
+          {/* Once the OS refuses to ask again, requestPermission() resolves without showing
+              anything — the button has to send the driver to Settings instead of doing nothing. */}
+          <Pressable
+            style={styles.permissionButton}
+            onPress={() => void (permission.canAskAgain ? requestPermission() : Linking.openSettings())}>
+            <Text style={styles.permissionButtonText}>
+              {permission.canAskAgain ? 'Grant Camera Permission' : 'Open Settings'}
+            </Text>
           </Pressable>
           <Pressable style={styles.textButton} onPress={() => router.back()}>
             <Text style={styles.textButtonLabel}>Go back</Text>
@@ -309,8 +346,14 @@ export default function DrunkTestScreen() {
             <Text style={styles.centerText}>
               Microphone access is required on Android so your drunk test video can include sound.
             </Text>
-            <Pressable style={styles.permissionButton} onPress={requestMicPermission}>
-              <Text style={styles.permissionButtonText}>Grant Microphone Permission</Text>
+            <Pressable
+              style={styles.permissionButton}
+              onPress={() =>
+                void (micPermission.canAskAgain ? requestMicPermission() : Linking.openSettings())
+              }>
+              <Text style={styles.permissionButtonText}>
+                {micPermission.canAskAgain ? 'Grant Microphone Permission' : 'Open Settings'}
+              </Text>
             </Pressable>
             <Pressable style={styles.textButton} onPress={() => router.back()}>
               <Text style={styles.textButtonLabel}>Go back</Text>

@@ -19,6 +19,7 @@ type CaptureOverflowMenuProps = {
   onToggleAutoCapture: () => void;
   submitEnabled: boolean;
   onSubmitPhotos: () => void;
+  onShowInstructions: () => void;
 };
 
 /** ⋮ button housing the debug/secondary controls (Reset/Back, Manual/Auto, View Images),
@@ -31,6 +32,7 @@ export function CaptureOverflowMenu({
   onToggleAutoCapture,
   submitEnabled,
   onSubmitPhotos,
+  onShowInstructions,
 }: CaptureOverflowMenuProps) {
   const [open, setOpen] = useState(false);
 
@@ -70,6 +72,7 @@ export function CaptureOverflowMenu({
               disabled={!submitEnabled}
               onPress={() => runAndClose(onSubmitPhotos)}
             />
+            <MenuItem icon="CircleHelp" label="How to Capture" onPress={() => runAndClose(onShowInstructions)} />
           </Pressable>
         </Pressable>
       </Modal>
@@ -83,7 +86,7 @@ function MenuItem({
   onPress,
   disabled,
 }: {
-  icon: 'ArrowLeft' | 'RotateCcw' | 'RefreshCw' | 'Images';
+  icon: 'ArrowLeft' | 'RotateCcw' | 'RefreshCw' | 'Images' | 'CircleHelp';
   label: string;
   onPress: () => void;
   disabled?: boolean;
@@ -122,7 +125,7 @@ const styles = StyleSheet.create({
     top: 84,
     right: 14,
     backgroundColor: CAPTURE_SURFACE_WHITE,
-    borderRadius: 14,
+    borderRadius: 15,
     paddingVertical: 6,
     minWidth: 200,
     shadowColor: '#000000',

@@ -1,10 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
-import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
-import { HeaderBar } from "@components/ui/header-bar";
-import { Screen } from "@components/ui/screen";
+import { QuestionScreen } from "@components/ui/question-screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useEmergency, type SLContext } from "@lib/emergencyContext";
 import { submitTriage, DispatchApiError } from "@lib/dispatchApi";
@@ -48,6 +46,9 @@ export default function ContextScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [obdState, setObdState] = useState<"unknown" | "yes" | "no">("unknown");
   const obdPaired = isElm327Paired();
+  // `submitting` only disables the button on the next render, which leaves a
+  // double-tap window open that would submit triage twice.
+  const inFlightRef = useRef(false);
 
   /**
    * Final submit:
@@ -59,10 +60,20 @@ export default function ContextScreen() {
    */
   async function handleSubmit() {
     if (!incidentId) {
-      Alert.alert("Missing incident", "Restart the emergency flow from the home screen.");
+      Alert.alert(
+        "We lost your request",
+        "Your answers were never filed with dispatch, so we can't run the diagnosis. Start the emergency flow again from the home screen.",
+        [
+          { text: "Not now", style: "cancel" },
+          { text: "Go home", onPress: () => router.replace("/(driver)/home") },
+        ]
+      );
       return;
     }
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setSubmitting(true);
+    setError(null);
     try {
       // Read OBD directly from the (simulated) ELM327 dongle. No dependency
       // on Herath's maintenance service — fully owned by dispatch. Passing
@@ -81,31 +92,33 @@ export default function ContextScreen() {
       setTriageResult(triage.result);
       router.push("/(emergency)/diagnosis-result");
     } catch (err) {
-      const msg = err instanceof DispatchApiError
+      const reachable = err instanceof DispatchApiError;
+      const msg = reachable
         ? `${err.message} (HTTP ${err.status})`
         : (err as Error).message;
       setError(msg);
-      Alert.alert("Triage failed", msg);
+      Alert.alert(
+        "Couldn't run the diagnosis",
+        reachable
+          ? `${msg}\n\nYour answers are saved. Tap Get Diagnosis to try again.`
+          : `Couldn't reach the diagnosis service. Check your connection — your answers are saved, so tap Get Diagnosis to try again.${
+              __DEV__ ? `\n\n[dev] ${msg}` : ""
+            }`
+      );
     } finally {
+      inFlightRef.current = false;
       setSubmitting(false);
     }
   }
 
   return (
-    <Screen
-      footer={
-        <Button
-          title={submitting ? "Diagnosing..." : "Get Diagnosis"}
-          disabled={submitting}
-          onPress={handleSubmit}
-        />
-      }
+    <QuestionScreen
+      route="context"
+      prompt="These help us narrow down the most likely fault for Sri Lankan conditions."
+      nextLabel={submitting ? "Diagnosing..." : "Get Diagnosis"}
+      canNext={!submitting}
+      onNext={handleSubmit}
     >
-      <HeaderBar />
-      <Text style={{ ...typography.h1, color: palette.text }}>One last thing</Text>
-      <Text style={{ ...typography.body, color: palette.textMuted }}>
-        These help us narrow down the most likely fault for Sri Lankan conditions.
-      </Text>
 
       <Card>
         <Field label="Where are you?">
@@ -181,7 +194,7 @@ export default function ContextScreen() {
             : "No OBD device paired — Tier-1 (questionnaire only)."}
         </Text>
       )}
-    </Screen>
+    </QuestionScreen>
   );
 }
 

@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   mapServiceTypeToIncidentType,
+  mapServiceTypeToLanesBlocked,
   SERVICE_TO_INCIDENT_TYPE,
 } from "../src/contracts/geo-service-mapping";
+import { SERVICE_TYPES } from "../src/types";
 
 vi.mock("../src/config", () => ({
   config: { geoIntelligenceUrl: "http://geo.test:5001" },
@@ -13,6 +15,7 @@ vi.mock("../src/utils/logger", () => ({
 }));
 
 import { fetchTrafficImpactScore } from "../src/services/geo-client";
+import { logger } from "../src/utils/logger";
 
 const MALABE = { latitude: 6.9271, longitude: 79.8612 };
 const GEO_URL = "http://geo.test:5001";
@@ -31,10 +34,12 @@ function lastFetchBody(): Record<string, unknown> {
   return JSON.parse(String(call![1]?.body));
 }
 
+// Fixture instants are always written in UTC so the expectations describe the
+// Colombo wall clock the model is asked about, never the CI runner's zone.
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn());
   vi.useFakeTimers();
-  vi.setSystemTime(new Date("2026-07-07T14:30:00+05:30"));
+  vi.setSystemTime(new Date("2026-07-07T09:00:00Z")); // Tue 14:30 in Asia/Colombo
 });
 
 afterEach(() => {
@@ -113,36 +118,87 @@ describe("ScoreRequest body shape (OpenAPI contract)", () => {
       longitude: MALABE.longitude,
       road_type: "primary",
       total_lanes: 2,
-      lanes_blocked: 1,
+      lanes_blocked: 2,
       incident_type: "major_accident",
       hour: 14,
       day_of_week: 1,
     });
   });
 
-  it("converts JS Sunday=0 to model Monday=0 day_of_week", async () => {
-    vi.setSystemTime(new Date("2026-07-12T10:00:00+05:30"));
+  it("sends the Colombo hour, not the process-local one", async () => {
+    vi.setSystemTime(new Date("2026-07-07T02:30:00Z")); // Tue 08:00 in Asia/Colombo
+    mockFetchJson(200, { score: 5 });
+    await fetchTrafficImpactScore({ ...MALABE });
+    expect(lastFetchBody().hour).toBe(8);
+  });
+
+  it("keeps the Colombo hour and weekday across the UTC date boundary", async () => {
+    vi.setSystemTime(new Date("2026-07-06T19:30:00Z")); // Mon in UTC, Tue 01:00 in Colombo
+    mockFetchJson(200, { score: 5 });
+    await fetchTrafficImpactScore({ ...MALABE });
+    expect(lastFetchBody()).toMatchObject({ hour: 1, day_of_week: 1 });
+
+    vi.setSystemTime(new Date("2026-07-07T00:30:00Z")); // Tue 06:00 in Colombo
+    mockFetchJson(200, { score: 5 });
+    await fetchTrafficImpactScore({ ...MALABE });
+    expect(lastFetchBody()).toMatchObject({ hour: 6, day_of_week: 1 });
+  });
+
+  it("sends Sunday as model day_of_week 6", async () => {
+    vi.setSystemTime(new Date("2026-07-12T04:30:00Z")); // Sun 10:00 in Colombo
     mockFetchJson(200, { score: 5 });
     await fetchTrafficImpactScore({ ...MALABE });
     expect(lastFetchBody().day_of_week).toBe(6);
   });
 
-  it("converts JS Monday to model Monday=0", async () => {
-    vi.setSystemTime(new Date("2026-07-06T10:00:00+05:30"));
+  it("sends Monday as model day_of_week 0", async () => {
+    vi.setSystemTime(new Date("2026-07-06T04:30:00Z")); // Mon 10:00 in Colombo
     mockFetchJson(200, { score: 5 });
     await fetchTrafficImpactScore({ ...MALABE });
     expect(lastFetchBody().day_of_week).toBe(0);
   });
 });
 
-describe("G-004 — documented default road geometry", () => {
-  it("uses documented default road geometry until G-004 enrichment", async () => {
+describe("road geometry and lanes_blocked derivation", () => {
+  it("keeps the documented default road class until OSM enrichment", async () => {
     mockFetchJson(200, { score: 5 });
     await fetchTrafficImpactScore({ ...MALABE, probabilities: { MAJOR_ACCIDENT: 1 } });
     const body = lastFetchBody();
     expect(body.road_type).toBe("primary");
     expect(body.total_lanes).toBe(2);
-    expect(body.lanes_blocked).toBe(1);
+  });
+
+  it("blocks both lanes for a service type needing recovery on scene", async () => {
+    mockFetchJson(200, { score: 5 });
+    await fetchTrafficImpactScore({ ...MALABE, probabilities: { MAJOR_ACCIDENT: 1 } });
+    expect(lastFetchBody().lanes_blocked).toBe(2);
+  });
+
+  it("never derives zero blocked lanes, which the model cannot represent", async () => {
+    for (const serviceType of SERVICE_TYPES) {
+      expect(mapServiceTypeToLanesBlocked(serviceType)).toBeGreaterThanOrEqual(1);
+    }
+    mockFetchJson(200, { score: 5 });
+    await fetchTrafficImpactScore({ ...MALABE, probabilities: { LOCKOUT: 1 } });
+    expect(lastFetchBody().lanes_blocked).toBe(1);
+  });
+
+  it("blocks one lane by default", async () => {
+    mockFetchJson(200, { score: 5 });
+    await fetchTrafficImpactScore({ ...MALABE, probabilities: { BATTERY_JUMP: 1 } });
+    expect(lastFetchBody().lanes_blocked).toBe(1);
+
+    mockFetchJson(200, { score: 5 });
+    await fetchTrafficImpactScore({ ...MALABE });
+    expect(lastFetchBody().lanes_blocked).toBe(1);
+  });
+
+  it("never derives more blocked lanes than the road has", () => {
+    for (const serviceType of SERVICE_TYPES) {
+      const lanes = mapServiceTypeToLanesBlocked(serviceType);
+      expect(lanes).toBeGreaterThanOrEqual(0);
+      expect(lanes).toBeLessThanOrEqual(2);
+    }
   });
 });
 
@@ -152,8 +208,19 @@ describe("HTTP behavior and graceful degradation", () => {
     await expect(fetchTrafficImpactScore(MALABE)).resolves.toBe(8.4);
   });
 
-  it("returns null on 400 lanes_blocked validation", async () => {
+  it("reports geo-unavailable on 400 lanes_blocked validation", async () => {
     mockFetchJson(400, { detail: "lanes_blocked cannot exceed total_lanes" });
+    await expect(fetchTrafficImpactScore(MALABE)).resolves.toBe("geo-unavailable");
+  });
+
+  it("distinguishes a 503 misconfiguration from an unreachable service", async () => {
+    mockFetchJson(503, { detail: "SUPABASE_URL is not configured." });
+    await expect(fetchTrafficImpactScore(MALABE)).resolves.toBe("geo-unavailable");
+    expect(vi.mocked(logger.warn).mock.calls.at(-1)?.[0]).toContain("503");
+
+    vi.mocked(fetch).mockRejectedValueOnce(
+      Object.assign(new Error("TimeoutError"), { name: "TimeoutError" }),
+    );
     await expect(fetchTrafficImpactScore(MALABE)).resolves.toBeNull();
   });
 
@@ -174,6 +241,20 @@ describe("HTTP behavior and graceful degradation", () => {
     expect(String(url)).toBe(`${GEO_URL}/v1/score`);
     expect(init?.method).toBe("POST");
     expect(init?.headers).toMatchObject({ "Content-Type": "application/json" });
+  });
+
+  it("forwards the caller's Authorization header to geo", async () => {
+    mockFetchJson(200, { score: 6 });
+    await fetchTrafficImpactScore({ ...MALABE, authorization: "Bearer caller-token" });
+    const [, init] = vi.mocked(fetch).mock.calls.at(-1)!;
+    expect(init?.headers).toMatchObject({ Authorization: "Bearer caller-token" });
+  });
+
+  it("omits Authorization when the caller sent none", async () => {
+    mockFetchJson(200, { score: 6 });
+    await fetchTrafficImpactScore(MALABE);
+    const [, init] = vi.mocked(fetch).mock.calls.at(-1)!;
+    expect(init?.headers).not.toHaveProperty("Authorization");
   });
 
   it("uses 2s abort timeout", async () => {

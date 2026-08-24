@@ -115,7 +115,7 @@ and there is no gateway to misconfigure.
 | Caller | How it gets a token |
 |---|---|
 | mobile | existing Supabase session, attached per request |
-| dashboard-web | sign-in gate; any authenticated user, no role check yet |
+| kaduna-web | sign-in gate; any authenticated user, no role check yet |
 | dispatch → geo | forwards the caller's `Authorization` header verbatim |
 
 Consequences worth knowing before rollout:
@@ -129,7 +129,7 @@ Consequences worth knowing before rollout:
 
 ## What is not deployed here
 
-- `apps/dashboard-web` (Next.js) — host on Vercel. It needs
+- `apps/kaduna-web` (Next.js) — host on Vercel. It needs
   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_KEY`, `NEXT_PUBLIC_GEO_URL`
   and `NEXT_PUBLIC_DISPATCH_URL` set at build time; see its `.env.example`.
 - `apps/mobile` (Expo) — built and distributed through EAS.

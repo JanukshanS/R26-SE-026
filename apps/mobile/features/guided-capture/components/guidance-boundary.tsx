@@ -19,9 +19,9 @@ const FRAME_COLOR: Record<CaptureStatus, string> = {
   steady: CAPTURE_VALID_BORDER,
 };
 
-const CORNER_SIZE = 26;
-const CORNER_THICKNESS = 3;
-const CORNER_RADIUS = 10;
+const CORNER_SIZE = 45;
+const CORNER_THICKNESS = 7;
+const CORNER_RADIUS = 8;
 const S = CORNER_SIZE;
 const R = CORNER_RADIUS;
 

@@ -9,6 +9,7 @@ export default function ProviderLayout() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: palette.background },
+          animation: "slide_from_right",
         }}
       />
     </VehicleProvider>

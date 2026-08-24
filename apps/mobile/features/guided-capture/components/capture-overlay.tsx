@@ -1,9 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CaptureOverflowMenu } from '@/features/guided-capture/components/capture-overflow-menu';
+import { GlowHalo } from '@/features/guided-capture/components/glow-halo';
 import { ProgressRing } from '@/features/guided-capture/components/progress-ring';
 import { StatusPill } from '@/features/guided-capture/components/status-pill';
-import { CAPTURE_ACTION_BLUE, CAPTURE_TEXT_WHITE } from '@/features/guided-capture/capture-ui-theme';
+import { CAPTURE_TEXT_WHITE, CAPTURE_VALID_HEX } from '@/features/guided-capture/capture-ui-theme';
 import type { CaptureStatus } from '@/features/guided-capture/tilt-status';
 
 type CaptureOverlayProps = {
@@ -18,6 +19,7 @@ type CaptureOverlayProps = {
   /** Before any photos: overflow menu shows Back instead of Reset and calls this. */
   onBackPress: () => void;
   onResetCapture: () => void;
+  onShowInstructions: () => void;
 };
 
 export function CaptureOverlay({
@@ -31,6 +33,7 @@ export function CaptureOverlay({
   onSubmitPhotos,
   onBackPress,
   onResetCapture,
+  onShowInstructions,
 }: CaptureOverlayProps) {
   const showBackInsteadOfReset = capturedCount === 0;
   const allCaptured = totalExpected > 0 && capturedCount >= totalExpected;
@@ -41,13 +44,16 @@ export function CaptureOverlay({
         <View style={styles.progressGroup}>
           <ProgressRing current={capturedCount} total={totalExpected} />
           {allCaptured ? (
-            <Pressable
-              style={({ pressed }) => [styles.submitButton, pressed && styles.submitButtonPressed]}
-              onPress={onSubmitPhotos}
-              accessibilityRole="button"
-              accessibilityLabel="Submit photos">
-              <Text style={styles.submitButtonText}>View and Submit</Text>
-            </Pressable>
+            <View style={styles.submitButtonWrap}>
+              <GlowHalo active={allCaptured} color={CAPTURE_VALID_HEX} inset={4} borderRadius={999} />
+              <Pressable
+                style={({ pressed }) => [styles.submitButton, pressed && styles.submitButtonPressed]}
+                onPress={onSubmitPhotos}
+                accessibilityRole="button"
+                accessibilityLabel="Submit photos">
+                <Text style={styles.submitButtonText}>View and Submit</Text>
+              </Pressable>
+            </View>
           ) : null}
         </View>
         <CaptureOverflowMenu
@@ -58,6 +64,7 @@ export function CaptureOverlay({
           onToggleAutoCapture={onToggleAutoCapture}
           submitEnabled={submitEnabled}
           onSubmitPhotos={onSubmitPhotos}
+          onShowInstructions={onShowInstructions}
         />
       </View>
       {statusMessage ? (
@@ -87,9 +94,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  submitButton: {
+  submitButtonWrap: {
+    position: 'relative',
     marginLeft: 15,
-    backgroundColor: CAPTURE_ACTION_BLUE,
+  },
+  submitButton: {
+    backgroundColor: CAPTURE_VALID_HEX,
     borderRadius: 999,
     paddingHorizontal: 18,
     paddingVertical: 9,

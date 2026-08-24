@@ -104,6 +104,10 @@ docs/*.txt
 docs/NEV_fault_dataset.csv
 docs/synthetic_telemetry_data.csv
 
+# Team-provided reference CSVs kept local (not for publication)
+components/dispatch/ml/new_datasets/NEV_fault_dataset.csv
+components/dispatch/ml/new_datasets/synthetic_telemetry_data.csv
+
 # tsc output for the shared contract sources (the .ts files are the artefact)
 contracts/*.js
 contracts/*.js.map

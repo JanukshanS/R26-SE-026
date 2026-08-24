@@ -6,13 +6,8 @@
  *   - BLACK       → too much fuel (injector, air filter)
  *   - ELECTRICAL  → wiring fire — STOP ENGINE
  */
-import { Text } from "react-native";
-import { router } from "expo-router";
-import { Button } from "@components/ui/button";
-import { HeaderBar } from "@components/ui/header-bar";
 import { OptionCard } from "@components/ui/option-card";
-import { Screen } from "@components/ui/screen";
-import { palette, typography } from "@theme/index";
+import { QuestionScreen } from "@components/ui/question-screen";
 import { useEmergency, type SmokeColorChoice } from "@lib/emergencyContext";
 
 const OPTIONS: { value: NonNullable<SmokeColorChoice>; title: string; description: string; tone?: "warning" | "danger" }[] = [
@@ -26,32 +21,22 @@ export default function SmokeColorScreen() {
   const { smokeColor, setSmokeColor } = useEmergency();
 
   return (
-    <Screen
-      footer={
-        <Button
-          title="Next Step"
-          disabled={!smokeColor}
-          onPress={() => router.push("/(emergency)/diagnosis-lights")}
-        />
-      }
+    <QuestionScreen
+      route="smoke-color"
+      prompt={"What colour is the smoke?"}
+      canNext={!!smokeColor}
     >
-      <HeaderBar />
-      <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Process</Text>
-      <Text style={{ ...typography.body, color: palette.textMuted }}>
-        What colour is the smoke?
-      </Text>
-
       {OPTIONS.map((o) => (
         <OptionCard
           key={o.value}
           title={o.title}
           description={o.description}
-          badge={o.tone ? "⚠" : undefined}
+          accent={o.tone}
           badgeTone={o.tone}
           selected={smokeColor === o.value}
           onPress={() => setSmokeColor(o.value)}
         />
       ))}
-    </Screen>
+    </QuestionScreen>
   );
 }

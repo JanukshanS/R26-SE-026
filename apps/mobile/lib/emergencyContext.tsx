@@ -16,6 +16,7 @@
  * @author Janukshan Sivakumar - IT22635266
  */
 
+import type { Q1MLIntent } from "@lib/emergencyFlow";
 import React, {
   createContext,
   ReactNode,
@@ -126,7 +127,14 @@ export interface EmergencyState {
   mobileLights: Set<string>;           // mobile-side ids (engine, oil, ...)
 
   // Adaptive form selections
-  intent:        IntentCohort;          // top-level branch (Engine/Brake/Gear)
+  /**
+   * Q1_intent as the driver actually picked it on the "What's wrong?" grid.
+   * Previously Q1 was never asked - it was inferred from cohort + damage, which
+   * meant a dent on a car with a fine engine was submitted as ENGINE_PROBLEM,
+   * and WEIRD_BEHAVIOR could never be produced at all.
+   */
+  q1Intent:      Q1MLIntent | null;
+  intent:        IntentCohort;          // legacy cohort, derived from q1Intent
   engineState:   EngineStateChoice;     // Q2
   runningIssue:  RunningIssueChoice;    // Q2b (when STARTS_*)
   overheatDetail:OverheatChoice;        // Q7 (when running = OVERHEATING)
@@ -153,6 +161,7 @@ interface EmergencyContextValue extends EmergencyState {
   setDamage:         (d: DamageChoice) => void;
   setSound:          (s: MobileSoundId | null) => void;
   toggleLight:       (id: string) => void;
+  setQ1Intent:       (i: Q1MLIntent | null) => void;
   setIntent:         (i: IntentCohort) => void;
   setEngineState:    (s: EngineStateChoice) => void;
   setRunningIssue:   (s: RunningIssueChoice) => void;
@@ -212,15 +221,19 @@ function buildResponsesFrom(state: EmergencyState): TriageResponses {
   //   - intent = GEAR          → GEAR_ISSUE
   //   - intent = ENGINE + damage MINOR → ENGINE_PROBLEM
   //   - intent = ENGINE + damage NONE  → WONT_START
-  let Q1_intent: string = "WONT_START";
-  if (state.damage === "CRASH") {
-    Q1_intent = "MAJOR_CRASH";
-  } else if (state.intent === "BRAKE") {
-    Q1_intent = "BRAKE_ISSUE";
-  } else if (state.intent === "GEAR") {
-    Q1_intent = "GEAR_ISSUE";
-  } else if (state.damage === "MINOR") {
-    Q1_intent = "ENGINE_PROBLEM";
+  // The grid asks Q1 directly. The inference below only runs when it wasn't
+  // asked - a crash short-circuit, or a flow entered by deep link.
+  let Q1_intent: string = state.q1Intent ?? "WONT_START";
+  if (!state.q1Intent) {
+    if (state.damage === "CRASH") {
+      Q1_intent = "MAJOR_CRASH";
+    } else if (state.intent === "BRAKE") {
+      Q1_intent = "BRAKE_ISSUE";
+    } else if (state.intent === "GEAR") {
+      Q1_intent = "GEAR_ISSUE";
+    } else if (state.damage === "MINOR") {
+      Q1_intent = "ENGINE_PROBLEM";
+    }
   }
 
   // ── Q2 engine start ──────────────────────────────────────────────────
@@ -280,9 +293,10 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
   const [damage, setDamage] = useState<DamageChoice>(null);
   const [sound, setSound] = useState<MobileSoundId | null>(null);
   const [mobileLights, setMobileLights] = useState<Set<string>>(new Set());
-  const [intent, setIntent] = useState<IntentCohort>(null);
-  const [engineState, setEngineState] = useState<EngineStateChoice>(null);
-  const [runningIssue, setRunningIssue] = useState<RunningIssueChoice>(null);
+  const [q1Intent, setQ1IntentValue] = useState<Q1MLIntent | null>(null);
+  const [intent, setIntentValue] = useState<IntentCohort>(null);
+  const [engineState, setEngineStateValue] = useState<EngineStateChoice>(null);
+  const [runningIssue, setRunningIssueValue] = useState<RunningIssueChoice>(null);
   const [overheatDetail, setOverheatDetail] = useState<OverheatChoice>(null);
   const [noiseDetail, setNoiseDetail] = useState<NoiseChoice>(null);
   const [smokeColor, setSmokeColor] = useState<SmokeColorChoice>(null);
@@ -297,6 +311,70 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
   const [incidentId, setIncidentId] = useState<string | null>(null);
   const [triageResult, setTriageResult] = useState<TriageResult | null>(null);
   const [dispatchResult, setDispatchResult] = useState<DispatchResultData | null>(null);
+
+  /**
+   * A deep-dive answer is only valid for the branch that asked it. Switching a
+   * branch selector clears everything below it, so answers from a path the user
+   * backed out of can never reach the triage payload.
+   */
+  const clearRunningDetails = useCallback(() => {
+    setOverheatDetail(null);
+    setNoiseDetail(null);
+    setSmokeColor(null);
+  }, []);
+
+  /**
+   * Picking a different problem on the grid invalidates every answer below it,
+   * the same way setIntent does for the legacy cohort. Also keeps `intent` in
+   * sync so the existing brake/gear payload mapping keeps working.
+   */
+  const setQ1Intent = useCallback((next: Q1MLIntent | null) => {
+    if (next !== q1Intent) {
+      setSound(null);
+      setEngineStateValue(null);
+      setRunningIssueValue(null);
+      setElectrical(null);
+      setBrakeDetail(null);
+      setGearDetail(null);
+      clearRunningDetails();
+    }
+    setQ1IntentValue(next);
+    setIntentValue(
+      next === "BRAKE_ISSUE" ? "BRAKE" :
+      next === "GEAR_ISSUE"  ? "GEAR"  :
+      next                   ? "ENGINE" : null
+    );
+  }, [q1Intent, clearRunningDetails]);
+
+  const setIntent = useCallback((next: IntentCohort) => {
+    if (next !== intent) {
+      setSound(null);
+      setEngineStateValue(null);
+      setRunningIssueValue(null);
+      setElectrical(null);
+      setBrakeDetail(null);
+      setGearDetail(null);
+      clearRunningDetails();
+    }
+    setIntentValue(next);
+  }, [intent, clearRunningDetails]);
+
+  const setEngineState = useCallback((next: EngineStateChoice) => {
+    if (next !== engineState) {
+      setSound(null);
+      setElectrical(null);
+      setRunningIssueValue(null);
+      clearRunningDetails();
+    }
+    setEngineStateValue(next);
+  }, [engineState, clearRunningDetails]);
+
+  const setRunningIssue = useCallback((next: RunningIssueChoice) => {
+    if (next !== runningIssue) {
+      clearRunningDetails();
+    }
+    setRunningIssueValue(next);
+  }, [runningIssue, clearRunningDetails]);
 
   const toggleLight = useCallback((id: string) => {
     setMobileLights((prev) => {
@@ -329,9 +407,10 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
     setDamage(null);
     setSound(null);
     setMobileLights(new Set());
-    setIntent(null);
-    setEngineState(null);
-    setRunningIssue(null);
+    setQ1IntentValue(null);
+    setIntentValue(null);
+    setEngineStateValue(null);
+    setRunningIssueValue(null);
     setOverheatDetail(null);
     setNoiseDetail(null);
     setSmokeColor(null);
@@ -351,12 +430,12 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
   const buildTriageResponses = useCallback(
     () => buildResponsesFrom({
       damage, sound, mobileLights,
-      intent, engineState, runningIssue, overheatDetail, noiseDetail,
+      q1Intent, intent, engineState, runningIssue, overheatDetail, noiseDetail,
       smokeColor, electrical, brakeDetail, gearDetail,
       smells, recentSigns, slContext,
       incidentId, triageResult, dispatchResult, loading, error,
     }),
-    [damage, sound, mobileLights, intent, engineState, runningIssue,
+    [damage, sound, mobileLights, q1Intent, intent, engineState, runningIssue,
      overheatDetail, noiseDetail, smokeColor, electrical, brakeDetail,
      gearDetail, smells, recentSigns, slContext,
      incidentId, triageResult, dispatchResult, loading, error]
@@ -365,13 +444,13 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
   const value = useMemo<EmergencyContextValue>(
     () => ({
       damage, sound, mobileLights,
-      intent, engineState, runningIssue, overheatDetail, noiseDetail,
+      q1Intent, intent, engineState, runningIssue, overheatDetail, noiseDetail,
       smokeColor, electrical, brakeDetail, gearDetail,
       smells, recentSigns, slContext,
       incidentId, triageResult, dispatchResult,
       loading, error,
       setDamage, setSound, toggleLight,
-      setIntent, setEngineState, setRunningIssue, setOverheatDetail,
+      setQ1Intent, setIntent, setEngineState, setRunningIssue, setOverheatDetail,
       setNoiseDetail, setSmokeColor, setElectrical, setBrakeDetail, setGearDetail,
       setSmells, toggleRecentSign, setSLContext,
       setLoading, setError,
@@ -379,11 +458,12 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
       buildTriageResponses, reset,
     }),
     [
-      damage, sound, mobileLights, intent, engineState, runningIssue,
+      damage, sound, mobileLights, q1Intent, intent, engineState, runningIssue,
       overheatDetail, noiseDetail, smokeColor, electrical, brakeDetail,
       gearDetail, smells, recentSigns, slContext,
       incidentId, triageResult, dispatchResult,
       loading, error, toggleLight, toggleRecentSign, setSLContext,
+      setQ1Intent, setIntent, setEngineState, setRunningIssue,
       buildTriageResponses, reset,
     ]
   );

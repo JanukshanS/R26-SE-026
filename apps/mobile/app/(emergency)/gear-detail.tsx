@@ -6,13 +6,8 @@
  *   GRINDING     → synchros worn / clutch not disengaging fully
  *   CLUTCH_SOFT  → clutch hydraulic / master-cylinder
  */
-import { Text } from "react-native";
-import { router } from "expo-router";
-import { Button } from "@components/ui/button";
-import { HeaderBar } from "@components/ui/header-bar";
 import { OptionCard } from "@components/ui/option-card";
-import { Screen } from "@components/ui/screen";
-import { palette, typography } from "@theme/index";
+import { QuestionScreen } from "@components/ui/question-screen";
 import { useEmergency, type GearDetailChoice } from "@lib/emergencyContext";
 
 const OPTIONS: { value: NonNullable<GearDetailChoice>; title: string; description: string }[] = [
@@ -26,21 +21,11 @@ export default function GearDetailScreen() {
   const { gearDetail, setGearDetail } = useEmergency();
 
   return (
-    <Screen
-      footer={
-        <Button
-          title="Next Step"
-          disabled={!gearDetail}
-          onPress={() => router.push("/(emergency)/diagnosis-lights")}
-        />
-      }
+    <QuestionScreen
+      route="gear-detail"
+      prompt={"What's the gearbox doing?"}
+      canNext={!!gearDetail}
     >
-      <HeaderBar />
-      <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Process</Text>
-      <Text style={{ ...typography.body, color: palette.textMuted }}>
-        What&apos;s the gearbox doing?
-      </Text>
-
       {OPTIONS.map((o) => (
         <OptionCard
           key={o.value}
@@ -50,6 +35,6 @@ export default function GearDetailScreen() {
           onPress={() => setGearDetail(o.value)}
         />
       ))}
-    </Screen>
+    </QuestionScreen>
   );
 }

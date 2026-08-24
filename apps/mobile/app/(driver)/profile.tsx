@@ -10,19 +10,28 @@ import {
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BottomNavBar } from "@components/ui/bottom-nav-bar";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
+import { unpairElm327 } from "@lib/elm327";
+import { endTrip, isTripActive } from "@lib/tripRecorder";
 import { listMyClaims } from "@lib/claims-api";
+import { useTabBack } from "@lib/useTabBack";
 
 export default function ProfileScreen() {
+  const { canGoBack, goBack } = useTabBack();
   const insets = useSafeAreaInsets();
-  const { user, vehicles, updateProfile, logout, authLoading } = useVehicle();
+  const { user, vehicles, updateProfile, logout } = useVehicle();
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user?.name ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [location, setLocation] = useState(user?.location ?? "");
+  // NIC and licence live on the profile and gate the insurance flow, but had
+  // nowhere to be entered except deep inside Manage Vehicles.
+  const [licenceNumber, setLicenceNumber] = useState(user?.licenceNumber ?? "");
+  const [nicNumber, setNicNumber] = useState(user?.nicNumber ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -60,9 +69,11 @@ export default function ProfileScreen() {
             gap: spacing.md,
           }}
         >
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
-            <Icon name="ChevronLeft" size={24} color={palette.text} />
-          </Pressable>
+          {canGoBack ? (
+            <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+              <Icon name="ChevronLeft" size={24} color={palette.text} />
+            </Pressable>
+          ) : null}
           <Text style={{ ...typography.h3, color: palette.text }}>Profile</Text>
         </View>
 
@@ -98,6 +109,7 @@ export default function ProfileScreen() {
             </Text>
           </Pressable>
         </View>
+        <BottomNavBar activeTab="profile" />
       </View>
     );
   }
@@ -115,7 +127,13 @@ export default function ProfileScreen() {
     setError("");
     setSuccess(false);
     try {
-      await updateProfile({ name: name.trim(), phone: phone.trim(), location: location.trim() });
+      await updateProfile({
+        name: name.trim(),
+        phone: phone.trim(),
+        location: location.trim(),
+        licenceNumber: licenceNumber.trim(),
+        nicNumber: nicNumber.trim(),
+      });
       setSuccess(true);
       setEditing(false);
       setTimeout(() => setSuccess(false), 3000);
@@ -127,12 +145,13 @@ export default function ProfileScreen() {
   }
 
   function handleEditToggle() {
-    if (editing) {
-      setName(user?.name ?? "");
-      setPhone(user?.phone ?? "");
-      setLocation(user?.location ?? "");
-      setError("");
-    }
+    // Seed on open as well as on cancel: the initial state was captured before
+    // the session finished restoring, so opening the form with stale "" values
+    // would save empty phone/location over the stored ones.
+    setName(user?.name ?? "");
+    setPhone(user?.phone ?? "");
+    setLocation(user?.location ?? "");
+    setError("");
     setEditing(!editing);
   }
 
@@ -152,9 +171,11 @@ export default function ProfileScreen() {
           gap: spacing.md,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
-          <Icon name="ChevronLeft" size={24} color={palette.text} />
-        </Pressable>
+        {canGoBack ? (
+          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+            <Icon name="ChevronLeft" size={24} color={palette.text} />
+          </Pressable>
+        ) : null}
         <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>Profile</Text>
         <Pressable
           onPress={handleEditToggle}
@@ -198,7 +219,6 @@ export default function ProfileScreen() {
           {!editing && (
             <>
               <Text style={{ ...typography.h2, color: palette.text }}>{user.name}</Text>
-              <Text style={{ ...typography.body, color: palette.textMuted }}>{user.email}</Text>
             </>
           )}
         </View>
@@ -241,6 +261,8 @@ export default function ProfileScreen() {
               <Field label="Email" value={user.email} editable={false} placeholder="" />
               <Field label="Phone" value={phone} onChangeText={setPhone} placeholder="+94 77 123 4567" keyboardType="phone-pad" />
               <Field label="Location" value={location} onChangeText={setLocation} placeholder="Malabe, Sri Lanka" autoCapitalize="words" />
+              <Field label="NIC number" value={nicNumber} onChangeText={setNicNumber} placeholder="200012345678" autoCapitalize="characters" />
+              <Field label="Driving licence number" value={licenceNumber} onChangeText={setLicenceNumber} placeholder="B1234567" autoCapitalize="characters" />
 
               {error ? (
                 <View
@@ -282,6 +304,10 @@ export default function ProfileScreen() {
               <InfoRow icon="Mail" label="Email" value={user.email} />
               <InfoRow icon="Phone" label="Phone" value={user.phone ?? "—"} />
               <InfoRow icon="MapPin" label="Location" value={user.location ?? "—"} />
+              {/* Both are required before a claim can be filed, so show them
+                  here rather than only surfacing the gap inside the flow. */}
+              <InfoRow icon="Fingerprint" label="NIC" value={user.nicNumber ?? "Not added"} />
+              <InfoRow icon="IdCardIcon" label="Licence" value={user.licenceNumber ?? "Not added"} />
             </View>
           )}
         </View>
@@ -375,25 +401,20 @@ export default function ProfileScreen() {
           <MenuRow icon="Shield" label="Privacy Policy" />
           <MenuRow icon="HelpCircle" label="Help & Support" divider={false} />
         </View>
-      </ScrollView>
 
-      {/* Logout */}
-      <View
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          paddingBottom: insets.bottom + spacing.md,
-          paddingTop: spacing.md,
-          paddingHorizontal: spacing.lg,
-          backgroundColor: palette.surface,
-          borderTopWidth: 1,
-          borderTopColor: palette.border,
-        }}
-      >
+        {/* In the scroll flow, not pinned: an absolutely-positioned bar here
+            sits underneath the tab bar and can never be tapped. */}
         <Pressable
-          onPress={() => { logout(); router.back(); }}
+          onPress={async () => {
+            // A recording left running would keep sampling under the previous
+            // driver's id — same teardown order as Home's Log out.
+            if (isTripActive()) await endTrip().catch(() => {});
+            unpairElm327();
+            await logout();
+            router.replace("/");
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Log out"
           style={({ pressed }) => ({
             borderRadius: radii.lg,
             paddingVertical: spacing.md,
@@ -409,7 +430,9 @@ export default function ProfileScreen() {
           <Icon name="LogOut" size={18} color={palette.danger} />
           <Text style={{ ...typography.bodyStrong, color: palette.danger }}>Log Out</Text>
         </Pressable>
-      </View>
+      </ScrollView>
+
+      <BottomNavBar activeTab="profile" />
     </View>
   );
 }
@@ -471,8 +494,8 @@ function Field({
   value: string;
   onChangeText?: (v: string) => void;
   placeholder?: string;
-  keyboardType?: "default" | "phone-pad";
-  autoCapitalize?: "none" | "words" | "sentences";
+  keyboardType?: "default" | "phone-pad" | "number-pad";
+  autoCapitalize?: "none" | "words" | "sentences" | "characters";
   editable?: boolean;
 }) {
   return (

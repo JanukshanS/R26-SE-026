@@ -4,13 +4,8 @@
  * failure modes that the SL data shows for Colombo traffic and Kandy hill
  * road conditions.
  */
-import { Text } from "react-native";
-import { router } from "expo-router";
-import { Button } from "@components/ui/button";
-import { HeaderBar } from "@components/ui/header-bar";
 import { OptionCard } from "@components/ui/option-card";
-import { Screen } from "@components/ui/screen";
-import { palette, typography } from "@theme/index";
+import { QuestionScreen } from "@components/ui/question-screen";
 import { useEmergency, type OverheatChoice } from "@lib/emergencyContext";
 
 const OPTIONS: { value: NonNullable<OverheatChoice>; title: string; description: string }[] = [
@@ -24,21 +19,11 @@ export default function OverheatDetailScreen() {
   const { overheatDetail, setOverheatDetail } = useEmergency();
 
   return (
-    <Screen
-      footer={
-        <Button
-          title="Next Step"
-          disabled={!overheatDetail}
-          onPress={() => router.push("/(emergency)/diagnosis-lights")}
-        />
-      }
+    <QuestionScreen
+      route="overheat-detail"
+      prompt={"When does the overheating happen?"}
+      canNext={!!overheatDetail}
     >
-      <HeaderBar />
-      <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Process</Text>
-      <Text style={{ ...typography.body, color: palette.textMuted }}>
-        When does the overheating happen?
-      </Text>
-
       {OPTIONS.map((o) => (
         <OptionCard
           key={o.value}
@@ -48,6 +33,6 @@ export default function OverheatDetailScreen() {
           onPress={() => setOverheatDetail(o.value)}
         />
       ))}
-    </Screen>
+    </QuestionScreen>
   );
 }

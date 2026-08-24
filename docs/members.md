@@ -23,7 +23,7 @@ Each component folder has exactly one owner. The owner is the required reviewer 
 
 ## Apps
 
-`apps/dashboard-web/` and `apps/mobile/` are shared. Lead maintainers:
+`apps/kaduna-web/` and `apps/mobile/` are shared. Lead maintainers:
 
-- `apps/dashboard-web/` — Asath (web dashboard originated from his component)
+- `apps/kaduna-web/` — Asath (web dashboard originated from his component)
 - `apps/mobile/` — Dilnuk (Expo prototype originated from Guided-Camera workspace)

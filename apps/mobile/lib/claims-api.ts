@@ -63,9 +63,9 @@ export function clearCachedClaims(): void {
 }
 
 /**
- * The signed-in driver's claim history, newest first. Returns `[]` for a guest
- * session — same graceful degradation as the rest of the claim-upload flow,
- * not an error.
+ * The signed-in driver's claim history, newest first. Throws when there is no
+ * session or no backend URL — an empty array would tell the driver they have
+ * no claims, which is a claim about their history we never asked the server.
  *
  * No explicit `.eq('user_id', ...)` filter is needed — RLS already scopes the
  * result set to the caller, same convention as `vehicleApi.ts`'s `getVehicles()`.

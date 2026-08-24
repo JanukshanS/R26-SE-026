@@ -1,9 +1,8 @@
+import { useRef } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
-import { Button } from "@components/ui/button";
-import { HeaderBar } from "@components/ui/header-bar";
 import { Icon, type IconName } from "@components/ui/icon";
-import { Screen } from "@components/ui/screen";
+import { QuestionScreen, useNextStep } from "@components/ui/question-screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useEmergency, DEMO_VEHICLE } from "@lib/emergencyContext";
 import { createIncident, DispatchApiError } from "@lib/dispatchApi";
@@ -25,8 +24,13 @@ export default function DiagnosisLightsScreen() {
   const {
     mobileLights, toggleLight,
     setLoading, setError, setIncidentId,
-    loading,
+    incidentId, loading,
   } = useEmergency();
+
+  // `loading` only disables the button on the next render, which leaves a
+  // double-tap window open that would file two incidents.
+  const inFlightRef = useRef(false);
+  const goNext = useNextStep("diagnosis-lights");
 
   /**
    * After Q5 lights we hand off to the always-asked tail (smells → recent →
@@ -40,6 +44,14 @@ export default function DiagnosisLightsScreen() {
    * "current vehicle condition" off the incident id).
    */
   async function handleNext() {
+    // Coming back to change an answer and going forward again must not file a
+    // second incident — the lights answer is submitted later, on SL context.
+    if (incidentId) {
+      goNext();
+      return;
+    }
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -50,40 +62,47 @@ export default function DiagnosisLightsScreen() {
         description: "Roadside assistance requested via mobile app",
       });
       setIncidentId(incident.id);
-      router.push("/(emergency)/smells");
+      goNext();
     } catch (err) {
-      const msg = err instanceof DispatchApiError
-        ? `${err.message} (HTTP ${err.status})`
-        : (err as Error).message;
+      const raw = (err as Error).message;
+      // authHeaders() throws this before the request leaves the device.
+      if (!(err instanceof DispatchApiError) && raw.includes("signed in")) {
+        setError(raw);
+        Alert.alert(
+          "Sign in to get help",
+          "We need your account to send a mechanic to you. Sign in and start the diagnosis again.",
+          [
+            { text: "Not now", style: "cancel" },
+            { text: "Sign in", onPress: () => router.push("/(driver)/auth") },
+          ]
+        );
+        return;
+      }
+      const reachable = err instanceof DispatchApiError;
+      const msg = reachable ? `${raw} (HTTP ${err.status})` : raw;
       setError(msg);
       Alert.alert(
-        "Couldn't create incident",
-        `${msg}\n\nMake sure the dispatch service is running on port 3001 ` +
-        `(npm run dev in components/dispatch).`
+        "Couldn't request help",
+        reachable
+          ? `${msg}\n\nTap Next to try again.`
+          : "Couldn't reach the roadside assistance service. Check your connection and tap Next to try again." +
+            (__DEV__ ? `\n\n[dev] ${msg} — is dispatch running on port 3001?` : "")
       );
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   }
 
   return (
-    <Screen
-      footer={
-        <Button
-          title={loading ? "Preparing..." : "Next Step"}
-          onPress={handleNext}
-          disabled={loading}
-        />
-      }
+    <QuestionScreen
+      route="diagnosis-lights"
+      prompt="Which dashboard lights are on?"
+      hint="Tap all warning lights you see on your dashboard."
+      nextLabel={loading ? "Preparing..." : "Next"}
+      canNext={!loading}
+      onNext={handleNext}
     >
-      <HeaderBar />
-      <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Process</Text>
-      <Text style={{ ...typography.body, color: palette.textMuted }}>
-        Which dashboard lights are on?
-      </Text>
-      <Text style={{ ...typography.caption, color: palette.textMuted }}>
-        Tap all warning lights you see on your dashboard.
-      </Text>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
         {LIGHTS.map((light) => {
@@ -92,10 +111,20 @@ export default function DiagnosisLightsScreen() {
             <Pressable
               key={light.id}
               onPress={() => toggleLight(light.id)}
+              accessibilityRole="checkbox"
+              accessibilityLabel={`${light.label} warning light`}
+              accessibilityState={{ checked: active }}
               style={({ pressed }) => ({
                 opacity: pressed ? 0.85 : 1,
-                width: "30%",
-                aspectRatio: 1,
+                // No aspectRatio: in a wrapping row the default
+                // alignItems:"stretch" fights it, and the icon+label ends up
+                // centred against a taller phantom box than the border you see -
+                // the label sat almost on the bottom edge. Padding defines the
+                // height instead, so the content is genuinely centred.
+                flexBasis: "30%",
+                flexGrow: 1,
+                minHeight: 96,
+                paddingVertical: spacing.lg,
                 backgroundColor: active ? palette.text : palette.surface,
                 borderRadius: radii.md,
                 borderCurve: "continuous",
@@ -129,10 +158,10 @@ export default function DiagnosisLightsScreen() {
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md }}>
           <ActivityIndicator size="small" color={palette.brand} />
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
-            Submitting triage...
+            Creating your request...
           </Text>
         </View>
       )}
-    </Screen>
+    </QuestionScreen>
   );
 }

@@ -21,6 +21,7 @@ import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { submitTriageSchema } from '../utils/validators';
 import { runTriageEngine } from '../services/triage-engine';
+import { blendTriageWithPrior } from '../services/bayesian-service';
 import {
   Q1_ML_INTENTS, Q1_FAST_INTENTS,
   DASHBOARD_LAMPS, RECENT_WARNINGS,
@@ -318,7 +319,12 @@ triageRouter.post('/submit', async (req, res) => {
     }
 
     // Run the engine (decision tree, fast-path-aware).
-    const triageResult = runTriageEngine(responses as any, obdData as any);
+    // Then wrap with the Bayesian posterior for this symptom pattern, if any.
+    // The blend is a no-op (returns the tree result unchanged) when no prior
+    // exists yet or the prior has too few observations to be trusted — so
+    // triage always works, even on a freshly-migrated DB with zero feedback.
+    const treeResult   = runTriageEngine(responses as any, obdData as any);
+    const triageResult = await blendTriageWithPrior(responses as any, treeResult);
 
     // Persist the triage record to the new adaptive schema. Upsert (not create)
     // keyed on the unique incidentId: re-submitting triage for the same incident

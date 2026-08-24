@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 
 import { type InsurerCallMeta } from '@/features/insurer-call/storage/insurer-call-store';
 import { type GuidedCaptureEntryMeta } from '@/features/guided-capture/storage/guided-capture-entry-store';
+import { type DrunkTestEntryMeta } from '@/features/drunk-test/storage/drunk-test-entry-store';
 import { loadDrunkTestState } from '@/features/drunk-test/storage/drunk-test-store';
 import { loadDrivingLicenceState } from '@/features/driving-licence/storage/driving-licence-store';
 import { loadGuidedCaptureStoreState } from '@/features/guided-capture/storage/guided-capture-store';
@@ -58,6 +59,14 @@ export async function getAccessToken(): Promise<string | null> {
 export async function authHeaders(): Promise<Record<string, string>> {
   const token = await getAccessToken();
   if (!token) {
+    // Local development escape hatch, to exercise the flows without a sign-in.
+    // Requires EXPO_PUBLIC_DEV_AUTH_BYPASS=1 AND a debug build: __DEV__ is
+    // compile-time false in release, so this branch is stripped from a
+    // production bundle. The backends need DEV_AUTH_BYPASS_USER_ID set to
+    // accept the placeholder.
+    if (__DEV__ && process.env.EXPO_PUBLIC_DEV_AUTH_BYPASS === '1') {
+      return { Authorization: 'Bearer dev-auth-bypass' };
+    }
     throw new Error('You need to be signed in. Sign in and try again.');
   }
   return { Authorization: `Bearer ${token}` };
@@ -202,6 +211,8 @@ export type VehiclePayload = {
   model: string;
   policyNumber?: string;
   plateNumber?: string;
+  /** "YY/MM" format, e.g. "26/09". */
+  insuranceExpireMonth?: string;
 };
 
 export type ReportPayload = {
@@ -370,11 +381,15 @@ export async function uploadFullClaimBundleToBackend(options: {
   vehicle?: VehiclePayload;
   insurerCallMeta?: InsurerCallMeta | null;
   guidedCaptureEntryMeta?: GuidedCaptureEntryMeta | null;
+  drunkTestEntryMeta?: DrunkTestEntryMeta | null;
   onGuidedProgress: (percent: number) => void;
   onFraudProgress: (percent: number) => void;
   /** Fired once walkaround originals are on the server and guided progress is 100% (before fraud-validation uploads). */
   onGuidedWalkaroundUploadsComplete?: () => void;
-  /** Fired once licence / third-party / drunk-test media is uploaded and fraud progress is 100% (before completion). */
+  /** Fired once licence / third-party / drunk-test media is uploaded AND the
+   *  capture is genuinely complete — either the complete-capture Edge Function
+   *  has returned, or the capture was already finished server-side. Never fired
+   *  on progress alone, so the caller can treat it as "really submitted". */
   onFraudValidationMediaUploadsComplete?: () => void;
   signal?: AbortSignal;
 }): Promise<{ captureId: string }> {
@@ -403,6 +418,7 @@ export async function uploadFullClaimBundleToBackend(options: {
     vehicle_model: options.vehicle?.model.trim() || null,
     policy_number: options.vehicle?.policyNumber?.trim() || null,
     vehicle_reg_no: options.vehicle?.plateNumber?.trim() || null,
+    insurance_expire_month: options.vehicle?.insuranceExpireMonth?.trim() || null,
     report_captured_at: options.report.capturedAtIso,
     report_captured_at_display_local: displayLocal || null,
     report_gps_lat: options.report.gpsLat,
@@ -420,6 +436,12 @@ export async function uploadFullClaimBundleToBackend(options: {
     guided_capture_start_gps_lng: options.guidedCaptureEntryMeta?.longitude ?? null,
     guided_capture_start_location_permission: options.guidedCaptureEntryMeta?.locationPermission ?? null,
     guided_capture_start_location_label: options.guidedCaptureEntryMeta?.locationLabel ?? null,
+    drunk_test_started_at: options.drunkTestEntryMeta?.capturedAtIso ?? null,
+    drunk_test_start_captured_at_display_local: options.drunkTestEntryMeta?.capturedAtDisplayLocal ?? null,
+    drunk_test_start_gps_lat: options.drunkTestEntryMeta?.latitude ?? null,
+    drunk_test_start_gps_lng: options.drunkTestEntryMeta?.longitude ?? null,
+    drunk_test_start_location_permission: options.drunkTestEntryMeta?.locationPermission ?? null,
+    drunk_test_start_location_label: options.drunkTestEntryMeta?.locationLabel ?? null,
   };
 
   const { captureId, resumeIndex, alreadyComplete } = await resolveCaptureSession(
@@ -485,7 +507,6 @@ export async function uploadFullClaimBundleToBackend(options: {
     }
     options.onFraudProgress(100);
   }
-  options.onFraudValidationMediaUploadsComplete?.();
 
   const { data: completeData, error: completeError } = await supabase.functions.invoke('complete-capture', {
     body: { captureId },
@@ -494,6 +515,7 @@ export async function uploadFullClaimBundleToBackend(options: {
     throw new Error(`Complete failed: ${completeError?.message ?? 'unknown error'}`);
   }
   await clearUploadProgress();
+  options.onFraudValidationMediaUploadsComplete?.();
 
   return { captureId };
 }
