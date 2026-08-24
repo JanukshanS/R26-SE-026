@@ -8,12 +8,11 @@ import { BottomNavBar } from "@components/ui/bottom-nav-bar";
 import { Card } from "@components/ui/card";
 import { Icon } from "@components/ui/icon";
 import { ObdSourceBadge } from "@components/ui/obd-source-badge";
-import { EngineStateDebug } from "@components/ui/engine-state-debug";
 import { QuickAction } from "@components/ui/quick-action";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import {
-  FALLBACK_HEALTH,
+  NO_DATA_HEALTH,
   getVehicleHealth,
   rulToLabel,
   type VehicleHealthResponse,
@@ -23,7 +22,7 @@ import { useVehicle } from "@lib/vehicleContext";
 import type { Vehicle } from "@lib/vehicleApi";
 import { getVehicleInsurance, type VehicleInsurance } from "@lib/vehicleInsuranceApi";
 import { useHardwareBack } from "@lib/useHardwareBack";
-import { isTripActive, startTrip } from "@lib/tripRecorder";
+import { isTripActive } from "@lib/tripRecorder";
 import { getCachedClaims, listMyClaims } from "@lib/claims-api";
 import { loadDismissedClaimId } from "@lib/claim-upload-dedupe";
 import { useIncompleteUploadStatus } from "@/features/report-accident/hooks/use-incomplete-upload-status";
@@ -41,7 +40,7 @@ export default function DriverHomeScreen() {
   // Home is the post-auth root: block the Android back button so it can never
   // pop back to the welcome/login screen. The only way off home is Log out.
   useHardwareBack(useCallback(() => true, []));
-  const [health, setHealth] = useState<VehicleHealthResponse>(FALLBACK_HEALTH);
+  const [health, setHealth] = useState<VehicleHealthResponse>(NO_DATA_HEALTH);
   const [loadingHealth, setLoadingHealth] = useState(true);
   const [showObd, setShowObd] = useState(() => !isElm327Paired());
   const [showVehiclePicker, setShowVehiclePicker] = useState(false);
@@ -128,7 +127,7 @@ export default function DriverHomeScreen() {
     setLoadingHealth(true);
     getVehicleHealth(vehicleId)
       .then(setHealth)
-      .catch(() => setHealth(FALLBACK_HEALTH))
+      .catch(() => setHealth(NO_DATA_HEALTH))
       .finally(() => setLoadingHealth(false));
   }, [vehicleId]);
 
@@ -338,10 +337,7 @@ export default function DriverHomeScreen() {
         <ObdSourceBadge />
         {/* Engine-state detection readout — dev builds only while the
             thresholds are still being validated against a real car. */}
-        {__DEV__ && <EngineStateDebug />}
         <TripCard
-          vehicleId={vehicleId}
-          driverId={user?._id ?? "guest"}
           onNeedsObd={() => {
             setPairResult(null);
             setShowObd(true);
@@ -884,34 +880,32 @@ function HealthAlertPill({ text, danger = true }: { text: string; danger?: boole
   );
 }
 
-function TripCard({
-  vehicleId,
-  driverId,
-  onNeedsObd,
-}: {
-  vehicleId: string;
-  driverId: string;
-  onNeedsObd: () => void;
-}) {
+function TripCard({ onNeedsObd }: { onNeedsObd: () => void }) {
   const [tripActive, setTripActive] = useState(isTripActive());
 
+  /**
+   * VIEW ONLY. This card no longer starts anything.
+   *
+   * Trips begin when the ENGINE starts and end when it stops — that is the
+   * whole point of the feature, and a button that also started one competed
+   * with it. A hand-started trip has no engine-start behind it, so it has no
+   * honest beginning: it would sit recording a parked car, and the readings it
+   * collected would describe an idle engine while claiming to be a drive.
+   *
+   * So the card reports state and offers a way in to the live screen. Starting
+   * is the engine's job.
+   */
   function handlePress() {
     if (tripActive) {
       router.push("/(driver)/active-trip");
       return;
     }
+    // Nothing to show yet. The one thing the driver can usefully DO about that
+    // is connect the adapter, so offer exactly that.
     if (!isElm327Paired()) {
-      // Previously this pushed "/(driver)/home" — the screen the card is
-      // already on — so the tap did nothing at all. That was masked while
-      // pairing silently fell back to the simulation and isElm327Paired() was
-      // therefore almost always true. With no fallback it is the normal
-      // unpaired case, so open the pairing modal instead of dead-ending.
       onNeedsObd();
       return;
     }
-    startTrip(vehicleId, driverId);
-    setTripActive(true);
-    router.push("/(driver)/active-trip");
   }
 
   return (
@@ -946,12 +940,14 @@ function TripCard({
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-          {tripActive ? "Trip in progress" : "Record a Trip"}
+          {tripActive ? "Trip in progress" : "Track Trip"}
         </Text>
         <Text style={{ ...typography.caption, color: palette.textMuted }}>
           {tripActive
-            ? "OBD & sensor data being collected — tap to view"
-            : "Collect OBD + sensor data to update vehicle health"}
+            ? "Recording from your OBD-II adapter — tap to view"
+            : isElm327Paired()
+              ? "Starts by itself when you start the engine"
+              : "Connect your OBD-II adapter to track trips"}
         </Text>
       </View>
       <Icon name="ChevronRight" size={18} color={palette.textMuted} />

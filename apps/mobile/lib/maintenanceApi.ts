@@ -36,17 +36,33 @@ export interface VehicleHealthResponse {
   components: Record<ComponentKey, ComponentHealth>;
 }
 
-export const FALLBACK_HEALTH: VehicleHealthResponse = {
-  vehicle_id: "CBD-3742",
-  overall_health_pct: 87,
-  overall_status: "Good",
+/**
+ * Placeholder shown before the first health fetch resolves, and again if it
+ * fails. In both cases we have no confirmed health for this vehicle — so this
+ * mirrors the backend's OWN response for a vehicle with zero recorded trips
+ * (health_pct=0, status="No data") rather than inventing a plausible-looking
+ * number.
+ *
+ * This used to be a fabricated 87% overall / 72% engine / 58% brake — numbers
+ * chosen to look like real output, indistinguishable on screen from an actual
+ * reading. A network blip would silently draw a full health card with invented
+ * percentages, alert pills for wear that was never measured, and a "Good"
+ * badge for a car the app had no data on. Every screen that renders this
+ * already branches on `status === "No data"` (health.tsx, home.tsx,
+ * component-detail.tsx all show "—" for it), so representing "we don't know"
+ * honestly costs nothing — the existing UI already knows how to say so.
+ */
+export const NO_DATA_HEALTH: VehicleHealthResponse = {
+  vehicle_id: "",
+  overall_health_pct: 0,
+  overall_status: "No data",
   trip_count: 0,
   total_mileage_km: 0,
   components: {
-    engine: { health_pct: 72, status: "Fair", predicted_rul_km: 7200, max_lifespan_km: 150000 },
-    brake: { health_pct: 58, status: "Fair", predicted_rul_km: 1800, max_lifespan_km: 40000 },
-    tire: { health_pct: 95, status: "Good", predicted_rul_km: 47500, max_lifespan_km: 50000 },
-    battery: { health_pct: 88, status: "Good", predicted_rul_km: 70400, max_lifespan_km: 80000 },
+    engine: { health_pct: 0, status: "No data", predicted_rul_km: 0, max_lifespan_km: 150000 },
+    brake: { health_pct: 0, status: "No data", predicted_rul_km: 0, max_lifespan_km: 40000 },
+    tire: { health_pct: 0, status: "No data", predicted_rul_km: 0, max_lifespan_km: 50000 },
+    battery: { health_pct: 0, status: "No data", predicted_rul_km: 0, max_lifespan_km: 80000 },
   },
 };
 
@@ -345,6 +361,30 @@ export interface TripMetricsResponse {
   avg_iat_c: number;
 }
 
+/**
+ * Thrown by `submitTrip` when the backend answers but refuses the batch.
+ *
+ * The status code is carried alongside the message because the disposition of
+ * a failed submission depends entirely on it and NOT on the prose: `/process-trip`
+ * answers 409 for a trip it already stored (which means the batch landed — a
+ * success from the client's point of view) and 422 for one it will never accept
+ * (too short), while a 5xx or a dropped connection is worth retrying forever.
+ * `pendingTripStore.ts` has to tell those apart without an outage, so
+ * string-matching `detail` was never going to hold — the backend is free to
+ * reword it.
+ *
+ * `message` is still the backend's `detail`, so existing `err?.message` call
+ * sites (the manual end-trip alert) are unchanged.
+ */
+export class TripSubmitError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "TripSubmitError";
+    this.status = status;
+  }
+}
+
 export async function submitTrip(batch: TripBatch): Promise<TripMetricsResponse> {
   const { signal, cancel } = timeoutSignal(15000);
   try {
@@ -356,7 +396,7 @@ export async function submitTrip(batch: TripBatch): Promise<TripMetricsResponse>
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error((err as any).detail ?? `HTTP ${res.status}`);
+      throw new TripSubmitError(res.status, (err as any).detail ?? `HTTP ${res.status}`);
     }
     return res.json();
   } finally {

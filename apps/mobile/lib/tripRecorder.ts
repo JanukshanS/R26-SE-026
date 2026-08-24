@@ -30,11 +30,24 @@ import type { IMUReading, OBDReading, TripBatch } from "./maintenanceApi";
 const SENSORS_AVAILABLE = Platform.OS !== "web";
 
 // ── Interval config ───────────────────────────────────────────────────────────
-// Dev: 30 s OBD, 10 s IMU — fast enough to record a usable demo trip in ~60 s
-// Prod: 5 min OBD, 2 min IMU — matches the backend spec
+// Prod: 5 min OBD, 2 min IMU — matches the backend spec.
+// Dev:  30 s OBD, 10 s IMU — a usable demo trip in about a minute.
+// Fast: 3 s OBD, 2 s IMU — for verifying the pipeline end to end in a hurry.
+//
+// FAST MODE EXISTS BECAUSE OF A MISMATCH IN WHAT "QUICK TEST" CAN MEAN. Sample
+// SPACING and trip LENGTH are separate limits, and only one of them is ours to
+// set: the backend rejects any trip under 2 minutes or 0.5 km (MIN_TRIP_MINUTES
+// / MIN_DISTANCE_KM in ingest.py). Sampling faster does not shorten that floor.
+// What it does buy is DENSITY — at 30 s a two-minute trip yields four OBD rows,
+// which is barely above the 2-row schema minimum and leaves the trapezoidal
+// distance estimate riding on a handful of points. At 3 s the same two minutes
+// yields forty, so a short verification run produces data worth looking at
+// instead of data that merely passes validation.
 const IS_DEV = __DEV__;
-export const OBD_INTERVAL_MS  = IS_DEV ? 30_000  : 300_000;
-export const IMU_INTERVAL_MS  = IS_DEV ? 10_000  : 120_000;
+const FAST_SAMPLING = process.env.EXPO_PUBLIC_TRIP_SAMPLE_FAST === "true";
+
+export const OBD_INTERVAL_MS = FAST_SAMPLING ? 3_000 : IS_DEV ? 30_000 : 300_000;
+export const IMU_INTERVAL_MS = FAST_SAMPLING ? 2_000 : IS_DEV ? 10_000 : 120_000;
 // Fallback spacing, used only if a real elapsed time can't be computed. The
 // batch now carries REAL offsets (seconds since trip start) rather than
 // index * step: the backend derives duration and distance from them, so
@@ -57,6 +70,13 @@ export interface TripStats {
   imuCount: number;
   nextObdInMs: number;
   lastObd: OBDReading | null;
+  /**
+   * Distance so far, km — computed the way the SERVER computes it (trapezoidal
+   * integration over the speed readings). Deliberately not a separate running
+   * total: the number shown live should be the number that ends up stored, or
+   * the screen quietly disagrees with the trip history.
+   */
+  distanceKm: number;
   brakingEvents: number;
   corneringEvents: number;
   canEnd: boolean;        // true when min readings reached
@@ -108,6 +128,26 @@ const listeners: Set<() => void> = new Set();
 
 export function isTripActive(): boolean { return trip !== null; }
 
+/**
+ * `_estimate_distance_km` from ingest.py, mirrored so the live figure matches
+ * what the backend will store. The 900 s cap is the server's own: it stops a
+ * long sampling gap (a backgrounded app) from being billed as continuous
+ * driving.
+ */
+function distanceSoFarKm(readings: OBDReading[]): number {
+  if (readings.length < 2) return 0;
+  let sum = 0;
+  for (let i = 1; i < readings.length; i++) {
+    const dt = Math.min(
+      readings[i].timestamp_offset_sec - readings[i - 1].timestamp_offset_sec,
+      900
+    );
+    if (dt <= 0) continue;
+    sum += 0.5 * (readings[i].speed_kmh + readings[i - 1].speed_kmh) * dt;
+  }
+  return sum / 3600;
+}
+
 export function getTripStats(): TripStats | null {
   if (!trip) return null;
   const now      = Date.now();
@@ -119,6 +159,7 @@ export function getTripStats(): TripStats | null {
     imuCount:      trip.imuReadings.length,
     nextObdInMs,
     lastObd:       trip.obdReadings[trip.obdReadings.length - 1] ?? null,
+    distanceKm:    distanceSoFarKm(trip.obdReadings),
     brakingEvents: trip.brakingEvents,
     corneringEvents: trip.corneringEvents,
     canEnd:        trip.obdReadings.length >= MIN_OBD_READINGS &&
@@ -300,52 +341,78 @@ async function captureObd() {
   // from these; index * step made distance a function of how many samples
   // arrived rather than of elapsed time.
   const offsetSec = Math.round((Date.now() - trip.startedAt) / 1000);
-  const synthetic = synthesizeObd(offsetSec, pairing?.state ?? null);
 
-  // Real dongle first; per-field fallback to the synthesizer for whatever
-  // the car didn't answer (or the whole reading, if nothing's connected).
   const real = await readRawObdPids();
 
-  // A real dongle that answers NOTHING means the link died mid-trip (engine
-  // off, adapter unplugged, BLE dropped). Fabricating a full reading there
-  // would feed invented ~13.9V / 900-2700rpm data straight into the ML
-  // pipeline as if it were measured. Skip the sample instead and count it.
-  // The synthesizer stays for the simulator/demo path, which is what it was
-  // written for.
-  if (!real && isRealBackend()) {
-    if (!trip) return;
+  // ── EVERY VALUE IN A TRIP COMES FROM THE ADAPTER. NOTHING IS INVENTED. ──
+  //
+  // This used to fall back to a synthesizer: per-field for anything the car
+  // did not answer, and wholesale when no dongle was connected at all. Both
+  // are gone. Fabricated telemetry is indistinguishable from measured
+  // telemetry once it is in the database — it trains the wear models, moves
+  // the health percentages and shows up in the trip history as though a car
+  // had produced it. A trip with no adapter behind it is not a short trip or a
+  // low-quality trip, it is not a trip, and the only correct number of
+  // invented readings to store is zero.
+  //
+  // A missed sample is cheap by comparison: the backend caps sampling gaps
+  // when it integrates, and a trip that ends up with too few readings is
+  // caught by the guardrails and discarded rather than sent.
+  // Re-check: `trip` is module-level and the await above yields, so the trip
+  // can be torn down mid-read — which is EXACTLY what happens at the end of a
+  // trip, when the ignition goes off while a poll is in flight. The original
+  // code guarded this and the rewrite that removed the synthetic fallback
+  // dropped it, turning the most ordinary moment in a trip's life into an
+  // unhandled null dereference.
+  if (!trip) return;
+
+  if (!real) {
     trip.syntheticObdMisses += 1;
     console.log(
-      `[tripRecorder] OBD snapshot #${idx} SKIPPED: real dongle paired but no answer ` +
+      `[tripRecorder] OBD snapshot #${idx} SKIPPED: adapter did not answer ` +
       `(total skipped ${trip.syntheticObdMisses}) — not fabricating data`
     );
     return;
   }
 
-  const reading: OBDReading = real
-    ? {
-        timestamp_offset_sec: offsetSec,
-        rpm:                  real.rpm                 ?? synthetic.rpm,
-        speed_kmh:            real.speed_kmh            ?? synthetic.speed_kmh,
-        coolant_temp_c:       real.coolant_temp_c       ?? synthetic.coolant_temp_c,
-        battery_voltage_v:    real.battery_voltage_v    ?? synthetic.battery_voltage_v,
-        ltft_percent:         real.ltft_percent         ?? synthetic.ltft_percent,
-        throttle_percent:     real.throttle_percent     ?? synthetic.throttle_percent,
-        engine_load_percent:  real.engine_load_percent  ?? synthetic.engine_load_percent,
-        intake_air_temp_c:    real.intake_air_temp_c    ?? synthetic.intake_air_temp_c,
-      }
-    : synthetic;
-
-  if (real) {
-    const realFields = (Object.keys(real) as (keyof typeof real)[]).filter((k) => real[k] !== undefined);
+  // A partial answer is skipped for the same reason. OBDReading has no
+  // optional fields — the backend requires all eight — so filling a gap means
+  // inventing a value, which is the thing this function no longer does. The
+  // missing PID is named so a car that genuinely cannot report one is
+  // diagnosable from the log rather than silently recording nothing.
+  const REQUIRED = [
+    "rpm", "speed_kmh", "coolant_temp_c", "battery_voltage_v",
+    "ltft_percent", "throttle_percent", "engine_load_percent", "intake_air_temp_c",
+  ] as const;
+  const missing = REQUIRED.filter((k) => real[k] === undefined);
+  if (missing.length > 0) {
+    if (!trip) return;
+    trip.syntheticObdMisses += 1;
     console.log(
-      `[tripRecorder] OBD snapshot #${idx}: ${realFields.length}/8 fields real, rest synthetic — real=[${realFields.join(",")}]`
+      `[tripRecorder] OBD snapshot #${idx} SKIPPED: adapter did not report ` +
+      `[${missing.join(",")}] (total skipped ${trip.syntheticObdMisses}) — not fabricating data`
     );
-  } else {
-    console.log(`[tripRecorder] OBD snapshot #${idx}: fully synthetic (no BLE link)`);
+    return;
   }
 
-  if (!trip) return; // trip may have ended while the BLE read was in flight
+  const reading: OBDReading = {
+    timestamp_offset_sec: offsetSec,
+    rpm:                 real.rpm!,
+    speed_kmh:           real.speed_kmh!,
+    coolant_temp_c:      real.coolant_temp_c!,
+    battery_voltage_v:   real.battery_voltage_v!,
+    ltft_percent:        real.ltft_percent!,
+    throttle_percent:    real.throttle_percent!,
+    engine_load_percent: real.engine_load_percent!,
+    intake_air_temp_c:   real.intake_air_temp_c!,
+  };
+
+  console.log(
+    `[tripRecorder] OBD snapshot #${idx}: 8/8 fields from the adapter — ` +
+    `${reading.speed_kmh}km/h ${reading.rpm}rpm ${reading.battery_voltage_v}V`
+  );
+
+  if (!trip) return; // trip may have ended while the read was in flight
   trip.obdReadings.push(reading);
   trip.lastObdAt = Date.now();
   if (reading.speed_kmh > trip.maxSpeedKmh) trip.maxSpeedKmh = reading.speed_kmh;

@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
 import { BottomNavBar, NAV_BAR_HEIGHT } from "@components/ui/bottom-nav-bar";
 import { ObdSourceBadge } from "@components/ui/obd-source-badge";
-import { EngineStateDebug } from "@components/ui/engine-state-debug";
 import { palette, radii, spacing, typography } from "@theme/index";
 import {
   endTrip,
@@ -131,9 +130,6 @@ export default function ActiveTripScreen() {
           paddingBottom: insets.bottom + NAV_BAR_HEIGHT + 100,
         }}
       >
-        {/* Engine-state detection readout (observe-only phase) */}
-        <EngineStateDebug />
-
         {/* Elapsed time */}
         <View
           style={{
@@ -217,6 +213,30 @@ export default function ActiveTripScreen() {
                 value={`${stats.lastObd.intake_air_temp_c}`}
                 sub="°C"
                 color={palette.textMuted}
+              />
+              <OBDCell
+                icon="ChevronsUp"
+                label="Throttle"
+                value={`${stats.lastObd.throttle_percent}`}
+                sub="%"
+                color={stats.lastObd.throttle_percent > 70 ? palette.warning : palette.success}
+              />
+              <OBDCell
+                icon="Fuel"
+                label="Fuel Trim"
+                value={`${stats.lastObd.ltft_percent}`}
+                sub="% LTFT"
+                // Trim far from zero means the ECU is compensating hard for a
+                // fuelling problem, in either direction — so the threshold is
+                // on the MAGNITUDE, not the signed value.
+                color={Math.abs(stats.lastObd.ltft_percent) > 10 ? palette.danger : Math.abs(stats.lastObd.ltft_percent) > 5 ? palette.warning : palette.success}
+              />
+              <OBDCell
+                icon="Route"
+                label="Distance"
+                value={`${(stats.distanceKm ?? 0).toFixed(2)}`}
+                sub="km"
+                color={palette.brand}
               />
             </View>
           </View>

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -28,8 +29,29 @@ router = APIRouter()
 # So every interval is capped. This is load-bearing, not defensive padding.
 MAX_SAMPLE_GAP_SEC = 900.0      # 15 min
 MAX_TRIP_SEC = 24 * 3600.0
-MIN_DISTANCE_KM = 0.5
-MIN_TRIP_MINUTES = 2.0
+# Floors below which a trip cannot be analysed meaningfully.
+#
+# WHY THEY EXIST: a 40-second, 200-metre "trip" is almost always a false start —
+# a battery charger nudging the voltage, a car moved across a car park, an
+# engine run to warm up. Averaging over that few samples produces wild figures
+# (avg_speed from two readings, ltft_std from noise) which then feed the wear
+# models as though they described real driving. Rejecting is cheaper than
+# poisoning the history.
+#
+# WHY THEY ARE OVERRIDABLE: the same floors make live demonstration painful —
+# nobody wants to idle a simulated engine for two minutes to prove that trip
+# recording works. Lowering them is a presentation concession, NOT a modelling
+# decision, so it is explicit, env-driven, and logged loudly at import time.
+# Leave them unset in any environment whose data you intend to trust.
+MIN_DISTANCE_KM = float(os.getenv("MIN_TRIP_DISTANCE_KM", "0.5"))
+MIN_TRIP_MINUTES = float(os.getenv("MIN_TRIP_MINUTES", "2.0"))
+
+if MIN_DISTANCE_KM < 0.5 or MIN_TRIP_MINUTES < 2.0:
+    print(
+        f"[ingest] WARNING: trip floors lowered to {MIN_TRIP_MINUTES} min / "
+        f"{MIN_DISTANCE_KM} km (defaults 2.0 / 0.5). Short trips will now be "
+        f"accepted and will feed the wear models. Intended for demos only."
+    )
 
 
 def _effective_intervals(offsets: List[int], fallback_step_sec: float) -> np.ndarray:

@@ -27,6 +27,25 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 _UNAUTHENTICATED_HEADERS = {"WWW-Authenticate": "Bearer"}
 _AUDIENCE = "authenticated"
 
+# Tolerance for clock skew between this machine and Supabase's auth servers,
+# applied to the iat/exp/nbf checks below.
+#
+# WHY THIS EXISTS: PyJWT's default leeway is zero, so ANY skew — even a few
+# seconds — makes a freshly issued, entirely valid token look "not yet valid"
+# (iat in the "future") or already expired. This is not a hypothetical: it
+# surfaced on the dev machine running this service, whose clock is
+# unsynchronized and drifting off the local CMOS clock (`w32tm /query /status`
+# reports "Leap Indicator: 3 (not synchronized)", "Source: Local CMOS Clock").
+# Every request failed with "Invalid or expired token" despite a correct
+# token, correct signature, and correct audience — the only thing wrong was
+# the verifying machine's idea of what time it is.
+#
+# 120s is generous next to a typical NTP-synced server's sub-second drift, but
+# still tiny next to the token's own hour-long lifetime, so it costs nothing
+# against a genuinely expired or forged token while making verification
+# robust on a machine whose clock cannot be trusted.
+_CLOCK_LEEWAY_SEC = int(os.getenv("JWT_CLOCK_LEEWAY_SEC", "120"))
+
 
 def _project_url() -> str:
     return os.getenv("SUPABASE_URL", "").strip().rstrip("/")
@@ -75,6 +94,7 @@ def require_user(
             audience=_AUDIENCE,
             issuer=f"{base}/auth/v1",
             options={"require": ["exp", "sub"]},
+            leeway=_CLOCK_LEEWAY_SEC,
         )
     except jwt.PyJWTError as exc:
         # Covers both a bad token and an unreachable JWKS endpoint, which the

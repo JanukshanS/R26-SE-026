@@ -23,16 +23,52 @@ const BASELINE_WINDOW = 9;
 
 interface AutoTripSettings {
   /**
-   * Master switch for auto trip recording. Currently unused — this pass runs
-   * the monitor in observe-only mode — but persisted now so enabling it later
-   * doesn't need a migration.
+   * Master switch for auto trip recording, honoured by
+   * `use-auto-trip-controller.ts` — false means the engine monitor still runs
+   * and reports state, but engine start/stop never touch the trip recorder.
+   *
+   * Defaults to TRUE now that the voltage thresholds are calibrated against a
+   * real car and the seam is live. It defaulted to false during the
+   * observe-only pass; leaving it there would have meant shipping the feature
+   * switched off for every existing install, since nothing writes this key
+   * until a driver explicitly opts out. A driver who does opt out gets
+   * `enabled: false` persisted, which survives this default.
    */
   enabled: boolean;
   /** vehicleId -> recent resting (engine-off) voltage samples, newest last. */
   restingSamples: Record<string, number[]>;
+  /**
+   * Which generation of this file wrote `enabled`. See SETTINGS_VERSION.
+   * Absent on every file written before auto-recording went live.
+   */
+  settingsVersion?: number;
 }
 
-const DEFAULTS: AutoTripSettings = { enabled: false, restingSamples: {} };
+/**
+ * Bumped when a stored `enabled` can no longer be trusted to mean what it says.
+ *
+ * THE PROBLEM THIS SOLVES: during the observe-only pass `enabled` defaulted to
+ * FALSE, and `persist()` writes the whole settings object every time a resting
+ * voltage sample is recorded — which the monitor does routinely, on its own,
+ * without anyone touching a setting. So every phone that ever ran the
+ * observe-only build has `enabled: false` sitting in its settings file, written
+ * as a side effect of learning voltage baselines.
+ *
+ * That value then wins forever: `parsed.enabled ?? DEFAULTS.enabled` only falls
+ * back for null/undefined, and `false` is neither. Flipping the default to true
+ * therefore changed nothing on exactly the installs that needed it, and the
+ * feature silently stayed off with `ENGINE START ignored — auto recording is
+ * switched off` as the only clue.
+ *
+ * A stored `false` from that era cannot be a deliberate opt-out, because there
+ * was no way to opt out — no UI ever called setAutoTripEnabled. So a file with
+ * no version marker has its `enabled` treated as "never chosen" and the current
+ * default applies. Files written from now on carry the marker, and their
+ * `enabled` IS a real choice and is honoured.
+ */
+const SETTINGS_VERSION = 2;
+
+const DEFAULTS: AutoTripSettings = { enabled: true, restingSamples: {}, settingsVersion: SETTINGS_VERSION };
 
 // In-memory mirror so the monitor's hot path never awaits a file read.
 let cache: AutoTripSettings | null = null;
@@ -43,17 +79,29 @@ export async function loadAutoTripSettings(): Promise<AutoTripSettings> {
   try {
     const info = await FileSystem.getInfoAsync(SETTINGS_FILE);
     if (!info.exists) {
-      cache = { ...DEFAULTS, restingSamples: {} };
+      cache = { ...DEFAULTS, restingSamples: {}, settingsVersion: SETTINGS_VERSION };
       return cache;
     }
     const parsed = JSON.parse(await FileSystem.readAsStringAsync(SETTINGS_FILE)) as Partial<AutoTripSettings>;
+    // Only honour a stored `enabled` if the file is new enough for it to be a
+    // real choice. Resting samples are kept either way — they are measurements,
+    // not preferences, and re-learning them costs a drive.
+    const trusted = (parsed.settingsVersion ?? 0) >= SETTINGS_VERSION;
     cache = {
-      enabled: parsed.enabled ?? DEFAULTS.enabled,
+      enabled: trusted ? (parsed.enabled ?? DEFAULTS.enabled) : DEFAULTS.enabled,
       restingSamples: parsed.restingSamples ?? {},
+      settingsVersion: SETTINGS_VERSION,
     };
+    if (!trusted) {
+      console.log(
+        "[autoTripSettings] settings file predates auto-recording going live — " +
+        `adopting enabled=${DEFAULTS.enabled} (stored value was ${parsed.enabled}, ` +
+        "written by the observe-only build as a side effect, not chosen)"
+      );
+    }
   } catch {
     // Corrupt or unreadable — start clean rather than blocking the monitor.
-    cache = { ...DEFAULTS, restingSamples: {} };
+    cache = { ...DEFAULTS, restingSamples: {}, settingsVersion: SETTINGS_VERSION };
   }
   return cache;
 }
@@ -77,7 +125,7 @@ export function isAutoTripEnabled(): boolean {
 }
 
 export function setAutoTripEnabled(value: boolean): void {
-  if (!cache) cache = { ...DEFAULTS, restingSamples: {} };
+  if (!cache) cache = { ...DEFAULTS, restingSamples: {}, settingsVersion: SETTINGS_VERSION };
   cache.enabled = value;
   persist();
 }
@@ -88,7 +136,7 @@ export function setAutoTripEnabled(value: boolean): void {
  * from a clone can't drag the baseline with it.
  */
 export function recordRestingVoltage(vehicleId: string, volts: number): void {
-  if (!cache) cache = { ...DEFAULTS, restingSamples: {} };
+  if (!cache) cache = { ...DEFAULTS, restingSamples: {}, settingsVersion: SETTINGS_VERSION };
   const list = cache.restingSamples[vehicleId] ?? [];
   list.push(volts);
   if (list.length > BASELINE_WINDOW) list.splice(0, list.length - BASELINE_WINDOW);

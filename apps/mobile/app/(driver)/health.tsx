@@ -8,7 +8,7 @@ import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import {
   ALERT_THRESHOLD_PCT,
-  FALLBACK_HEALTH,
+  NO_DATA_HEALTH,
   getVehicleHealth,
   rulToLabel,
   type ComponentHealth,
@@ -94,13 +94,13 @@ export default function HealthScreen() {
     getVehicleHealth(vehicleId)
       .then(setData)
       .catch(() => {
-        setData(FALLBACK_HEALTH);
+        setData(NO_DATA_HEALTH);
         setError(true);
       })
       .finally(() => setLoading(false));
   }, [vehicleId]);
 
-  const health = data ?? FALLBACK_HEALTH;
+  const health = data ?? NO_DATA_HEALTH;
   const noData = health.overall_status === "No data";
   const overallColor = statusColor({ status: health.overall_status, health_pct: health.overall_health_pct });
   const allKeys: ComponentKey[] = ["engine", "brake", "tire", "battery"];

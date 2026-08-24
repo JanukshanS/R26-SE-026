@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import {
-  FALLBACK_HEALTH,
+  NO_DATA_HEALTH,
   getVehicleHealth,
   rulToBanner,
   type ComponentHealth,
@@ -131,11 +131,11 @@ export default function ComponentDetailScreen() {
     setLoading(true);
     getVehicleHealth(vehicleId)
       .then((d) => setComponentHealth(d.components[key]))
-      .catch(() => setComponentHealth(FALLBACK_HEALTH.components[key]))
+      .catch(() => setComponentHealth(NO_DATA_HEALTH.components[key]))
       .finally(() => setLoading(false));
   }, [key, vehicleId]);
 
-  const health = componentHealth ?? FALLBACK_HEALTH.components[key];
+  const health = componentHealth ?? NO_DATA_HEALTH.components[key];
   const banner = rulToBanner(health);
   const noData = health.status === "No data";
   const isUrgent = health.predicted_rul_km < 2000;
