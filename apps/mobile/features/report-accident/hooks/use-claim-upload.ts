@@ -34,9 +34,15 @@ export type UseClaimUploadResult = {
   fraudValidationPercent: number | null;
   fraudValidationComplete: boolean;
   /** Set when the upload is stopped and waiting on the driver (location blocked, or a failed
-   * attempt). The Alert that raises it is one-shot, so this keeps the same instruction on
+   * attempt). The dialog that raises it is one-shot, so this keeps the same instruction on
    * screen after it's dismissed instead of leaving the progress rows spinning. */
   uploadError: string | null;
+  /** True while the "upload failed" dialog should be shown — the caller renders it (e.g. as
+   * a ResetCaptureDialog) since this hook has no JSX of its own. */
+  uploadFailedVisible: boolean;
+  dismissUploadFailed: () => void;
+  /** Hides the dialog and re-runs the upload from where it stopped. */
+  retryUpload: () => void;
 };
 
 export function useClaimUpload(
@@ -57,6 +63,7 @@ export function useClaimUpload(
   const [fraudValidationPercent, setFraudValidationPercent] = useState<number | null>(null);
   const [fraudValidationComplete, setFraudValidationComplete] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadFailedVisible, setUploadFailedVisible] = useState(false);
   /** Bumped by the "Try again" button on the blocking alerts; re-runs the effect below.
    * Without it the only way back to an upload is leaving the screen and returning. */
   const [retryToken, setRetryToken] = useState(0);
@@ -340,7 +347,11 @@ export function useClaimUpload(
             }
           } catch (e) {
             if (!cancelled) {
-              const message = e instanceof Error ? e.message : 'Upload failed';
+              if (__DEV__) {
+                // The raw error (network failure, server 500, etc.) is only useful for
+                // debugging — the driver sees a plain-language explanation instead (below).
+                console.log('[Claim upload failed]', e);
+              }
               if (!guidedWalkaroundUploadsDoneRef.current) {
                 setPhotosUploadPercent(0);
                 setPhotosUploadComplete(false);
@@ -352,10 +363,7 @@ export function useClaimUpload(
               setUploadError(
                 'Upload stopped before it finished. Your photos are safe on this device — tap Try again, or come back to this screen to resume from where it stopped.'
               );
-              Alert.alert('Photos upload failed', message, [
-                { text: 'Try again', onPress: () => setRetryToken((n) => n + 1) },
-                { text: 'Not now', style: 'cancel' },
-              ]);
+              setUploadFailedVisible(true);
             }
           }
         } finally {
@@ -371,6 +379,12 @@ export function useClaimUpload(
     }, [uploadKey, claimantHydrated, claimantRef, reportedAtIso, vehicleId, retryToken])
   );
 
+  const dismissUploadFailed = useCallback(() => setUploadFailedVisible(false), []);
+  const retryUpload = useCallback(() => {
+    setUploadFailedVisible(false);
+    setRetryToken((n) => n + 1);
+  }, []);
+
   return {
     locationLine,
     timestampLine,
@@ -380,5 +394,8 @@ export function useClaimUpload(
     fraudValidationPercent,
     fraudValidationComplete,
     uploadError,
+    uploadFailedVisible,
+    dismissUploadFailed,
+    retryUpload,
   };
 }

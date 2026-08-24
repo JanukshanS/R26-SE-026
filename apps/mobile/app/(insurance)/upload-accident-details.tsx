@@ -12,9 +12,9 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { InsuranceBottomTabBar, type InsuranceTabId } from '@/components/insurance-bottom-tab-bar';
+import { BottomNavBar } from '@/components/ui/bottom-nav-bar';
 import {
   findInsuranceCompany,
   getCachedInsuranceCompany,
@@ -31,10 +31,13 @@ import { clearAllClaimData } from '@/lib/clear-claim-data';
 import { saveDismissedClaimId } from '@/lib/claim-upload-dedupe';
 import { ResetCaptureDialog } from '@/features/guided-capture/components/reset-capture-dialog';
 import {
+  CAPTURE_ACTION_BLUE_SOFT,
   INSURANCE_BORDER_SOFT,
   INSURANCE_CARD_BORDER_ACCENT,
   INSURANCE_PRESSED_SURFACE,
+  INSURANCE_PRIMARY,
   INSURANCE_PROGRESS_DONE,
+  INSURANCE_SHADOW_COLOR,
   INSURANCE_TEXT,
   INSURANCE_TEXT_MUTED_SOFT,
   WHITE,
@@ -47,6 +50,12 @@ const COLORS = {
   border: INSURANCE_BORDER_SOFT,
   success: INSURANCE_PROGRESS_DONE,
   cardBorder: INSURANCE_CARD_BORDER_ACCENT,
+  // Same solid-color + white-text pairing as the Done/Incomplete pills on the
+  // Insurance home screen: green once approved, orange while still just
+  // captured and submitted (awaiting review).
+  // Both states share the same orange now — "Approved" no longer switches to green.
+  statusBadgeApprovedBg: INSURANCE_CARD_BORDER_ACCENT,
+  statusBadgeSubmittedBg: INSURANCE_CARD_BORDER_ACCENT,
 };
 
 /** Shown once every file is on the server — both while the server reports "processing" and
@@ -126,6 +135,7 @@ function resolveInsurerFromCacheSync(
 
 export default function UploadAccidentDetailsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { uploadKey, reportedAtIso, vehicleId, existingClaimId } = useLocalSearchParams<{
     uploadKey?: string;
     reportedAtIso?: string;
@@ -179,6 +189,9 @@ export default function UploadAccidentDetailsScreen() {
     fraudValidationPercent,
     fraudValidationComplete,
     uploadError,
+    uploadFailedVisible,
+    dismissUploadFailed,
+    retryUpload,
   } = useClaimUpload(uploadKey, reportedAtIso, claimantHydrated, claimantRef, effectiveVehicleId);
 
   // existingClaimId mode: nothing local to show progress for — the claim already
@@ -409,26 +422,12 @@ export default function UploadAccidentDetailsScreen() {
     setConfirmingNewClaim(true);
   };
 
-  const onTabPress = (tab: InsuranceTabId) => {
-    if (tab === 'home') {
-      router.dismissTo('/(insurance)');
-      return;
-    }
-    if (tab === 'store') {
-      router.push('/(driver)/order-parts');
-      return;
-    }
-    if (tab === 'profile') {
-      router.push('/(driver)/profile');
-    }
-  };
-
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.shell}>
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
           showsVerticalScrollIndicator={false}>
           <Pressable
             onPress={() => router.back()}
@@ -468,9 +467,20 @@ export default function UploadAccidentDetailsScreen() {
 
           <View style={styles.detailCard}>
             <View style={styles.detailCardHeader}>
-              <Text style={styles.detailCardHeaderLeft}>
-                {existingClaim?.status === 'approved' ? 'Approved' : 'Captured and Submitted'}
-              </Text>
+              <View
+                style={[
+                  styles.detailCardStatusBadge,
+                  {
+                    backgroundColor:
+                      existingClaim?.status === 'approved'
+                        ? COLORS.statusBadgeApprovedBg
+                        : COLORS.statusBadgeSubmittedBg,
+                  },
+                ]}>
+                <Text style={styles.detailCardHeaderLeft}>
+                  {existingClaim?.status === 'approved' ? 'Approved' : 'Captured and Submitted'}
+                </Text>
+              </View>
             </View>
             <View style={styles.detailLocationRow}>
               {displayLocationLoading ? (
@@ -492,34 +502,34 @@ export default function UploadAccidentDetailsScreen() {
             </Text>
           </View>
 
-          {/* A View, not a Pressable: this row is a status readout with nowhere to go, and
-              as a Pressable it lit up on touch as if it did. */}
-          <View style={styles.insuranceRowBtn}>
-            <Text style={styles.insuranceRowLabel}>Insurance</Text>
-            <Text style={[styles.insuranceRowStatus, existingClaim?.status === 'approved' && styles.insuranceRowStatusApproved]}>
-              {existingClaim?.status === 'approved' ? 'Approved' : 'Pending'}
-            </Text>
-          </View>
-
           {resolvingInsurer ? (
-            <View style={[styles.callInsurerBtn, styles.callInsurerCalling]}>
-              <ActivityIndicator size="small" color={COLORS.text} />
+            <View style={styles.callInsurerWrap}>
+              <View style={[styles.callInsurerBtn, styles.callInsurerCalling]}>
+                <ActivityIndicator size="small" color={COLORS.text} />
+              </View>
             </View>
           ) : insuranceCompany ? (
-            <Pressable
-              disabled={callingInsurer}
-              style={({ pressed }) => [
-                styles.callInsurerBtn,
-                pressed && styles.callInsurerPressed,
-                callingInsurer && styles.callInsurerCalling,
-              ]}
-              onPress={onCallInsurer}>
-              {callingInsurer ? (
-                <ActivityIndicator size="small" color={COLORS.text} />
-              ) : (
-                <Text style={styles.callInsurerText}>{`Need to call ${insuranceCompany.appName}?`}</Text>
-              )}
-            </Pressable>
+            <View style={styles.callInsurerWrap}>
+              <Pressable
+                disabled={callingInsurer}
+                style={({ pressed }) => [
+                  styles.callInsurerBtn,
+                  pressed && styles.callInsurerPressed,
+                  callingInsurer && styles.callInsurerCalling,
+                ]}
+                onPress={onCallInsurer}>
+                {callingInsurer ? (
+                  <ActivityIndicator size="small" color={COLORS.text} />
+                ) : (
+                  <>
+                    <View style={styles.callBtnIconWrap}>
+                      <Ionicons name="call-outline" size={20} color={INSURANCE_PRIMARY} />
+                    </View>
+                    <Text style={styles.callInsurerText}>{`Call ${insuranceCompany.appName}`}</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
           ) : vehicleMissingInsurer ? (
             <View style={styles.noInsurerHint}>
               <Text style={styles.noInsurerHintText}>
@@ -530,17 +540,22 @@ export default function UploadAccidentDetailsScreen() {
           ) : null}
 
           {claimComplete && (
-            <Pressable
-              style={({ pressed }) => [styles.callInsurerBtn, styles.newClaimBtnMargin, pressed && styles.callInsurerPressed]}
-              onPress={onStartNewClaim}
-              accessibilityRole="button"
-              accessibilityLabel="Start a new claim">
-              <Text style={styles.callInsurerText}>Start New Claim</Text>
-            </Pressable>
+            <View style={[styles.callInsurerWrap, styles.newClaimBtnMargin]}>
+              <Pressable
+                style={({ pressed }) => [styles.callInsurerBtn, pressed && styles.callInsurerPressed]}
+                onPress={onStartNewClaim}
+                accessibilityRole="button"
+                accessibilityLabel="Start a new claim">
+                <View style={styles.callBtnIconWrap}>
+                  <Ionicons name="add-outline" size={20} color={INSURANCE_PRIMARY} />
+                </View>
+                <Text style={styles.callInsurerText}>Start New Claim</Text>
+              </Pressable>
+            </View>
           )}
         </ScrollView>
 
-        <InsuranceBottomTabBar onTabPress={onTabPress} />
+        <BottomNavBar activeTab="home" />
       </View>
 
       <ResetCaptureDialog
@@ -554,6 +569,20 @@ export default function UploadAccidentDetailsScreen() {
         message="This clears your current claim progress — photos, videos and answers — so you can begin a fresh one."
         icon="RotateCcw"
         confirmLabel="Start New Claim"
+      />
+
+      <ResetCaptureDialog
+        visible={uploadFailedVisible}
+        onCancel={dismissUploadFailed}
+        onConfirm={retryUpload}
+        title="Upload Failed"
+        message={
+          uploadError ??
+          'Upload stopped before it finished. Your photos are safe on this device — tap Try again to resume.'
+        }
+        icon="CloudOff"
+        cancelLabel="Not now"
+        confirmLabel="Try again"
       />
     </SafeAreaView>
   );
@@ -572,7 +601,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 30,
-    paddingBottom: 16,
   },
   headerBack: {
     flexDirection: 'row',
@@ -585,7 +613,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   headerBackText: {
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: '600',
     color: COLORS.text,
   },
@@ -646,6 +674,11 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     backgroundColor: COLORS.screen,
+    shadowColor: INSURANCE_SHADOW_COLOR,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
   },
   detailCardHeader: {
     flexDirection: 'row',
@@ -653,12 +686,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-  detailCardHeaderLeft: {
-    fontSize: 18,
-    fontWeight: '400',
-    color: COLORS.text,
-    flex: 1,
+  detailCardStatusBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     marginRight: 8,
+  },
+  detailCardHeaderLeft: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: WHITE,
   },
   detailLocationRow: {
     flexDirection: 'row',
@@ -687,47 +724,53 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: COLORS.textMuted,
   },
-  insuranceRowBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: COLORS.screen,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  insuranceRowLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  insuranceRowStatus: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.textMuted,
-  },
-  insuranceRowStatusApproved: {
-    color: COLORS.success,
-  },
-  callInsurerBtn: {
-    backgroundColor: COLORS.screen,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 16,
-    paddingVertical: 16,
+  callBtnIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: CAPTURE_ACTION_BLUE_SOFT,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
+  },
+  // Shadow lives here, not on callInsurerBtn — that one is a Pressable whose
+  // style array is recreated on every press, and a shadow/elevation prop
+  // riding along with a style that changes that often is what caused the
+  // intermittent corner-artifact glitch on Android (same fix as the Insurance
+  // home screen's task cards). This wrapper's style is static.
+  callInsurerWrap: {
+    backgroundColor: COLORS.screen,
+    borderRadius: 16,
+    shadowColor: INSURANCE_SHADOW_COLOR,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  // flexDirection: 'row' directly on the Pressable (not a centered inner
+  // wrapper) so the icon sits at a fixed left position regardless of how
+  // long each button's text is — a centered icon+text block shifted the
+  // icon's x-position between "Need to call..." and "Start New Claim".
+  callInsurerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    overflow: 'hidden',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
   },
   callInsurerPressed: {
     backgroundColor: INSURANCE_PRESSED_SURFACE,
   },
+  // The button's own layout is left-aligned (for the icon+text case above),
+  // but when this is showing just a spinner with no icon/text, it should
+  // still be centered rather than sitting at the left edge.
   callInsurerCalling: {
     opacity: 0.7,
+    justifyContent: 'center',
   },
   callInsurerText: {
+    flex: 1,
     fontSize: 17,
     fontWeight: '700',
     color: COLORS.text,
@@ -739,6 +782,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 16,
+    shadowColor: INSURANCE_SHADOW_COLOR,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
   },
   noInsurerHintText: {
     fontSize: 14,
