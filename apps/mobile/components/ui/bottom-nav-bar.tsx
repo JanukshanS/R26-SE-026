@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, type IconName } from "@components/ui/icon";
 import { palette, spacing, typography } from "@theme/index";
 import { haptics } from "@lib/haptics";
-import { useVehicle } from "@lib/vehicleContext";
+import { useVehicleOptional } from "@lib/vehicleContext";
 
 // Exported so screens can calculate scroll content padding correctly
 export const NAV_BAR_HEIGHT = 56;
@@ -120,7 +120,9 @@ function EmergencyCenterButton() {
 }
 
 function TabItem({ tab, active }: { tab: TabDef; active: boolean }) {
-  const { user } = useVehicle();
+  // Optional: this bar now also renders inside route groups (e.g. (insurance))
+  // that don't mount VehicleProvider — falls back to the plain profile icon there.
+  const user = useVehicleOptional()?.user ?? null;
   const pathname = usePathname();
   const initials = user?.name
     .split(" ")

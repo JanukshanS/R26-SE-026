@@ -86,6 +86,7 @@ export default function ThirdPartyDetailsScreen() {
   const [libraryUris, setLibraryUris] = useState<string[]>([]);
   const [isTakingPhoto, setIsTakingPhoto] = useState(false);
   const [retakeConfirmTarget, setRetakeConfirmTarget] = useState<ThirdPartyCaptureStep | null>(null);
+  const [notApplicableConfirmVisible, setNotApplicableConfirmVisible] = useState(false);
   // Facing is always 'back' on this screen and the CameraView below is never remounted
   // (no `key`), so this only needs to flip true once, the first time the camera signals
   // ready — calling takePictureAsync before that throws "Camera is not ready yet", which is
@@ -216,29 +217,22 @@ export default function ThirdPartyDetailsScreen() {
     if (hasAnyPhoto) {
       return;
     }
-    Alert.alert(
-      'Not applicable?',
-      'Use this only if there is no third-party vehicle or documents to photograph. You can complete these photos later from this step.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: () => {
-            void (async () => {
-              await saveThirdPartyState({
-                step: 'driverFront',
-                driverLicenceFrontUri: null,
-                driverLicenceBackUri: null,
-                revenueLicenceUri: null,
-                notApplicable: true,
-                libraryUris: [],
-              });
-              router.back();
-            })();
-          },
-        },
-      ]
-    );
+    setNotApplicableConfirmVisible(true);
+  };
+
+  const confirmNotApplicable = () => {
+    setNotApplicableConfirmVisible(false);
+    void (async () => {
+      await saveThirdPartyState({
+        step: 'driverFront',
+        driverLicenceFrontUri: null,
+        driverLicenceBackUri: null,
+        revenueLicenceUri: null,
+        notApplicable: true,
+        libraryUris: [],
+      });
+      router.back();
+    })();
   };
 
   const primaryLabel = allImagesCaptured ? 'Continue' : 'Take Photo';
@@ -319,6 +313,15 @@ export default function ThirdPartyDetailsScreen() {
             retakeStep(target);
           }
         }}
+      />
+      <ResetCaptureDialog
+        visible={notApplicableConfirmVisible}
+        title="Not Applicable?"
+        message="Use this only if there is no third-party vehicle or documents to photograph. You can complete these photos later from this step."
+        confirmLabel="Confirm"
+        icon="Ban"
+        onCancel={() => setNotApplicableConfirmVisible(false)}
+        onConfirm={confirmNotApplicable}
       />
       <ScrollView
         style={styles.scroll}

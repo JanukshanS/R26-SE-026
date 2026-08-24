@@ -375,3 +375,10 @@ export function useVehicle() {
   if (!ctx) throw new Error("useVehicle must be used inside <VehicleProvider>");
   return ctx;
 }
+
+/** Same context, without the throw — for shared components (like
+ * BottomNavBar) that render inside route groups both with and without
+ * VehicleProvider and only need to degrade gracefully outside it. */
+export function useVehicleOptional() {
+  return useContext(VehicleContext);
+}

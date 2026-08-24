@@ -34,7 +34,11 @@ type ClaimSummaryRow = {
 function mapClaim(row: ClaimSummaryRow): ClaimSummary {
   return {
     id: row.id,
-    status: row.status,
+    // Trimmed/lowercased so every UI comparison against a literal like
+    // 'pending_review' still matches even if a manual DB edit left stray
+    // whitespace or different casing — those otherwise silently fail an
+    // exact-string check and fall back to showing the raw value untranslated.
+    status: row.status.trim().toLowerCase(),
     createdAt: row.created_at,
     vehicleModel: row.vehicle_model ?? undefined,
     policyNumber: row.policy_number ?? undefined,
