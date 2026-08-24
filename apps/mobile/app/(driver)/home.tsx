@@ -328,98 +328,6 @@ export default function DriverHomeScreen() {
           </View>
         </Pressable>
 
-        {/*
-          The one thing this app exists to do, so it sits above the fold and
-          outweighs everything else on the screen. It used to be the last
-          element below the health dashboard, the trip card and six quick
-          actions - the driver had to scroll past their maintenance stats to
-          ask for help.
-        */}
-        <Pressable
-          onPress={() => router.push("/(emergency)/whats-wrong")}
-          accessibilityRole="button"
-          accessibilityLabel="Get roadside help"
-          style={({ pressed }) => ({
-            opacity: pressed ? 0.92 : 1,
-            borderRadius: radii.xl,
-            borderCurve: "continuous",
-            backgroundColor: palette.supportCoral,
-            paddingVertical: spacing.xxxl,
-            paddingHorizontal: spacing.xl,
-            alignItems: "center",
-            justifyContent: "center",
-            gap: spacing.sm,
-            ...Platform.select({
-              ios: {
-                shadowColor: palette.supportCoral,
-                shadowOffset: { width: 0, height: 6 },
-                shadowOpacity: 0.3,
-                shadowRadius: 14,
-              },
-              android: { elevation: 6 },
-            }),
-          })}
-        >
-          <Icon name="Siren" size={34} color={palette.textOnBrand} />
-          <Text style={{ color: palette.textOnBrand, fontSize: 26, fontWeight: "700" }}>
-            Need help?
-          </Text>
-          <Text style={{ ...typography.body, color: palette.textOnBrand, opacity: 0.95 }}>
-            Tell us what&apos;s wrong — we&apos;ll send someone
-          </Text>
-        </Pressable>
-
-        <ObdSourceBadge />
-        <TripCard
-          onNeedsObd={() => {
-            setPairResult(null);
-            setShowObd(true);
-          }}
-        />
-
-        <View style={{ gap: spacing.md }}>
-          <Text style={{ ...typography.h3, color: palette.text }}>Know what you need?</Text>
-          <Text style={{ ...typography.caption, color: palette.textMuted }}>
-            Skip the questions — we&apos;ll dispatch straight away.
-          </Text>
-          <View style={{ flexDirection: "row", gap: spacing.md }}>
-            {/* Quick actions = fast-path dispatch to the nearest provider of
-                the relevant type. No diagnostic questions; we know what's
-                needed. Routes through (emergency)/quick-dispatch which runs
-                the full incident -> triage -> dispatch pipeline. */}
-            <Animated.View entering={FadeInDown.delay(0).springify()} style={{ flex: 1 }}>
-              <QuickAction
-                icon="Disc"
-                label="Tyre"
-                onPress={() => router.push({
-                  pathname: "/(emergency)/quick-dispatch",
-                  params:   { intent: "FLAT_TIRE", label: "Flat tire" },
-                })}
-              />
-            </Animated.View>
-            <Animated.View entering={FadeInDown.delay(60).springify()} style={{ flex: 1 }}>
-              <QuickAction
-                icon="Fuel"
-                label="Fuel"
-                onPress={() => router.push({
-                  pathname: "/(emergency)/quick-dispatch",
-                  params:   { intent: "FUEL_EMPTY", label: "Fuel delivery" },
-                })}
-              />
-            </Animated.View>
-            <Animated.View entering={FadeInDown.delay(120).springify()} style={{ flex: 1 }}>
-              <QuickAction
-                icon="KeyRound"
-                label="Locksmith"
-                onPress={() => router.push({
-                  pathname: "/(emergency)/quick-dispatch",
-                  params:   { intent: "LOCKOUT", label: "Locksmith" },
-                })}
-              />
-            </Animated.View>
-          </View>
-        </View>
-
         {/* Vehicle health card — taps through to health screen */}
         <Pressable
           onPress={() => {
@@ -510,6 +418,98 @@ export default function DriverHomeScreen() {
             </ScrollView>
           </Card>
         </Pressable>
+
+        {/*
+          Still the largest, loudest target on the screen and reachable without
+          scrolling — it just sits under the health card now, because a driver
+          opening the app is far more often checking on their vehicle than
+          stranded. It must never drift further down than this: the whole point
+          is not having to hunt for it in an emergency.
+        */}
+        <Pressable
+          onPress={() => router.push("/(emergency)/whats-wrong")}
+          accessibilityRole="button"
+          accessibilityLabel="Get roadside help"
+          style={({ pressed }) => ({
+            opacity: pressed ? 0.92 : 1,
+            borderRadius: radii.xl,
+            borderCurve: "continuous",
+            backgroundColor: palette.supportCoral,
+            paddingVertical: spacing.xxxl,
+            paddingHorizontal: spacing.xl,
+            alignItems: "center",
+            justifyContent: "center",
+            gap: spacing.sm,
+            ...Platform.select({
+              ios: {
+                shadowColor: palette.supportCoral,
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.3,
+                shadowRadius: 14,
+              },
+              android: { elevation: 6 },
+            }),
+          })}
+        >
+          <Icon name="Siren" size={34} color={palette.textOnBrand} />
+          <Text style={{ color: palette.textOnBrand, fontSize: 26, fontWeight: "700" }}>
+            Need help?
+          </Text>
+          <Text style={{ ...typography.body, color: palette.textOnBrand, opacity: 0.95 }}>
+            Tell us what&apos;s wrong — we&apos;ll send someone
+          </Text>
+        </Pressable>
+
+        <View style={{ gap: spacing.md }}>
+          <Text style={{ ...typography.h3, color: palette.text }}>Know what you need?</Text>
+          <Text style={{ ...typography.caption, color: palette.textMuted }}>
+            Skip the questions — we&apos;ll dispatch straight away.
+          </Text>
+          <View style={{ flexDirection: "row", gap: spacing.md }}>
+            {/* Quick actions = fast-path dispatch to the nearest provider of
+                the relevant type. No diagnostic questions; we know what's
+                needed. Routes through (emergency)/quick-dispatch which runs
+                the full incident -> triage -> dispatch pipeline. */}
+            <Animated.View entering={FadeInDown.delay(0).springify()} style={{ flex: 1 }}>
+              <QuickAction
+                icon="Disc"
+                label="Tyre"
+                onPress={() => router.push({
+                  pathname: "/(emergency)/quick-dispatch",
+                  params:   { intent: "FLAT_TIRE", label: "Flat tire" },
+                })}
+              />
+            </Animated.View>
+            <Animated.View entering={FadeInDown.delay(60).springify()} style={{ flex: 1 }}>
+              <QuickAction
+                icon="Fuel"
+                label="Fuel"
+                onPress={() => router.push({
+                  pathname: "/(emergency)/quick-dispatch",
+                  params:   { intent: "FUEL_EMPTY", label: "Fuel delivery" },
+                })}
+              />
+            </Animated.View>
+            <Animated.View entering={FadeInDown.delay(120).springify()} style={{ flex: 1 }}>
+              <QuickAction
+                icon="KeyRound"
+                label="Locksmith"
+                onPress={() => router.push({
+                  pathname: "/(emergency)/quick-dispatch",
+                  params:   { intent: "LOCKOUT", label: "Locksmith" },
+                })}
+              />
+            </Animated.View>
+          </View>
+        </View>
+
+        <ObdSourceBadge />
+        <TripCard
+          onNeedsObd={() => {
+            setPairResult(null);
+            setShowObd(true);
+          }}
+        />
 
         <View style={{ gap: spacing.md }}>
           <Text style={{ ...typography.h3, color: palette.text }}>Your vehicle</Text>
