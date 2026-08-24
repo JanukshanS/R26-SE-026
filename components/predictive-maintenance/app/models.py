@@ -187,3 +187,101 @@ class ComponentHealthFloor(Base):
     health_pct = Column(Float, nullable=False)
     rul_km = Column(Float, nullable=False)
     observed_at = Column(String(32), nullable=False)
+
+
+class Part(Base):
+    """A spare part a driver could buy, for a given component.
+
+    Replaces a hardcoded list that lived inside the mobile screen
+    ("Brake Pads ... LKR 12,000"), which meant prices could not change without
+    an app release and nothing distinguished a real price from a placeholder.
+
+    `price_lkr` is the CATALOGUE asking price. What drivers actually paid is a
+    different and more honest number, aggregated separately from
+    `service_records.cost_lkr` - see routers/marketplace.py.
+    """
+
+    __tablename__ = "parts"
+
+    id = Column(String(36), primary_key=True)
+    component = Column(String(16), nullable=False, index=True)  # engine|brake|tire|battery
+    name = Column(String(120), nullable=False)
+    brand = Column(String(80), nullable=True)
+    # Advisory free text ("Toyota Aqua 2012-2019") rather than a foreign key:
+    # this service has no vehicle catalogue of its own to point at.
+    fits_note = Column(String(160), nullable=True)
+    price_lkr = Column(Float, nullable=False)
+    # original | aftermarket | used - drivers price these very differently, and
+    # service_records already records the same distinction for what was fitted.
+    grade = Column(String(16), nullable=True)
+    supplier = Column(String(120), nullable=True)
+    supplier_url = Column(String(300), nullable=True)
+    in_stock = Column(Integer, nullable=False, default=1)  # 0/1, SQLite has no bool
+    updated_at = Column(String(32), nullable=True)
+
+    # Manufacturer part number. The single most useful field when a driver
+    # walks into a garage: it identifies the exact part with no ambiguity.
+    part_number = Column(String(64), nullable=True)
+    # The seller's own category ("Filters", "Brakes"). Kept beside the mapped
+    # `component` so a wrong mapping is visible rather than buried.
+    category = Column(String(64), nullable=True)
+    # Comma-separated model names this fits, lowercased for matching.
+    # A join table would normalise better, but fitment here is advisory text
+    # from a supplier feed, not a verified compatibility matrix.
+    fits_models = Column(String(400), nullable=True)
+    # True when the part fits a whole marque rather than named models
+    # (e.g. engine oil listed as "Toyota Vehicles"), so matching can be looser
+    # without that looseness leaking into model-specific parts.
+    fits_any_model = Column(Integer, nullable=True, default=0)
+    stock_count = Column(Integer, nullable=True)
+    rating = Column(Float, nullable=True)
+    review_count = Column(Integer, nullable=True)
+    warranty = Column(String(64), nullable=True)
+
+
+class Garage(Base):
+    """A workshop that can fit the part.
+
+    Deliberately NOT the dispatch service's Provider table. Those are roadside
+    responders - mobile mechanics, tow trucks, locksmiths - dispatched to a
+    stranded driver by an optimiser. A garage is somewhere a driver chooses to
+    DRIVE TO for planned work, ranked by price and rating rather than by
+    response time, and it has opening hours and a fixed address. Modelling both
+    in one table would mean every field being null for half the rows and the
+    dispatch optimiser having to learn to skip stationary entries.
+    """
+
+    __tablename__ = "garages"
+
+    id = Column(String(36), primary_key=True)
+    name = Column(String(160), nullable=False)
+    address = Column(String(300), nullable=True)
+    city = Column(String(80), nullable=True, index=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    phone = Column(String(40), nullable=True)
+    # Comma-separated component keys this garage handles, e.g. "brake,tire".
+    # A join table would be tidier; this is read-only reference data that is
+    # filtered in Python over a small list, so the extra table earns nothing.
+    services = Column(String(160), nullable=True)
+    # The garage's own wording ("Oil Change, Brake Service"), kept alongside the
+    # mapped component keys above. Showing a driver the words the garage itself
+    # uses is friendlier than showing them our internal taxonomy, and it makes
+    # the mapping auditable when one looks wrong.
+    services_raw = Column(String(400), nullable=True)
+    speciality = Column(String(240), nullable=True)
+    area = Column(String(120), nullable=True)
+    email = Column(String(160), nullable=True)
+    mechanics = Column(Integer, nullable=True)
+    review_count = Column(Integer, nullable=True)
+    # True when latitude/longitude are the CITY centre rather than this exact
+    # address. Distances computed from them are approximate, and the UI has to
+    # say so rather than implying door-to-door accuracy.
+    coords_are_city_level = Column(Integer, nullable=True, default=0)
+    rating = Column(Float, nullable=True)
+    # Rough LKR labour charge for fitting, excluding the part itself. Null when
+    # unknown, which the UI must render as "ask the garage" rather than 0.
+    labour_lkr = Column(Float, nullable=True)
+    opening_hours = Column(String(160), nullable=True)
+    verified = Column(Integer, nullable=False, default=0)  # 0/1
+    updated_at = Column(String(32), nullable=True)
