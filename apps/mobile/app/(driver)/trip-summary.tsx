@@ -11,16 +11,21 @@ import {
   type VehicleTripSummary,
 } from "@lib/maintenanceApi";
 import { useVehicle } from "@lib/vehicleContext";
+import { SimulatedTripsModal } from "@components/ui/simulated-trips-modal";
 
 export default function TripSummaryScreen() {
   const insets = useSafeAreaInsets();
-  const { selectedVehicle } = useVehicle();
+  const { selectedVehicle, user } = useVehicle();
   const { vehicleId: paramId } = useLocalSearchParams<{ vehicleId?: string }>();
   const vehicleId = paramId ?? selectedVehicle?.plateNumber ?? "CBD-3742";
 
   const [data, setData] = useState<VehicleTripSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showSimulator, setShowSimulator] = useState(false);
+  // Bumped after a simulated run so the summary refetches and the new mileage
+  // appears without the user having to navigate away and back.
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     setLoading(true);
@@ -32,7 +37,7 @@ export default function TripSummaryScreen() {
       })
       .catch(() => setError("Could not reach the maintenance server."))
       .finally(() => setLoading(false));
-  }, [vehicleId]);
+  }, [vehicleId, reloadKey]);
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
@@ -58,6 +63,28 @@ export default function TripSummaryScreen() {
           <Text style={{ ...typography.caption, color: palette.textMuted }}>{vehicleId}</Text>
         </View>
         {loading && <ActivityIndicator size="small" color={palette.brand} />}
+        <Pressable
+          onPress={() => setShowSimulator(true)}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Generate simulated trips"
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            paddingVertical: spacing.xs,
+            paddingHorizontal: spacing.sm,
+            borderRadius: radii.pill,
+            borderWidth: 1.5,
+            borderColor: palette.brand,
+            backgroundColor: pressed ? palette.brandSoft : "transparent",
+          })}
+        >
+          <Icon name="FlaskConical" size={14} color={palette.brand} />
+          <Text style={{ ...typography.micro, color: palette.brand, fontWeight: "700" }}>
+            Simulate
+          </Text>
+        </Pressable>
       </View>
 
       {loading ? (
@@ -110,6 +137,14 @@ export default function TripSummaryScreen() {
           ))}
         </ScrollView>
       ) : null}
+
+      <SimulatedTripsModal
+        visible={showSimulator}
+        onClose={() => setShowSimulator(false)}
+        vehicleId={vehicleId}
+        driverId={user?._id ?? "guest"}
+        onCompleted={() => setReloadKey((k) => k + 1)}
+      />
 
       <BottomNavBar activeTab="maintenance" />
     </View>
