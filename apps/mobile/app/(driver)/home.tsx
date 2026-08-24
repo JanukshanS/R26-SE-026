@@ -369,14 +369,6 @@ export default function DriverHomeScreen() {
           </Text>
         </Pressable>
 
-        <ObdSourceBadge />
-        <TripCard
-          onNeedsObd={() => {
-            setPairResult(null);
-            setShowObd(true);
-          }}
-        />
-
         <View style={{ gap: spacing.md }}>
           <Text style={{ ...typography.h3, color: palette.text }}>Know what you need?</Text>
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
@@ -510,6 +502,14 @@ export default function DriverHomeScreen() {
             </ScrollView>
           </Card>
         </Pressable>
+
+        <ObdSourceBadge />
+        <TripCard
+          onNeedsObd={() => {
+            setPairResult(null);
+            setShowObd(true);
+          }}
+        />
 
         <View style={{ gap: spacing.md }}>
           <Text style={{ ...typography.h3, color: palette.text }}>Your vehicle</Text>
