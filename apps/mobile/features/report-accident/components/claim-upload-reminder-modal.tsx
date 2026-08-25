@@ -6,6 +6,7 @@ import { AppState, type AppStateStatus, Modal, Pressable, Text, View } from 'rea
 import { Icon } from '@components/ui/icon';
 import { palette, radii, spacing, typography } from '@theme/index';
 import { getIncompleteUploadStatus, type IncompleteUploadStatus } from '@/lib/claim-upload-reminder';
+import { haptics } from '@lib/haptics';
 
 /**
  * Mounted on the Home screen only (the post-auth root) — never during login/onboarding.
@@ -19,9 +20,18 @@ import { getIncompleteUploadStatus, type IncompleteUploadStatus } from '@/lib/cl
 export function ClaimUploadReminderModal() {
   const [status, setStatus] = useState<IncompleteUploadStatus | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  // Tracks whether the popup was already on screen, so the vibration only fires
+  // the moment it appears — not on every refetch while it's already showing.
+  const wasVisibleRef = useRef(false);
 
   const check = useCallback(() => {
-    void getIncompleteUploadStatus().then(setStatus);
+    void getIncompleteUploadStatus().then((next) => {
+      if (next && !wasVisibleRef.current) {
+        haptics.error();
+      }
+      wasVisibleRef.current = next != null;
+      setStatus(next);
+    });
   }, []);
 
   useFocusEffect(check);
@@ -42,9 +52,13 @@ export function ClaimUploadReminderModal() {
     return null;
   }
 
-  const dismiss = () => setStatus(null);
+  const dismiss = () => {
+    wasVisibleRef.current = false;
+    setStatus(null);
+  };
 
   const resume = () => {
+    wasVisibleRef.current = false;
     setStatus(null);
     router.push({
       pathname: '/(insurance)/upload-accident-details',
