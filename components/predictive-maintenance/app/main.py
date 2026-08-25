@@ -12,10 +12,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.auth import require_user
 from app.database import Base, engine
 from app.migrations import ensure_columns
+from app.models.fault import DTCEvent
 from app.models import ComponentHealthFloor, Garage, Part, ServiceRecord, TripMetrics, VehicleBaseline
 from app.routes.admin_garages import router as admin_garages_router
 from app.routes.admin_parts import router as admin_parts_router
 from app.routes.advice import router as advice_router
+from app.routes.fault_plan import router as fault_plan_router
+from app.routes.faults import router as faults_router
 from app.routes.recommend import router as recommend_router
 from app.routes.explain import router as explain_router
 from app.routes.ingest import router as ingest_router
@@ -103,7 +106,7 @@ async def lifespan(app: FastAPI):
     # create_all only creates MISSING TABLES — it never adds a column to a table
     # that already exists, and the deployed DB holds real trips that can't be
     # regenerated (raw readings aren't persisted). See app/migrations.py.
-    added = ensure_columns(engine, TripMetrics, ServiceRecord, VehicleBaseline, ComponentHealthFloor, Part, Garage)
+    added = ensure_columns(engine, TripMetrics, ServiceRecord, VehicleBaseline, ComponentHealthFloor, Part, Garage, DTCEvent)
     if added:
         print(f"[startup] schema guard added {len(added)} column(s): {', '.join(added)}")
     # Load ML models and best-model selection into app state
@@ -142,6 +145,8 @@ app.include_router(admin_garages_router)
 # spends money per request, so it stays behind the same auth as everything else.
 app.include_router(advice_router, tags=["Advice"], dependencies=[Depends(require_user)])
 app.include_router(recommend_router, tags=["Advice"], dependencies=[Depends(require_user)])
+app.include_router(faults_router, tags=["Faults"], dependencies=[Depends(require_user)])
+app.include_router(fault_plan_router, tags=["Faults"], dependencies=[Depends(require_user)])
 app.include_router(explain_router, tags=["Explain"], dependencies=[Depends(require_user)])
 
 

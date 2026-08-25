@@ -391,6 +391,8 @@ def build_query(
     headline: str,
     vehicle: Optional[str] = None,
     part_name: Optional[str] = None,
+    fault_code: Optional[str] = None,
+    fault_title: Optional[str] = None,
 ) -> str:
     """The text we search with.
 
@@ -399,7 +401,17 @@ def build_query(
     a healthy one being checked routinely - which is the whole justification
     for doing retrieval here instead of a dictionary lookup.
     """
-    bits = [headline, f"{component} replacement procedure", f"urgency {urgency}"]
+    # A live fault dominates the query. Someone with a cylinder misfire needs
+    # misfire diagnosis, not the routine engine service the wear state alone
+    # would have retrieved - and the fault is the more specific signal, so it
+    # goes first where it carries the most weight.
+    bits: List[str] = []
+    if fault_code:
+        bits.append(f"fault code {fault_code}")
+    if fault_title:
+        bits.append(fault_title)
+        bits.append("diagnosis and repair")
+    bits += [headline, f"{component} replacement procedure", f"urgency {urgency}"]
     if part_name:
         bits.append(part_name)
     if vehicle:

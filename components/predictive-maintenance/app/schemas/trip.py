@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -85,6 +85,16 @@ class TripBehavior(BaseModel):
     )
 
 
+class DTCReading(BaseModel):
+    """One trouble code as the phone read it."""
+
+    code: str = Field(..., description='e.g. "P0301"')
+    status: str = Field(
+        "confirmed",
+        description="confirmed (mode 03) | pending (mode 07) | permanent (mode 0A)",
+    )
+
+
 class TripBatch(BaseModel):
     trip_id: str = Field(..., description="UUID string uniquely identifying the trip")
     vehicle_id: str
@@ -110,6 +120,20 @@ class TripBatch(BaseModel):
         None, description="2 = real timestamp offsets + behaviour block. Absent = legacy client."
     )
     behavior: Optional[TripBehavior] = None
+
+    # ── Diagnostics (additive; absent from every legacy client) ───────────
+    # Codes read from modes 03 and 07 during this trip.
+    dtcs: List[DTCReading] = Field(default_factory=list)
+    # WHETHER THE READ ITSELF WORKED, which is a different question from
+    # whether any codes came back. An adapter that did not answer produces the
+    # same empty list as a car with nothing wrong, and without this flag the
+    # server would read that as "all faults cleared" and wipe live faults off
+    # the driver's screen. Defaults to False so a client that does not send it
+    # can add codes but can never close one.
+    dtc_read_ok: bool = False
+    # Mode 02 snapshots, keyed by code: the sensor values the ECU stored at the
+    # moment the fault set. Shape varies by vehicle, so it is free-form.
+    freeze_frames: Dict[str, Dict[str, float]] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -250,6 +274,11 @@ class ComponentHealth(BaseModel):
     # inferred_original | unknown. Paired with is_estimated so the UI can
     # never present a guess as a stated fact.
     baseline_basis: Optional[str] = None
+
+    # Live trouble codes filed against this component. Separate from
+    # health_pct on purpose: a misfire does not consume brake pad life, so it
+    # must not move a wear number. It may however raise urgency.
+    faults: List["FaultOut"] = []
     is_estimated: Optional[bool] = None
     # Which term produced predicted_rul_km: "wear" (mileage since install) or
     # "model" (sensor signature). Exposed because the two can disagree, and a
@@ -271,6 +300,31 @@ class EngineOilStatus(BaseModel):
     last_change_odometer_km: Optional[float] = None
 
 
+class FaultOut(BaseModel):
+    """A live trouble code, as the driver sees it."""
+
+    code: str
+    title: str
+    component: str                  # engine | brake | tire | battery | other
+    severity: str                   # urgent | soon | monitor
+    status: str                     # confirmed | pending | permanent
+    likely_causes: List[str] = []
+    # What this damages if left alone. THE PREDICTIVE PART, and curated data
+    # rather than model output - see app/services/fault_catalogue.py.
+    leads_to: List[str] = []
+    cost_multiplier: Optional[float] = None
+    first_seen_at: str
+    last_seen_at: str
+    times_seen: int
+    # Greater than zero means it was cleared and came back, which usually
+    # means the light was reset without the cause being fixed.
+    recurrences: int = 0
+    # True when the code was matched by family rather than by an exact entry,
+    # so the UI can hedge instead of naming a defect it cannot identify.
+    is_generic: bool = False
+    freeze_frame: Optional[Dict[str, float]] = None
+
+
 class VehicleHealthResponse(BaseModel):
     vehicle_id: str
     overall_health_pct: float
@@ -279,6 +333,13 @@ class VehicleHealthResponse(BaseModel):
     total_mileage_km: float
     components: List[ComponentHealth]
     timestamp: str
+
+    # Every live fault, including those filed under "other" which belong to no
+    # component card and would otherwise be invisible.
+    faults: List["FaultOut"] = []
+    # False when no trip has yet reported a successful code read, so the UI can
+    # say "not checked yet" instead of implying a clean bill of health.
+    faults_checked: bool = False
 
     # ── Additive ──────────────────────────────────────────────────────────
     # The real odometer (baseline + trips) vs what the app has recorded itself.

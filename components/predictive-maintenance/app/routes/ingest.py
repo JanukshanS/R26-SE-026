@@ -10,6 +10,7 @@ from sqlalchemy import func
 from scipy.signal import find_peaks
 from sqlalchemy.orm import Session
 
+from app.controllers.fault_controller import record_codes
 from app.database import get_db
 from app.models import TripMetrics
 from app.schemas import IMUReading, OBDReading, TripBatch, TripMetricsResponse, TripSummary, VehicleTripSummary
@@ -420,11 +421,29 @@ def process_trip(batch: TripBatch, db: Session = Depends(get_db)) -> TripMetrics
     db.commit()
     db.refresh(record)
 
+    # Diagnostics are folded in AFTER the trip is committed, and inside its own
+    # try. The trip is what the driver actually recorded; a strange diagnostics
+    # payload must not be able to lose it.
+    fault_summary = {}
+    if batch.dtcs or batch.dtc_read_ok:
+        try:
+            fault_summary = record_codes(
+                db,
+                vehicle_id=batch.vehicle_id,
+                trip_id=batch.trip_id,
+                codes=[d.model_dump() for d in batch.dtcs],
+                read_ok=batch.dtc_read_ok,
+                freeze_frames=batch.freeze_frames or {},
+            )
+        except Exception as exc:  # noqa: BLE001
+            print(f"[ingest] fault codes not recorded for {batch.trip_id}: {exc}")
+
     print(
         f"[ingest] stored trip {batch.trip_id} vehicle={batch.vehicle_id} "
         f"source={behavior_source} dur={duration_minutes:.1f}min dist={distance_km:.2f}km "
         f"obd={len(batch.obd_readings)} imu={len(batch.imu_readings)} "
         f"brake_ev={imu_features['braking_events']} corner_ev={imu_features['cornering_events']}"
+        + (f" dtc={fault_summary}" if fault_summary else "")
     )
 
     return TripMetricsResponse.model_validate(record)

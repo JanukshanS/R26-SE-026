@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { FaultCard } from "@components/ui/fault-card";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { router } from "expo-router";
@@ -127,7 +128,15 @@ export default function HealthScreen() {
     };
   }, [load]);
 
+
   const health = data ?? EMPTY_HEALTH;
+  const faults = health.faults ?? [];
+  // Colour for the overall error line: the worst severity present.
+  const overallFaultTone = faults.some((f) => f.severity === "urgent")
+    ? { fg: palette.danger, bg: palette.dangerSoft }
+    : faults.some((f) => f.severity === "soon")
+      ? { fg: palette.warning, bg: palette.warningSoft }
+      : { fg: palette.textMuted, bg: palette.surfaceMuted };
   const noData = health.overall_status === "No data";
   const overallColor = statusColor({ status: health.overall_status, health_pct: health.overall_health_pct });
   const allKeys: ComponentKey[] = ["engine", "brake", "tire", "battery"];
@@ -289,6 +298,43 @@ export default function HealthScreen() {
             )}
           </View>
 
+          {/* Errors noticed, in the overall card.
+              One quiet line, same visual weight as the trip stats row below it
+              - no coloured block, no subtitle. The full detail (title, causes,
+              consequence) already lives one tap away on fault-detail, and on
+              the tile that fault belongs to; repeating it here just to be seen
+              first was the "unwanted attention" this replaced. Colour is
+              carried by the icon alone so it stays a signal, not a banner. */}
+          {!loading && !error && faults.length > 0 && (
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: "/(driver)/fault-detail",
+                  params: { code: faults[0].code },
+                })
+              }
+              accessibilityRole="button"
+              accessibilityLabel={
+                faults.length === 1
+                  ? `1 error noticed: ${faults[0].title}`
+                  : `${faults.length} errors noticed`
+              }
+              hitSlop={6}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                gap: spacing.xs,
+                opacity: pressed ? 0.6 : 1,
+              })}
+            >
+              <Icon name="TriangleAlert" size={12} color={overallFaultTone.fg} />
+              <Text style={{ ...typography.caption, color: overallFaultTone.fg, fontWeight: "600" }}>
+                {faults.length === 1 ? "1 issue noticed" : `${faults.length} issues noticed`}
+              </Text>
+              <Icon name="ChevronRight" size={12} color={palette.textMuted} />
+            </Pressable>
+          )}
+
           {/* Trip stats row */}
           {!loading && !error && (
             <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
@@ -351,6 +397,36 @@ export default function HealthScreen() {
               </View>
             ))}
         </View>
+
+        {/* ── Live fault codes ───────────────────────────────────────────
+            Above the wear grid because a stored fault is a statement about
+            what IS wrong, and wear is a forecast of what will be. Faults filed
+            under "other" appear here too - they belong to no component card,
+            so this is the only place a transmission or emissions fault can be
+            seen at all. */}
+        {!loading && faults.length > 0 ? (
+          <View style={{ gap: spacing.sm }}>
+            <Text style={{ ...typography.bodyStrong, color: palette.text }}>
+              {faults.length === 1 ? "Fault detected" : `${faults.length} faults detected`}
+            </Text>
+            {faults.map((fault) => (
+              <FaultCard
+                key={fault.code}
+                fault={fault}
+                variant="compact"
+                // Every fault opens its own page, including the ones that map
+                // to no component - fault-detail is keyed on the CODE, so a
+                // transmission or fuel-cap fault is no longer a dead end.
+                onPress={() =>
+                  router.push({
+                    pathname: "/(driver)/fault-detail",
+                    params: { code: fault.code },
+                  })
+                }
+              />
+            ))}
+          </View>
+        ) : null}
 
         {/* ── Component health 2×2 grid ── */}
         <Text style={{ ...typography.bodyStrong, color: palette.text }}>Component Health</Text>
@@ -423,6 +499,18 @@ function ComponentCard({
   const color = statusColor(component);
   const rul = rulToLabel(component);
   const isAlert = component.status !== "Good" && component.status !== "No data";
+  // Faults sit BESIDE the wear ring, never inside it. The ring and its
+  // percentage are the wear model speaking; a fault is a separate defect, and
+  // letting it recolour the ring would mean a 94%-healthy engine drawn as if
+  // the model had changed its mind about how worn it is.
+  const faults = component.faults ?? [];
+  const worstFault = faults.find((f) => f.severity === "urgent") ?? faults[0];
+  const faultColor =
+    worstFault?.severity === "urgent"
+      ? palette.danger
+      : worstFault?.severity === "soon"
+        ? palette.warning
+        : palette.textMuted;
 
   return (
     <Pressable
@@ -439,7 +527,7 @@ function ComponentCard({
         alignItems: "center",
         gap: spacing.sm,
         borderWidth: 1,
-        borderColor: isAlert ? `${color}44` : palette.border,
+        borderColor: worstFault ? `${faultColor}66` : isAlert ? `${color}44` : palette.border,
       })}
     >
       {/* Mini ring */}
@@ -472,6 +560,26 @@ function ComponentCard({
           {label}
         </Text>
         <Text style={{ fontSize: 11, color, fontWeight: "500" }}>{rul}</Text>
+
+        {worstFault ? (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+              marginTop: 2,
+              paddingHorizontal: 7,
+              paddingVertical: 3,
+              borderRadius: radii.pill,
+              backgroundColor: `${faultColor}1A`,
+            }}
+          >
+            <Icon name="TriangleAlert" size={10} color={faultColor} />
+            <Text style={{ fontSize: 10, color: faultColor, fontWeight: "700" }}>
+              {faults.length > 1 ? `${faults.length} errors` : "Error noticed"}
+            </Text>
+          </View>
+        ) : null}
       </View>
     </Pressable>
   );

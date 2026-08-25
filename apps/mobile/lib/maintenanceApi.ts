@@ -25,6 +25,14 @@ export interface ComponentHealth {
   status: ComponentStatus;
   predicted_rul_km: number;
   max_lifespan_km: number;
+  /**
+   * Live trouble codes filed against this component.
+   *
+   * Deliberately separate from health_pct: a misfire does not consume brake
+   * pad life, so a fault never moves a wear number. It can raise urgency,
+   * which the server does server-side.
+   */
+  faults?: VehicleFault[];
 }
 
 export interface VehicleHealthResponse {
@@ -34,6 +42,10 @@ export interface VehicleHealthResponse {
   trip_count: number;
   total_mileage_km: number;
   components: Record<ComponentKey, ComponentHealth>;
+  /** Every live fault, including "other" ones that belong to no component. */
+  faults?: VehicleFault[];
+  /** False when no trip has yet completed a code read - "not checked yet". */
+  faults_checked?: boolean;
 }
 
 /**
@@ -113,6 +125,11 @@ function normalizeHealth(raw: any, vehicleId: string): VehicleHealthResponse {
       status: normalizeStatus(c?.status),
       predicted_rul_km: Number(c?.predicted_rul_km) || 0,
       max_lifespan_km: Number(c?.max_lifespan_km) || 0,
+      // Passed through as-is rather than reshaped: this function whitelists
+      // fields, which is exactly why faults went missing the first time - the
+      // backend sent them, but normalizeHealth only ever forwarded what was
+      // written into it explicitly and this array was added later.
+      faults: Array.isArray(c?.faults) ? c.faults : [],
     };
   }
   return {
@@ -122,6 +139,8 @@ function normalizeHealth(raw: any, vehicleId: string): VehicleHealthResponse {
     trip_count: Number(raw?.trip_count) || 0,
     total_mileage_km: Number(raw?.total_mileage_km) || 0,
     components,
+    faults: Array.isArray(raw?.faults) ? raw.faults : [],
+    faults_checked: Boolean(raw?.faults_checked),
   };
 }
 
@@ -315,6 +334,33 @@ export interface IMUReading {
   gyro_z: number;
 }
 
+/**
+ * A live trouble code as the driver sees it.
+ *
+ * `leads_to` and `cost_multiplier` are the predictive half: what this fault
+ * damages if left alone. They come from a curated server-side table, never
+ * from the language model, because they are the claim a driver spends money
+ * on.
+ */
+export interface VehicleFault {
+  code: string;
+  title: string;
+  component: "engine" | "brake" | "tire" | "battery" | "other";
+  severity: "urgent" | "soon" | "monitor";
+  status: "confirmed" | "pending" | "permanent";
+  likely_causes: string[];
+  leads_to: string[];
+  cost_multiplier: number | null;
+  first_seen_at: string;
+  last_seen_at: string;
+  times_seen: number;
+  /** Above zero means it was cleared and came back - usually reset, not fixed. */
+  recurrences: number;
+  /** True when matched by code family, so the UI must hedge rather than assert. */
+  is_generic: boolean;
+  freeze_frame: Record<string, number> | null;
+}
+
 export interface TripBatch {
   trip_id: string;
   vehicle_id: string;
@@ -326,6 +372,15 @@ export interface TripBatch {
   end_timestamp?: string;
   /** 2 = real timestamp offsets + behaviour block. Absent = legacy client. */
   client_schema_version?: number;
+  /** Fault codes read from modes 03 and 07 as the trip ended. */
+  dtcs?: { code: string; status: "confirmed" | "pending" | "permanent" }[];
+  /**
+   * Whether the code read itself succeeded, which is NOT the same question as
+   * whether any codes came back. An adapter that did not answer produces the
+   * same empty list as a car with nothing wrong, and the server will not close
+   * a live fault unless this is true.
+   */
+  dtc_read_ok?: boolean;
   /**
    * Driver-behaviour metrics computed on-device from the raw 4 Hz IMU stream
    * (steering reversals, swerves, harsh events, jerk). Optional so older app
@@ -763,6 +818,59 @@ export async function getComponentPlan(
     const raw = await res.json().catch(() => null);
     if (!raw || typeof raw !== "object" || !raw.advice) return null;
     return raw as ComponentPlan;
+  } catch {
+    return null;
+  } finally {
+    cancel();
+  }
+}
+
+/**
+ * Everything about one fault: what it is, where to fix it, and what happens.
+ *
+ * Mirrors ComponentPlan, but keyed on a code rather than a component - which
+ * is what lets a transmission or fuel-cap fault have a page at all, since
+ * those map to none of the four components and have no wear reading.
+ */
+export interface FaultPlan {
+  fault: VehicleFault;
+  /** Wear context, present only when the fault maps to a modelled component. */
+  component_health: (ComponentHealth & { component?: string }) | null;
+  parts: MarketplacePart[];
+  garages: MarketplaceGarage[];
+  observed_prices: ObservedPrices | null;
+  recommendation: PlanRecommendation | null;
+  source: "llm" | "fallback";
+}
+
+/**
+ * Diagnosis, options and a recommendation for one fault code.
+ *
+ * Same 30s budget as getComponentPlan: it may make a language-model call, and
+ * the screen renders the fault itself without it.
+ */
+export async function getFaultPlan(
+  vehicleId: string,
+  code: string,
+  opts: { lat?: number; lon?: number; vehicle?: string } = {}
+): Promise<FaultPlan | null> {
+  const params = new URLSearchParams();
+  if (opts.lat != null && opts.lon != null) {
+    params.set("lat", String(opts.lat));
+    params.set("lon", String(opts.lon));
+  }
+  if (opts.vehicle) params.set("vehicle", opts.vehicle);
+
+  const { signal, cancel } = timeoutSignal(30_000);
+  try {
+    const res = await fetch(
+      `${BASE_URL}/vehicle/${encodeURIComponent(vehicleId)}/fault/${encodeURIComponent(code)}/plan?${params}`,
+      { headers: await authHeaders(), signal }
+    );
+    if (!res.ok) return null;
+    const raw = await res.json().catch(() => null);
+    if (!raw || typeof raw !== "object" || !raw.fault) return null;
+    return raw as FaultPlan;
   } catch {
     return null;
   } finally {

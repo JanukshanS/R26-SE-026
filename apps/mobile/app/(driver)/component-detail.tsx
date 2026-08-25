@@ -3,6 +3,7 @@ import { ActivityIndicator, Animated, Linking, Pressable, ScrollView, Text, View
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ErrorState } from "@components/ui/error-state";
+import { FaultCard } from "@components/ui/fault-card";
 import { Icon, type IconName } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import {
@@ -260,6 +261,10 @@ export default function ComponentDetailScreen() {
 
   const health = componentHealth;
   const banner = rulToBanner(health);
+  // Faults for THIS component. Read from the health payload rather than the
+  // plan, so they render with the figures instead of waiting on the language
+  // model call that the plan carries.
+  const faults = componentHealth?.faults ?? [];
   const rec = advice?.recommendation ?? null;
   // The full garage row behind the pick, for the phone number and the figures
   // beside the name. Looked up rather than duplicated into the recommendation
@@ -395,6 +400,30 @@ export default function ComponentDetailScreen() {
               : `${Math.round(health.predicted_rul_km).toLocaleString()} km remaining life estimated`}
           </Text>
         </View>
+
+        {/* ── Live faults ────────────────────────────────────────────────
+            Above the analysis because a stored code is a statement about what
+            IS wrong with this component, while everything below it is a
+            forecast of wear. The card carries the consequence, which is the
+            relationship the driver came here to understand: this fault, left
+            alone, damages that. */}
+        {faults.length > 0 ? (
+          <View style={{ gap: spacing.sm }}>
+            {faults.map((fault) => (
+              <FaultCard
+                key={fault.code}
+                fault={fault}
+                variant="full"
+                onPress={() =>
+                  router.push({
+                    pathname: "/(driver)/fault-detail",
+                    params: { code: fault.code },
+                  })
+                }
+              />
+            ))}
+          </View>
+        ) : null}
 
         {/* ── The analysis ────────────────────────────────────────────────
             Four cards, each answering exactly one question, in the order a
