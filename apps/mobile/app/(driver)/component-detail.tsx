@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -270,10 +270,15 @@ export default function ComponentDetailScreen() {
   // Citations arrive as "Document title - Section", and retrieval normally
   // returns several sections of one document. Only the document is worth
   // naming to a driver.
-  const sourceDocs = useMemo(() => {
-    const titles = (rec?.sources ?? []).map((s) => s.split(" - ")[0].trim());
-    return Array.from(new Set(titles.filter(Boolean)));
-  }, [rec]);
+  //
+  // NOT useMemo, deliberately. Everything from here down sits after the early
+  // return for missing health data, so a hook here is called on some renders
+  // and not others - which crashed this screen with "rendered more hooks than
+  // during the previous render" the moment health arrived. Deduplicating four
+  // short strings is far cheaper than the comparison a memo would do anyway.
+  const sourceDocs = Array.from(
+    new Set((rec?.sources ?? []).map((s) => s.split(" - ")[0].trim()).filter(Boolean))
+  );
   const cheapestPart = advice?.parts.length
     ? Math.min(...advice.parts.map((p) => p.price_lkr))
     : null;
