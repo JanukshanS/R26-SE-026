@@ -12,10 +12,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.auth import require_user
 from app.database import Base, engine
 from app.migrations import ensure_columns
-from app.models import ComponentHealthFloor, ServiceRecord, TripMetrics, VehicleBaseline
-from app.routers.ingest import router as ingest_router
-from app.routers.predict import router as predict_router
-from app.routers.service import router as service_router
+from app.models import ComponentHealthFloor, Garage, Part, ServiceRecord, TripMetrics, VehicleBaseline
+from app.routes.admin_garages import router as admin_garages_router
+from app.routes.admin_parts import router as admin_parts_router
+from app.routes.advice import router as advice_router
+from app.routes.recommend import router as recommend_router
+from app.routes.explain import router as explain_router
+from app.routes.ingest import router as ingest_router
+from app.routes.marketplace import router as marketplace_router
+from app.routes.predict import router as predict_router
+from app.routes.service import router as service_router
 
 MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models")
 
@@ -97,7 +103,7 @@ async def lifespan(app: FastAPI):
     # create_all only creates MISSING TABLES — it never adds a column to a table
     # that already exists, and the deployed DB holds real trips that can't be
     # regenerated (raw readings aren't persisted). See app/migrations.py.
-    added = ensure_columns(engine, TripMetrics, ServiceRecord, VehicleBaseline, ComponentHealthFloor)
+    added = ensure_columns(engine, TripMetrics, ServiceRecord, VehicleBaseline, ComponentHealthFloor, Part, Garage)
     if added:
         print(f"[startup] schema guard added {len(added)} column(s): {', '.join(added)}")
     # Load ML models and best-model selection into app state
@@ -129,6 +135,14 @@ app.add_middleware(
 app.include_router(ingest_router, tags=["Ingest"], dependencies=[Depends(require_user)])
 app.include_router(predict_router, tags=["Predict"], dependencies=[Depends(require_user)])
 app.include_router(service_router, tags=["Service"], dependencies=[Depends(require_user)])
+app.include_router(marketplace_router, tags=["Marketplace"], dependencies=[Depends(require_user)])
+app.include_router(admin_parts_router)
+app.include_router(admin_garages_router)
+# The explain layer only rewords a diagnosis the caller already holds, but it
+# spends money per request, so it stays behind the same auth as everything else.
+app.include_router(advice_router, tags=["Advice"], dependencies=[Depends(require_user)])
+app.include_router(recommend_router, tags=["Advice"], dependencies=[Depends(require_user)])
+app.include_router(explain_router, tags=["Explain"], dependencies=[Depends(require_user)])
 
 
 @app.get("/health", tags=["Health"])

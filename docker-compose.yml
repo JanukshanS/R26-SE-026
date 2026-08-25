@@ -26,6 +26,7 @@ services:
     env_file: .env
     environment:
       SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?set SUPABASE_ANON_KEY in .env}
       # Supabase Postgres, own schema. Was SQLite on a named volume, but because
       # raw OBD/IMU readings are discarded after each trip is summarised, a lost
       # volume meant trip history that could never be reconstructed.

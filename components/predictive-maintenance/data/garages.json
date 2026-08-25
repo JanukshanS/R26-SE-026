@@ -1,0 +1,534 @@
+[
+  {
+    "id": 1,
+    "name": "AutoCare Lanka",
+    "speciality": [
+      "General Repair",
+      "Engine Service",
+      "Diagnostics"
+    ],
+    "mechanics": 8,
+    "location": {
+      "city": "Colombo",
+      "area": "Nugegoda",
+      "address": "45 High Level Road, Nugegoda"
+    },
+    "rating": 4.7,
+    "reviews": 186,
+    "phone": "+94 77 123 4567",
+    "email": "info@autocarelanka.lk",
+    "opening_hours": "08:00 - 18:00",
+    "services": [
+      "Oil Change",
+      "Engine Repair",
+      "Brake Service",
+      "AC Repair",
+      "Vehicle Diagnostics"
+    ],
+    "is_verified": true
+  },
+  {
+    "id": 2,
+    "name": "Southern Motor Works",
+    "speciality": [
+      "Japanese Vehicles",
+      "Hybrid Repair",
+      "Electrical"
+    ],
+    "mechanics": 6,
+    "location": {
+      "city": "Matara",
+      "area": "Walgama",
+      "address": "128 Matara Road, Walgama"
+    },
+    "rating": 4.6,
+    "reviews": 124,
+    "phone": "+94 71 234 5678",
+    "email": "contact@southernmotorworks.lk",
+    "opening_hours": "08:30 - 17:30",
+    "services": [
+      "Hybrid Diagnostics",
+      "Battery Service",
+      "Electrical Repair",
+      "Oil Change"
+    ],
+    "is_verified": true
+  },
+  {
+    "id": 3,
+    "name": "Kandy Auto Solutions",
+    "speciality": [
+      "European Vehicles",
+      "Diagnostics",
+      "Transmission"
+    ],
+    "mechanics": 10,
+    "location": {
+      "city": "Kandy",
+      "area": "Peradeniya",
+      "address": "72 Peradeniya Road, Kandy"
+    },
+    "rating": 4.8,
+    "reviews": 241,
+    "phone": "+94 76 345 6789",
+    "email": "service@kandyautosolutions.lk",
+    "opening_hours": "07:30 - 18:30",
+    "services": [
+      "Computer Diagnostics",
+      "Transmission Repair",
+      "Engine Repair",
+      "Brake Service"
+    ],
+    "is_verified": true
+  },
+  {
+    "id": 4,
+    "name": "Galle Motor Garage",
+    "speciality": [
+      "SUV",
+      "4WD",
+      "Suspension"
+    ],
+    "mechanics": 7,
+    "location": {
+      "city": "Galle",
+      "area": "Karapitiya",
+      "address": "19 Hiribura Road, Galle"
+    },
+    "rating": 4.5,
+    "reviews": 98,
+    "phone": "+94 75 456 7890",
+    "email": "hello@gallemotorgarage.lk",
+    "opening_hours": "08:00 - 17:00",
+    "services": [
+      "Suspension Repair",
+      "4WD Service",
+      "Wheel Alignment",
+      "Brake Repair"
+    ],
+    "is_verified": true
+  },
+  {
+    "id": 5,
+    "name": "Metro Auto Hub",
+    "speciality": [
+      "Modern Vehicles",
+      "Diagnostics",
+      "AC Service"
+    ],
+    "mechanics": 12,
+    "location": {
+      "city": "Colombo",
+      "area": "Rajagiriya",
+      "address": "88 Parliament Road, Rajagiriya"
+    },
+    "rating": 4.4,
+    "reviews": 312,
+    "phone": "+94 72 567 8901",
+    "email": "support@metroautohub.lk",
+    "opening_hours": "07:00 - 19:00",
+    "services": [
+      "Vehicle Diagnostics",
+      "AC Repair",
+      "Oil Change",
+      "Engine Service"
+    ],
+    "is_verified": true
+  },
+  {
+    "id": 6,
+    "name": "Ruhuna Auto Care",
+    "speciality": [
+      "Toyota",
+      "Honda",
+      "Nissan"
+    ],
+    "mechanics": 5,
+    "location": {
+      "city": "Hambantota",
+      "area": "Weerawila",
+      "address": "34 Main Street, Weerawila"
+    },
+    "rating": 4.3,
+    "reviews": 76,
+    "phone": "+94 78 678 9012",
+    "email": "info@ruhunaautocare.lk",
+    "opening_hours": "08:00 - 17:30",
+    "services": [
+      "General Repair",
+      "Engine Service",
+      "Brake Service",
+      "Oil Change"
+    ],
+    "is_verified": false
+  },
+  {
+    "id": 7,
+    "name": "DriveTech Motors",
+    "speciality": [
+      "Hybrid Vehicles",
+      "EV",
+      "Electrical"
+    ],
+    "mechanics": 9,
+    "location": {
+      "city": "Colombo",
+      "area": "Battaramulla",
+      "address": "21 Japan Friendship Road, Battaramulla"
+    },
+    "rating": 4.9,
+    "reviews": 357,
+    "phone": "+94 70 789 0123",
+    "email": "service@drivetechmotors.lk",
+    "opening_hours": "07:30 - 18:30",
+    "services": [
+      "Hybrid Repair",
+      "EV Diagnostics",
+      "Battery Repair",
+      "Electrical Service"
+    ],
+    "is_verified": true
+  },
+  {
+    "id": 8,
+    "name": "Hill Country Auto",
+    "speciality": [
+      "Engine Repair",
+      "Transmission",
+      "Diesel"
+    ],
+    "mechanics": 6,
+    "location": {
+      "city": "Nuwara Eliya",
+      "area": "Nanu Oya",
+      "address": "15 Station Road, Nanu Oya"
+    },
+    "rating": 4.2,
+    "reviews": 63,
+    "phone": "+94 74 890 1234",
+    "email": "contact@hillcountryauto.lk",
+    "opening_hours": "08:00 - 17:00",
+    "services": [
+      "Diesel Repair",
+      "Engine Overhaul",
+      "Transmission Repair"
+    ],
+    "is_verified": false
+  },
+  {
+    "id": 9,
+    "name": "Western Auto Experts",
+    "speciality": [
+      "European Vehicles",
+      "Luxury Cars",
+      "Diagnostics"
+    ],
+    "mechanics": 11,
+    "location": {
+      "city": "Negombo",
+      "area": "Kattuwa",
+      "address": "61 Colombo Road, Negombo"
+    },
+    "rating": 4.7,
+    "reviews": 198,
+    "phone": "+94 77 901 2345",
+    "email": "info@westernautoexperts.lk",
+    "opening_hours": "08:00 - 18:00",
+    "services": [
+      "BMW Service",
+      "Mercedes Service",
+      "Diagnostics",
+      "AC Repair"
+    ],
+    "is_verified": true
+  },
+  {
+    "id": 10,
+    "name": "Matale Motor Care",
+    "speciality": [
+      "General Repair",
+      "Tyres",
+      "Wheel Alignment"
+    ],
+    "mechanics": 4,
+    "location": {
+      "city": "Matale",
+      "area": "Ukuwela",
+      "address": "103 Kandy Road, Ukuwela"
+    },
+    "rating": 4.1,
+    "reviews": 51,
+    "phone": "+94 76 012 3456",
+    "email": "matale.motorcare@gmail.com",
+    "opening_hours": "08:30 - 17:30",
+    "services": [
+      "Tyre Service",
+      "Wheel Alignment",
+      "Oil Change",
+      "Brake Service"
+    ],
+    "is_verified": false
+  },
+  {
+    "id": 11,
+    "name": "Kaduwela Auto Centre",
+    "speciality": [
+      "General Repair",
+      "Engine Service"
+    ],
+    "mechanics": 6,
+    "location": {
+      "city": "Colombo",
+      "area": "Kaduwela",
+      "address": "182 Avissawella Road, Kaduwela"
+    },
+    "rating": 4.4,
+    "reviews": 97,
+    "phone": "+94 11 000 0011",
+    "email": null,
+    "opening_hours": "08:00 - 18:00",
+    "services": [
+      "Oil Change",
+      "Engine Repair",
+      "Brake Service",
+      "General Repair"
+    ],
+    "is_verified": false
+  },
+  {
+    "id": 12,
+    "name": "Malabe Motor Works",
+    "speciality": [
+      "Engine Overhaul",
+      "Brake Systems"
+    ],
+    "mechanics": 9,
+    "location": {
+      "city": "Colombo",
+      "area": "Malabe",
+      "address": "76 Kaduwela Road, Malabe"
+    },
+    "rating": 4.6,
+    "reviews": 154,
+    "phone": "+94 11 000 0012",
+    "email": null,
+    "opening_hours": "08:30 - 19:00",
+    "services": [
+      "Engine Service",
+      "Brake Repair",
+      "Tyre Service",
+      "Vehicle Diagnostics"
+    ],
+    "is_verified": true
+  },
+  {
+    "id": 13,
+    "name": "Athurugiriya Service Point",
+    "speciality": [
+      "Auto Electrical",
+      "Hybrid Systems"
+    ],
+    "mechanics": 5,
+    "location": {
+      "city": "Colombo",
+      "area": "Athurugiriya",
+      "address": "24 Malabe Road, Athurugiriya"
+    },
+    "rating": 4.3,
+    "reviews": 68,
+    "phone": "+94 11 000 0013",
+    "email": null,
+    "opening_hours": "09:00 - 18:00",
+    "services": [
+      "Battery Service",
+      "Electrical Repair",
+      "Hybrid Diagnostics",
+      "Oil Change"
+    ],
+    "is_verified": false
+  },
+  {
+    "id": 14,
+    "name": "Rajagiriya Tyre & Brake",
+    "speciality": [
+      "Tyres",
+      "Wheel Alignment",
+      "Brakes"
+    ],
+    "mechanics": 7,
+    "location": {
+      "city": "Colombo",
+      "area": "Rajagiriya",
+      "address": "310 Sri Jayawardenepura Mawatha, Rajagiriya"
+    },
+    "rating": 4.8,
+    "reviews": 231,
+    "phone": "+94 11 000 0014",
+    "email": null,
+    "opening_hours": "08:00 - 20:00",
+    "services": [
+      "Tyre Service",
+      "Brake Service",
+      "Brake Repair"
+    ],
+    "is_verified": true
+  },
+  {
+    "id": 15,
+    "name": "Nawala Auto Electricals",
+    "speciality": [
+      "Batteries",
+      "Alternators",
+      "Hybrid Systems"
+    ],
+    "mechanics": 4,
+    "location": {
+      "city": "Colombo",
+      "area": "Nawala",
+      "address": "58 Nawala Road, Nawala"
+    },
+    "rating": 4.5,
+    "reviews": 112,
+    "phone": "+94 11 000 0015",
+    "email": null,
+    "opening_hours": "08:30 - 17:30",
+    "services": [
+      "Battery Service",
+      "Battery Repair",
+      "Electrical Service",
+      "Hybrid Diagnostics"
+    ],
+    "is_verified": true
+  },
+  {
+    "id": 16,
+    "name": "Battaramulla Car Care",
+    "speciality": [
+      "Routine Servicing",
+      "Engine Service"
+    ],
+    "mechanics": 6,
+    "location": {
+      "city": "Colombo",
+      "area": "Battaramulla",
+      "address": "141 Pannipitiya Road, Battaramulla"
+    },
+    "rating": 4.2,
+    "reviews": 84,
+    "phone": "+94 11 000 0016",
+    "email": null,
+    "opening_hours": "08:00 - 18:00",
+    "services": [
+      "Oil Change",
+      "Engine Service",
+      "Brake Service",
+      "Battery Service"
+    ],
+    "is_verified": false
+  },
+  {
+    "id": 17,
+    "name": "Thalawathugoda Motor Garage",
+    "speciality": [
+      "General Repair",
+      "Suspension"
+    ],
+    "mechanics": 8,
+    "location": {
+      "city": "Colombo",
+      "area": "Thalawathugoda",
+      "address": "92 Hokandara Road, Thalawathugoda"
+    },
+    "rating": 4.4,
+    "reviews": 126,
+    "phone": "+94 11 000 0017",
+    "email": null,
+    "opening_hours": "08:00 - 18:30",
+    "services": [
+      "General Repair",
+      "Brake Repair",
+      "Tyre Service",
+      "Oil Change"
+    ],
+    "is_verified": false
+  },
+  {
+    "id": 18,
+    "name": "Maharagama Auto Service",
+    "speciality": [
+      "Engine Service",
+      "Brakes",
+      "Batteries"
+    ],
+    "mechanics": 10,
+    "location": {
+      "city": "Colombo",
+      "area": "Maharagama",
+      "address": "205 High Level Road, Maharagama"
+    },
+    "rating": 4.6,
+    "reviews": 198,
+    "phone": "+94 11 000 0018",
+    "email": null,
+    "opening_hours": "07:30 - 19:00",
+    "services": [
+      "Engine Repair",
+      "Brake Service",
+      "Battery Service",
+      "Tyre Service"
+    ],
+    "is_verified": true
+  },
+  {
+    "id": 19,
+    "name": "Kottawa Vehicle Care",
+    "speciality": [
+      "Diesel Engines",
+      "Tyres"
+    ],
+    "mechanics": 7,
+    "location": {
+      "city": "Colombo",
+      "area": "Kottawa",
+      "address": "17 Horana Road, Kottawa"
+    },
+    "rating": 4.1,
+    "reviews": 73,
+    "phone": "+94 11 000 0019",
+    "email": null,
+    "opening_hours": "08:00 - 18:00",
+    "services": [
+      "Diesel Repair",
+      "Engine Service",
+      "Tyre Service",
+      "Brake Service"
+    ],
+    "is_verified": false
+  },
+  {
+    "id": 20,
+    "name": "Borella Quick Service",
+    "speciality": [
+      "Fast Servicing",
+      "Batteries"
+    ],
+    "mechanics": 5,
+    "location": {
+      "city": "Colombo",
+      "area": "Borella",
+      "address": "63 Baseline Road, Borella"
+    },
+    "rating": 4.3,
+    "reviews": 141,
+    "phone": "+94 11 000 0020",
+    "email": null,
+    "opening_hours": "07:00 - 21:00",
+    "services": [
+      "Oil Change",
+      "Brake Service",
+      "Battery Service",
+      "Electrical Repair"
+    ],
+    "is_verified": true
+  }
+]

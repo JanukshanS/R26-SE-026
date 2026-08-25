@@ -13,3 +13,7 @@ PyJWT[crypto]==2.13.0
 
 # PostgreSQL driver (Supabase). Binary wheel so the image needs no build tools.
 psycopg2-binary==2.9.10
+# Used by routers/explain.py to call the OpenAI API server-side.
+# Was already present transitively via FastAPI's test client; declared now
+# that production code depends on it.
+httpx>=0.27

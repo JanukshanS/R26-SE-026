@@ -34,7 +34,7 @@ const TABS_RIGHT: TabDef[] = [
 const TAB_PATHS: Record<TabKey, string> = {
   home: "/home",
   maintenance: "/health",
-  store: "/order-parts",
+  store: "/marketplace",
   profile: "/profile",
 };
 
@@ -141,7 +141,7 @@ function TabItem({ tab, active }: { tab: TabDef; active: boolean }) {
         haptics.select();
         if (tab.key === "home") router.replace("/(driver)/home");
         if (tab.key === "maintenance") router.replace("/(driver)/health");
-        if (tab.key === "store") router.replace("/(driver)/order-parts");
+        if (tab.key === "store") router.replace("/(driver)/marketplace");
         if (tab.key === "profile") router.replace("/(driver)/profile");
       }}
       accessibilityRole="tab"
