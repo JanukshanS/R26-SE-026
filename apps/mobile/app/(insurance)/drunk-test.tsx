@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as IntentLauncher from 'expo-intent-launcher';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -86,6 +86,8 @@ function RecordingDot() {
 export default function DrunkTestScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const { locked } = useLocalSearchParams<{ locked?: string }>();
+  const isLocked = locked === '1';
   const cameraRef = useRef<CameraView>(null);
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hydratedStoreRef = useRef(false);
@@ -296,6 +298,58 @@ export default function DrunkTestScreen() {
       isOpeningVideoRef.current = false;
     }
   }, [videoUri]);
+
+  if (isLocked) {
+    // Already submitted — no camera/mic needed at all, just let the driver replay
+    // the video that was actually sent with the claim.
+    return (
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            {navigation.canGoBack() ? (
+              <Pressable
+                onPress={() => router.back()}
+                style={({ pressed }) => [styles.headerBack, pressed && styles.pressed]}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Go back">
+                <View style={styles.headerChevronWrap} collapsable={false}>
+                  <Ionicons name="chevron-back" size={22} color={COLORS.text} />
+                </View>
+                <Text style={styles.headerTitle}>User Verification Test</Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.headerTitle}>User Verification Test</Text>
+            )}
+          </View>
+
+          <Text style={styles.headline}>Already submitted with your claim</Text>
+          <Text style={styles.subtitle}>This video was sent with your claim and can&apos;t be re-recorded.</Text>
+
+          {videoUri ? (
+            <Pressable
+              style={({ pressed }) => [styles.lockedVideoTile, pressed && styles.pressed]}
+              onPress={() => void playSavedVideo()}
+              accessibilityRole="button"
+              accessibilityLabel="Play saved video">
+              <Icon name="Play" size={28} color={WHITE} />
+              <Text style={styles.cornerVideoLabel}>Play video</Text>
+              <Text style={styles.cornerVideoSub}>{RECORD_DURATION_SEC}s clip</Text>
+            </Pressable>
+          ) : null}
+
+          <View style={styles.buttonRow}>
+            <View style={styles.primaryButtonWrap}>
+              <CaptureButton title="Close" variant="primary" onPress={() => router.back()} />
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   if (!permission) {
     return (
@@ -573,6 +627,21 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: COLORS.text,
     textAlign: 'left',
+  },
+  lockedVideoTile: {
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
+    aspectRatio: 1,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: INSURANCE_VIDEO_TILE_BG,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+    marginBottom: 12,
   },
   cameraSquare: {
     width: '100%',

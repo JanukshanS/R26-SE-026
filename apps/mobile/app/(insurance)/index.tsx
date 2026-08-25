@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -192,7 +192,6 @@ export default function InsuranceHomeScreen() {
   // submitted.
   const [hasCalledInsurer, setHasCalledInsurer] = useState(false);
   const [hasStartedGuidedCapture, setHasStartedGuidedCapture] = useState(false);
-  const [glowTimedOut, setGlowTimedOut] = useState(false);
   // Which task card (if any) is currently resolving its entry-location capture —
   // used to show a spinner and block re-tapping while that resolves, so navigating
   // away can't happen before the location write finishes (see onTaskPress).
@@ -268,9 +267,6 @@ export default function InsuranceHomeScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      // Fresh 30s window each time this screen is (re)focused, unless one of the
-      // stop conditions below is already true by the time the checks resolve.
-      setGlowTimedOut(false);
       void (async () => {
         const [guidedState, licenceState, drunkState, thirdState, submittedLocked, insurerCallMeta] =
           await Promise.all([
@@ -348,26 +344,28 @@ export default function InsuranceHomeScreen() {
   const reportLooksSubmitted = allFlowStepsComplete && claimReportLocked;
 
   // Local law requires calling the insurer before anything else — glow the call
-  // button for 30s to nudge that, unless it's already been called, the driver has
-  // already started taking photos, or the claim is already fully submitted.
+  // button to nudge that, until it's actually been called (or the driver has
+  // already started taking photos, or the claim is already fully submitted).
+  // No timeout: it stays lit until the driver taps Call, not just for a while.
   const showGlow =
     insuranceCompany != null &&
     !reportLooksSubmitted &&
     !hasCalledInsurer &&
-    !hasStartedGuidedCapture &&
-    !glowTimedOut;
-
-  useEffect(() => {
-    if (!showGlow) {
-      return;
-    }
-    const timer = setTimeout(() => setGlowTimedOut(true), 30000);
-    return () => clearTimeout(timer);
-  }, [showGlow]);
+    !hasStartedGuidedCapture;
 
   const onTaskPress = async (task: FlowTask) => {
     const href = task.href;
     if (!href || resolvingTaskKey || callingInsurer) {
+      return;
+    }
+    // Already submitted — open in a read-only view of what was captured instead of
+    // the live capture/retake flow. No entry-location tracking either, since nothing
+    // new is being captured.
+    if (claimReportLocked) {
+      // Appending the query string directly (rather than the {pathname, params}
+      // object form) sidesteps typed-routes' strict pathname-literal union, which
+      // doesn't include a variant for "any static route + arbitrary params".
+      router.push(`${href}?locked=1` as Href);
       return;
     }
     if (task.key === 'guided') {
@@ -668,6 +666,8 @@ const styles = StyleSheet.create({
   callInsurerGlowWrap: {
     backgroundColor: COLORS.cardBg,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     shadowColor: INSURANCE_SHADOW_COLOR,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
@@ -815,11 +815,8 @@ const styles = StyleSheet.create({
   taskCardGlowWrap: {
     backgroundColor: COLORS.cardBg,
     borderRadius: 16,
-    shadowColor: INSURANCE_SHADOW_COLOR,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   taskCard: {
     flexDirection: 'row',

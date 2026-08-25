@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -75,6 +75,8 @@ function StepProgressPill({ step, completed }: { step: ThirdPartyCaptureStep; co
 export default function ThirdPartyDetailsScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const { locked } = useLocalSearchParams<{ locked?: string }>();
+  const isLocked = locked === '1';
   const cameraRef = useRef<CameraView>(null);
   const hydratedStoreRef = useRef(false);
   const [permission, requestPermission] = useCameraPermissions();
@@ -240,6 +242,63 @@ export default function ThirdPartyDetailsScreen() {
   // dead, greyed-out button on screen — the underlying guard (onNotApplicable's early return
   // when hasAnyPhoto) is unchanged; this only affects whether we render it at all.
   const showNotApplicable = !hasAnyPhoto && !notApplicable;
+
+  if (isLocked) {
+    const lockedPhotos: { uri: string; label: string }[] = [];
+    if (driverLicenceFrontUri) lockedPhotos.push({ uri: driverLicenceFrontUri, label: 'Driver Licence (Front)' });
+    if (driverLicenceBackUri) lockedPhotos.push({ uri: driverLicenceBackUri, label: 'Driver Licence (Back)' });
+    if (revenueLicenceUri) lockedPhotos.push({ uri: revenueLicenceUri, label: 'Revenue Licence' });
+    return (
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            {navigation.canGoBack() ? (
+              <Pressable
+                onPress={() => router.back()}
+                style={({ pressed }) => [styles.headerBack, pressed && styles.pressed]}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Go back">
+                <View style={styles.headerChevronWrap} collapsable={false}>
+                  <Ionicons name="chevron-back" size={22} color={COLORS.text} />
+                </View>
+                <Text style={styles.headerTitle}>3rd Party Details</Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.headerTitle}>3rd Party Details</Text>
+            )}
+          </View>
+
+          <Text style={styles.headline}>Already submitted with your claim</Text>
+          <Text style={styles.subtitle}>
+            {notApplicable
+              ? 'This step was marked not applicable for this claim.'
+              : "These photos were sent with your claim and can't be retaken."}
+          </Text>
+
+          {lockedPhotos.length > 0 ? (
+            <View style={styles.lockedPhotoRow}>
+              {lockedPhotos.map((p) => (
+                <View key={p.label} style={styles.lockedPhotoTile}>
+                  <Image source={{ uri: p.uri }} style={styles.lockedPhotoImage} resizeMode="cover" />
+                  <Text style={styles.lockedPhotoLabel}>{p.label}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          <View style={styles.buttonRow}>
+            <View style={styles.primaryButtonWrap}>
+              <CaptureButton title="Close" variant="primary" onPress={() => router.back()} />
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   if (!permission) {
     return (
@@ -630,5 +689,28 @@ const styles = StyleSheet.create({
     color: INSURANCE_CTA_LINK,
     fontSize: 16,
     fontWeight: '600',
+  },
+  lockedPhotoRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  lockedPhotoTile: {
+    width: '31%',
+    gap: 6,
+  },
+  lockedPhotoImage: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: INSURANCE_THUMBNAIL_BG,
+  },
+  lockedPhotoLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+    textAlign: 'center',
   },
 });

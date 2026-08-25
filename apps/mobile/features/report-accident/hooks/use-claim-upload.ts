@@ -1,7 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useCallback, useRef, useState } from 'react';
-import { Alert, Linking } from 'react-native';
+import { Linking } from 'react-native';
 
 import { loadClaimantProfile, saveClaimantProfile } from '@/features/claimant/storage/claimant-profile-store';
 import { loadGuidedCaptureEntryMeta } from '@/features/guided-capture/storage/guided-capture-entry-store';
@@ -43,6 +43,13 @@ export type UseClaimUploadResult = {
   dismissUploadFailed: () => void;
   /** Hides the dialog and re-runs the upload from where it stopped. */
   retryUpload: () => void;
+  /** True while the "location required" dialog should be shown — same pattern as
+   * uploadFailedVisible: the caller renders the actual dialog (LocationRequiredDialog),
+   * this hook only owns the state driving it. */
+  locationRequiredVisible: boolean;
+  dismissLocationRequired: () => void;
+  retryLocation: () => void;
+  openLocationSettings: () => void;
 };
 
 export function useClaimUpload(
@@ -64,6 +71,7 @@ export function useClaimUpload(
   const [fraudValidationComplete, setFraudValidationComplete] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadFailedVisible, setUploadFailedVisible] = useState(false);
+  const [locationRequiredVisible, setLocationRequiredVisible] = useState(false);
   /** Bumped by the "Try again" button on the blocking alerts; re-runs the effect below.
    * Without it the only way back to an upload is leaving the screen and returning. */
   const [retryToken, setRetryToken] = useState(0);
@@ -228,23 +236,7 @@ export function useClaimUpload(
             setUploadError(
               'Nothing has been sent yet — your claim needs the accident location. Turn on location access for this app, then come back to this screen to retry.'
             );
-            Alert.alert(
-              'Location required',
-              'Your claim needs the accident GPS location. Allow location access, or move somewhere with a clearer signal, then try again.',
-              [
-                {
-                  text: 'Open settings',
-                  onPress: () => {
-                    // Returning from Settings fires no focus event here, so queue the
-                    // re-run now: it re-prompts with "Try again" ready when they come back.
-                    setRetryToken((n) => n + 1);
-                    void Linking.openSettings();
-                  },
-                },
-                { text: 'Try again', onPress: () => setRetryToken((n) => n + 1) },
-                { text: 'Not now', style: 'cancel' },
-              ]
-            );
+            setLocationRequiredVisible(true);
             return;
           }
 
@@ -385,6 +377,19 @@ export function useClaimUpload(
     setRetryToken((n) => n + 1);
   }, []);
 
+  const dismissLocationRequired = useCallback(() => setLocationRequiredVisible(false), []);
+  const retryLocation = useCallback(() => {
+    setLocationRequiredVisible(false);
+    setRetryToken((n) => n + 1);
+  }, []);
+  const openLocationSettings = useCallback(() => {
+    setLocationRequiredVisible(false);
+    // Returning from Settings fires no focus event here, so queue the re-run now:
+    // it re-prompts with "Try again" ready when they come back.
+    setRetryToken((n) => n + 1);
+    void Linking.openSettings();
+  }, []);
+
   return {
     locationLine,
     timestampLine,
@@ -397,5 +402,9 @@ export function useClaimUpload(
     uploadFailedVisible,
     dismissUploadFailed,
     retryUpload,
+    locationRequiredVisible,
+    dismissLocationRequired,
+    retryLocation,
+    openLocationSettings,
   };
 }

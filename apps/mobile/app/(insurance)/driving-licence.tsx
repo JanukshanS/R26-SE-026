@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -68,6 +68,8 @@ function StepProgressPill({ side, completed }: { side: LicenceSide; completed: b
 export default function DrivingLicencePhotoScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const { locked } = useLocalSearchParams<{ locked?: string }>();
+  const isLocked = locked === '1';
   const cameraRef = useRef<CameraView>(null);
   const hydratedStoreRef = useRef(false);
   const [permission, requestPermission] = useCameraPermissions();
@@ -206,6 +208,60 @@ export default function DrivingLicencePhotoScreen() {
       setIsTakingPhoto(false);
     }
   };
+
+  if (isLocked) {
+    // Already submitted — no camera needed at all, just show whatever was captured.
+    const lockedPhotos: { uri: string; label: string }[] = [
+      frontPreviewUri ? { uri: frontPreviewUri, label: 'Front' } : null,
+      backPreviewUri ? { uri: backPreviewUri, label: 'Back' } : null,
+      selfiePreviewUri ? { uri: selfiePreviewUri, label: 'Selfie' } : null,
+    ].filter((p): p is { uri: string; label: string } => p != null);
+
+    return (
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            {navigation.canGoBack() ? (
+              <Pressable
+                onPress={() => router.back()}
+                style={({ pressed }) => [styles.headerBack, pressed && styles.pressed]}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Go back">
+                <View style={styles.headerChevronWrap} collapsable={false}>
+                  <Ionicons name="chevron-back" size={22} color={COLORS.text} />
+                </View>
+                <Text style={styles.headerTitle}>Driving Licence Photo</Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.headerTitle}>Driving Licence Photo</Text>
+            )}
+          </View>
+
+          <Text style={styles.headline}>Already submitted with your claim</Text>
+          <Text style={styles.subtitle}>These photos were sent with your claim and can&apos;t be retaken.</Text>
+
+          <View style={styles.lockedPhotoRow}>
+            {lockedPhotos.map(({ uri, label }) => (
+              <View key={label} style={styles.lockedPhotoTile}>
+                <Image source={{ uri }} style={styles.lockedPhotoImage} resizeMode="cover" />
+                <Text style={styles.lockedPhotoLabel}>{label}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.buttonRow}>
+            <View style={styles.primaryButtonWrap}>
+              <CaptureButton title="Close" variant="primary" onPress={() => router.back()} />
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   if (!permission) {
     return (
@@ -451,6 +507,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 12,
+  },
+  lockedPhotoRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  lockedPhotoTile: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  lockedPhotoImage: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: INSURANCE_THUMBNAIL_BG,
+  },
+  lockedPhotoLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textMuted,
   },
   cameraFrame: {
     width: '100%',

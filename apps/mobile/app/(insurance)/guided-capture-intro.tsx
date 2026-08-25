@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,7 +20,8 @@ const TEXT = '#111111';
 export default function GuidedCaptureIntroScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const { requiredDone } = useLocalSearchParams<{ requiredDone?: string }>();
+  const { requiredDone, locked } = useLocalSearchParams<{ requiredDone?: string; locked?: string }>();
+  const isLocked = locked === '1';
   const cameFromRequiredDone = requiredDone === '1';
   const [hasRequiredPhotos, setHasRequiredPhotos] = useState(false);
   // Checked once on mount, not on every focus — this screen should only ever
@@ -32,6 +33,13 @@ export default function GuidedCaptureIntroScreen() {
   const [showIntro, setShowIntro] = useState(cameFromRequiredDone);
 
   useEffect(() => {
+    // Already submitted — there's no intro/walkthrough to show at all; go straight
+    // to the read-only "Captured Photos" view instead of an extra tap-through
+    // "View" button step.
+    if (isLocked) {
+      router.replace(`/(insurance)/capture?locked=1` as Href);
+      return;
+    }
     if (cameFromRequiredDone) return;
     let cancelled = false;
     void hasSeenGuidedCaptureIntro().then((seen) => {
@@ -45,7 +53,7 @@ export default function GuidedCaptureIntroScreen() {
     return () => {
       cancelled = true;
     };
-  }, [router, cameFromRequiredDone]);
+  }, [router, cameFromRequiredDone, isLocked]);
 
   useFocusEffect(
     useCallback(() => {

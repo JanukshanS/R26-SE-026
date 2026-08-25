@@ -39,12 +39,21 @@ export function Screen({
   if (scrollable) {
     return (
       <View style={{ flex: 1, backgroundColor: bg }}>
+        {/* Reserves the status-bar safe area as a fixed spacer OUTSIDE the
+            ScrollView, not as top padding on its content. Padding on the
+            scrollable content only protects the very first frame — the moment
+            the user scrolls, later content slides up underneath the
+            (transparent, edge-to-edge) status bar with nothing reserved for
+            it any more. A fixed sibling above the ScrollView stays put
+            regardless of scroll position, the same way the footer spacer
+            below already does for the bottom inset. */}
+        <View style={{ height: paddingTop, backgroundColor: bg }} />
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           contentContainerStyle={[
             {
               flexGrow: 1,
-              paddingTop: innerTop,
+              paddingTop: padded ? spacing.xl : 0,
               paddingBottom: innerBottom,
               paddingHorizontal: innerHorizontal,
               gap: spacing.lg,
