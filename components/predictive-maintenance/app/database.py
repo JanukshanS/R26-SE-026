@@ -1,7 +1,10 @@
 import os
 
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, declarative_base
+
+load_dotenv()
 
 # Postgres (Supabase) in every deployed environment; SQLite only as a zero-setup
 # local default and for tests.

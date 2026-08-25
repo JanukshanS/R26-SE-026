@@ -99,6 +99,7 @@ fi
 (
   cd "$PM_DIR" || exit 1
   export SUPABASE_URL
+  export SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-$SUPABASE_KEY}"
   exec "$PM_VENV/Scripts/python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 5000
 ) > "$LOG_DIR/predictive-maintenance.log" 2>&1 &
 PIDS+=("$!")
@@ -110,6 +111,7 @@ NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_KEY=$SUPABASE_KEY
 NEXT_PUBLIC_GEO_URL=http://localhost:5001
 NEXT_PUBLIC_DISPATCH_URL=http://localhost:3001
+NEXT_PUBLIC_MAINTENANCE_URL=http://localhost:5000
 ENVEOF
 (
   cd "$WEB_DIR" || exit 1

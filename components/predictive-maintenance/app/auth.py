@@ -107,3 +107,81 @@ def require_user(
     if not isinstance(subject, str) or not subject.strip():
         raise _unauthenticated("Token has no subject.")
     return subject
+
+
+def _decode_token(credentials: HTTPAuthorizationCredentials) -> dict:
+    """Return verified JWT claims for the bearer token."""
+    base = _project_url()
+    if not base:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="SUPABASE_URL is not configured.",
+        )
+    try:
+        signing_key = _jwk_client(
+            f"{base}/auth/v1/.well-known/jwks.json"
+        ).get_signing_key_from_jwt(credentials.credentials)
+        return jwt.decode(
+            credentials.credentials,
+            signing_key.key,
+            algorithms=["ES256"],
+            audience=_AUDIENCE,
+            issuer=f"{base}/auth/v1",
+            options={"require": ["exp", "sub"]},
+            leeway=_CLOCK_LEEWAY_SEC,
+        )
+    except jwt.PyJWTError as exc:
+        logger.warning("Bearer token rejected: %s", exc)
+        raise _unauthenticated("Invalid or expired token.") from exc
+
+
+def _fetch_profile_role(user_id: str, token: str) -> str | None:
+    """Read the caller's role from Supabase profiles via REST + caller JWT."""
+    import httpx
+
+    base = _project_url()
+    anon = os.getenv("SUPABASE_ANON_KEY", "").strip()
+    if not base or not anon:
+        return None
+    url = f"{base}/rest/v1/profiles"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "apikey": anon,
+        "Accept": "application/json",
+    }
+    params = {"id": f"eq.{user_id}", "select": "role"}
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            response = client.get(url, headers=headers, params=params)
+        if response.status_code != 200:
+            logger.warning("Profile role lookup failed: %s", response.status_code)
+            return None
+        rows = response.json()
+        if isinstance(rows, list) and rows:
+            role = rows[0].get("role")
+            return role if isinstance(role, str) else None
+    except httpx.HTTPError as exc:
+        logger.warning("Profile role lookup error: %s", exc)
+    return None
+
+
+def require_ops(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> str:
+    """Verify bearer token and require an ops account for admin catalogue writes."""
+    if credentials is None or not credentials.credentials.strip():
+        raise _unauthenticated("Missing bearer token.")
+
+    claims = _decode_token(credentials)
+    subject = claims.get("sub")
+    if not isinstance(subject, str) or not subject.strip():
+        raise _unauthenticated("Token has no subject.")
+
+    role = _fetch_profile_role(subject, credentials.credentials.strip())
+    if role == "ops":
+        return subject
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Ops role required for this action.",
+    )

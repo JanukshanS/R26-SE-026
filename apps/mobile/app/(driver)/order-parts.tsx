@@ -1,49 +1,20 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, type IconName } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
-import type { ComponentKey } from "@lib/maintenanceApi";
+import {
+  formatLkr,
+  getComponentMarketplace,
+  type ComponentKey,
+  type ComponentMarketplace,
+  type MarketplaceGarage,
+  type MarketplacePart,
+} from "@lib/maintenanceApi";
 import { BottomNavBar } from "@components/ui/bottom-nav-bar";
 import { useTabBack } from "@lib/useTabBack";
-
-interface Part {
-  id: string;
-  name: string;
-  year: number;
-  mileage: string;
-  age: string;
-  model: string;
-  price: string;
-  rating?: number;
-}
-
-const PARTS_BY_COMPONENT: Record<ComponentKey, Part[]> = {
-  brake: [
-    { id: "1", name: "Brake Pads", year: 2026, mileage: "10,000 Km", age: "1 year ago", model: "Toyota AquaPlus", price: "LKR 12,000" },
-    { id: "2", name: "Brake Pads", year: 2025, mileage: "15,000 Km", age: "3 days ago", model: "Toyota AquaPlus", price: "LKR 12,800" },
-    { id: "3", name: "Brake Pads", year: 2026, mileage: "10,000 Km", age: "45 days ago", model: "Toyota AquaPlus", price: "LKR 12,000" },
-    { id: "4", name: "Brake Pads", year: 2024, mileage: "12,000 Km", age: "2 months ago", model: "Toyota AquaPlus", price: "LKR 11,500" },
-  ],
-  engine: [
-    { id: "1", name: "Engine Oil 5W-30", year: 2026, mileage: "5,000 Km", age: "1 week ago", model: "Toyota AquaPlus", price: "LKR 4,500" },
-    { id: "2", name: "Engine Oil 0W-20", year: 2026, mileage: "5,000 Km", age: "2 weeks ago", model: "Toyota AquaPlus", price: "LKR 5,200" },
-    { id: "3", name: "Oil Filter", year: 2026, mileage: "5,000 Km", age: "1 week ago", model: "Toyota AquaPlus", price: "LKR 850" },
-    { id: "4", name: "Full Service Kit", year: 2025, mileage: "10,000 Km", age: "1 month ago", model: "Toyota AquaPlus", price: "LKR 9,800" },
-  ],
-  tire: [
-    { id: "1", name: "Tyre 175/65R15", year: 2026, mileage: "50,000 Km", age: "New", model: "Toyota AquaPlus", price: "LKR 8,500" },
-    { id: "2", name: "Tyre 185/60R15", year: 2026, mileage: "60,000 Km", age: "New", model: "Toyota AquaPlus", price: "LKR 9,200" },
-    { id: "3", name: "Tyre 175/65R15", year: 2025, mileage: "50,000 Km", age: "6 months ago", model: "Toyota AquaPlus", price: "LKR 7,800" },
-    { id: "4", name: "Tyre Set (4)", year: 2026, mileage: "50,000 Km", age: "New", model: "Toyota AquaPlus", price: "LKR 32,000" },
-  ],
-  battery: [
-    { id: "1", name: "Battery 12V 45Ah", year: 2026, mileage: "—", age: "New", model: "Toyota AquaPlus", price: "LKR 18,500" },
-    { id: "2", name: "Battery 12V 55Ah", year: 2026, mileage: "—", age: "New", model: "Toyota AquaPlus", price: "LKR 22,000" },
-    { id: "3", name: "HV Battery Cell", year: 2025, mileage: "—", age: "3 months ago", model: "Toyota AquaPlus", price: "LKR 45,000" },
-    { id: "4", name: "Battery 12V 45Ah", year: 2025, mileage: "—", age: "1 year ago", model: "Toyota AquaPlus", price: "LKR 16,000" },
-  ],
-};
+import { useVehicle } from "@lib/vehicleContext";
 
 const TITLES: Record<ComponentKey, string> = {
   brake: "Order Brake Pads",
@@ -59,26 +30,66 @@ const STORE_CATEGORIES: { key: ComponentKey; label: string; icon: IconName; blur
   { key: "battery", label: "Battery", icon: "Battery", blurb: "12V & HV cells" },
 ];
 
+const VALID_KEYS = new Set<ComponentKey>(["brake", "engine", "tire", "battery"]);
+
 export default function OrderPartsScreen() {
   const { canGoBack, goBack } = useTabBack();
   const insets = useSafeAreaInsets();
   const { component } = useLocalSearchParams<{ component: ComponentKey }>();
-  const key = component as ComponentKey | undefined;
+  const key = VALID_KEYS.has(component as ComponentKey) ? (component as ComponentKey) : undefined;
 
-  // Opened from the Store tab (no component) → show the category landing.
-  // Deep-linked from a health alert (?component=brake) → jump to that list.
-  if (!key || !PARTS_BY_COMPONENT[key]) {
+  if (!key) {
     return <StoreLanding topInset={insets.top} bottomInset={insets.bottom} />;
   }
 
-  const parts = PARTS_BY_COMPONENT[key];
+  return <CategoryStore component={key} topInset={insets.top} bottomInset={insets.bottom} canGoBack={canGoBack} goBack={goBack} />;
+}
+
+function CategoryStore({
+  component,
+  topInset,
+  bottomInset,
+  canGoBack,
+  goBack,
+}: {
+  component: ComponentKey;
+  topInset: number;
+  bottomInset: number;
+  canGoBack: boolean;
+  goBack: () => void;
+}) {
+  const { selectedVehicle } = useVehicle();
+  const [data, setData] = useState<ComponentMarketplace | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // WITHOUT THIS THE STORE SHOWS PARTS FOR OTHER PEOPLE'S CARS. The backend
+  // only filters by fitment when it is told what the vehicle is; given
+  // nothing, it cannot filter and returns everything for the component. That
+  // put Honda City brake pads in front of a Toyota Aqua owner - which reads as
+  // a recommendation, and is only discovered to be wrong at the counter.
+  const vehicleDescription = selectedVehicle
+    ? `${selectedVehicle.make} ${selectedVehicle.model}`.trim()
+    : undefined;
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const result = await getComponentMarketplace(component, vehicleDescription);
+    setData(result);
+    if (!result) setError("Could not load the parts store. Check your connection and try again.");
+    setLoading(false);
+  }, [component, vehicleDescription]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
-      {/* Header */}
       <View
         style={{
-          paddingTop: insets.top + spacing.sm,
+          paddingTop: topInset + spacing.sm,
           paddingHorizontal: spacing.lg,
           paddingBottom: spacing.md,
           backgroundColor: palette.surface,
@@ -94,49 +105,124 @@ export default function OrderPartsScreen() {
             <Icon name="ChevronLeft" size={24} color={palette.text} />
           </Pressable>
         ) : null}
-        <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>
-          {TITLES[key]}
-        </Text>
+        <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>{TITLES[component]}</Text>
       </View>
 
-      <ScrollView
-        contentContainerStyle={{
-          padding: spacing.lg,
-          gap: spacing.md,
-          paddingBottom: insets.bottom + 100,
-        }}
-      >
-        <Text style={{ ...typography.bodyStrong, color: palette.text }}>Suggested parts</Text>
-
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
-          {parts.map((part) => (
-            <PartCard
-              key={part.id}
-              part={part}
-              onPress={() =>
-                router.push({
-                  pathname: "/(driver)/auto-schedule",
-                  params: {
-                    component: key,
-                    partName: part.name,
-                    partSubtitle: `${part.year} · ${part.model}`,
-                    partPrice: part.price,
-                  },
-                })
-              }
-            />
-          ))}
+      {loading ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator color={palette.brand} />
         </View>
-      </ScrollView>
+      ) : error ? (
+        <View style={{ flex: 1, padding: spacing.lg, justifyContent: "center", gap: spacing.md }}>
+          <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>{error}</Text>
+          <Pressable
+            onPress={load}
+            style={{
+              alignSelf: "center",
+              borderRadius: radii.lg,
+              borderWidth: 1.5,
+              borderColor: palette.brand,
+              paddingHorizontal: spacing.lg,
+              paddingVertical: spacing.sm,
+            }}
+          >
+            <Text style={{ ...typography.bodyStrong, color: palette.brand }}>Try again</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={{
+            padding: spacing.lg,
+            gap: spacing.lg,
+            paddingBottom: bottomInset + 100,
+          }}
+        >
+          {/* What drivers were actually charged, from their own logged
+              services. Shown ABOVE the catalogue deliberately: a listing is a
+              quote, this is evidence, and seeing the real range first is what
+              makes a listed price meaningful. Hidden entirely when the sample
+              is too small - a range built from one or two invoices would read
+              as a benchmark without being one. */}
+          {data?.observed_prices?.is_reliable &&
+          data.observed_prices.low_lkr != null &&
+          data.observed_prices.high_lkr != null ? (
+            <View
+              style={{
+                backgroundColor: palette.brandSoft,
+                borderRadius: radii.lg,
+                padding: spacing.md,
+                gap: 4,
+              }}
+            >
+              <Text style={{ ...typography.caption, color: palette.textMuted }}>
+                What other drivers paid
+              </Text>
+              <Text style={{ ...typography.h3, color: palette.brand }}>
+                {formatLkr(data.observed_prices.low_lkr)} –{" "}
+                {formatLkr(data.observed_prices.high_lkr)}
+              </Text>
+              <Text style={{ ...typography.micro, color: palette.textMuted }}>
+                {data.observed_prices.median_lkr != null
+                  ? `Typically ${formatLkr(data.observed_prices.median_lkr)} · `
+                  : ""}
+                {data.observed_prices.note}
+              </Text>
+            </View>
+          ) : null}
 
-      {/* Go Back button */}
+          <Text style={{ ...typography.bodyStrong, color: palette.text }}>Suggested parts</Text>
+          {data?.parts.length ? (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
+              {data.parts.map((part) => (
+                <PartCard
+                  key={part.id}
+                  part={part}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(driver)/auto-schedule",
+                      params: {
+                        component,
+                        partName: part.name,
+                        partSubtitle: part.brand ?? part.fits_note ?? "",
+                        partPrice: formatLkr(part.price_lkr),
+                      },
+                    })
+                  }
+                />
+              ))}
+            </View>
+          ) : (
+            <Text style={{ ...typography.body, color: palette.textMuted }}>
+              {vehicleDescription
+                ? `No parts listed yet that fit your ${vehicleDescription}. A garage below can source the right part.`
+                : "No parts listed for this category yet."}
+            </Text>
+          )}
+
+          <Text style={{ ...typography.bodyStrong, color: palette.text, marginTop: spacing.sm }}>
+            Nearby garages
+          </Text>
+          {data?.garages.length ? (
+            <View style={{ gap: spacing.md }}>
+              {data.garages.map((garage) => (
+                <GarageCard key={garage.id} garage={garage} component={component} />
+              ))}
+            </View>
+          ) : (
+            <Text style={{ ...typography.body, color: palette.textMuted }}>
+              No garages listed for this service yet.
+            </Text>
+          )}
+        </ScrollView>
+      )}
+
       <View
         style={{
           position: "absolute",
           left: 0,
           right: 0,
           bottom: 0,
-          paddingBottom: insets.bottom + spacing.md,
+          paddingBottom: bottomInset + spacing.md,
           paddingTop: spacing.md,
           paddingHorizontal: spacing.lg,
           backgroundColor: palette.surface,
@@ -237,12 +323,12 @@ function StoreLanding({ topInset, bottomInset }: { topInset: number; bottomInset
   );
 }
 
-function PartCard({ part, onPress }: { part: Part; onPress: () => void }) {
+function PartCard({ part, onPress }: { part: MarketplacePart; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${part.name}, ${part.price}`}
+      accessibilityLabel={`${part.name}, ${formatLkr(part.price_lkr)}`}
       style={({ pressed }) => ({
         width: "47%",
         backgroundColor: pressed ? palette.homeBackground : palette.surface,
@@ -252,7 +338,6 @@ function PartCard({ part, onPress }: { part: Part; onPress: () => void }) {
         borderColor: palette.border,
       })}
     >
-      {/* Image placeholder */}
       <View
         style={{
           height: 90,
@@ -264,7 +349,6 @@ function PartCard({ part, onPress }: { part: Part; onPress: () => void }) {
         <Icon name="Package" size={36} color={palette.border} />
       </View>
 
-      {/* Price badge */}
       <View
         style={{
           position: "absolute",
@@ -277,36 +361,72 @@ function PartCard({ part, onPress }: { part: Part; onPress: () => void }) {
         }}
       >
         <Text style={{ ...typography.micro, color: palette.textOnBrand, fontWeight: "700" }}>
-          {part.price}
+          {formatLkr(part.price_lkr)}
         </Text>
       </View>
 
       <View style={{ padding: spacing.md, gap: 3 }}>
-        <Text style={{ ...typography.bodyStrong, color: palette.text }} numberOfLines={1}>
+        <Text style={{ ...typography.bodyStrong, color: palette.text }} numberOfLines={2}>
           {part.name}
         </Text>
-
-        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
-          <Icon name="Calendar" size={11} color={palette.textMuted} />
-          <Text style={{ ...typography.micro, color: palette.textMuted }}>{part.year}</Text>
-        </View>
-
-        {part.mileage !== "—" && (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
-            <Icon name="Gauge" size={11} color={palette.textMuted} />
-            <Text style={{ ...typography.micro, color: palette.textMuted }}>{part.mileage}</Text>
-          </View>
-        )}
-
-        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
-          <Icon name="Clock" size={11} color={palette.textMuted} />
-          <Text style={{ ...typography.micro, color: palette.textMuted }}>{part.age}</Text>
-        </View>
-
-        <Text style={{ ...typography.micro, color: palette.brand, fontWeight: "600" }} numberOfLines={1}>
-          {part.model}
-        </Text>
+        {part.brand ? (
+          <Text style={{ ...typography.micro, color: palette.textMuted }} numberOfLines={1}>
+            {part.brand}
+          </Text>
+        ) : null}
+        {part.fits_note ? (
+          <Text style={{ ...typography.micro, color: palette.brand, fontWeight: "600" }} numberOfLines={2}>
+            {part.fits_note}
+          </Text>
+        ) : null}
+        {part.rating != null ? (
+          <Text style={{ ...typography.micro, color: palette.textMuted }}>{part.rating.toFixed(1)} ★</Text>
+        ) : null}
+        {!part.in_stock ? (
+          <Text style={{ ...typography.micro, color: palette.warning }}>Out of stock</Text>
+        ) : null}
       </View>
+    </Pressable>
+  );
+}
+
+function GarageCard({ garage, component }: { garage: MarketplaceGarage; component: ComponentKey }) {
+  return (
+    <Pressable
+      onPress={() =>
+        router.push({
+          pathname: "/(driver)/auto-schedule",
+          params: { component, partName: garage.name, partSubtitle: garage.city ?? "", partPrice: garage.labour_lkr ? formatLkr(garage.labour_lkr) : "Ask garage" },
+        })
+      }
+      style={({ pressed }) => ({
+        backgroundColor: pressed ? palette.homeBackground : palette.surface,
+        borderRadius: radii.lg,
+        padding: spacing.md,
+        borderWidth: 1,
+        borderColor: palette.border,
+        gap: spacing.xs,
+      })}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+        <Icon name="Wrench" size={18} color={palette.brand} />
+        <Text style={{ ...typography.bodyStrong, color: palette.text, flex: 1 }}>{garage.name}</Text>
+        {garage.verified ? (
+          <Text style={{ ...typography.micro, color: palette.brand }}>Verified</Text>
+        ) : null}
+      </View>
+      <Text style={{ ...typography.micro, color: palette.textMuted }}>
+        {[garage.city, garage.address].filter(Boolean).join(" · ") || "Location not listed"}
+      </Text>
+      {garage.rating != null ? (
+        <Text style={{ ...typography.micro, color: palette.textMuted }}>{garage.rating.toFixed(1)} ★</Text>
+      ) : null}
+      {garage.distance_km != null ? (
+        <Text style={{ ...typography.micro, color: palette.textMuted }}>~{garage.distance_km} km away</Text>
+      ) : null}
+      {garage.opening_hours ? (
+        <Text style={{ ...typography.micro, color: palette.textMuted }}>{garage.opening_hours}</Text>
+      ) : null}
     </Pressable>
   );
 }

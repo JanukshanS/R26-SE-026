@@ -597,3 +597,271 @@ export function previewInstallKm(
   }
   return { installKm, kmOnComponent: kmOn };
 }
+
+// ── Marketplace (parts store) ─────────────────────────────────────────────
+
+export interface MarketplacePart {
+  id: string;
+  component: ComponentKey;
+  name: string;
+  brand: string | null;
+  fits_note: string | null;
+  price_lkr: number;
+  grade: string | null;
+  supplier: string | null;
+  in_stock: boolean;
+  rating: number | null;
+}
+
+export interface MarketplaceGarage {
+  id: string;
+  name: string;
+  address: string | null;
+  city: string | null;
+  phone: string | null;
+  services: string[];
+  rating: number | null;
+  labour_lkr: number | null;
+  opening_hours: string | null;
+  verified: boolean;
+  distance_km: number | null;
+}
+
+/**
+ * What drivers actually paid, aggregated from their own logged service
+ * records. Distinct from a catalogue price: a listing is a quote, this is
+ * evidence. `is_reliable` is false when too few services have been logged to
+ * say anything - the range must not be rendered in that case, because one
+ * driver's invoice is an anecdote and would read as a benchmark.
+ */
+export interface ObservedPrices {
+  component: string;
+  sample_size: number;
+  low_lkr: number | null;
+  median_lkr: number | null;
+  high_lkr: number | null;
+  is_reliable: boolean;
+  note: string;
+}
+
+export interface ComponentMarketplace {
+  component: string;
+  parts: MarketplacePart[];
+  garages: MarketplaceGarage[];
+  estimated_total_lkr: number | null;
+  observed_prices: ObservedPrices | null;
+}
+
+export function formatLkr(amount: number): string {
+  return `LKR ${Math.round(amount).toLocaleString("en-LK")}`;
+}
+
+export interface ComponentAdvice {
+  advice: {
+    component: string;
+    urgency: "critical" | "soon" | "monitor" | "healthy" | "unknown";
+    headline: string;
+    detail: string;
+    actions: string[];
+    reasons: string[];
+    is_estimated: boolean;
+  };
+  /** Ready-to-render prose. Populated whether or not the LLM was reachable. */
+  text: string;
+  /** "llm" when a model wrote it, "fallback" for the deterministic wording. */
+  source: "llm" | "fallback";
+}
+
+/**
+ * What the driver should do about one component.
+ *
+ * The DECISION is made server-side, deliberately: the urgency thresholds, the
+ * oil-interval override and the estimate disclosure all live there so a phone
+ * running a stale bundle can never disagree with the server about whether a
+ * brake pad is dangerous.
+ */
+export async function getComponentAdvice(
+  vehicleId: string,
+  component: ComponentKey
+): Promise<ComponentAdvice | null> {
+  const { signal, cancel } = timeoutSignal(15_000);
+  try {
+    const res = await fetch(
+      `${BASE_URL}/vehicle/${encodeURIComponent(vehicleId)}/advice/${encodeURIComponent(component)}`,
+      { headers: await authHeaders(), signal }
+    );
+    if (!res.ok) return null;
+    const raw = await res.json().catch(() => null);
+    if (!raw || typeof raw !== "object" || !raw.advice) return null;
+    return raw as ComponentAdvice;
+  } catch {
+    return null;
+  } finally {
+    cancel();
+  }
+}
+
+export interface PlanRecommendation {
+  garage_id: string | null;
+  garage_name: string | null;
+  part_id: string | null;
+  part_name: string | null;
+  /** One sentence: why this garage beat the others. Rendered as a subtitle. */
+  garage_reason: string;
+  /** Two or three sentences on what the mechanic will physically do. */
+  how_its_done: string;
+  /**
+   * Knowledge base passages the repair description was written from, as
+   * "Document title - Section". Empty when retrieval was unavailable, in
+   * which case the text is the model's own general knowledge.
+   */
+  sources: string[];
+  estimated_total_lkr: number | null;
+}
+
+export interface ComponentPlan {
+  advice: ComponentAdvice["advice"];
+  text: string;
+  source: "llm" | "fallback";
+  parts: MarketplacePart[];
+  garages: MarketplaceGarage[];
+  observed_prices: ObservedPrices | null;
+  /** Absent when the model was unreachable, or named something that does not exist. */
+  recommendation: PlanRecommendation | null;
+}
+
+/**
+ * Diagnosis, the real options, and a recommendation among them.
+ *
+ * Supersedes getComponentAdvice on the component screen: one round trip
+ * instead of two, and the model can only compare options the driver is also
+ * shown. Location is optional - without it garages are ranked by rating
+ * rather than distance, and the model is told the location is unknown so it
+ * cannot argue from a proximity it does not have.
+ */
+export async function getComponentPlan(
+  vehicleId: string,
+  component: ComponentKey,
+  opts: { lat?: number; lon?: number; vehicle?: string } = {}
+): Promise<ComponentPlan | null> {
+  const params = new URLSearchParams();
+  if (opts.lat != null && opts.lon != null) {
+    params.set("lat", String(opts.lat));
+    params.set("lon", String(opts.lon));
+  }
+  if (opts.vehicle) params.set("vehicle", opts.vehicle);
+
+  // Generous: this may make a language-model call. The screen renders health
+  // without it, so a slow reply costs nothing but the card.
+  const { signal, cancel } = timeoutSignal(30_000);
+  try {
+    const res = await fetch(
+      `${BASE_URL}/vehicle/${encodeURIComponent(vehicleId)}/plan/${encodeURIComponent(component)}?${params}`,
+      { headers: await authHeaders(), signal }
+    );
+    if (!res.ok) return null;
+    const raw = await res.json().catch(() => null);
+    if (!raw || typeof raw !== "object" || !raw.advice) return null;
+    return raw as ComponentPlan;
+  } catch {
+    return null;
+  } finally {
+    cancel();
+  }
+}
+
+export interface MarketplaceBrowse {
+  parts: MarketplacePart[];
+  garages: MarketplaceGarage[];
+  /** Component keys actually present in `parts`, for building filter chips. */
+  components: string[];
+  /** Set when the parts list was narrowed to one vehicle; null when unfiltered. */
+  filtered_to_vehicle: string | null;
+}
+
+/**
+ * The whole store. Separate from getComponentMarketplace, which answers "this
+ * part is worn, what now?" and carries advice and a price benchmark that only
+ * mean something for a specific component.
+ */
+export async function browseMarketplace(opts: {
+  component?: string;
+  vehicle?: string;
+  search?: string;
+} = {}): Promise<MarketplaceBrowse | null> {
+  const params = new URLSearchParams({ limit_parts: "60", limit_garages: "40" });
+  if (opts.component) params.set("component", opts.component);
+  if (opts.vehicle) params.set("vehicle", opts.vehicle);
+  if (opts.search) params.set("search", opts.search);
+
+  const { signal, cancel } = timeoutSignal(10_000);
+  try {
+    const res = await fetch(`${BASE_URL}/marketplace?${params}`, {
+      headers: await authHeaders(),
+      signal,
+    });
+    if (!res.ok) return null;
+    const raw = await res.json().catch(() => null);
+    if (!raw || typeof raw !== "object") return null;
+    return {
+      parts: Array.isArray(raw.parts) ? raw.parts : [],
+      garages: Array.isArray(raw.garages) ? raw.garages : [],
+      components: Array.isArray(raw.components) ? raw.components : [],
+      filtered_to_vehicle:
+        typeof raw.filtered_to_vehicle === "string" ? raw.filtered_to_vehicle : null,
+    };
+  } catch {
+    return null;
+  } finally {
+    cancel();
+  }
+}
+
+/** Parts and garages for one component category in the store. */
+export async function getComponentMarketplace(
+  component: ComponentKey,
+  vehicle?: string
+): Promise<ComponentMarketplace | null> {
+  const params = new URLSearchParams({ limit_parts: "20", limit_garages: "10" });
+  if (vehicle) params.set("vehicle", vehicle);
+
+  const { signal, cancel } = timeoutSignal(10_000);
+  try {
+    const res = await fetch(
+      `${BASE_URL}/marketplace/${encodeURIComponent(component)}?${params}`,
+      { headers: await authHeaders(), signal }
+    );
+    if (!res.ok) return null;
+    const raw = await res.json().catch(() => null);
+    if (!raw || typeof raw !== "object") return null;
+    return {
+      component: String(raw.component ?? component),
+      parts: Array.isArray(raw.parts) ? raw.parts : [],
+      garages: Array.isArray(raw.garages) ? raw.garages : [],
+      estimated_total_lkr:
+        typeof raw.estimated_total_lkr === "number" ? raw.estimated_total_lkr : null,
+      // The server computes this from service_records.cost_lkr. It was being
+      // dropped here, so the one figure grounded in what people were actually
+      // charged never reached the screen.
+      observed_prices:
+        raw.observed_prices && typeof raw.observed_prices === "object"
+          ? {
+              component: String(raw.observed_prices.component ?? component),
+              sample_size: Number(raw.observed_prices.sample_size ?? 0),
+              low_lkr:
+                typeof raw.observed_prices.low_lkr === "number" ? raw.observed_prices.low_lkr : null,
+              median_lkr:
+                typeof raw.observed_prices.median_lkr === "number" ? raw.observed_prices.median_lkr : null,
+              high_lkr:
+                typeof raw.observed_prices.high_lkr === "number" ? raw.observed_prices.high_lkr : null,
+              is_reliable: Boolean(raw.observed_prices.is_reliable),
+              note: String(raw.observed_prices.note ?? ""),
+            }
+          : null,
+    };
+  } catch {
+    return null;
+  } finally {
+    cancel();
+  }
+}

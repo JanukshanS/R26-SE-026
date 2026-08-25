@@ -113,3 +113,6 @@ contracts/*.js
 contracts/*.js.map
 contracts/*.d.ts
 contracts/*.d.ts.map
+
+# Derived: rebuilt from knowledge/*.md whenever the corpus changes.
+components/predictive-maintenance/knowledge/.embeddings.json

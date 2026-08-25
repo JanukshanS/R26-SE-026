@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import PortalShell, { EmptyCard } from "@/components/portal/PortalShell";
+import { GaragesTab, PartsTab } from "@/app/admin/marketplace-tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -16,7 +17,7 @@ import { useAuth, type Role } from "@/lib/auth";
 import { enumLabel, listProviders, type ProviderRecord } from "@/lib/dispatchApi";
 import { supabase } from "@/lib/supabase";
 
-const TAB_LABELS = ["Users", "Providers"] as const;
+const TAB_LABELS = ["Users", "Providers", "Parts", "Garages"] as const;
 type Tab = (typeof TAB_LABELS)[number];
 
 const TABS = TAB_LABELS.map((label) => ({ label, href: `#${label.toLowerCase()}` }));
@@ -433,13 +434,17 @@ export default function AdminConsole() {
           reload={loadProfiles}
           onRoleChanged={setProfiles}
         />
-      ) : (
+      ) : tab === "Providers" ? (
         <ProvidersTab
           providers={providers}
           error={providersError}
           reload={loadProviders}
           profiles={profiles}
         />
+      ) : tab === "Parts" ? (
+        <PartsTab />
+      ) : (
+        <GaragesTab />
       )}
     </PortalShell>
   );
