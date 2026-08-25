@@ -30,6 +30,7 @@ import {
   type VehicleCondition,
 } from "@lib/maintenanceApi";
 import { normalizePlate, plateError } from "@lib/plate-number";
+import { haptics } from "@lib/haptics";
 import {
   formatExpireMonth,
   formatLicenceNumber,
@@ -168,6 +169,7 @@ export default function ManageVehiclesScreen() {
       if (missing.length > 0) {
         setMissingLabels(missing);
         setReminderVisible(true);
+        haptics.error();
       }
     })();
   }, [editVehicleId, vehicles, vehiclesLoading, user]);

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
@@ -14,6 +15,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import {
@@ -27,13 +29,21 @@ import {
   CAPTURE_SURFACE_WHITE,
   CAPTURE_TEXT_WHITE,
   CAPTURE_THUMBNAIL_BG,
+  CAPTURE_TYPE_HEADLINE_SIZE,
+  CAPTURE_TYPE_HEADLINE_WEIGHT,
   GRAY_900,
+  INSURANCE_BORDER,
+  INSURANCE_SCREEN_BG,
+  INSURANCE_TEXT,
+  INSURANCE_TEXT_MUTED,
+  INSURANCE_THUMBNAIL_BG,
 } from '@/features/guided-capture/capture-ui-theme';
 import {
   CaptureModalBackdrop,
   captureModalBackdropStyles,
   useCaptureModalOverlaySize,
 } from '@/features/guided-capture/components/capture-modal-backdrop';
+import { CaptureButton } from '@/features/guided-capture/components/capture-button';
 import { CaptureFooter } from '@/features/guided-capture/components/capture-footer';
 import { CaptureInstructions } from '@/features/guided-capture/components/capture-instructions';
 import { CaptureOverlay } from '@/features/guided-capture/components/capture-overlay';
@@ -49,6 +59,9 @@ import { HEIGHT_STEPS } from '@/features/guided-capture/types';
 
 export default function GuidedCaptureScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const { locked } = useLocalSearchParams<{ locked?: string }>();
+  const isLocked = locked === '1';
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
 
@@ -128,13 +141,82 @@ export default function GuidedCaptureScreen() {
   const requiredStopsJustDone = phase.kind === 'moveNext' && phase.completedStopIndex === stopCount - 1;
   const [shownRequiredDoneIntro, setShownRequiredDoneIntro] = useState(false);
   useEffect(() => {
+    // Skipped when locked — this navigation is part of the live capture flow, not
+    // relevant to a driver only viewing an already-submitted claim's photos.
+    if (isLocked) return;
     if (requiredStopsJustDone && !shownRequiredDoneIntro) {
       setShownRequiredDoneIntro(true);
       router.push({ pathname: '/(insurance)/guided-capture-intro', params: { requiredDone: '1' } });
     }
-  }, [requiredStopsJustDone, shownRequiredDoneIntro, router]);
+  }, [requiredStopsJustDone, shownRequiredDoneIntro, router, isLocked]);
   const awaitingRequiredDoneIntro = requiredStopsJustDone && !shownRequiredDoneIntro;
 
+  if (isLocked) {
+    // Already submitted — no camera or in-flow "Captured Photos" sheet at all, just
+    // a clean read-only screen matching the other three claim-step screens' own
+    // locked view (driving licence / user verification / 3rd party details).
+    return (
+      <SafeAreaView style={styles.lockedSafe} edges={['top', 'left', 'right', 'bottom']}>
+        <ScrollView
+          style={styles.lockedScroll}
+          contentContainerStyle={styles.lockedScrollContent}
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.lockedHeader}>
+            {navigation.canGoBack() ? (
+              <Pressable
+                onPress={() => router.back()}
+                style={({ pressed }) => [styles.lockedHeaderBack, pressed && styles.pressed]}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Go back">
+                <View style={styles.lockedHeaderChevronWrap} collapsable={false}>
+                  <Ionicons name="chevron-back" size={22} color={INSURANCE_TEXT} />
+                </View>
+                <Text style={styles.lockedHeaderTitle}>Guided Capture</Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.lockedHeaderTitle}>Guided Capture</Text>
+            )}
+          </View>
+
+          <Text style={styles.lockedHeadline}>Already submitted with your claim</Text>
+          <Text style={styles.lockedSubtitle}>
+            These photos were sent with your claim and can&apos;t be retaken.
+          </Text>
+
+          {stopIndices.map((stopIndex) => {
+            const stopPhotos = photosByStop.get(stopIndex);
+            return (
+              <View key={stopIndex} style={styles.lockedStopRow}>
+                <Text style={styles.lockedStopLabel}>STOP {stopIndex + 1}</Text>
+                <View style={styles.lockedStopTiles}>
+                  {HEIGHT_STEPS.map((h) => {
+                    const photo = stopPhotos?.find((p) => p.heightStep === h);
+                    return (
+                      <View key={h} style={styles.lockedTile}>
+                        {photo ? (
+                          <Image source={{ uri: photo.uri }} style={styles.lockedTileImage} />
+                        ) : (
+                          <View style={styles.lockedTileEmpty} />
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          })}
+
+          <View style={styles.lockedButtonRow}>
+            <CaptureButton title="Close" variant="primary" onPress={() => router.back()} />
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // The camera is never used in locked mode (handled above), so no permission is
+  // needed at all in that case.
   if (!permission) {
     return (
       <View style={styles.center}>
@@ -661,5 +743,91 @@ const styles = StyleSheet.create({
   },
   instructionsScrollContent: {
     paddingBottom: 28,
+  },
+  lockedSafe: {
+    flex: 1,
+    backgroundColor: INSURANCE_SCREEN_BG,
+  },
+  lockedScroll: {
+    flex: 1,
+  },
+  lockedScrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+    gap: 14,
+  },
+  lockedHeader: {
+    paddingTop: 45,
+  },
+  lockedHeaderBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingBottom: 4,
+    paddingRight: 8,
+  },
+  lockedHeaderChevronWrap: {
+    width: 28,
+    height: 28,
+    marginRight: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  lockedHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: INSURANCE_TEXT,
+    flexShrink: 0,
+  },
+  pressed: {
+    opacity: 0.65,
+  },
+  lockedHeadline: {
+    fontSize: CAPTURE_TYPE_HEADLINE_SIZE,
+    fontWeight: CAPTURE_TYPE_HEADLINE_WEIGHT,
+    color: INSURANCE_TEXT,
+    lineHeight: 28,
+    marginTop: 2,
+  },
+  lockedSubtitle: {
+    fontSize: 16,
+    color: INSURANCE_TEXT_MUTED,
+    lineHeight: 22,
+  },
+  lockedStopRow: {
+    gap: 8,
+  },
+  lockedStopLabel: {
+    color: INSURANCE_TEXT,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  lockedStopTiles: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  lockedTile: {
+    flex: 1,
+  },
+  lockedTileImage: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: INSURANCE_BORDER,
+    backgroundColor: INSURANCE_THUMBNAIL_BG,
+  },
+  lockedTileEmpty: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: INSURANCE_BORDER,
+    borderStyle: 'dashed',
+    backgroundColor: INSURANCE_THUMBNAIL_BG,
+  },
+  lockedButtonRow: {
+    marginTop: 8,
   },
 });

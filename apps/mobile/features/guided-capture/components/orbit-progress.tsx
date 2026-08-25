@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Ellipse, Line, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Rect } from 'react-native-svg';
 import Animated, {
   useAnimatedProps,
   useSharedValue,
@@ -115,50 +115,56 @@ function OrbitDot({
   );
 }
 
-/** Thin-outline top-down car icon, matching the "Guided capture camera angles" intro diagram. */
+/** Top-down car icon — same shape as the Guided Capture intro diagram's own
+ * CarIcon (capture-instructions.tsx), just recolored to this screen's theme
+ * tokens, so the two screens show the literal same car. */
 function CarIcon() {
   return (
     <>
       <Rect
-        x={CENTER_X - 22}
-        y={CENTER_Y - 40}
-        width={44}
-        height={80}
-        rx={16}
+        x={CENTER_X - 30}
+        y={CENTER_Y - 65}
+        width={60}
+        height={130}
+        rx={22}
         fill={WHITE}
         stroke={CAPTURE_ARC_CAR_LINE}
         strokeWidth={2.5}
       />
       <Rect
-        x={CENTER_X - 14}
-        y={CENTER_Y - 24}
-        width={28}
-        height={20}
-        rx={5}
+        x={CENTER_X - 19}
+        y={CENTER_Y - 39}
+        width={38}
+        height={26}
+        rx={8}
         fill="none"
         stroke={CAPTURE_ARC_CAR_LINE}
         strokeWidth={2}
       />
       <Rect
-        x={CENTER_X - 14}
-        y={CENTER_Y + 12}
-        width={28}
-        height={16}
-        rx={5}
+        x={CENTER_X - 19}
+        y={CENTER_Y + 16}
+        width={38}
+        height={21}
+        rx={8}
         fill="none"
         stroke={CAPTURE_ARC_CAR_LINE}
         strokeWidth={2}
       />
       <Line
         x1={CENTER_X}
-        y1={CENTER_Y - 22}
+        y1={CENTER_Y - 36}
         x2={CENTER_X}
-        y2={CENTER_Y + 26}
+        y2={CENTER_Y + 34}
         stroke={CAPTURE_ARC_CAR_LINE}
         strokeWidth={1.5}
       />
-      <Ellipse cx={CENTER_X - 24} cy={CENTER_Y - 18} rx={4} ry={6} fill={WHITE} stroke={CAPTURE_ARC_CAR_LINE} strokeWidth={2} />
-      <Ellipse cx={CENTER_X + 24} cy={CENTER_Y - 18} rx={4} ry={6} fill={WHITE} stroke={CAPTURE_ARC_CAR_LINE} strokeWidth={2} />
+      {/* Four wheels, straddling the body edges near the windshield/rear-window
+       * height — inset from the bumpers, matching real wheel position. */}
+      <Rect x={CENTER_X - 34.5} y={CENTER_Y - 52} width={9} height={20} rx={3} fill={CAPTURE_ARC_CAR_LINE} />
+      <Rect x={CENTER_X + 25.5} y={CENTER_Y - 52} width={9} height={20} rx={3} fill={CAPTURE_ARC_CAR_LINE} />
+      <Rect x={CENTER_X - 34.5} y={CENTER_Y + 32} width={9} height={20} rx={3} fill={CAPTURE_ARC_CAR_LINE} />
+      <Rect x={CENTER_X + 25.5} y={CENTER_Y + 32} width={9} height={20} rx={3} fill={CAPTURE_ARC_CAR_LINE} />
     </>
   );
 }
@@ -228,7 +234,7 @@ export function OrbitProgress({
         <CaptureButton
           title="Continue"
           onPress={onManualContinue}
-          variant="secondary"
+          variant="primary"
           fullWidth={false}
           accessibilityLabel="Continue"
         />

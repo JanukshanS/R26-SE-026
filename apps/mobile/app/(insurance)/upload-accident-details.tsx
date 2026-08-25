@@ -30,6 +30,7 @@ import { formatTimestamp } from '@/lib/format-timestamp';
 import { clearAllClaimData } from '@/lib/clear-claim-data';
 import { saveDismissedClaimId } from '@/lib/claim-upload-dedupe';
 import { ResetCaptureDialog } from '@/features/guided-capture/components/reset-capture-dialog';
+import { LocationRequiredDialog } from '@/features/report-accident/components/location-required-dialog';
 import {
   CAPTURE_ACTION_BLUE_SOFT,
   INSURANCE_BORDER_SOFT,
@@ -192,6 +193,10 @@ export default function UploadAccidentDetailsScreen() {
     uploadFailedVisible,
     dismissUploadFailed,
     retryUpload,
+    locationRequiredVisible,
+    dismissLocationRequired,
+    retryLocation,
+    openLocationSettings,
   } = useClaimUpload(uploadKey, reportedAtIso, claimantHydrated, claimantRef, effectiveVehicleId);
 
   // existingClaimId mode: nothing local to show progress for — the claim already
@@ -584,6 +589,13 @@ export default function UploadAccidentDetailsScreen() {
         cancelLabel="Not now"
         confirmLabel="Try again"
       />
+
+      <LocationRequiredDialog
+        visible={locationRequiredVisible}
+        onOpenSettings={openLocationSettings}
+        onTryAgain={retryLocation}
+        onNotNow={dismissLocationRequired}
+      />
     </SafeAreaView>
   );
 }
@@ -608,6 +620,7 @@ const styles = StyleSheet.create({
     gap: 4,
     marginTop: 31,
     marginBottom: 20,
+    marginLeft: -10,
     paddingTop: 20,
     paddingBottom: 4,
     alignSelf: 'flex-start',
@@ -741,11 +754,8 @@ const styles = StyleSheet.create({
   callInsurerWrap: {
     backgroundColor: COLORS.screen,
     borderRadius: 16,
-    shadowColor: INSURANCE_SHADOW_COLOR,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   // flexDirection: 'row' directly on the Pressable (not a centered inner
   // wrapper) so the icon sits at a fixed left position regardless of how

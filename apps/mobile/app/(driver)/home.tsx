@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Badge } from "@components/ui/badge";
 import { BottomNavBar } from "@components/ui/bottom-nav-bar";
 import { Card } from "@components/ui/card";
-import { Icon } from "@components/ui/icon";
+import { Chip } from "@components/ui/chip";
+import { Icon, type IconName } from "@components/ui/icon";
 import { ObdSourceBadge } from "@components/ui/obd-source-badge";
 import { QuickAction } from "@components/ui/quick-action";
 import { Screen } from "@components/ui/screen";
@@ -30,6 +31,14 @@ import { useIncompleteUploadStatus } from "@/features/report-accident/hooks/use-
 import { ClaimUploadReminderModal } from "@/features/report-accident/components/claim-upload-reminder-modal";
 
 const BOTTOM_SCROLL_PADDING = 112;
+
+/** Same mapping as Manage Vehicles' VehicleCard, so a vehicle's icon reads the
+ * same wherever it shows up in the app. */
+function vehicleIcon(fuelType: Vehicle["fuelType"]): IconName {
+  if (fuelType === "electric") return "Zap";
+  if (fuelType === "hybrid") return "Leaf";
+  return "Car";
+}
 
 export default function DriverHomeScreen() {
   const insets = useSafeAreaInsets();
@@ -575,99 +584,138 @@ export default function DriverHomeScreen() {
               backgroundColor: palette.surface,
               borderTopLeftRadius: 15,
               borderTopRightRadius: 15,
-              paddingTop: spacing.lg,
-              paddingHorizontal: spacing.lg,
-              paddingBottom: insets.bottom + spacing.lg,
-              gap: spacing.md,
+              overflow: "hidden",
             }}
           >
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
+            {/* Tinted header — same treatment as the Add/Edit Vehicle sheet on
+                Manage Vehicles, for a consistent modal-sheet look app-wide. */}
+            <View
+              style={{
+                backgroundColor: palette.brandSoft,
+                paddingTop: spacing.lg,
+                paddingHorizontal: spacing.lg,
+                paddingBottom: spacing.lg,
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
               <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>
                 {user ? "Switch Vehicle" : "Your Vehicles"}
               </Text>
-              <Pressable onPress={() => setShowVehiclePicker(false)} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
-                <Icon name="X" size={20} color={palette.textMuted} />
+              <Pressable
+                onPress={() => setShowVehiclePicker(false)}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: palette.surface,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Icon name="X" size={18} color={palette.textMuted} />
               </Pressable>
             </View>
 
-            {!user ? (
-              <View style={{ gap: spacing.md, paddingVertical: spacing.md }}>
-                <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
-                  Sign in to manage multiple vehicles and sync your health data.
-                </Text>
-                <Pressable
-                  onPress={() => { setShowVehiclePicker(false); router.push("/(driver)/auth"); }}
-                  style={({ pressed }) => ({
-                    backgroundColor: pressed ? palette.brandPressed : palette.brand,
-                    borderRadius: radii.lg,
-                    paddingVertical: spacing.md + 2,
-                    alignItems: "center",
-                  })}
-                >
-                  <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-                    Sign In / Register
+            <View
+              style={{
+                paddingHorizontal: spacing.lg,
+                paddingTop: spacing.lg,
+                paddingBottom: insets.bottom + spacing.lg,
+                gap: spacing.md,
+              }}
+            >
+              {!user ? (
+                <View style={{ gap: spacing.md, paddingVertical: spacing.md }}>
+                  <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
+                    Sign in to manage multiple vehicles and sync your health data.
                   </Text>
-                </Pressable>
-              </View>
-            ) : (
-              <View style={{ gap: spacing.sm }}>
-                {vehicles.map((v) => (
                   <Pressable
-                    key={v._id}
-                    onPress={() => {
-                      if (selectedVehicle?._id === v._id) {
-                        setShowVehiclePicker(false);
-                        return;
-                      }
-                      setPendingVehicle(v);
-                    }}
+                    onPress={() => { setShowVehiclePicker(false); router.push("/(driver)/auth"); }}
+                    style={({ pressed }) => ({
+                      backgroundColor: pressed ? palette.brandPressed : palette.brand,
+                      borderRadius: radii.lg,
+                      paddingVertical: spacing.md + 2,
+                      alignItems: "center",
+                    })}
+                  >
+                    <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
+                      Sign In / Register
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={{ gap: spacing.sm }}>
+                  {vehicles.map((v) => (
+                    <Pressable
+                      key={v._id}
+                      onPress={() => {
+                        if (selectedVehicle?._id === v._id) {
+                          setShowVehiclePicker(false);
+                          return;
+                        }
+                        setPendingVehicle(v);
+                      }}
+                      style={({ pressed }) => ({
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: spacing.md,
+                        padding: spacing.md,
+                        borderRadius: radii.lg,
+                        backgroundColor: pressed ? palette.homeBackground : palette.surface,
+                        boxShadow: "0 2px 8px rgba(15, 15, 15, 0.05)",
+                      })}
+                    >
+                      <View
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: radii.lg,
+                          backgroundColor: palette.brandSoft,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Icon name={vehicleIcon(v.fuelType)} size={22} color={palette.brand} />
+                      </View>
+                      <View style={{ flex: 1, gap: 4 }}>
+                        <Text style={{ ...typography.bodyStrong, color: palette.text }}>
+                          {v.nickname || `${v.make} ${v.model}`}
+                        </Text>
+                        <View style={{ flexDirection: "row", gap: spacing.xs }}>
+                          <Chip label={v.plateNumber} />
+                          <Chip label={v.fuelType.charAt(0).toUpperCase() + v.fuelType.slice(1)} />
+                        </View>
+                      </View>
+                      {selectedVehicle?._id === v._id && (
+                        <Icon name="CheckCircle" size={18} color={palette.brand} />
+                      )}
+                    </Pressable>
+                  ))}
+
+                  <Pressable
+                    onPress={() => { setShowVehiclePicker(false); router.push("/(driver)/manage-vehicles"); }}
                     style={({ pressed }) => ({
                       flexDirection: "row",
                       alignItems: "center",
-                      gap: spacing.md,
-                      padding: spacing.md,
+                      justifyContent: "center",
+                      gap: spacing.sm,
+                      paddingVertical: spacing.md,
                       borderRadius: radii.lg,
-                      backgroundColor: pressed ? palette.homeBackground : palette.surface,
-                      borderWidth: 1.5,
-                      borderColor: selectedVehicle?._id === v._id ? palette.brand : palette.border,
+                      backgroundColor: pressed ? palette.brandPressed : palette.brand,
                     })}
                   >
-                    <Icon name="Car" size={20} color={selectedVehicle?._id === v._id ? palette.brand : palette.textMuted} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-                        {v.nickname || `${v.make} ${v.model}`}
-                      </Text>
-                      <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                        {v.plateNumber} · {v.fuelType}
-                      </Text>
-                    </View>
-                    {selectedVehicle?._id === v._id && (
-                      <Icon name="CheckCircle" size={18} color={palette.brand} />
-                    )}
+                    <Icon name="Settings" size={16} color={palette.textOnBrand} />
+                    <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
+                      Manage Vehicles
+                    </Text>
                   </Pressable>
-                ))}
-
-                <Pressable
-                  onPress={() => { setShowVehiclePicker(false); router.push("/(driver)/manage-vehicles"); }}
-                  style={({ pressed }) => ({
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: spacing.sm,
-                    paddingVertical: spacing.md,
-                    borderRadius: radii.lg,
-                    borderWidth: 1.5,
-                    borderColor: palette.brand,
-                    backgroundColor: pressed ? palette.brandSoft : "transparent",
-                  })}
-                >
-                  <Icon name="Settings" size={16} color={palette.brand} />
-                  <Text style={{ ...typography.bodyStrong, color: palette.brand }}>
-                    Manage Vehicles
-                  </Text>
-                </Pressable>
-              </View>
-            )}
+                </View>
+              )}
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
