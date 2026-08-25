@@ -40,7 +40,7 @@ from sqlalchemy.orm import Session
 from app.advice import Advice, build_advice
 from app.controllers.marketplace_controller import get_component_marketplace
 from app.database import get_db
-from app.routes.advice import _LABEL_TO_KEY, _plain
+from app.routes.advice import _LABEL_TO_KEY, _apply_faults, _plain
 from app.routes.explain import _api_key, _base_url, _model
 from app.schemas.marketplace import GarageOut, PartOut, PriceInsight
 from app.services.knowledge import build_query, format_for_prompt, get_index
@@ -145,6 +145,12 @@ def _system_prompt() -> str:
             "anything technical. If it does not cover something, leave that out "
             "rather than filling the gap from memory. When no reference material "
             "is supplied, answer from general knowledge as usual.",
+            "9. If active_fault_codes is present, how_its_done must describe "
+            "DIAGNOSING AND FIXING THAT FAULT, not a routine replacement. Use "
+            "the supplied likely_causes. Never invent a consequence: if_not_fixed "
+            "is the complete list of what this fault damages, and if it is empty "
+            "then say nothing about consequences at all. Never state a repair "
+            "cost - only the supplied multiplier, and only as a comparison.",
             "8. DO NOT REPEAT THE DIAGNOSIS. The driver is already reading the "
             "headline, the reasons and the list of actions on the same screen, "
             "directly above your words. Restating that the part is worn, or how "
@@ -169,6 +175,7 @@ def _facts(
     readings: Dict[str, Any],
     has_location: bool,
     reference: str = "",
+    faults: Optional[List[Any]] = None,
 ) -> str:
     """Everything the model may use. Nothing else is in scope."""
     payload: Dict[str, Any] = {
@@ -179,6 +186,23 @@ def _facts(
             "figures_are_estimated": advice.is_estimated,
         },
         "vehicle_readings": readings,
+        # Live trouble codes. `leads_to` is CURATED DATA, not something for the
+        # model to reason about or extend - see rule 9.
+        "active_fault_codes": [
+            {
+                "code": f.code,
+                "what_it_means": f.title,
+                "how_serious": f.severity,
+                "status": f.status,
+                "likely_causes": f.likely_causes,
+                "if_not_fixed": f.leads_to,
+                "repair_cost_multiplier_if_ignored": f.cost_multiplier,
+                "seen_on_trips": f.times_seen,
+                "came_back_after_being_cleared": bool(f.recurrences),
+                "conditions_when_it_happened": f.freeze_frame,
+            }
+            for f in (faults or [])
+        ],
         "driver_location_known": has_location,
         "parts_available": [
             {
@@ -318,6 +342,8 @@ async def component_plan(
         oil_km_remaining=oil.km_remaining if key == "engine" and oil else None,
     )
 
+    advice = _apply_faults(advice, match.faults)
+
     # The same ranked, fitment-filtered options the screen shows. The model
     # compares what the driver can see, never a different list.
     market = get_component_marketplace(
@@ -362,6 +388,11 @@ async def component_plan(
                 headline=advice.headline,
                 vehicle=vehicle,
                 part_name=market.parts[0].name if market.parts else None,
+                # A live fault changes what reference material is relevant:
+                # "cylinder 1 misfire" should retrieve misfire diagnosis, not
+                # the generic engine service procedure the wear state implies.
+                fault_code=match.faults[0].code if match.faults else None,
+                fault_title=match.faults[0].title if match.faults else None,
             ),
             component=key,
         )
@@ -371,7 +402,8 @@ async def component_plan(
     reply = await _ask_model(
         _facts(advice, market.parts, market.garages, market.observed_prices, readings,
                has_location=lat is not None and lon is not None,
-               reference=format_for_prompt(retrieved))
+               reference=format_for_prompt(retrieved),
+               faults=match.faults)
     )
     if not reply:
         return plan

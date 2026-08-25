@@ -16,6 +16,8 @@
  */
 
 import { Platform } from "react-native";
+import { scanDtcCodes } from "@lib/elm327.classic";
+import type { DtcScan } from "@lib/elm327.dtc";
 import { Accelerometer, Gyroscope } from "expo-sensors";
 import { getPairing, isRealBackend, readRawObdPids } from "./elm327";
 import {
@@ -261,6 +263,9 @@ function teardown(): ActiveTrip | null {
   return completed;
 }
 
+/** A silent adapter must not stall the end of a trip. */
+const DTC_SCAN_TIMEOUT_MS = 6000;
+
 export async function endTrip(): Promise<TripBatch> {
   if (!trip) throw new Error("No active trip.");
 
@@ -272,9 +277,30 @@ export async function endTrip(): Promise<TripBatch> {
   const behavior = trip.behavior.finalize(durationSec);
   behavior.synthetic_obd_count = trip.syntheticObdMisses;
 
+  // Codes are read BEFORE teardown, while the link is still live and the
+  // engine has only just stopped. Wrapped and time-boxed because a trip that
+  // was genuinely recorded must never be lost to a diagnostics read that hung:
+  // a failed scan reports readOk=false, which the server treats as "not
+  // checked" rather than "nothing wrong".
+  let dtcScan: DtcScan = { codes: [], readOk: false };
+  try {
+    dtcScan = await Promise.race([
+      scanDtcCodes(),
+      new Promise<DtcScan>((resolve) =>
+        setTimeout(() => resolve({ codes: [], readOk: false }), DTC_SCAN_TIMEOUT_MS)
+      ),
+    ]);
+  } catch (err) {
+    console.log("[tripRecorder] DTC scan failed, trip continues without codes:", err);
+  }
+
   const completed = teardown()!;
 
   // One line that makes a whole drive diagnosable without scrolling.
+  console.log(
+    `[tripRecorder] dtc scan  ok=${dtcScan.readOk}  codes=${dtcScan.codes.map((c) => c.code).join(",") || "none"}`
+  );
+
   console.log(
     `[tripRecorder] trip ended  origin=${completed.origin}  dur=${(durationSec / 60).toFixed(1)}min  ` +
     `obd=${completed.obdReadings.length}(${completed.syntheticObdMisses} skipped)  imu=${completed.imuReadings.length}  ` +
@@ -294,6 +320,8 @@ export async function endTrip(): Promise<TripBatch> {
     obd_readings:    completed.obdReadings,
     imu_readings:    completed.imuReadings,
     behavior,
+    dtcs:            dtcScan.codes,
+    dtc_read_ok:     dtcScan.readOk,
   };
 }
 

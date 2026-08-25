@@ -22,6 +22,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.advice import Advice, build_advice
+from app.controllers.fault_presenter import escalated_urgency
 from app.database import get_db
 from app.routes.explain import ExplainRequest, explain
 from app.routes.predict import vehicle_health
@@ -105,6 +106,10 @@ async def component_advice(
         oil_km_remaining=oil.km_remaining if key == "engine" and oil else None,
     )
 
+    # A live trouble code can raise urgency, but never touches health_pct.
+    # See app/controllers/fault_presenter.escalated_urgency for why.
+    advice = _apply_faults(advice, match.faults)
+
     if not enhance:
         return ComponentAdvice(advice=advice, text=_plain(advice), source="fallback")
 
@@ -126,6 +131,66 @@ async def component_advice(
         )
     )
     return ComponentAdvice(advice=advice, text=reworded.text, source=reworded.source)
+
+
+# The exact strings app/advice.py emits for a component that needs nothing.
+# Matched literally rather than by urgency, because they are the only actions
+# that become false in the presence of a fault - everything else it produces
+# ("book a service") remains true and should survive.
+_WEAR_REASSURANCES = {
+    "No action needed",
+    "Keep driving as normal",
+    "Re-check after a few more trips",
+}
+
+
+def _apply_faults(advice: Advice, faults) -> Advice:
+    """Fold live trouble codes into a wear-derived recommendation.
+
+    The fault does not change how worn the part is - it changes how urgent
+    acting on it is, and it gives the driver a specific reason where before
+    there was only a percentage. Both the escalated urgency and the added
+    reasons are computed, never generated: this decides what the screen
+    shouts, and app/advice.py exists precisely so that decision is not a
+    model's to make.
+    """
+    if not faults:
+        return advice
+
+    urgency = escalated_urgency(advice.urgency, list(faults))
+    reasons = list(advice.reasons)
+    actions = list(advice.actions)
+
+    for fault in faults:
+        reasons.append(f"Fault code {fault.code}: {fault.title}")
+        if fault.leads_to:
+            # The consequence is the predictive half and the reason a driver
+            # should act now rather than at the next service.
+            reasons.append(f"If not fixed: {fault.leads_to[0]}")
+
+    # Every fault gets an action, worded in proportion to it. Only serving the
+    # serious ones left a gap: a monitor-level fault still escalates urgency
+    # off "healthy", which strips the reassurance below and would otherwise
+    # leave the What-to-do card completely empty.
+    worst = faults[0]
+    if worst.severity in ("urgent", "soon"):
+        actions.insert(0, f"Have {worst.code} diagnosed - {worst.title.lower()}")
+    else:
+        actions.insert(0, f"Mention {worst.code} at your next service - {worst.title.lower()}")
+
+    # Drop the reassurances the WEAR state produced, once a fault has
+    # escalated past it. A healthy engine yields "No action needed", and
+    # leaving that under "Have P0301 diagnosed" puts the screen in direct
+    # contradiction with itself - which is worse than either line alone,
+    # because the driver cannot tell which one to believe.
+    if urgency != advice.urgency:
+        actions = [a for a in actions if a not in _WEAR_REASSURANCES]
+
+    return advice.model_copy(update={
+        "urgency": urgency,
+        "reasons": reasons,
+        "actions": actions,
+    })
 
 
 def _plain(advice: Advice) -> str:

@@ -66,6 +66,21 @@ CASES: List[Tuple[str, str, str]] = [
     ("how do I know the garage really changed the part", "checking-the-work", None),
     ("is the part warranty separate from the labour warranty", "checking-the-work", None),
     ("why does heat kill batteries here", "sri-lanka-driving-conditions", "battery"),
+
+    # Fault codes. These matter most: the code is a far sharper query than a
+    # component name, so a miss here means the repair description falls back to
+    # the model's own memory on exactly the answer we added a corpus to ground.
+    ("fault code P0301 cylinder 1 misfire diagnosis and repair", "fault-misfires", "engine"),
+    ("P0300 random misfire what will the mechanic do", "fault-misfires", "engine"),
+    ("why does a misfire damage the catalytic converter", "fault-misfires", "engine"),
+    ("engine light is flashing should I keep driving", "fault-misfires", "engine"),
+    ("P0562 charging voltage too low", "fault-charging-system", "battery"),
+    ("is it the battery or the alternator", "fault-charging-system", "battery"),
+    ("P0171 running lean what causes it", "fault-mixture-and-catalyst", "engine"),
+    ("P0420 catalytic converter efficiency", "fault-mixture-and-catalyst", "engine"),
+    ("what is a pending code", "fault-codes-explained", None),
+    ("should I clear the codes myself", "fault-codes-explained", None),
+    ("what is freeze frame data", "fault-codes-explained", None),
 ]
 
 

@@ -1,3 +1,4 @@
+import { scanDtcs, type DtcScan } from "@lib/elm327.dtc";
 /**
  * ============================================================================
  * ELM327 Service — REAL classic Bluetooth (SPP/RFCOMM) OBD-II reader
@@ -369,6 +370,20 @@ export async function readEngineSignals(opts: { probeRpm: boolean }): Promise<En
 // ─────────────────────────────────────────────────────────────────────────
 // Teardown
 // ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Read fault codes over the classic link.
+ *
+ * Uses the same command lock as the PID reads: the ELM327 has a single-slot
+ * waiter, so a mode 03 issued while a PID query is outstanding would collide
+ * and desynchronise both replies.
+ */
+export async function scanDtcCodes(): Promise<DtcScan> {
+  const l = link;
+  if (!l?.device) return { codes: [], readOk: false };
+  return withObdLock("classic.scanDtcs", () => scanDtcs(sendCommand, LOG_TAG));
+}
+
 
 export async function disconnect(): Promise<void> {
   const l = link;

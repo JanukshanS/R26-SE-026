@@ -7,7 +7,10 @@ import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
+from app.controllers.fault_controller import active_faults
+from app.controllers.fault_presenter import sort_faults, to_out
 from app.database import get_db
+from app.models.fault import DTCEvent
 from app.models import TripMetrics
 from app.baseline import (
     MIN_DISTANCE_FOR_CONFIDENCE_KM,
@@ -122,8 +125,76 @@ def _health_status(pct: float) -> str:
     return "Critical"
 
 
+# Display label -> the short key the rest of the app uses. Faults are stored
+# against the short key; the health response speaks in labels.
+_LABEL_TO_KEY = {"Engine": "engine", "Brake Pads": "brake", "Tires": "tire", "Battery": "battery"}
+
+
 @router.get("/vehicle/{vehicle_id}/health", response_model=VehicleHealthResponse)
 def vehicle_health(
+    vehicle_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> VehicleHealthResponse:
+    """Wear health, with any live trouble codes attached.
+
+    The wear computation is untouched and lives in _vehicle_health_wear below.
+    Faults are joined on here, in ONE place, because that function has three
+    separate return points and a fault list attached to only two of them is
+    exactly the kind of gap nobody notices until a driver with no baseline
+    reports that their dashboard light is missing from the app.
+    """
+    response = _vehicle_health_wear(vehicle_id, request, db)
+    try:
+        return _attach_faults(db, vehicle_id, response)
+    except Exception as exc:  # noqa: BLE001
+        # Diagnostics are additive. If anything here fails the driver still
+        # gets their wear health rather than a 500.
+        print(f"[predict] could not attach faults for {vehicle_id}: {exc}")
+        return response
+
+
+def _attach_faults(
+    db: Session, vehicle_id: str, response: VehicleHealthResponse
+) -> VehicleHealthResponse:
+    rows = active_faults(db, vehicle_id)
+    all_faults = sort_faults([to_out(r) for r in rows])
+
+    response.faults = all_faults
+    # "Checked" means some trip actually completed a code read. Without this a
+    # car whose adapter cannot read codes looks identical to one with none.
+    response.faults_checked = (
+        db.query(DTCEvent).filter(DTCEvent.vehicle_id == vehicle_id).count() > 0
+    )
+
+    by_component: dict = {}
+    for fault in all_faults:
+        by_component.setdefault(fault.component, []).append(fault)
+
+    for component in response.components:
+        key = _LABEL_TO_KEY.get(component.component)
+        if not key:
+            continue
+        # WEAR AND FAULTS ARE KEPT SEPARATE, DELIBERATELY.
+        #
+        # An earlier version escalated component.status here, so a live urgent
+        # fault turned a 94%-healthy engine "Critical". That reads as the wear
+        # model having changed its mind, which it has not: the engine is still
+        # 94% through its life, and a misfire is a defect sitting on top of
+        # that, not evidence of wear. Corrupting the one number the model is
+        # entitled to state - and which the whole RUL prediction rests on - to
+        # carry an unrelated signal made both harder to trust.
+        #
+        # So status and health_pct stay purely wear-derived, and the fault
+        # travels beside them in `faults` for the UI to surface as its own
+        # alert. app/advice.py still escalates URGENCY (what to do about it),
+        # which is a different question from how worn the part is.
+        component.faults = by_component.get(key, [])
+
+    return response
+
+
+def _vehicle_health_wear(
     vehicle_id: str,
     request: Request,
     db: Session = Depends(get_db),
