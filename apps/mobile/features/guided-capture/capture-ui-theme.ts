@@ -155,8 +155,11 @@ export const INSURANCE_CTA_LINK = '#1565c0';
 export const INSURANCE_PERMISSION_BLUE = '#1f8bff';
 
 /** Upload Accident Details */
-export const INSURANCE_PROGRESS_DONE = CAPTURE_ACTION_BLUE;
-export const INSURANCE_CARD_BORDER_ACCENT = '#ff6b35';
+/** Was aliased to the orange action color despite the name — the progress
+ * checkmarks and "Approved" status text should read as green, matching the
+ * Done pill's green elsewhere in the Insurance flow. */
+export const INSURANCE_PROGRESS_DONE = CAPTURE_VALID_HEX;
+export const INSURANCE_CARD_BORDER_ACCENT = '#fc7c4dff';
 
 /** Insurance home — step badges, status pills, report button */
 export const INSURANCE_STEP_BADGE_BG = '#ffdda742';

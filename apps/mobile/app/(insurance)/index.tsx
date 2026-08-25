@@ -4,10 +4,9 @@ import * as Location from 'expo-location';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { InsuranceBottomTabBar, type InsuranceTabId } from '@/components/insurance-bottom-tab-bar';
+import { BottomNavBar } from '@/components/ui/bottom-nav-bar';
 import {
   isDrivingLicenceCaptureComplete,
   loadDrivingLicenceState,
@@ -37,6 +36,7 @@ import { loadSelectedVehicleId } from '@/lib/selected-vehicle-store';
 import { computeClaimBundleUploadKey, isClaimReportSubmittedLocked } from '@/lib/claim-upload-dedupe';
 import { captureLocationSnapshot } from '@/lib/location-snapshot-store';
 import {
+  CAPTURE_ACTION_BLUE_SOFT,
   INSURANCE_BORDER_SOFT,
   INSURANCE_PILL_INCOMPLETE_BG,
   INSURANCE_PILL_INCOMPLETE_TEXT,
@@ -45,6 +45,7 @@ import {
   INSURANCE_PRIMARY,
   INSURANCE_REPORT_BG,
   INSURANCE_REPORT_DISABLED_BG,
+  INSURANCE_SHADOW_COLOR,
   INSURANCE_STEP_BADGE_BG,
   INSURANCE_TEXT,
   INSURANCE_TEXT_MUTED,
@@ -76,15 +77,14 @@ type FlowTask = {
   title: string;
   status: TaskStatus;
   href: Href | null;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
 };
 
-
-
 const FLOW_TASKS: FlowTask[] = [
-  { key: 'guided', title: 'Guided Capture', status: 'incomplete', href: '/(insurance)/guided-capture-intro' },
-  { key: 'licence', title: 'Driving Licence Photo', status: 'incomplete', href: '/(insurance)/driving-licence' },
-  { key: 'drunk', title: 'User Verification Test', status: 'incomplete', href: '/(insurance)/drunk-test' },
-  { key: 'thirdParty', title: '3rd Party Details', status: 'incomplete', href: '/(insurance)/third-party' },
+  { key: 'guided', title: 'Guided Capture', status: 'incomplete', href: '/(insurance)/guided-capture-intro', icon: 'camera-outline' },
+  { key: 'licence', title: 'Driving Licence Photo', status: 'incomplete', href: '/(insurance)/driving-licence', icon: 'card-outline' },
+  { key: 'drunk', title: 'User Verification Test', status: 'incomplete', href: '/(insurance)/drunk-test', icon: 'shield-checkmark-outline' },
+  { key: 'thirdParty', title: '3rd Party Details', status: 'incomplete', href: '/(insurance)/third-party', icon: 'people-outline' },
 ];
 
 function StepRow({
@@ -123,38 +123,6 @@ function StatusPill({ status }: { status: TaskStatus }) {
   );
 }
 
-// Floor of the opacity pulse — kept fairly high (not near 0) so the glow never
-// fades down to near-invisible between pulses, which is what made the previous
-// single-layer version read as barely-there on screen load.
-const GLOW_PULSE_FLOOR = 0.55;
-
-/** Self-contained "primary action" glow: one plain View hugging the caller's
- * content, just outside the border — not native shadow props, since
- * shadowOpacity/shadowRadius are iOS-only in RN and Android's elevation only
- * ever renders a plain gray shadow, never a colored one. Manages its own pulse
- * animation from `active` so any caller can drop it in without wiring up
- * shared-value/effect boilerplate itself. */
-function GlowHalo({ active }: { active: boolean }) {
-  const pulse = useSharedValue(0);
-  useEffect(() => {
-    if (active) {
-      pulse.value = withRepeat(
-        withSequence(withTiming(1, { duration: 700 }), withTiming(GLOW_PULSE_FLOOR, { duration: 700 })),
-        -1,
-        true
-      );
-    } else {
-      pulse.value = withTiming(0, { duration: 200 });
-    }
-  }, [active, pulse]);
-  const pulseStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
-
-  if (!active) {
-    return null;
-  }
-  return <Animated.View style={[styles.glowHaloInner, pulseStyle]} />;
-}
-
 function TaskCard({
   task,
   glow,
@@ -173,14 +141,16 @@ function TaskCard({
 }) {
   return (
     <View style={styles.taskCardGlowWrap}>
-      <GlowHalo active={glow} />
       <Pressable
         disabled={disabled}
         style={({ pressed }) => [styles.taskCard, glow && styles.taskCardGlowing, pressed && styles.taskCardPressed]}
         onPress={onPress}>
+        <View style={styles.taskIconWrap}>
+          <Ionicons name={task.icon} size={20} color={INSURANCE_PRIMARY} />
+        </View>
         <Text style={styles.taskTitle}>{task.title}</Text>
         {resolving ? (
-          <ActivityIndicator size="small" color={COLORS.stepBadgeText} />
+          <ActivityIndicator size="small" color={INSURANCE_PRIMARY} />
         ) : (
           <StatusPill status={task.status} />
         )}
@@ -192,6 +162,7 @@ function TaskCard({
 export default function InsuranceHomeScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { vehicleId } = useLocalSearchParams<{ vehicleId?: string }>();
   // The vehicleId route param is a one-time snapshot from whenever this screen was
   // pushed from Home. If the driver switches vehicles on Home and then starts a
@@ -428,9 +399,6 @@ export default function InsuranceHomeScreen() {
     if (!insuranceCompany || callingInsurer || resolvingTaskKey) {
       return;
     }
-    // Stop the glow immediately on tap — don't wait for the next focus's
-    // persisted-state check to catch up.
-    setHasCalledInsurer(true);
     setCallingInsurer(true);
     try {
       try {
@@ -452,6 +420,10 @@ export default function InsuranceHomeScreen() {
 
       try {
         await Linking.openURL(insuranceCompany.phoneTel);
+        // Only flip this once the dialer has actually opened — flipping it
+        // right on tap moved the glow to Guided Capture while the location
+        // fetch above was still in flight and the dialer hadn't appeared yet.
+        setHasCalledInsurer(true);
       } catch {
         Alert.alert('Call your insurer', 'Use the phone number on your insurance card or policy document.');
       }
@@ -493,23 +465,12 @@ export default function InsuranceHomeScreen() {
     })();
   };
 
-  const onTabPress = (tab: InsuranceTabId) => {
-    if (tab === 'home') return;
-    if (tab === 'store') {
-      router.push('/(driver)/order-parts');
-      return;
-    }
-    if (tab === 'profile') {
-      router.push('/(driver)/profile');
-    }
-  };
-
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.shell}>
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
           showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             {navigation.canGoBack() ? (
@@ -559,7 +520,6 @@ export default function InsuranceHomeScreen() {
             </View>
           ) : insuranceCompany ? (
             <View style={styles.callInsurerGlowWrap}>
-              <GlowHalo active={showGlow} />
               <Pressable
                 disabled={anyLoading}
                 style={({ pressed }) => [
@@ -572,7 +532,12 @@ export default function InsuranceHomeScreen() {
                 {callingInsurer ? (
                   <ActivityIndicator size="small" color={COLORS.text} />
                 ) : (
-                  <Text style={styles.callInsurerText}>{`Need to call ${insuranceCompany.appName}?`}</Text>
+                  <>
+                    <View style={styles.taskIconWrap}>
+                      <Ionicons name="call-outline" size={20} color={INSURANCE_PRIMARY} />
+                    </View>
+                    <Text style={styles.callInsurerText}>{`Call ${insuranceCompany.appName}`}</Text>
+                  </>
                 )}
               </Pressable>
             </View>
@@ -645,7 +610,7 @@ export default function InsuranceHomeScreen() {
           ) : null}
         </ScrollView>
 
-        <InsuranceBottomTabBar onTabPress={onTabPress} />
+        <BottomNavBar activeTab="home" />
       </View>
     </SafeAreaView>
   );
@@ -664,7 +629,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 16,
   },
   header: {
     flexDirection: 'row',
@@ -696,56 +660,63 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.65,
   },
+  // Shadow lives here, not on callInsurerBtn — see taskCardGlowWrap's comment:
+  // a Pressable's style array is recreated on every press/glow re-render, and
+  // a shadow/elevation prop riding along with it is what caused the
+  // intermittent corner-artifact glitch on Android. This wrapper's style
+  // object is static, so its shadow never gets invalidated/redrawn.
   callInsurerGlowWrap: {
-    position: 'relative',
-    // Moved here from callInsurerBtn — a child's marginBottom still counts toward
-    // this wrap's auto-computed height in RN's layout, which was inflating the
-    // wrap's box on that side only and throwing the halo's insets off-center
-    // (thinner/thicker glow on different edges instead of a uniform ring).
-    marginBottom: 10,
-  },
-  // Sits just outside the glowing element's border (radius = its own 16 +
-  // inset, so the curve stays concentric). Shared by the call button and
-  // whichever task card is currently first-incomplete — see GlowHalo.
-  glowHaloInner: {
-    position: 'absolute',
-    top: -4,
-    left: -4,
-    right: -4,
-    bottom: -4,
-    borderRadius: 21,
-    // Same color as the glowing border itself (callInsurerBtnGlowing /
-    // taskCardGlowing), just with alpha appended, so the halo can never drift
-    // from the border it's meant to match.
-    backgroundColor: `${INSURANCE_PRIMARY}B3`,
-  },
-  callInsurerBtn: {
     backgroundColor: COLORS.cardBg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
     borderRadius: 16,
+    shadowColor: INSURANCE_SHADOW_COLOR,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+    marginBottom: 32,
+  },
+  // flexDirection: 'row' directly on the Pressable (not a centered inner
+  // wrapper) so the icon sits at a fixed left position regardless of how
+  // long the insurer's name is — a centered icon+text block shifted the
+  // icon's x-position depending on text length.
+  callInsurerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    overflow: 'hidden',
     paddingVertical: 16,
     paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    // borderWidth stays present at all times (only borderColor ever changes,
+    // via callInsurerBtnGlowing below) — toggling borderWidth itself between 0
+    // and 1 makes Android rebuild this view's background drawable, which
+    // flashes an opaque white frame over the button (hiding its text/icon)
+    // right as the glow turns on or off.
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
     // No marginBottom here — moved to callInsurerGlowWrap (see its comment) so the
     // glow halo's insets stay symmetric. Branches that render callInsurerBtn
     // without that wrap (the resolving-state view below) apply the same wrap style
     // themselves purely for this spacing.
   },
   // Dark-orange border on the button itself while glowing (not the halo) — same
-  // color as the numbered step badges' text.
+  // color as the numbered step badges' text. Only recolors the always-present
+  // border (see callInsurerBtn) rather than adding one.
   callInsurerBtnGlowing: {
     borderColor: INSURANCE_PRIMARY,
-    borderWidth: 1,
   },
   callInsurerPressed: {
     backgroundColor: INSURANCE_PRESSED_SURFACE,
   },
+  // The button's own layout is left-aligned (for the icon+text case above),
+  // but when this is showing just a spinner with no icon/text, it should
+  // still be centered rather than sitting at the left edge.
   callInsurerCalling: {
     opacity: 0.7,
+    justifyContent: 'center',
   },
   callInsurerText: {
+    flex: 1,
     fontSize: 17,
     fontWeight: '700',
     color: COLORS.text,
@@ -766,7 +737,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   stepsSection: {
-    marginBottom: 10,
+    marginBottom: 32,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 15,
+    paddingHorizontal: 16,
+    shadowColor: INSURANCE_SHADOW_COLOR,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
   },
   stepRow: {
     flexDirection: 'row',
@@ -811,7 +790,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 8,
   },
   nextStepsTitle: {
     fontSize: 18,
@@ -828,25 +807,48 @@ const styles = StyleSheet.create({
   },
   // No marginBottom needed (unlike callInsurerGlowWrap) — taskList's own `gap`
   // already spaces the wraps, so nothing else needs to compensate.
+  // Shadow lives here, not on taskCard — taskCard is a Pressable whose style
+  // array changes on every press/glow-state re-render; a shadow/elevation
+  // prop riding along with a style that's recreated that often is what caused
+  // the intermittent corner-artifact glitch on Android. This wrapper's style
+  // object is static, so its shadow never gets invalidated/redrawn.
   taskCardGlowWrap: {
-    position: 'relative',
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 16,
+    shadowColor: INSURANCE_SHADOW_COLOR,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
   },
   taskCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: COLORS.cardBg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
     borderRadius: 16,
+    overflow: 'hidden',
     paddingVertical: 16,
     paddingHorizontal: 16,
+    // borderWidth stays present at all times (only borderColor ever changes,
+    // via taskCardGlowing below) — see callInsurerBtn's comment for why
+    // toggling borderWidth itself flashes an opaque white frame on Android.
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
   },
-  // Same treatment as callInsurerBtnGlowing — dark-orange border on the card
-  // itself while it's the glowing (first-incomplete) one.
+  taskIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: CAPTURE_ACTION_BLUE_SOFT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  // Same treatment as callInsurerBtnGlowing — recolors the always-present
+  // border (see taskCard) while this is the glowing (first-incomplete) card.
   taskCardGlowing: {
     borderColor: INSURANCE_PRIMARY,
-    borderWidth: 1,
   },
   taskCardPressed: {
     backgroundColor: INSURANCE_PRESSED_SURFACE_SOFT,

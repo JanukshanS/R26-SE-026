@@ -7,17 +7,17 @@ import {
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Icon } from "@components/ui/icon";
+import { Badge } from "@components/ui/badge";
+import { Chip } from "@components/ui/chip";
+import { HeaderBar } from "@components/ui/header-bar";
+import { Icon, type IconName } from "@components/ui/icon";
 import { TextField } from "@components/ui/text-input";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
-import { unpairElm327 } from "@lib/elm327";
-import { endTrip, isTripActive } from "@lib/tripRecorder";
 import { VehicleApiError, type Vehicle, type VehicleInput } from "@lib/vehicleApi";
 import { listInsuranceCompanies, type InsuranceCompany } from "@lib/insuranceCompaniesApi";
 import { getVehicleInsurance, upsertVehicleInsurance } from "@lib/vehicleInsuranceApi";
@@ -85,7 +85,7 @@ const EMPTY_FORM: Partial<VehicleInput> = {
 
 export default function ManageVehiclesScreen() {
   const insets = useSafeAreaInsets();
-  const { user, vehicles, vehiclesLoading, vehicleError, refreshVehicles, selectedVehicle, selectVehicle, addVehicle, editVehicle, removeVehicle, setDefault, updateMe, logout } = useVehicle();
+  const { user, vehicles, vehiclesLoading, vehicleError, refreshVehicles, selectedVehicle, selectVehicle, addVehicle, editVehicle, removeVehicle, setDefault, updateMe } = useVehicle();
   // "addVehicle" param renamed on destructure — the context already exposes an
   // `addVehicle` function above, and the two would otherwise collide.
   const { editVehicleId, addVehicle: autoOpenAddParam } = useLocalSearchParams<{
@@ -400,55 +400,50 @@ export default function ManageVehiclesScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
-      {/* Header */}
-      <View
-        style={{
-          paddingTop: insets.top + spacing.sm,
-          paddingHorizontal: spacing.lg,
-          paddingBottom: spacing.md,
-          backgroundColor: palette.surface,
-          borderBottomWidth: 1,
-          borderBottomColor: palette.border,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: spacing.md,
-        }}
-      >
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
-          <Icon name="ChevronLeft" size={24} color={palette.text} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={{ ...typography.h3, color: palette.text }}>My Vehicles</Text>
-          {user && (
-            <Text style={{ ...typography.caption, color: palette.textMuted }}>{user.name}</Text>
-          )}
-        </View>
-        <Pressable
-          onPress={openAdd}
-          style={({ pressed }) => ({
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.xs,
-            paddingHorizontal: spacing.md,
-            paddingVertical: spacing.sm,
-            borderRadius: radii.md,
-            backgroundColor: pressed ? palette.brandPressed : palette.brand,
-          })}
-        >
-          <Icon name="Plus" size={16} color={palette.textOnBrand} />
-          <Text style={{ ...typography.caption, color: palette.textOnBrand, fontWeight: "700" }}>
-            Add
-          </Text>
-        </Pressable>
-      </View>
-
       <ScrollView
         contentContainerStyle={{
-          padding: spacing.lg,
-          gap: spacing.md,
+          padding: spacing.xl,
+          paddingTop: insets.top + spacing.lg,
+          gap: spacing.lg,
           paddingBottom: insets.bottom + 100,
         }}
       >
+        {/* Same true-pill back/home header as My Claims and the emergency
+            flow's "What's wrong?" screen; Add replaces the home shortcut
+            since it's the one action this screen actually needs. */}
+        <HeaderBar
+          right={
+            <Pressable
+              onPress={openAdd}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                gap: spacing.xs,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+                borderRadius: radii.pill,
+                backgroundColor: pressed ? palette.brandPressed : palette.brand,
+              })}
+            >
+              <Icon name="Plus" size={16} color={palette.textOnBrand} />
+              <Text style={{ ...typography.caption, color: palette.textOnBrand, fontWeight: "700" }}>
+                Add
+              </Text>
+            </Pressable>
+          }
+        />
+
+        <View style={{ gap: spacing.xs }}>
+          <Text style={{ ...typography.display, color: palette.text, fontSize: 28 }}>My Vehicles</Text>
+          {user && (
+            <Text style={{ ...typography.body, color: palette.textMuted }}>
+              {vehiclesLoading
+                ? user.name
+                : `${vehicles.length} vehicle${vehicles.length === 1 ? "" : "s"} registered`}
+            </Text>
+          )}
+        </View>
+
         {vehiclesLoading ? (
           <ActivityIndicator size="large" color={palette.brand} style={{ marginTop: 40 }} />
         ) : vehicleError && vehicles.length === 0 ? (
@@ -503,46 +498,6 @@ export default function ManageVehiclesScreen() {
         )}
       </ScrollView>
 
-      {/* Logout button */}
-      <View
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          paddingBottom: insets.bottom + spacing.md,
-          paddingTop: spacing.md,
-          paddingHorizontal: spacing.lg,
-          backgroundColor: palette.surface,
-          borderTopWidth: 1,
-          borderTopColor: palette.border,
-        }}
-      >
-        <Pressable
-          onPress={async () => {
-            // Same teardown as Home: a recording left running would keep sampling
-            // under the previous driver's id, and router.back() would drop the
-            // signed-out user back inside the authenticated stack.
-            if (isTripActive()) await endTrip().catch(() => {});
-            unpairElm327();
-            await logout();
-            router.replace("/");
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Log out"
-          style={({ pressed }) => ({
-            borderRadius: radii.lg,
-            paddingVertical: spacing.md,
-            alignItems: "center",
-            borderWidth: 1.5,
-            borderColor: palette.danger,
-            backgroundColor: pressed ? palette.dangerSoft : "transparent",
-          })}
-        >
-          <Text style={{ ...typography.bodyStrong, color: palette.danger }}>Log Out</Text>
-        </Pressable>
-      </View>
-
       {/* Add / Edit modal */}
       {/* statusBarTranslucent + KeyboardAvoidingView: an Android Modal is its own
           window and does not inherit the activity's adjustResize, so without this
@@ -568,8 +523,7 @@ export default function ManageVehiclesScreen() {
               backgroundColor: palette.surface,
               borderTopLeftRadius: 15,
               borderTopRightRadius: 15,
-              paddingTop: spacing.lg,
-              paddingHorizontal: spacing.lg,
+              overflow: "hidden",
               paddingBottom: insets.bottom + spacing.lg,
               gap: spacing.md,
               // Never taller than the sheet's own window; the ScrollView inside
@@ -577,8 +531,21 @@ export default function ManageVehiclesScreen() {
               maxHeight: "92%",
             }}
           >
-            {/* Modal header */}
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
+            {/* Modal header — tinted brandSoft bar, same treatment as the
+                (driver) screens' headers; clipped to the sheet's own rounded
+                top corners by the parent's overflow: hidden. Still carries the
+                multi-step Add flow's title/step count — only Edit collapses to
+                a single static title. */}
+            <View
+              style={{
+                backgroundColor: palette.brandSoft,
+                paddingTop: spacing.lg,
+                paddingHorizontal: spacing.lg,
+                paddingBottom: spacing.lg,
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
               <View style={{ flex: 1 }}>
                 <Text style={{ ...typography.h3, color: palette.text }}>
                   {editingVehicle
@@ -595,32 +562,60 @@ export default function ManageVehiclesScreen() {
                   </Text>
                 )}
               </View>
-              <Pressable onPress={() => setShowForm(false)} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
-                <Icon name="X" size={22} color={palette.textMuted} />
+              <Pressable
+                onPress={() => setShowForm(false)}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: palette.surface,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Icon name="X" size={18} color={palette.textMuted} />
               </Pressable>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <View style={{ gap: spacing.md }}>
+              <View style={{ gap: spacing.md, paddingHorizontal: spacing.lg }}>
                 {(editingVehicle || step === STEP_DETAILS) && (
                 <>
+                <Text style={{ ...typography.micro, color: palette.textMuted, fontWeight: "600" }}>
+                  VEHICLE DETAILS
+                </Text>
                 <Row>
-                  <Field label="Make *" value={form.make ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, make: v }))} placeholder="Toyota" />
-                  <Field label="Model *" value={form.model ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, model: v }))} placeholder="Aqua" />
+                  <View style={{ flex: 1 }}>
+                    <TextField label="Make *" value={form.make ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, make: v }))} placeholder="Toyota" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <TextField label="Model *" value={form.model ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, model: v }))} placeholder="Aqua" />
+                  </View>
                 </Row>
                 <Row>
-                  <Field label="Plate Number *" value={form.plateNumber ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, plateNumber: v.toUpperCase() }))} placeholder="CBD-3742" autoCapitalize="characters" />
-                  <Field label="Year" value={form.year?.toString() ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, year: v ? parseInt(v) : undefined }))} placeholder="2022" keyboardType="numeric" />
+                  <View style={{ flex: 1 }}>
+                    <TextField label="Plate Number *" value={form.plateNumber ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, plateNumber: v.toUpperCase() }))} placeholder="CBD-3742" autoCapitalize="characters" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <TextField label="Year" value={form.year?.toString() ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, year: v ? parseInt(v) : undefined }))} placeholder="2022" keyboardType="numeric" />
+                  </View>
                 </Row>
-                <Field label="Nickname" value={form.nickname ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, nickname: v }))} placeholder="My Toyota (optional)" />
+                <TextField label="Nickname" value={form.nickname ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, nickname: v }))} placeholder="My Toyota (optional)" />
                 <Row>
-                  <Field label="Color" value={form.color ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, color: v }))} placeholder="Silver" />
-                  <Field label="Mileage (km)" value={form.currentMileage?.toString() ?? "0"} onChangeText={(v) => setForm((f) => ({ ...f, currentMileage: parseInt(v) || 0 }))} keyboardType="numeric" placeholder="0" />
+                  <View style={{ flex: 1 }}>
+                    <TextField label="Color" value={form.color ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, color: v }))} placeholder="Silver" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <TextField label="Mileage (km)" value={form.currentMileage?.toString() ?? "0"} onChangeText={(v) => setForm((f) => ({ ...f, currentMileage: parseInt(v) || 0 }))} keyboardType="numeric" placeholder="0" />
+                  </View>
                 </Row>
 
                 {/* Fuel type selector */}
                 <View style={{ gap: spacing.xs }}>
-                  <Text style={{ ...typography.caption, color: palette.textMuted }}>Fuel Type</Text>
+                  <Text style={{ ...typography.body, color: palette.text, fontWeight: "500" }}>Fuel Type</Text>
                   <View style={{ flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" }}>
                     {FUEL_TYPES.map((ft) => (
                       <Pressable
@@ -663,8 +658,11 @@ export default function ManageVehiclesScreen() {
                     than an inline pill list, for consistency. */}
                 {(editingVehicle || step === STEP_DETAILS) ? (
                   <>
+                <Text style={{ ...typography.micro, color: palette.textMuted, fontWeight: "600", marginTop: spacing.sm }}>
+                  INSURANCE
+                </Text>
                 <View style={{ gap: spacing.xs }}>
-                  <Text style={{ ...typography.caption, color: palette.textMuted }}>Insurance Provider</Text>
+                  <Text style={{ ...typography.body, color: palette.text, fontWeight: "500" }}>Insurance Provider</Text>
                   <Pressable
                     style={{
                       backgroundColor: palette.surface,
@@ -699,10 +697,29 @@ export default function ManageVehiclesScreen() {
                   error={policyError}
                   helperText={insuranceProvider ? undefined : "Select an insurance provider first."}
                 />
-                {/* Profile-level (one per driver) — same value regardless of which
-                    vehicle is being edited, kept here so it can be completed later
-                    if it was skipped during onboarding. Same format/validation as the
-                    Add your Insurer onboarding screen (lib/insurer-field-format.ts). */}
+                <TextField
+                  label="Insurance Expiry Month"
+                  value={insuranceExpireMonth}
+                  onChangeText={(t) => {
+                    setInsuranceExpireMonth(formatExpireMonth(t));
+                    setExpireMonthError("");
+                  }}
+                  placeholder="YY/MM"
+                  keyboardType="number-pad"
+                  maxLength={5}
+                  editable={Boolean(insuranceProvider)}
+                  error={expireMonthError}
+                  helperText={insuranceProvider ? undefined : "Select an insurance provider first."}
+                />
+
+                {/* Your details group — profile-level (one per driver), same
+                    value regardless of which vehicle is being edited, kept here
+                    so it can be completed later if it was skipped during
+                    onboarding. Same format/validation as the Add your Insurer
+                    onboarding screen (lib/insurer-field-format.ts). */}
+                <Text style={{ ...typography.micro, color: palette.textMuted, fontWeight: "600", marginTop: spacing.sm }}>
+                  YOUR DETAILS
+                </Text>
                 <TextField
                   label="Your Driving Licence Number"
                   value={licenceNumber}
@@ -726,20 +743,6 @@ export default function ManageVehiclesScreen() {
                   keyboardType="numbers-and-punctuation"
                   maxLength={12}
                   error={nicError}
-                />
-                <TextField
-                  label="Insurance Expiry Month"
-                  value={insuranceExpireMonth}
-                  onChangeText={(t) => {
-                    setInsuranceExpireMonth(formatExpireMonth(t));
-                    setExpireMonthError("");
-                  }}
-                  placeholder="YY/MM"
-                  keyboardType="number-pad"
-                  maxLength={5}
-                  editable={Boolean(insuranceProvider)}
-                  error={expireMonthError}
-                  helperText={insuranceProvider ? undefined : "Select an insurance provider first."}
                 />
                   </>
                 ) : (
@@ -856,7 +859,7 @@ export default function ManageVehiclesScreen() {
                           I know when
                         </Text>
                         {answer.known ? (
-                          <Field
+                          <TextField
                             label="Replaced at (km on the odometer)"
                             value={answer.installKm}
                             onChangeText={(t: string) => setAnswer({ installKm: t.replace(/[^0-9]/g, "") })}
@@ -890,42 +893,44 @@ export default function ManageVehiclesScreen() {
             {/* Sits with the submit button, not at the end of the scroll area.
                 Down there a failed validation rendered off-screen, so tapping
                 Save looked like it simply did nothing. */}
-            {error ? (
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: spacing.sm,
-                  padding: spacing.md,
-                  borderRadius: radii.md,
-                  backgroundColor: palette.dangerSoft,
-                }}
-              >
-                <Icon name="AlertCircle" size={14} color={palette.danger} />
-                <Text style={{ ...typography.caption, color: palette.danger, flex: 1 }}>
-                  {error}
-                </Text>
-              </View>
-            ) : null}
+            <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
+              {error ? (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: spacing.sm,
+                    padding: spacing.md,
+                    borderRadius: radii.md,
+                    backgroundColor: palette.dangerSoft,
+                  }}
+                >
+                  <Icon name="AlertCircle" size={14} color={palette.danger} />
+                  <Text style={{ ...typography.caption, color: palette.danger, flex: 1 }}>
+                    {error}
+                  </Text>
+                </View>
+              ) : null}
 
-            <Pressable
-              onPress={isLastStep ? handleSave : handleNext}
-              disabled={saving}
-              style={({ pressed }) => ({
-                backgroundColor: saving ? palette.textMuted : pressed ? palette.brandPressed : palette.brand,
-                borderRadius: radii.lg,
-                paddingVertical: spacing.md + 2,
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "row",
-                gap: spacing.sm,
-              })}
-            >
-              {saving && <ActivityIndicator size="small" color={palette.textOnBrand} />}
-              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-                {editingVehicle ? "Save Changes" : isLastStep ? "Add Vehicle" : "Next"}
-              </Text>
-            </Pressable>
+              <Pressable
+                onPress={isLastStep ? handleSave : handleNext}
+                disabled={saving}
+                style={({ pressed }) => ({
+                  backgroundColor: saving ? palette.textMuted : pressed ? palette.brandPressed : palette.brand,
+                  borderRadius: radii.lg,
+                  paddingVertical: spacing.md + 2,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                  gap: spacing.sm,
+                })}
+              >
+                {saving && <ActivityIndicator size="small" color={palette.textOnBrand} />}
+                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
+                  {editingVehicle ? "Save Changes" : isLastStep ? "Add Vehicle" : "Next"}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -1360,6 +1365,15 @@ export default function ManageVehiclesScreen() {
   );
 }
 
+/** Petrol/diesel share the generic Car icon (the common case); electric and
+ * hybrid get a more specific glyph, same pattern as Home's per-intent quick
+ * action icons (Disc/Fuel/KeyRound). */
+function vehicleIcon(fuelType: Vehicle["fuelType"]): IconName {
+  if (fuelType === "electric") return "Zap";
+  if (fuelType === "hybrid") return "Leaf";
+  return "Car";
+}
+
 function VehicleCard({
   vehicle: v, isSelected, onSelect, onEdit, onDelete, onSetDefault,
 }: {
@@ -1376,78 +1390,52 @@ function VehicleCard({
       style={({ pressed }) => ({
         backgroundColor: pressed ? palette.homeBackground : palette.surface,
         borderRadius: radii.lg,
-        borderWidth: 2,
-        borderColor: isSelected ? palette.brand : palette.border,
-        padding: spacing.lg,
-        gap: spacing.sm,
+        padding: spacing.xl,
+        gap: spacing.md,
+        boxShadow: "0 2px 8px rgba(15, 15, 15, 0.05)",
       })}
     >
       <View style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.md }}>
         <View
           style={{
-            width: 44,
-            height: 44,
-            borderRadius: radii.md,
-            backgroundColor: isSelected ? palette.brandSoft : palette.homeBackground,
+            width: 52,
+            height: 52,
+            borderRadius: radii.lg,
+            backgroundColor: palette.brandSoft,
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <Icon name="Car" size={22} color={isSelected ? palette.brand : palette.textMuted} />
+          <Icon name={vehicleIcon(v.fuelType)} size={26} color={palette.brand} />
         </View>
 
-        <View style={{ flex: 1, gap: 2 }}>
+        <View style={{ flex: 1, gap: 4 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-            <Text style={{ ...typography.bodyStrong, color: palette.text }}>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: palette.text, flex: 1 }}>
               {v.nickname || `${v.make} ${v.model}`}
             </Text>
-            {v.isDefault && (
-              <View
-                style={{
-                  paddingHorizontal: spacing.sm,
-                  paddingVertical: 2,
-                  borderRadius: radii.pill,
-                  backgroundColor: palette.brandSoft,
-                }}
-              >
-                <Text style={{ ...typography.micro, color: palette.brand, fontWeight: "700" }}>
-                  DEFAULT
-                </Text>
-              </View>
-            )}
             {isSelected && (
-              <Icon name="CheckCircle" size={16} color={palette.brand} />
+              <Icon name="CheckCircle" size={18} color={palette.brand} />
             )}
+            {v.isDefault && <Badge label="Default" tone="brand" />}
           </View>
-          <Text style={{ ...typography.caption, color: palette.textMuted }}>
-            {v.make} {v.model} {v.year ? `· ${v.year}` : ""}
+          <Text style={{ ...typography.body, color: palette.textMuted }}>
+            {v.year ? `${v.year} · ` : ""}{v.fuelType.charAt(0).toUpperCase() + v.fuelType.slice(1)}
           </Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: 2 }}>
-            <View
-              style={{
-                paddingHorizontal: spacing.sm,
-                paddingVertical: 2,
-                borderRadius: radii.sm,
-                backgroundColor: palette.homeBackground,
-              }}
-            >
-              <Text style={{ ...typography.micro, color: palette.text, fontWeight: "600" }}>
-                {v.plateNumber}
-              </Text>
-            </View>
-            <Text style={{ ...typography.micro, color: palette.textMuted, textTransform: "capitalize" }}>
-              {v.fuelType}
-            </Text>
-            {v.color ? (
-              <Text style={{ ...typography.micro, color: palette.textMuted }}>{v.color}</Text>
-            ) : null}
-          </View>
           {v.currentMileage > 0 && (
-            <Text style={{ ...typography.micro, color: palette.textMuted }}>
+            <Text style={{ ...typography.caption, color: palette.textMuted }}>
               {v.currentMileage.toLocaleString()} km
             </Text>
           )}
         </View>
+      </View>
+
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, flexWrap: "wrap" }}>
+        <Chip label={v.plateNumber} />
+        <Chip label={v.fuelType.charAt(0).toUpperCase() + v.fuelType.slice(1)} />
+        {v.color ? (
+          <Text style={{ ...typography.caption, color: palette.textMuted }}>{v.color}</Text>
+        ) : null}
       </View>
 
       {/* Actions */}
@@ -1465,7 +1453,7 @@ function VehicleCard({
             onPress={onSetDefault}
             style={({ pressed }) => ({
               flex: 1,
-              paddingVertical: spacing.sm,
+              paddingVertical: spacing.md,
               alignItems: "center",
               borderRadius: radii.md,
               backgroundColor: pressed ? palette.brandSoft : "transparent",
@@ -1482,29 +1470,25 @@ function VehicleCard({
           onPress={onEdit}
           style={({ pressed }) => ({
             flex: 1,
-            paddingVertical: spacing.sm,
+            paddingVertical: spacing.md,
             alignItems: "center",
             borderRadius: radii.md,
-            backgroundColor: pressed ? palette.homeBackground : "transparent",
-            borderWidth: 1,
-            borderColor: palette.border,
+            backgroundColor: pressed ? palette.brandPressed : palette.brand,
           })}
         >
-          <Text style={{ ...typography.caption, color: palette.text, fontWeight: "600" }}>Edit</Text>
+          <Text style={{ ...typography.caption, color: palette.textOnBrand, fontWeight: "600" }}>Edit</Text>
         </Pressable>
         <Pressable
           onPress={onDelete}
           style={({ pressed }) => ({
             flex: 1,
-            paddingVertical: spacing.sm,
+            paddingVertical: spacing.md,
             alignItems: "center",
             borderRadius: radii.md,
-            backgroundColor: pressed ? palette.dangerSoft : "transparent",
-            borderWidth: 1,
-            borderColor: palette.border,
+            backgroundColor: pressed ? palette.brandPressed : palette.brand,
           })}
         >
-          <Text style={{ ...typography.caption, color: palette.danger, fontWeight: "600" }}>Delete</Text>
+          <Text style={{ ...typography.caption, color: palette.textOnBrand, fontWeight: "600" }}>Delete</Text>
         </Pressable>
       </View>
     </Pressable>
@@ -1513,39 +1497,4 @@ function VehicleCard({
 
 function Row({ children }: { children: React.ReactNode }) {
   return <View style={{ flexDirection: "row", gap: spacing.sm }}>{children}</View>;
-}
-
-function Field({
-  label, value, onChangeText, placeholder, keyboardType, autoCapitalize,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (v: string) => void;
-  placeholder?: string;
-  keyboardType?: "default" | "numeric";
-  autoCapitalize?: "none" | "characters" | "words";
-}) {
-  return (
-    <View style={{ flex: 1, gap: spacing.xs }}>
-      <Text style={{ ...typography.caption, color: palette.textMuted }}>{label}</Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        keyboardType={keyboardType ?? "default"}
-        autoCapitalize={autoCapitalize ?? "words"}
-        placeholderTextColor={palette.textMuted}
-        style={{
-          borderWidth: 1,
-          borderColor: palette.border,
-          borderRadius: radii.md,
-          paddingHorizontal: spacing.md,
-          paddingVertical: spacing.sm + 2,
-          ...typography.body,
-          color: palette.text,
-          backgroundColor: palette.surface,
-        }}
-      />
-    </View>
-  );
 }

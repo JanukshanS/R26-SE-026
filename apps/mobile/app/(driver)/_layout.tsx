@@ -1,13 +1,14 @@
 import { Stack } from "expo-router";
 import { palette } from "@theme/index";
-import { VehicleProvider } from "@lib/vehicleContext";
 import { useAutoTripController } from "@hooks/use-auto-trip-controller";
 
 /**
  * Owns the engine monitor for the whole (driver) group. Renders nothing — it
  * lives here rather than in a screen because the monitor must outlive any
- * single screen, and it needs `useVehicle()`, so it has to sit inside
- * VehicleProvider.
+ * single screen. VehicleProvider now lives at the root layout (so shared
+ * components like BottomNavBar work from (insurance) too), but this still
+ * has to sit somewhere inside it, and (driver) is the only place this
+ * particular monitor is relevant.
  */
 function AutoTripController() {
   useAutoTripController();
@@ -16,7 +17,7 @@ function AutoTripController() {
 
 export default function DriverLayout() {
   return (
-    <VehicleProvider>
+    <>
       <AutoTripController />
       <Stack
         screenOptions={{
@@ -36,6 +37,6 @@ export default function DriverLayout() {
         <Stack.Screen name="order-parts" options={{ animation: "fade" }} />
         <Stack.Screen name="profile" options={{ animation: "fade" }} />
       </Stack>
-    </VehicleProvider>
+    </>
   );
 }
