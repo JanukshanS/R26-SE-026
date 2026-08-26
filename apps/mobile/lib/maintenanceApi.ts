@@ -145,7 +145,13 @@ function normalizeHealth(raw: any, vehicleId: string): VehicleHealthResponse {
 }
 
 export async function getVehicleHealth(vehicleId: string): Promise<VehicleHealthResponse> {
-  const { signal, cancel } = timeoutSignal(5000);
+  // Confirmed on a real device against the hosted backend: this genuinely
+  // takes longer than 5s and was aborting client-side before the server ever
+  // finished. Unlike most calls in this file, /health is not a lookup - it
+  // runs ML inference across four components plus a distance-weighted trip
+  // aggregation, so it belongs with submitTrip's budget, not the simple
+  // metadata calls it used to share a timeout with.
+  const { signal, cancel } = timeoutSignal(15000);
   try {
     const res = await fetch(
       `${BASE_URL}/vehicle/${encodeURIComponent(vehicleId)}/health`,
