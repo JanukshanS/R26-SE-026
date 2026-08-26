@@ -21,8 +21,9 @@
     "production": {
       "channel": "production",
       "autoIncrement": true,
+      "distribution": "internal",
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "apk"
       }
     }
   },
