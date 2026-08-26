@@ -1,3 +1,203 @@
+/* ─── Global token mappings for three.css references ────── */
+/* These map the old insurer design tokens to the global kaduna-web tokens so
+   the 3D canvas CSS below can reference them without the old variables.css. */
+:root {
+  --color-brand:            var(--primary);
+  --color-bg-panel:         var(--card);
+  --color-bg-preview:       var(--muted);
+  --color-border:           var(--border);
+  --color-text-placeholder: var(--muted-foreground);
+  --radius-md:              var(--radius, 0.9rem);
+}
+
+/* ─── Claim detail expand/collapse layout ─────────────────── */
+/* These layout overrides cannot be expressed as Tailwind utilities because
+   they rely on a parent class selector to flip child element directions. */
+
+.claim-detail--expanded {
+  flex-direction: row !important;
+  gap: 0 !important;
+  padding: 0 !important;
+}
+
+.claim-detail--expanded .claim-info {
+  width: 280px;
+  flex-shrink: 0;
+  padding: 0.85rem 0.75rem;
+  border-right: 1px solid var(--border);
+  overflow-y: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.claim-detail--expanded .claim-body {
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
+}
+
+.claim-detail--expanded .claim-rows {
+  width: 100%;
+  flex: none;
+}
+
+.claim-detail--expanded .claim-views {
+  width: 100% !important;
+  flex-direction: column;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border: none !important;
+  border-top: 1px solid var(--border) !important;
+}
+
+.claim-detail--expanded .claim-btns {
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border: none !important;
+  border-top: 1px solid var(--border) !important;
+}
+
+/* 2-column grid for action buttons inner wrapper in expanded mode */
+.claim-detail--expanded .claim-btns > div:last-child {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem;
+}
+
+/* Hide card section headers in expanded mode */
+.claim-detail--expanded .claim-rows > div:first-child,
+.claim-detail--expanded .claim-views > div:first-child,
+.claim-detail--expanded .claim-btns > div:first-child {
+  display: none !important;
+}
+
+.claim-detail__compare {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 0.5rem 0.5rem;
+}
+
+/* Minimized: add the same 0.5rem gutter around claim-info so claim-body floats
+   as a matching rounded card alongside the compare-view card below it */
+.claim-panel:not(.claim-detail--expanded) .claim-info {
+  padding: 0.5rem 0.5rem 0;
+}
+
+.claim-detail--expanded .claim-detail__compare {
+  flex: 1;
+  min-height: 0;
+  padding: 0.5rem;
+}
+
+/* Compact buttons so the sidebar fits without scrolling */
+.claim-detail--expanded .claim-views button,
+.claim-detail--expanded .claim-views > div:not(:first-child),
+.claim-detail--expanded .claim-btns button {
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.claim-detail--expanded .claim-views {
+  gap: 0.3rem;
+}
+
+/* irow base grid layout — overridden to flex-column in expanded mode */
+.irow {
+  grid-template-columns: 9rem 1fr auto;
+}
+
+.irow:nth-child(even) {
+  background-color: color-mix(in srgb, var(--muted) 30%, transparent);
+}
+
+.claim-detail--expanded .irow {
+  display: grid !important;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0 0.4rem;
+  padding: 0.25rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.claim-detail--expanded .irow > :first-child {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+.claim-detail--expanded .irow > :nth-child(2) {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.claim-detail--expanded .irow > :nth-child(3) {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: end;
+}
+
+/* ─── Expand/collapse animations ─────────────────────────── */
+
+.claim-detail--animating {
+  animation: detail-fade 0.42s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes detail-fade {
+  0%   { opacity: 0.15; transform: scale(0.985); }
+  55%  { opacity: 0.9; }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.claim-detail--animating.claim-detail--expanded .claim-info {
+  animation: info-slide-in 0.4s cubic-bezier(0.34, 1.3, 0.64, 1) 0.06s both;
+}
+
+@keyframes info-slide-in {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.claim-detail--animating.claim-detail--expanded .claim-detail__compare {
+  animation: canvas-grow 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.12s both;
+}
+
+@keyframes canvas-grow {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.claim-detail--animating:not(.claim-detail--expanded) .claim-body {
+  animation: body-slide-in 0.38s cubic-bezier(0.34, 1.2, 0.64, 1) 0.06s both;
+}
+
+@keyframes body-slide-in {
+  from { opacity: 0; transform: translateX(18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ─── Inline button spinner ──────────────────────────────── */
+
+.btn-spinner {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+  margin-right: 0.4rem;
+  flex-shrink: 0;
+}
+
 /* ─── 3D model preview (claim detail) ────────────────────── */
 
 .model-preview {
@@ -62,8 +262,8 @@
   flex: 1;
   min-height: 0;
   background: var(--color-bg-panel);
-  border: 1.5px solid var(--color-brand);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
   overflow: hidden;
 }
 

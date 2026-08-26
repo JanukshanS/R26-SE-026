@@ -1,6 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { Claim } from "@/lib/insurer/types";
 
 type ClaimsListPanelProps = {
@@ -37,70 +45,91 @@ export function ClaimsListPanel({
     });
 
   return (
-    <section className={`claims-panel${expanded ? " claims-panel--slim" : ""}`}>
+    <section className="rounded-xl border border-border bg-card flex flex-col min-h-0 overflow-hidden">
       {!expanded && (
-        <div className="claims-panel__toolbar">
-          <h2>Claims awaiting review</h2>
-          <div className="claims-panel__search">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border shrink-0">
+          <h2 className="text-base font-semibold">Intelligent 3D Claim System</h2>
+          <div className="relative">
             <input
               type="search"
               placeholder="Search by Name"
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
               aria-label="Search claims"
+              className="rounded-md border border-input bg-background px-3 py-1.5 text-sm pr-8 w-44"
             />
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <circle cx="11" cy="11" r="7" stroke="#9ca3af" strokeWidth="2" />
-              <path d="M20 20l-3-3" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" />
+            <svg
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden
+            >
+              <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+              <path d="M20 20l-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </div>
         </div>
       )}
+
       <button
         type="button"
-        className="claims-panel__sort"
         onClick={() => setSortAsc((v) => !v)}
+        className="self-start px-4 py-1.5 text-xs text-muted-foreground hover:text-foreground shrink-0"
       >
         {expanded ? (sortAsc ? "↑" : "↓") : `Sorted by Date ${sortAsc ? "↑" : "↓"}`}
       </button>
-      <div className="claims-panel__table-wrap">
-        <table className="claims-table">
-          <thead>
-            <tr>
-              {!expanded && <th>NIC</th>}
-              <th>Customer</th>
-              {!expanded && <th>Vehicle Model</th>}
-              {!expanded && <th>Reg No.</th>}
-              <th>Submitted</th>
-            </tr>
-          </thead>
-          <tbody>
+
+      <div className="flex-1 overflow-auto min-h-0">
+        <Table className="table-fixed w-full">
+          <colgroup>
+            {!expanded && <col className="w-[130px]" />}
+            <col />
+            {!expanded && <col className="w-[120px]" />}
+            {!expanded && <col className="w-[90px]" />}
+            <col className="w-[100px]" />
+          </colgroup>
+          <TableHeader>
+            <TableRow>
+              {!expanded && <TableHead>NIC</TableHead>}
+              <TableHead>Customer</TableHead>
+              {!expanded && <TableHead>Vehicle Model</TableHead>}
+              {!expanded && <TableHead>Reg No.</TableHead>}
+              <TableHead>Submitted</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filtered.map((claim) => (
-              <tr
+              <TableRow
                 key={claim.folder}
-                className={claim.folder === selectedFolder ? "claims-table__row--selected" : ""}
                 onClick={() => onSelect(claim.folder)}
+                className={`cursor-pointer hover:bg-accent ${
+                  claim.folder === selectedFolder ? "text-primary font-medium" : ""
+                }`}
               >
-                {!expanded && <td>{claim.nic}</td>}
-                <td>
+                {!expanded && <TableCell>{claim.nic}</TableCell>}
+                <TableCell>
                   {expanded ? (
                     <>
-                      <span className="claims-table__name">{claim.nic}</span>
+                      <span className="block">{claim.nic}</span>
                       {claim.vehicleRegNo && (
-                        <span className="claims-table__sub">{claim.vehicleRegNo}</span>
+                        <span className="block text-xs text-muted-foreground mt-0.5">
+                          {claim.vehicleRegNo}
+                        </span>
                       )}
                     </>
                   ) : (
-                    <span className="claims-table__name">{claim.customer}</span>
+                    <span>{claim.customer}</span>
                   )}
-                </td>
-                {!expanded && <td>{claim.vehicleModel}</td>}
-                {!expanded && <td>{claim.vehicleRegNo || "—"}</td>}
-                <td>{claim.submittedDate || "—"}</td>
-              </tr>
+                </TableCell>
+                {!expanded && <TableCell>{claim.vehicleModel}</TableCell>}
+                {!expanded && <TableCell>{claim.vehicleRegNo || "—"}</TableCell>}
+                <TableCell>{claim.submittedDate || "—"}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </section>
   );
