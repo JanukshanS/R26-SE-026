@@ -33,6 +33,11 @@ from app.schemas import (
 router = APIRouter()
 
 # Feature columns required by each component model (must match train_models.py)
+# How far a part has to run after a logged replacement before the
+# behaviour-based model term is trusted again. Below this, health.py reports
+# the wear reading alone - see the REPLACEMENT_GRACE_KM branch below for why.
+REPLACEMENT_GRACE_KM = 500.0
+
 COMPONENT_FEATURE_MAP: Dict[str, List[str]] = {
     "engine": ["avg_rpm", "max_coolant_temp_c", "ltft_std"],
     "brake": ["braking_frequency", "avg_deceleration_intensity"],
@@ -376,6 +381,49 @@ def _vehicle_health_wear(
             health_pct = round(min(rul_km / max_km * 100, 100.0), 1)
             note = f"{algo_label} (R²={r2_score:.4f})"
             extra = {}
+        elif state.km_on_component < REPLACEMENT_GRACE_KM:
+            # A REAL REPLACEMENT MUST VISIBLY HELP.
+            #
+            # Verified against a live vehicle: logging a brake replacement left
+            # health completely unchanged, at the exact same 5.6% as before.
+            # The model term is a distance-weighted average of braking_frequency
+            # and avg_deceleration_intensity over EVERY trip the vehicle has ever
+            # recorded - it has no notion of "since install" and does not reset
+            # when a part does. Since min(wear, model) keeps whichever is worse,
+            # and the model term was already the bad one, a brand-new part with
+            # a 40,000 km wear allowance was still capped at whatever stale,
+            # pre-replacement driving history the model remembered.
+            #
+            # So for a genuinely young part, the model term is not asked at all.
+            # It is not that it is being outvoted - it has nothing to say yet: it
+            # cannot distinguish "45,000 km on old pads and counting" from
+            # "500 km on new ones", because it was never given "km on this part"
+            # as an input in the first place.
+            #
+            # THIS DOES NOT FIX THE MODEL TERM ITSELF - it stays contaminated
+            # by the driving history of the part that came off, and once
+            # km_on_component crosses the grace window the two terms are
+            # blended again exactly as before, which can read as a sudden drop.
+            # The real fix is teaching the model term to only look at trips
+            # since the part was fitted; this buys time until that lands by
+            # making the one thing a driver can directly verify - "I just paid
+            # for new pads" - visibly true today.
+            rul_km = round(state.wear_rul_km, 1)
+            source = "wear"
+            health_pct = round(min(rul_km / state.expected_life_km * 100, 100.0), 1)
+            note = (
+                f"new part ({state.km_on_component:,.0f}/{REPLACEMENT_GRACE_KM:,.0f} km "
+                f"since fitted) - sensor reading needs more driving on this part first"
+            )
+            if state.is_estimated:
+                note = "Estimated baseline - " + note
+            extra = {
+                "km_on_component": round(state.km_on_component, 1),
+                "install_km": round(state.install_km, 1),
+                "baseline_basis": state.basis,
+                "is_estimated": state.is_estimated,
+                "rul_source": source,
+            }
         else:
             # The wear term is what we KNOW (how far this part has run since it
             # went in); the model term is what the sensors SEE (whether it's
