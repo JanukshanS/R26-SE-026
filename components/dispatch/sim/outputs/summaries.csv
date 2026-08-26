@@ -1,6 +1,6 @@
 strategy,n_incidents,match_rate,provider_capable_rate,re_dispatch_rate,avg_resolution_time_min,stdev_resolution_time_min
-UADO,500,0.27,0.962,0.038,65.7348,44.6784
-ECMOnly,500,0.242,0.934,0.066,66.7965,45.515
-GreedyNearest,500,0.256,0.684,0.316,77.0982,52.8948
-TypeMatched,500,0.242,0.936,0.064,66.6157,45.3455
-MultiCriteria,500,0.242,0.93,0.07,67.6906,45.7645
+UADO,300,0.23,0.95,0.05,66.1728,46.9542
+ECMOnly,300,0.23,0.9233,0.0767,67.3096,47.7094
+GreedyNearest,300,0.27,0.66,0.34,76.7825,55.2255
+TypeMatched,300,0.23,0.9167,0.0833,66.1497,47.0981
+MultiCriteria,300,0.23,0.9133,0.0867,67.1558,47.4879

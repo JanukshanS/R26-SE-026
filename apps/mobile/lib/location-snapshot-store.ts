@@ -1,8 +1,17 @@
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Location from 'expo-location';
 
 import { formatGeocodedLine } from '@/lib/format-geocoded-line';
 import { formatTimestamp } from '@/lib/format-timestamp';
+
+/**
+ * Web fallback: expo-file-system throws on web. The location snapshot
+ * capture itself still runs (expo-location works on web via the browser
+ * geolocation API), but persistence is a no-op — the returned store's
+ * load/save/clear all short-circuit on web.
+ */
+const IS_WEB = Platform.OS === 'web';
 
 export type LocationSnapshotMeta = {
   capturedAtIso: string;
@@ -75,6 +84,7 @@ export function createLocationSnapshotStore(dir: string, filename: string) {
 
   return {
     async load(): Promise<LocationSnapshotMeta | null> {
+      if (IS_WEB) return null;
       try {
         await FileSystem.makeDirectoryAsync(ROOT_DIR, { intermediates: true });
         const info = await FileSystem.getInfoAsync(STATE_FILE);
@@ -101,11 +111,13 @@ export function createLocationSnapshotStore(dir: string, filename: string) {
     },
 
     async save(meta: LocationSnapshotMeta): Promise<void> {
+      if (IS_WEB) return;
       await FileSystem.makeDirectoryAsync(ROOT_DIR, { intermediates: true });
       await FileSystem.writeAsStringAsync(STATE_FILE, JSON.stringify(meta));
     },
 
     async clear(): Promise<void> {
+      if (IS_WEB) return;
       try {
         await FileSystem.deleteAsync(STATE_FILE, { idempotent: true });
       } catch {

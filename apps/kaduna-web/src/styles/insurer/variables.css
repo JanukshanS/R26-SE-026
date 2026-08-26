@@ -1,0 +1,39 @@
+/* Insurer dashboard design tokens — scoped to avoid conflicts with kaduna-web globals */
+.insurer-root {
+  /* Brand */
+  --color-brand:        #FF8419;
+  --color-brand-light:  #FF8419;
+  --color-brand-dark:   #E06A0A;
+  --color-brand-bg:     #fff7ed;
+
+  /* Backgrounds */
+  --color-bg-page:    #ffdeba21;
+  --color-bg-panel:   #ffffff;
+  --color-bg-muted:   #f9fafb;
+  --color-bg-preview: #f1f5f9;
+  --color-bg-scene:   #c6a44d;
+
+  /* Text */
+  --color-text:             #111827;
+  --color-text-secondary:   #374151;
+  --color-text-muted:       #6b7280;
+  --color-text-placeholder: #9ca3af;
+
+  /* Borders */
+  --color-border:       #e5e7eb;
+  --color-border-light: #f3f4f6;
+
+  /* Status */
+  --color-success:      #22c55e;
+  --color-success-text: #16a34a;
+
+  /* Layout */
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   12px;
+  --radius-pill: 999px;
+
+  /* Fonts — map to kaduna-web's already-loaded Next.js font variables */
+  --font-family:         var(--font-geist-sans, "Geist", system-ui, -apple-system, sans-serif);
+  --font-family-display: var(--font-bricolage, "Bricolage Grotesque", "Geist", system-ui, sans-serif);
+}
