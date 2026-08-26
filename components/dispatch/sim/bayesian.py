@@ -119,6 +119,7 @@ def blend_prior_with_tree(
     tree_probs:               dict[str, float],
     prior_probs:              dict[str, float],
     prior_observation_count:  int,
+    k_weight:                 float = TREE_EFFECTIVE_WEIGHT,
 ) -> tuple[dict[str, float], bool]:
     """
     Count-weighted blend: P_final = (K*tree + n*prior) / (K + n).
@@ -126,11 +127,12 @@ def blend_prior_with_tree(
     Returns (blended, was_actually_blended). The bool is False when
     n < MIN_OBSERVATIONS_TO_BLEND — in that case the tree distribution
     is returned unchanged and the caller should NOT mark the result as
-    bayesian-influenced.
+    bayesian-influenced. `k_weight` overrides K for sensitivity analysis;
+    default matches TREE_EFFECTIVE_WEIGHT (production value).
     """
     if prior_observation_count < MIN_OBSERVATIONS_TO_BLEND:
         return tree_probs, False
-    K = TREE_EFFECTIVE_WEIGHT
+    K = k_weight
     n = prior_observation_count
     denom = K + n
     all_keys = set(tree_probs.keys()) | set(prior_probs.keys())
@@ -168,9 +170,16 @@ class InMemoryPriorStore:
     per simulation run, so seeds fully control state.
     """
 
-    def __init__(self, class_names: list[str]):
+    def __init__(
+        self,
+        class_names: list[str],
+        gamma:       float = DISCOUNT_FACTOR,
+        k_weight:    float = TREE_EFFECTIVE_WEIGHT,
+    ):
         self._class_names = class_names
         self._store: dict[str, StoredPrior] = {}
+        self.gamma    = gamma       # overridable for sensitivity analysis
+        self.k_weight = k_weight    # overridable for sensitivity analysis
 
     def get(self, key: str) -> StoredPrior | None:
         return self._store.get(key)
@@ -179,7 +188,7 @@ class InMemoryPriorStore:
         existing = self._store.get(key)
         old_alpha = existing.alpha if existing else initial_dirichlet_counts(self._class_names)
         old_n     = existing.observation_count if existing else 0
-        new_alpha = update_dirichlet_counts(old_alpha, actual, DISCOUNT_FACTOR)
+        new_alpha = update_dirichlet_counts(old_alpha, actual, self.gamma)
         stored = StoredPrior(
             symptom_key       = key,
             alpha             = new_alpha,
@@ -197,7 +206,7 @@ class InMemoryPriorStore:
         if stored is None:
             return tree_probs, False
         prior_probs = posterior_from_counts(stored.alpha)
-        return blend_prior_with_tree(tree_probs, prior_probs, stored.observation_count)
+        return blend_prior_with_tree(tree_probs, prior_probs, stored.observation_count, self.k_weight)
 
     # ── Aggregate stats for the convergence plot ──────────────────────
 

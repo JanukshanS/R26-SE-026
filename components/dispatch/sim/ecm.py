@@ -3,25 +3,34 @@
 ECM — Expected Cost Minimization cost function (Python port)
 ============================================================================
 
-Mirrors `components/dispatch/src/services/dispatch-optimizer.ts` — same
-weighted cost formula, same units. The simulation ranks providers by
-minimum expected cost and picks the winner exactly like production does.
+Exact port of `components/dispatch/src/services/dispatch-optimizer.ts`'s
+`calculateExpectedCost`. Previously this file used a DIFFERENT formula
+(flat additive trust penalty, flat traffic term, missing assessment delay)
+that only agreed with production directionally, not numerically — flagged
+as an open item in the paper's Threats to Validity. Fixed 2026-08-26 to be
+a literal port so simulation results describe the deployed objective, not
+an approximation of it.
 
-FORMULA
--------
-For each candidate provider p and each service type s in the probability
-distribution:
+FORMULA (identical to dispatch-optimizer.ts:calculateExpectedCost)
+--------------------------------------------------------------------------
+For each candidate provider p and probability distribution P over service
+types s:
+
     mismatch_penalty(p, s) =
-        0                      if p can handle s
-        RE_DISPATCH_PENALTY    otherwise (extra time to re-dispatch)
+        0                                              if p can handle s
+        assessment_delay_minutes + re_dispatch_penalty  otherwise
 
-Cost(p) = Σ_s P(s) · (
-    travel_time(p)
-    + service_time(s)
-    + mismatch_penalty(p, s)
-) + λ · traffic_impact + (1 - trust_score(p)) · TRUST_PENALTY
+    raw_cost(p) = Σ_s P(s) · [ travel_time(p) + service_time(s) + mismatch_penalty(p, s) ]
+                + λ · (traffic_impact / 10) · travel_time(p)
+
+    Cost(p) = raw_cost(p) / clamp(trust_score(p), 0.1, 1.0)
 
 Providers with lower Cost(p) are preferred. Argmin picks the winner.
+
+`re_dispatch_penalty_minutes` and `assessment_delay_minutes` are exposed as
+optional overrides (default = production config values) so a sensitivity
+sweep over the mismatch penalty can call this function directly without
+touching module-level state.
 
 @author Janukshan Sivakumar - IT22635266
 """
@@ -32,10 +41,10 @@ import math
 from dataclasses import dataclass
 
 
-# ─── Config mirrors src/config/index.ts (dispatch.*) ─────────────────────
+# ─── Config mirrors src/config/index.ts (dispatch.*) — production values ─
 TRAFFIC_LAMBDA               = 0.3
-RE_DISPATCH_PENALTY_MINUTES  = 45
-TRUST_PENALTY_MINUTES        = 15  # cost multiplier for low-trust providers
+RE_DISPATCH_PENALTY_MINUTES  = 45   # config.dispatch.reDispatchPenaltyMinutes
+ASSESSMENT_DELAY_MINUTES     = 10   # config.dispatch.assessmentDelayMinutes (was MISSING from this file)
 
 # Average service times per service type in minutes (mirrors config.dispatch.averageServiceTimes)
 AVERAGE_SERVICE_TIMES = {
@@ -119,46 +128,62 @@ def travel_time_min(distance_km: float, speed_kph: float = 25.0) -> float:
 # ─── Cost function ───────────────────────────────────────────────────────
 
 def compute_provider_cost(
-    provider:             Provider,
-    incident_lat:         float,
-    incident_lon:         float,
-    probabilities:        dict[str, float],
-    traffic_impact_score: float = 5.0,   # 1..10; default 5 when geo unreachable
-    lambda_:              float = TRAFFIC_LAMBDA,
+    provider:                     Provider,
+    incident_lat:                 float,
+    incident_lon:                 float,
+    probabilities:                dict[str, float],
+    traffic_impact_score:         float = 5.0,   # 1..10; default 5 when geo unreachable
+    lambda_:                      float = TRAFFIC_LAMBDA,
+    re_dispatch_penalty_minutes:  float = RE_DISPATCH_PENALTY_MINUTES,
+    assessment_delay_minutes:     float = ASSESSMENT_DELAY_MINUTES,
 ) -> CostBreakdown:
     """
     Compute the expected cost of dispatching `provider` to the incident,
     integrating over the diagnostic probability distribution.
 
-    Mirrors the TS `computeProviderCost` semantics; deviations here would
-    invalidate the simulation as a predictor of production behaviour.
+    Literal port of dispatch-optimizer.ts:calculateExpectedCost — same
+    per-service-type weighted sum (travel + service + mismatch penalty),
+    same traffic-externality scaling (lambda * (traffic/10) * travel, not
+    a flat term), same trust treatment (divides the WHOLE cost, not an
+    additive penalty). `re_dispatch_penalty_minutes` and
+    `assessment_delay_minutes` are overridable for sensitivity analysis;
+    defaults match config.dispatch in src/config/index.ts exactly.
     """
     dist_km  = haversine_km(provider.latitude, provider.longitude, incident_lat, incident_lon)
     travel   = travel_time_min(dist_km)
 
-    expected_service = 0.0
-    mismatch_risk    = 0.0
+    expected_cost_sum = 0.0   # Σ_s P(s) * (travel + service(s) + mismatch_penalty(s))
+    mismatch_risk     = 0.0
     for service_type, prob in probabilities.items():
         if prob <= 0:
             continue
         base_service = AVERAGE_SERVICE_TIMES.get(service_type, 60)
         can_handle   = service_type in provider.capabilities
         if can_handle:
-            expected_service += prob * base_service
+            expected_cost_sum += prob * (travel + base_service)
         else:
-            expected_service += prob * (base_service + RE_DISPATCH_PENALTY_MINUTES)
-            mismatch_risk    += prob
+            expected_cost_sum += prob * (
+                travel + assessment_delay_minutes + re_dispatch_penalty_minutes + base_service
+            )
+            mismatch_risk += prob
 
-    trust_component = (1.0 - provider.trust_score) * TRUST_PENALTY_MINUTES
-    externality     = lambda_ * traffic_impact_score
+    # Traffic externality: scales with travel time, not a flat term — a
+    # provider twice as far away imposes twice the congestion externality
+    # while still en route. Matches dispatch-optimizer.ts exactly.
+    traffic_externality = lambda_ * (traffic_impact_score / 10.0) * travel
 
-    total = travel + expected_service + trust_component + externality
+    raw_cost = expected_cost_sum + traffic_externality
+
+    # Trust divides the WHOLE cost (not an additive penalty) — clamped to
+    # [0.1, 1.0] to avoid division blow-up for near-zero trust.
+    clamped_trust = max(0.1, min(1.0, provider.trust_score))
+    total = raw_cost / clamped_trust
 
     return CostBreakdown(
         provider_id          = provider.id,
         expected_cost        = total,
         travel_time_min      = travel,
-        expected_service_min = expected_service,
+        expected_service_min = expected_cost_sum,
         mismatch_risk        = mismatch_risk,
         lambda_used          = lambda_,
         traffic_impact       = traffic_impact_score,
@@ -166,19 +191,22 @@ def compute_provider_cost(
 
 
 def rank_providers(
-    providers:            list[Provider],
-    incident_lat:         float,
-    incident_lon:         float,
-    probabilities:        dict[str, float],
-    traffic_impact_score: float = 5.0,
-    lambda_:              float = TRAFFIC_LAMBDA,
+    providers:                    list[Provider],
+    incident_lat:                 float,
+    incident_lon:                 float,
+    probabilities:                dict[str, float],
+    traffic_impact_score:         float = 5.0,
+    lambda_:                      float = TRAFFIC_LAMBDA,
+    re_dispatch_penalty_minutes:  float = RE_DISPATCH_PENALTY_MINUTES,
+    assessment_delay_minutes:     float = ASSESSMENT_DELAY_MINUTES,
 ) -> list[CostBreakdown]:
     """Rank all AVAILABLE providers by ascending expected cost."""
     available = [p for p in providers if p.available]
     costs = [
         compute_provider_cost(
             p, incident_lat, incident_lon, probabilities,
-            traffic_impact_score, lambda_
+            traffic_impact_score, lambda_,
+            re_dispatch_penalty_minutes, assessment_delay_minutes,
         )
         for p in available
     ]

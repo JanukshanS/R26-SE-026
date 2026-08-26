@@ -37,6 +37,8 @@ from .ecm import (
     rank_providers,
     travel_time_min,
     AVERAGE_SERVICE_TIMES,
+    RE_DISPATCH_PENALTY_MINUTES,
+    ASSESSMENT_DELAY_MINUTES,
 )
 from .scenario import Incident, ML_SERVICE_TYPES
 from .tree_walker import get_tree
@@ -87,8 +89,29 @@ class UADOStrategy(Strategy):
     """
     name = "UADO"
 
-    def __init__(self) -> None:
-        self.priors = InMemoryPriorStore(class_names=ML_SERVICE_TYPES)
+    def __init__(
+        self,
+        gamma:                        float = None,
+        k_weight:                     float = None,
+        re_dispatch_penalty_minutes:  float = RE_DISPATCH_PENALTY_MINUTES,
+        assessment_delay_minutes:     float = ASSESSMENT_DELAY_MINUTES,
+    ) -> None:
+        """
+        `gamma`/`k_weight` override the Bayesian discount factor / tree-blend
+        weight (None = InMemoryPriorStore's own production defaults).
+        `re_dispatch_penalty_minutes`/`assessment_delay_minutes` override the
+        ECM mismatch-penalty constants. All four exist purely so a
+        sensitivity sweep can construct differently-configured strategy
+        instances without touching module-level state.
+        """
+        kwargs = {}
+        if gamma is not None:
+            kwargs["gamma"] = gamma
+        if k_weight is not None:
+            kwargs["k_weight"] = k_weight
+        self.priors = InMemoryPriorStore(class_names=ML_SERVICE_TYPES, **kwargs)
+        self.re_dispatch_penalty_minutes = re_dispatch_penalty_minutes
+        self.assessment_delay_minutes    = assessment_delay_minutes
 
     def dispatch(
         self,
@@ -114,7 +137,11 @@ class UADOStrategy(Strategy):
         blended, _  = self.priors.blend_for(symptom_key, tree_probs)
 
         # ECM ranking on the blended distribution
-        ranked   = rank_providers(providers, incident.latitude, incident.longitude, blended, traffic_impact_score)
+        ranked = rank_providers(
+            providers, incident.latitude, incident.longitude, blended, traffic_impact_score,
+            re_dispatch_penalty_minutes=self.re_dispatch_penalty_minutes,
+            assessment_delay_minutes=self.assessment_delay_minutes,
+        )
         chosen   = next(p for p in providers if p.id == ranked[0].provider_id)
         argmax_c, _ = bayesian_argmax(blended)
         return chosen, argmax_c, blended
@@ -253,6 +280,14 @@ class ECMOnlyStrategy(Strategy):
     """
     name = "ECMOnly"
 
+    def __init__(
+        self,
+        re_dispatch_penalty_minutes:  float = RE_DISPATCH_PENALTY_MINUTES,
+        assessment_delay_minutes:     float = ASSESSMENT_DELAY_MINUTES,
+    ) -> None:
+        self.re_dispatch_penalty_minutes = re_dispatch_penalty_minutes
+        self.assessment_delay_minutes    = assessment_delay_minutes
+
     def dispatch(
         self,
         incident:              Incident,
@@ -271,7 +306,11 @@ class ECMOnlyStrategy(Strategy):
         tree_probs = tree.predict_proba(tree_input)
 
         # Skip the Bayesian blend — P_final = P_tree.
-        ranked = rank_providers(providers, incident.latitude, incident.longitude, tree_probs, traffic_impact_score)
+        ranked = rank_providers(
+            providers, incident.latitude, incident.longitude, tree_probs, traffic_impact_score,
+            re_dispatch_penalty_minutes=self.re_dispatch_penalty_minutes,
+            assessment_delay_minutes=self.assessment_delay_minutes,
+        )
         chosen = next(p for p in providers if p.id == ranked[0].provider_id)
         argmax_c, _ = bayesian_argmax(tree_probs)
         return chosen, argmax_c, tree_probs

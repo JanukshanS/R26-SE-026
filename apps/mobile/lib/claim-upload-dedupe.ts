@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { loadDrunkTestState } from '@/features/drunk-test/storage/drunk-test-store';
@@ -5,10 +6,19 @@ import { loadDrivingLicenceState } from '@/features/driving-licence/storage/driv
 import { loadGuidedCaptureStoreState } from '@/features/guided-capture/storage/guided-capture-store';
 import { loadThirdPartyState } from '@/features/third-party/storage/third-party-store';
 
-const ROOT_DIR = (FileSystem.documentDirectory ?? '') + 'claim-upload/';
-const LAST_SUCCESS_KEY_FILE = ROOT_DIR + 'last-success-bundle-key.txt';
+/**
+ * Web fallback: expo-file-system throws on web. The claim-upload dedup
+ * store belongs to the native-only claim flow; on web every persistence
+ * function is a no-op / null-return. `computeClaimBundleUploadKey`
+ * still works because it only READS in-memory state, so its hash can be
+ * computed on web too.
+ */
+const IS_WEB = Platform.OS === 'web';
+
+const ROOT_DIR                   = (FileSystem.documentDirectory ?? '') + 'claim-upload/';
+const LAST_SUCCESS_KEY_FILE      = ROOT_DIR + 'last-success-bundle-key.txt';
 const LAST_SUCCESS_LOCATION_FILE = ROOT_DIR + 'last-success-location.json';
-const DISMISSED_CLAIM_ID_FILE = ROOT_DIR + 'dismissed-claim-id.txt';
+const DISMISSED_CLAIM_ID_FILE    = ROOT_DIR + 'dismissed-claim-id.txt';
 
 export type PersistedClaimLocation = {
   locationLine: string;
@@ -16,11 +26,13 @@ export type PersistedClaimLocation = {
 };
 
 export async function savePersistedClaimLocation(data: PersistedClaimLocation): Promise<void> {
+  if (IS_WEB) return;
   await FileSystem.makeDirectoryAsync(ROOT_DIR, { intermediates: true });
   await FileSystem.writeAsStringAsync(LAST_SUCCESS_LOCATION_FILE, JSON.stringify(data));
 }
 
 export async function loadPersistedClaimLocation(): Promise<PersistedClaimLocation | null> {
+  if (IS_WEB) return null;
   try {
     await FileSystem.makeDirectoryAsync(ROOT_DIR, { intermediates: true });
     const info = await FileSystem.getInfoAsync(LAST_SUCCESS_LOCATION_FILE);
@@ -42,10 +54,10 @@ function djb2Hex(input: string): string {
 }
 
 export async function computeClaimBundleUploadKey(): Promise<string> {
-  const guided = await loadGuidedCaptureStoreState();
+  const guided  = await loadGuidedCaptureStoreState();
   const licence = await loadDrivingLicenceState();
-  const third = await loadThirdPartyState();
-  const drunk = await loadDrunkTestState();
+  const third   = await loadThirdPartyState();
+  const drunk   = await loadDrunkTestState();
   const raw = [
     [...guided.photos.map((p) => p.uri)].sort().join(','),
     [licence.frontUri, licence.backUri, licence.selfieUri].filter(Boolean).join(','),
@@ -58,6 +70,7 @@ export async function computeClaimBundleUploadKey(): Promise<string> {
 }
 
 export async function getPersistedSuccessfulClaimUploadKey(): Promise<string | null> {
+  if (IS_WEB) return null;
   try {
     await FileSystem.makeDirectoryAsync(ROOT_DIR, { intermediates: true });
     const info = await FileSystem.getInfoAsync(LAST_SUCCESS_KEY_FILE);
@@ -70,6 +83,7 @@ export async function getPersistedSuccessfulClaimUploadKey(): Promise<string | n
 }
 
 export async function setPersistedSuccessfulClaimUploadKey(key: string): Promise<void> {
+  if (IS_WEB) return;
   await FileSystem.makeDirectoryAsync(ROOT_DIR, { intermediates: true });
   await FileSystem.writeAsStringAsync(LAST_SUCCESS_KEY_FILE, key);
 }
@@ -80,6 +94,7 @@ export async function isClaimReportSubmittedLocked(): Promise<boolean> {
 }
 
 export async function clearPersistedClaimUploadSuccess(): Promise<void> {
+  if (IS_WEB) return;
   try {
     await FileSystem.deleteAsync(LAST_SUCCESS_KEY_FILE, { idempotent: true });
   } catch {
@@ -92,22 +107,14 @@ export async function clearPersistedClaimUploadSuccess(): Promise<void> {
   }
 }
 
-/**
- * The claims-privacy id of whichever claim the driver last dismissed via "Start New
- * Claim" — deliberately NOT cleared by clearAllClaimData() (that runs alongside
- * saving this, and would otherwise erase it immediately). Home's Insurance button
- * compares this against the server's most-recent claim id: a match means that claim
- * has already been acknowledged, so don't redirect back to its submitted view even
- * though the server hasn't seen a newer one yet — the driver may be mid-way through
- * a new claim's steps locally. Survives app restarts and same-account re-logins,
- * same as the rest of this file, since it's a plain persisted file.
- */
 export async function saveDismissedClaimId(id: string): Promise<void> {
+  if (IS_WEB) return;
   await FileSystem.makeDirectoryAsync(ROOT_DIR, { intermediates: true });
   await FileSystem.writeAsStringAsync(DISMISSED_CLAIM_ID_FILE, id);
 }
 
 export async function loadDismissedClaimId(): Promise<string | null> {
+  if (IS_WEB) return null;
   try {
     await FileSystem.makeDirectoryAsync(ROOT_DIR, { intermediates: true });
     const info = await FileSystem.getInfoAsync(DISMISSED_CLAIM_ID_FILE);
