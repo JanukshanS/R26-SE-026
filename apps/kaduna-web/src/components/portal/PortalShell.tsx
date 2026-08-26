@@ -21,12 +21,16 @@ export default function PortalShell({
   title,
   tabs = [],
   active,
+  fullWidth = false,
+  stretch = false,
   onBeforeSignOut,
   children,
 }: {
   title: string;
   tabs?: PortalTab[];
   active?: string;
+  fullWidth?: boolean;
+  stretch?: boolean;
   onBeforeSignOut?: () => Promise<void>;
   children: React.ReactNode;
 }) {
@@ -35,9 +39,9 @@ export default function PortalShell({
   const areas = areasFor(profile);
 
   return (
-    <div className="min-h-screen bg-background text-foreground [--radius:0.9rem]">
+    <div className={`bg-background text-foreground [--radius:0.9rem] ${stretch ? "h-screen overflow-hidden flex flex-col" : "min-h-screen"}`}>
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-3 px-6 py-3.5">
+        <div className={`mx-auto flex flex-wrap items-center gap-x-5 gap-y-3 px-6 py-3.5 ${fullWidth ? "max-w-full" : "max-w-6xl"}`}>
           <Link href="/" className="font-display text-xl font-bold tracking-tight">
             Kaduna<span className="text-primary">.lk</span>
           </Link>
@@ -78,20 +82,17 @@ export default function PortalShell({
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 pb-16 pt-8">
-        <h1 className="font-display text-2xl font-bold tracking-tight">{title}</h1>
+      <main className={`mx-auto px-6 ${fullWidth ? "max-w-full" : "max-w-6xl"} ${stretch ? "flex-1 overflow-hidden flex flex-col pt-4 pb-2" : "pb-16 pt-8"}`}>
+        {title && <h1 className="font-display text-2xl font-bold tracking-tight shrink-0">{title}</h1>}
 
         {tabs.length > 0 && (
-          <nav aria-label={title} className="mt-4 flex gap-1 overflow-x-auto border-b border-border">
+          <nav aria-label={title} className="mt-4 flex gap-1 overflow-x-auto border-b border-border shrink-0">
             {tabs.map((t) => {
               const className = `-mb-px shrink-0 border-b-2 px-3 py-2 text-sm ${
                 t.label === active
                   ? "border-primary font-medium text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`;
-              // A plain anchor for in-page hashes: next/link routes them through
-              // history.pushState, which never fires `hashchange`, so a page that
-              // keeps its tab state in the fragment would never hear about it.
               return t.href.startsWith("#") ? (
                 <a key={t.label} href={t.href} className={className}>
                   {t.label}
@@ -105,7 +106,7 @@ export default function PortalShell({
           </nav>
         )}
 
-        <div className="mt-8">{children}</div>
+        <div className={stretch ? "flex-1 overflow-hidden mt-4" : "mt-8"}>{children}</div>
       </main>
     </div>
   );

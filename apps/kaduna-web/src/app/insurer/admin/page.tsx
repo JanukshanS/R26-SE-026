@@ -1,43 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import PortalShell from "@/components/portal/PortalShell";
 import { CompaniesTab } from "@/components/insurer/admin/CompaniesTab";
 import { UsersTab } from "@/components/insurer/admin/UsersTab";
-import { DashboardHeader } from "@/components/insurer/dashboard/DashboardHeader";
-type Tab = "companies" | "users";
+
+const TAB_LABELS = ["Companies", "Users"] as const;
+type Tab = (typeof TAB_LABELS)[number];
+const TABS = TAB_LABELS.map((label) => ({ label, href: `#${label.toLowerCase()}` }));
 
 export default function InsurerAdminPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("companies");
+  const [tab, setTab] = useState<Tab>("Companies");
+
+  useEffect(() => {
+    const sync = () => {
+      const want = window.location.hash.replace("#", "").toLowerCase();
+      setTab(TAB_LABELS.find((t) => t.toLowerCase() === want) ?? "Companies");
+    };
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
 
   return (
-    <div className="admin-page">
-      <DashboardHeader
-        showBackToDashboard
-        onAdminClick={undefined}
-      />
-      <p className="admin-page__company">Admin Panel</p>
-
-      <div className="admin-body">
-        <div className="admin-tabs">
-          <button
-            type="button"
-            className={`admin-tab${activeTab === "companies" ? " admin-tab--active" : ""}`}
-            onClick={() => setActiveTab("companies")}
-          >
-            Insurance Companies
-          </button>
-          <button
-            type="button"
-            className={`admin-tab${activeTab === "users" ? " admin-tab--active" : ""}`}
-            onClick={() => setActiveTab("users")}
-          >
-            Users
-          </button>
-        </div>
-
-        {activeTab === "companies" && <CompaniesTab />}
-        {activeTab === "users" && <UsersTab />}
-      </div>
-    </div>
+    <PortalShell title="Insurer Admin" tabs={TABS} active={tab} fullWidth>
+      {tab === "Companies" ? <CompaniesTab /> : <UsersTab />}
+    </PortalShell>
   );
 }

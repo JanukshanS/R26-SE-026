@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import PortalShell from "@/components/portal/PortalShell";
 import { ClaimDetailPanel } from "@/components/insurer/dashboard/ClaimDetailPanel";
 import { ClaimsListPanel } from "@/components/insurer/dashboard/ClaimsListPanel";
-import { DashboardHeader } from "@/components/insurer/dashboard/DashboardHeader";
 import { PipelineSteps } from "@/components/insurer/dashboard/PipelineSteps";
 import { PipelineJobProvider, usePipelineJob } from "@/lib/insurer/PipelineJobContext";
 import { useInsurerUser } from "@/lib/insurer/auth";
 import { fetchClaims } from "@/lib/insurer/claimsApi";
 import type { Claim } from "@/lib/insurer/types";
+
 function GlobalPipelineWidget() {
   const { activeJob, clearJob } = usePipelineJob();
   if (!activeJob) return null;
@@ -56,15 +57,20 @@ function DashboardInner() {
   );
 
   return (
-    <div className="dashboard">
-      <DashboardHeader onAdminClick={undefined} />
-      {user?.company_name && <p className="dashboard__company">{user.company_name}</p>}
+    <PortalShell title="" fullWidth stretch>
+      {user?.company_name && (
+        <p className="mb-4 text-sm text-muted-foreground">{user.company_name}</p>
+      )}
 
-      {loading && <p style={{ padding: "2rem" }}>Loading claims…</p>}
-      {error && <p style={{ padding: "2rem", color: "red" }}>{error}</p>}
+      {loading && <p className="py-8 text-muted-foreground">Loading claims…</p>}
+      {error && <p className="py-8 text-red-600">{error}</p>}
 
       {!loading && !error && (
-        <div className={`dashboard__content${expanded ? " dashboard__content--expanded" : ""}`}>
+        <div
+          className={`grid gap-4 h-full transition-[grid-template-columns] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${
+            expanded ? "grid-cols-[240px_1fr]" : "grid-cols-[minmax(280px,38%)_1fr]"
+          }`}
+        >
           <ClaimsListPanel
             claims={claims}
             selectedFolder={selectedFolder}
@@ -86,7 +92,7 @@ function DashboardInner() {
       )}
 
       <GlobalPipelineWidget />
-    </div>
+    </PortalShell>
   );
 }
 
