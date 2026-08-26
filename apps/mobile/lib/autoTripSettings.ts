@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 
 /**
@@ -76,6 +77,13 @@ let writeChain: Promise<void> = Promise.resolve();
 
 export async function loadAutoTripSettings(): Promise<AutoTripSettings> {
   if (cache) return cache;
+  // Web has no expo-file-system + no OBD to learn resting baselines from —
+  // return defaults and rely on the in-memory cache. persist() is also a
+  // no-op on web (below).
+  if (Platform.OS === 'web') {
+    cache = { ...DEFAULTS, restingSamples: {}, settingsVersion: SETTINGS_VERSION };
+    return cache;
+  }
   try {
     const info = await FileSystem.getInfoAsync(SETTINGS_FILE);
     if (!info.exists) {
@@ -110,6 +118,10 @@ export async function loadAutoTripSettings(): Promise<AutoTripSettings> {
 function persist(): void {
   const snapshot = cache;
   if (!snapshot) return;
+  // Web has no expo-file-system — the in-memory cache still works for the
+  // session, we just don't persist across reloads. Auto-trip is a native-
+  // only feature (needs OBD) so this has no user-facing impact.
+  if (Platform.OS === 'web') return;
   writeChain = writeChain
     .then(async () => {
       await FileSystem.makeDirectoryAsync(ROOT_DIR, { intermediates: true });

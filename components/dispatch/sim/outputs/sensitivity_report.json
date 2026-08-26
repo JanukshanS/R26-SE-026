@@ -1,0 +1,555 @@
+{
+  "protocol": "sensitivity-1D-sweep",
+  "n_per_seed": 1000,
+  "n_seeds": 30,
+  "n_providers": 20,
+  "baseline": {
+    "M": 45.0,
+    "gamma": 0.99,
+    "K": 20.0
+  },
+  "grid": {
+    "M": [
+      30.0,
+      45.0,
+      60.0
+    ],
+    "gamma": [
+      0.95,
+      0.99,
+      1.0
+    ],
+    "K": [
+      10.0,
+      20.0,
+      40.0
+    ]
+  },
+  "configs": [
+    {
+      "label": "baseline",
+      "M": 45.0,
+      "gamma": 0.99,
+      "K": 20.0,
+      "aggregate": {
+        "UADO": {
+          "match_rate_mean": 0.3440666666666667,
+          "match_rate_sd": 0.02218096937238881,
+          "provider_capable_rate_mean": 0.9700666666666666,
+          "provider_capable_rate_sd": 0.01823398368211237,
+          "re_dispatch_rate_mean": 0.029933333333333333,
+          "re_dispatch_rate_sd": 0.018233983682112372,
+          "avg_resolution_time_min_mean": 67.93478287215113,
+          "avg_resolution_time_min_sd": 2.2468150390025
+        },
+        "ECMOnly": {
+          "match_rate_mean": 0.23666666666666666,
+          "match_rate_sd": 0.016444962195432237,
+          "provider_capable_rate_mean": 0.9431666666666666,
+          "provider_capable_rate_sd": 0.01955555011320019,
+          "re_dispatch_rate_mean": 0.05683333333333333,
+          "re_dispatch_rate_sd": 0.019555550113200218,
+          "avg_resolution_time_min_mean": 68.93695569535657,
+          "avg_resolution_time_min_sd": 2.381524687466873
+        },
+        "ArgmaxECM": {
+          "match_rate_mean": 0.3440666666666667,
+          "match_rate_sd": 0.02218096937238881,
+          "provider_capable_rate_mean": 0.9495,
+          "provider_capable_rate_sd": 0.01814833515685437,
+          "re_dispatch_rate_mean": 0.0505,
+          "re_dispatch_rate_sd": 0.018148335156854396,
+          "avg_resolution_time_min_mean": 68.56329218664595,
+          "avg_resolution_time_min_sd": 2.321257563862008
+        }
+      },
+      "comparisons": {
+        "UADO_vs_ECMOnly": {
+          "resolution_time_t": -25.289019054786074,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 0.0,
+          "match_b": 3452.0,
+          "match_c": 230.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 807.0,
+          "capable_c": 0.0
+        },
+        "UADO_vs_ArgmaxECM": {
+          "resolution_time_t": -17.555408307066276,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 1.0,
+          "match_b": 0.0,
+          "match_c": 0.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 633.0,
+          "capable_c": 16.0
+        },
+        "ECMOnly_vs_ArgmaxECM": {
+          "resolution_time_t": 18.020801717660476,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 0.0,
+          "match_b": 230.0,
+          "match_c": 3452.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 7.0,
+          "capable_c": 197.0
+        }
+      },
+      "orderings": {
+        "match_UADO_gt_ECMOnly": true,
+        "capable_ECMOnly_gt_ArgmaxECM": false,
+        "capable_UADO_gt_ArgmaxECM": true
+      }
+    },
+    {
+      "label": "M=30.0",
+      "M": 30.0,
+      "gamma": 0.99,
+      "K": 20.0,
+      "aggregate": {
+        "UADO": {
+          "match_rate_mean": 0.3440666666666667,
+          "match_rate_sd": 0.02218096937238881,
+          "provider_capable_rate_mean": 0.9649,
+          "provider_capable_rate_sd": 0.018870429339267174,
+          "re_dispatch_rate_mean": 0.0351,
+          "re_dispatch_rate_sd": 0.01887042933926719,
+          "avg_resolution_time_min_mean": 68.03847516363446,
+          "avg_resolution_time_min_sd": 2.2409163357679605
+        },
+        "ECMOnly": {
+          "match_rate_mean": 0.23666666666666666,
+          "match_rate_sd": 0.016444962195432237,
+          "provider_capable_rate_mean": 0.9428,
+          "provider_capable_rate_sd": 0.019635295454517757,
+          "re_dispatch_rate_mean": 0.0572,
+          "re_dispatch_rate_sd": 0.01963529545451779,
+          "avg_resolution_time_min_mean": 68.93102908147506,
+          "avg_resolution_time_min_sd": 2.378748597369759
+        },
+        "ArgmaxECM": {
+          "match_rate_mean": 0.3440666666666667,
+          "match_rate_sd": 0.02218096937238881,
+          "provider_capable_rate_mean": 0.9490666666666666,
+          "provider_capable_rate_sd": 0.018343341051170022,
+          "re_dispatch_rate_mean": 0.05093333333333333,
+          "re_dispatch_rate_sd": 0.018343341051170046,
+          "avg_resolution_time_min_mean": 68.56176798020971,
+          "avg_resolution_time_min_sd": 2.3216808274563916
+        }
+      },
+      "comparisons": {
+        "UADO_vs_ECMOnly": {
+          "resolution_time_t": -24.39805141552755,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 0.0,
+          "match_b": 3452.0,
+          "match_c": 230.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 663.0,
+          "capable_c": 0.0
+        },
+        "UADO_vs_ArgmaxECM": {
+          "resolution_time_t": -15.906838215910716,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 1.0,
+          "match_b": 0.0,
+          "match_c": 0.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 505.0,
+          "capable_c": 30.0
+        },
+        "ECMOnly_vs_ArgmaxECM": {
+          "resolution_time_t": 17.89175910408744,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 0.0,
+          "match_b": 230.0,
+          "match_c": 3452.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 7.0,
+          "capable_c": 195.0
+        }
+      },
+      "orderings": {
+        "match_UADO_gt_ECMOnly": true,
+        "capable_ECMOnly_gt_ArgmaxECM": false,
+        "capable_UADO_gt_ArgmaxECM": true
+      }
+    },
+    {
+      "label": "M=60.0",
+      "M": 60.0,
+      "gamma": 0.99,
+      "K": 20.0,
+      "aggregate": {
+        "UADO": {
+          "match_rate_mean": 0.3440666666666667,
+          "match_rate_sd": 0.02218096937238881,
+          "provider_capable_rate_mean": 0.9728,
+          "provider_capable_rate_sd": 0.01803330252615976,
+          "re_dispatch_rate_mean": 0.0272,
+          "re_dispatch_rate_sd": 0.01803330252615976,
+          "avg_resolution_time_min_mean": 67.91272015166062,
+          "avg_resolution_time_min_sd": 2.2316593673381444
+        },
+        "ECMOnly": {
+          "match_rate_mean": 0.23666666666666666,
+          "match_rate_sd": 0.016444962195432237,
+          "provider_capable_rate_mean": 0.9433,
+          "provider_capable_rate_sd": 0.019405207264173094,
+          "re_dispatch_rate_mean": 0.0567,
+          "re_dispatch_rate_sd": 0.01940520726417312,
+          "avg_resolution_time_min_mean": 68.93347458469205,
+          "avg_resolution_time_min_sd": 2.376538375522746
+        },
+        "ArgmaxECM": {
+          "match_rate_mean": 0.3440666666666667,
+          "match_rate_sd": 0.02218096937238881,
+          "provider_capable_rate_mean": 0.9496,
+          "provider_capable_rate_sd": 0.01799156890668896,
+          "re_dispatch_rate_mean": 0.0504,
+          "re_dispatch_rate_sd": 0.017991568906688987,
+          "avg_resolution_time_min_mean": 68.56046360273854,
+          "avg_resolution_time_min_sd": 2.3156317321152478
+        }
+      },
+      "comparisons": {
+        "UADO_vs_ECMOnly": {
+          "resolution_time_t": -24.840663827701697,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 0.0,
+          "match_b": 3452.0,
+          "match_c": 230.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 885.0,
+          "capable_c": 0.0
+        },
+        "UADO_vs_ArgmaxECM": {
+          "resolution_time_t": -17.322992488900542,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 1.0,
+          "match_b": 0.0,
+          "match_c": 0.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 706.0,
+          "capable_c": 10.0
+        },
+        "ECMOnly_vs_ArgmaxECM": {
+          "resolution_time_t": 18.00946685466261,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 0.0,
+          "match_b": 230.0,
+          "match_c": 3452.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 7.0,
+          "capable_c": 196.0
+        }
+      },
+      "orderings": {
+        "match_UADO_gt_ECMOnly": true,
+        "capable_ECMOnly_gt_ArgmaxECM": false,
+        "capable_UADO_gt_ArgmaxECM": true
+      }
+    },
+    {
+      "label": "gamma=0.95",
+      "M": 45.0,
+      "gamma": 0.95,
+      "K": 20.0,
+      "aggregate": {
+        "UADO": {
+          "match_rate_mean": 0.3559,
+          "match_rate_sd": 0.023116421987782656,
+          "provider_capable_rate_mean": 0.9708,
+          "provider_capable_rate_sd": 0.018128658964801255,
+          "re_dispatch_rate_mean": 0.0292,
+          "re_dispatch_rate_sd": 0.018128658964801255,
+          "avg_resolution_time_min_mean": 67.88208743230044,
+          "avg_resolution_time_min_sd": 2.230745323759851
+        },
+        "ECMOnly": {
+          "match_rate_mean": 0.23666666666666666,
+          "match_rate_sd": 0.016444962195432237,
+          "provider_capable_rate_mean": 0.9431666666666666,
+          "provider_capable_rate_sd": 0.01955555011320019,
+          "re_dispatch_rate_mean": 0.05683333333333333,
+          "re_dispatch_rate_sd": 0.019555550113200218,
+          "avg_resolution_time_min_mean": 68.93695569535657,
+          "avg_resolution_time_min_sd": 2.381524687466873
+        },
+        "ArgmaxECM": {
+          "match_rate_mean": 0.3559,
+          "match_rate_sd": 0.023116421987782656,
+          "provider_capable_rate_mean": 0.9514,
+          "provider_capable_rate_sd": 0.018385901645291813,
+          "re_dispatch_rate_mean": 0.0486,
+          "re_dispatch_rate_sd": 0.01838590164529183,
+          "avg_resolution_time_min_mean": 68.50454877145836,
+          "avg_resolution_time_min_sd": 2.3289385342318885
+        }
+      },
+      "comparisons": {
+        "UADO_vs_ECMOnly": {
+          "resolution_time_t": -26.40726859430711,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 0.0,
+          "match_b": 3889.0,
+          "match_c": 312.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 829.0,
+          "capable_c": 0.0
+        },
+        "UADO_vs_ArgmaxECM": {
+          "resolution_time_t": -17.831533939208455,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 1.0,
+          "match_b": 0.0,
+          "match_c": 0.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 600.0,
+          "capable_c": 18.0
+        },
+        "ECMOnly_vs_ArgmaxECM": {
+          "resolution_time_t": 18.6104023680675,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 0.0,
+          "match_b": 312.0,
+          "match_c": 3889.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 10.0,
+          "capable_c": 257.0
+        }
+      },
+      "orderings": {
+        "match_UADO_gt_ECMOnly": true,
+        "capable_ECMOnly_gt_ArgmaxECM": false,
+        "capable_UADO_gt_ArgmaxECM": true
+      }
+    },
+    {
+      "label": "gamma=1.0",
+      "M": 45.0,
+      "gamma": 1.0,
+      "K": 20.0,
+      "aggregate": {
+        "UADO": {
+          "match_rate_mean": 0.3410666666666667,
+          "match_rate_sd": 0.021634795303309244,
+          "provider_capable_rate_mean": 0.9697666666666667,
+          "provider_capable_rate_sd": 0.018225944624936846,
+          "re_dispatch_rate_mean": 0.030233333333333334,
+          "re_dispatch_rate_sd": 0.018225944624936846,
+          "avg_resolution_time_min_mean": 67.96461404403779,
+          "avg_resolution_time_min_sd": 2.2458931581772195
+        },
+        "ECMOnly": {
+          "match_rate_mean": 0.23666666666666666,
+          "match_rate_sd": 0.016444962195432237,
+          "provider_capable_rate_mean": 0.9431666666666666,
+          "provider_capable_rate_sd": 0.01955555011320019,
+          "re_dispatch_rate_mean": 0.05683333333333333,
+          "re_dispatch_rate_sd": 0.019555550113200218,
+          "avg_resolution_time_min_mean": 68.93695569535657,
+          "avg_resolution_time_min_sd": 2.381524687466873
+        },
+        "ArgmaxECM": {
+          "match_rate_mean": 0.3410666666666667,
+          "match_rate_sd": 0.021634795303309244,
+          "provider_capable_rate_mean": 0.9489333333333333,
+          "provider_capable_rate_sd": 0.017999872285626075,
+          "re_dispatch_rate_mean": 0.05106666666666667,
+          "re_dispatch_rate_sd": 0.017999872285626103,
+          "avg_resolution_time_min_mean": 68.5844390898687,
+          "avg_resolution_time_min_sd": 2.3226317730278794
+        }
+      },
+      "comparisons": {
+        "UADO_vs_ECMOnly": {
+          "resolution_time_t": -24.615091256547462,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 0.0,
+          "match_b": 3324.0,
+          "match_c": 192.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 798.0,
+          "capable_c": 0.0
+        },
+        "UADO_vs_ArgmaxECM": {
+          "resolution_time_t": -17.20044266561294,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 1.0,
+          "match_b": 0.0,
+          "match_c": 0.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 641.0,
+          "capable_c": 16.0
+        },
+        "ECMOnly_vs_ArgmaxECM": {
+          "resolution_time_t": 17.730431678557476,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 0.0,
+          "match_b": 192.0,
+          "match_c": 3324.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 6.0,
+          "capable_c": 179.0
+        }
+      },
+      "orderings": {
+        "match_UADO_gt_ECMOnly": true,
+        "capable_ECMOnly_gt_ArgmaxECM": false,
+        "capable_UADO_gt_ArgmaxECM": true
+      }
+    },
+    {
+      "label": "K=10.0",
+      "M": 45.0,
+      "gamma": 0.99,
+      "K": 10.0,
+      "aggregate": {
+        "UADO": {
+          "match_rate_mean": 0.41083333333333333,
+          "match_rate_sd": 0.01916909030153767,
+          "provider_capable_rate_mean": 0.9739,
+          "provider_capable_rate_sd": 0.0179853388567773,
+          "re_dispatch_rate_mean": 0.0261,
+          "re_dispatch_rate_sd": 0.017985338856777302,
+          "avg_resolution_time_min_mean": 67.82430569590628,
+          "avg_resolution_time_min_sd": 2.2221115817653194
+        },
+        "ECMOnly": {
+          "match_rate_mean": 0.23666666666666666,
+          "match_rate_sd": 0.016444962195432237,
+          "provider_capable_rate_mean": 0.9431666666666666,
+          "provider_capable_rate_sd": 0.01955555011320019,
+          "re_dispatch_rate_mean": 0.05683333333333333,
+          "re_dispatch_rate_sd": 0.019555550113200218,
+          "avg_resolution_time_min_mean": 68.93695569535657,
+          "avg_resolution_time_min_sd": 2.381524687466873
+        },
+        "ArgmaxECM": {
+          "match_rate_mean": 0.41083333333333333,
+          "match_rate_sd": 0.01916909030153767,
+          "provider_capable_rate_mean": 0.9590333333333333,
+          "provider_capable_rate_sd": 0.01849227859989383,
+          "re_dispatch_rate_mean": 0.040966666666666665,
+          "re_dispatch_rate_sd": 0.018492278599893847,
+          "avg_resolution_time_min_mean": 68.2142554252784,
+          "avg_resolution_time_min_sd": 2.322777117232951
+        }
+      },
+      "comparisons": {
+        "UADO_vs_ECMOnly": {
+          "resolution_time_t": -26.358036970642665,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 0.0,
+          "match_b": 5955.0,
+          "match_c": 730.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 922.0,
+          "capable_c": 0.0
+        },
+        "UADO_vs_ArgmaxECM": {
+          "resolution_time_t": -12.065907491469515,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 1.0,
+          "match_b": 0.0,
+          "match_c": 0.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 480.0,
+          "capable_c": 34.0
+        },
+        "ECMOnly_vs_ArgmaxECM": {
+          "resolution_time_t": 23.56903034181949,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 0.0,
+          "match_b": 730.0,
+          "match_c": 5955.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 10.0,
+          "capable_c": 486.0
+        }
+      },
+      "orderings": {
+        "match_UADO_gt_ECMOnly": true,
+        "capable_ECMOnly_gt_ArgmaxECM": false,
+        "capable_UADO_gt_ArgmaxECM": true
+      }
+    },
+    {
+      "label": "K=40.0",
+      "M": 45.0,
+      "gamma": 0.99,
+      "K": 40.0,
+      "aggregate": {
+        "UADO": {
+          "match_rate_mean": 0.2775,
+          "match_rate_sd": 0.021377961581481763,
+          "provider_capable_rate_mean": 0.9645666666666667,
+          "provider_capable_rate_sd": 0.018643078281659703,
+          "re_dispatch_rate_mean": 0.03543333333333333,
+          "re_dispatch_rate_sd": 0.01864307828165971,
+          "avg_resolution_time_min_mean": 68.13179387971553,
+          "avg_resolution_time_min_sd": 2.2540951597665635
+        },
+        "ECMOnly": {
+          "match_rate_mean": 0.23666666666666666,
+          "match_rate_sd": 0.016444962195432237,
+          "provider_capable_rate_mean": 0.9431666666666666,
+          "provider_capable_rate_sd": 0.01955555011320019,
+          "re_dispatch_rate_mean": 0.05683333333333333,
+          "re_dispatch_rate_sd": 0.019555550113200218,
+          "avg_resolution_time_min_mean": 68.93695569535657,
+          "avg_resolution_time_min_sd": 2.381524687466873
+        },
+        "ArgmaxECM": {
+          "match_rate_mean": 0.2775,
+          "match_rate_sd": 0.021377961581481763,
+          "provider_capable_rate_mean": 0.9437333333333333,
+          "provider_capable_rate_sd": 0.01876154050974625,
+          "re_dispatch_rate_mean": 0.056266666666666666,
+          "re_dispatch_rate_sd": 0.018761540509746277,
+          "avg_resolution_time_min_mean": 68.84219132945287,
+          "avg_resolution_time_min_sd": 2.3588793835360695
+        }
+      },
+      "comparisons": {
+        "UADO_vs_ECMOnly": {
+          "resolution_time_t": -22.673003341842513,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 0.0,
+          "match_b": 1239.0,
+          "match_c": 14.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 642.0,
+          "capable_c": 0.0
+        },
+        "UADO_vs_ArgmaxECM": {
+          "resolution_time_t": -20.173397292355492,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 1.0,
+          "match_b": 0.0,
+          "match_c": 0.0,
+          "capable_mcnemar_p": 0.0,
+          "capable_b": 627.0,
+          "capable_c": 2.0
+        },
+        "ECMOnly_vs_ArgmaxECM": {
+          "resolution_time_t": 12.40351378080677,
+          "resolution_time_p": 0.0,
+          "match_mcnemar_p": 0.0,
+          "match_b": 14.0,
+          "match_c": 1239.0,
+          "capable_mcnemar_p": 0.00010425219069754021,
+          "capable_b": 0.0,
+          "capable_c": 17.0
+        }
+      },
+      "orderings": {
+        "match_UADO_gt_ECMOnly": true,
+        "capable_ECMOnly_gt_ArgmaxECM": false,
+        "capable_UADO_gt_ArgmaxECM": true
+      }
+    }
+  ]
+}

@@ -1,23 +1,27 @@
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 
-const ROOT_DIR = (FileSystem.documentDirectory ?? '') + 'claim-upload/';
+/**
+ * Web fallback: expo-file-system throws on web. Claim-upload progress is
+ * part of the native-only claim flow (needs cameras + native BG upload) —
+ * on web every function is a no-op so it never blocks the emergency /
+ * dispatch demo path.
+ */
+const IS_WEB = Platform.OS === 'web';
+
+const ROOT_DIR      = (FileSystem.documentDirectory ?? '') + 'claim-upload/';
 const PROGRESS_FILE = ROOT_DIR + 'last-upload-progress.json';
 
 export type ClaimUploadProgress = {
-  /** Which photo bundle this progress belongs to — see computeClaimBundleUploadKey. */
   uploadKey: string;
-  /** Backend capture session to resume into (never create a new one if this still applies). */
   captureId: string;
-  /** Next combined photo index (guided walkaround, then fraud-validation media) to upload. */
   nextIndex: number;
-  /** Total combined item count — lets a percent be computed from this file alone. */
   totalItems: number;
-  /** Same value the Upload Accident Details screen needs as a route param, so a reminder
-   * notification tapped after a cold start can deep-link there without losing it. */
   reportedAtIso: string;
 };
 
 export async function saveUploadProgress(progress: ClaimUploadProgress): Promise<void> {
+  if (IS_WEB) return;
   await FileSystem.makeDirectoryAsync(ROOT_DIR, { intermediates: true });
   await FileSystem.writeAsStringAsync(PROGRESS_FILE, JSON.stringify(progress));
 }
@@ -28,6 +32,7 @@ export async function saveUploadProgress(progress: ClaimUploadProgress): Promise
  * retaken), the old progress no longer applies and this returns null.
  */
 export async function loadUploadProgress(uploadKey: string): Promise<ClaimUploadProgress | null> {
+  if (IS_WEB) return null;
   try {
     await FileSystem.makeDirectoryAsync(ROOT_DIR, { intermediates: true });
     const info = await FileSystem.getInfoAsync(PROGRESS_FILE);
@@ -46,10 +51,10 @@ export async function loadUploadProgress(uploadKey: string): Promise<ClaimUpload
       return null;
     }
     return {
-      uploadKey: parsed.uploadKey,
-      captureId: parsed.captureId,
-      nextIndex: parsed.nextIndex,
-      totalItems: parsed.totalItems,
+      uploadKey:     parsed.uploadKey,
+      captureId:     parsed.captureId,
+      nextIndex:     parsed.nextIndex,
+      totalItems:    parsed.totalItems,
       reportedAtIso: parsed.reportedAtIso,
     };
   } catch {
@@ -58,6 +63,7 @@ export async function loadUploadProgress(uploadKey: string): Promise<ClaimUpload
 }
 
 export async function clearUploadProgress(): Promise<void> {
+  if (IS_WEB) return;
   try {
     await FileSystem.deleteAsync(PROGRESS_FILE, { idempotent: true });
   } catch {

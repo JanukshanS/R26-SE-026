@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 
 /**
@@ -10,16 +11,31 @@ import * as FileSystem from 'expo-file-system/legacy';
  * without leaving the Insurance section (e.g. via Guided Capture's Reset
  * capture instead of Home → Insurance again). Reading this store fresh on
  * every focus instead fixes that.
+ *
+ * Web fallback: expo-file-system throws on web, so we use localStorage there.
  */
-const ROOT_DIR = (FileSystem.documentDirectory ?? '') + 'vehicle/';
+const ROOT_DIR              = (FileSystem.documentDirectory ?? '') + 'vehicle/';
 const SELECTED_VEHICLE_FILE = ROOT_DIR + 'selected-vehicle-id.txt';
+const WEB_KEY               = 'kaduna.selectedVehicleId';
 
 export async function saveSelectedVehicleId(id: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    try { globalThis.localStorage?.setItem(WEB_KEY, id); } catch { /* ignore */ }
+    return;
+  }
   await FileSystem.makeDirectoryAsync(ROOT_DIR, { intermediates: true });
   await FileSystem.writeAsStringAsync(SELECTED_VEHICLE_FILE, id);
 }
 
 export async function loadSelectedVehicleId(): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    try {
+      const v = globalThis.localStorage?.getItem(WEB_KEY);
+      return v && v.length > 0 ? v : null;
+    } catch {
+      return null;
+    }
+  }
   try {
     const info = await FileSystem.getInfoAsync(SELECTED_VEHICLE_FILE);
     if (!info.exists) return null;

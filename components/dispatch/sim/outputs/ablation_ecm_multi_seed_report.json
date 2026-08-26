@@ -1,0 +1,45 @@
+{
+  "protocol": "30-seed",
+  "n_per_seed": 1000,
+  "n_seeds": 30,
+  "n_providers": 20,
+  "traffic_impact": 5.0,
+  "strategies": [
+    "UADO",
+    "ArgmaxECM"
+  ],
+  "aggregate": {
+    "UADO": {
+      "match_rate_mean": 0.3440666666666667,
+      "match_rate_sd": 0.02218096937238881,
+      "provider_capable_rate_mean": 0.9700666666666666,
+      "provider_capable_rate_sd": 0.01823398368211237,
+      "re_dispatch_rate_mean": 0.029933333333333333,
+      "re_dispatch_rate_sd": 0.018233983682112372,
+      "avg_resolution_time_min_mean": 67.93478287215113,
+      "avg_resolution_time_min_sd": 2.2468150390025
+    },
+    "ArgmaxECM": {
+      "match_rate_mean": 0.3440666666666667,
+      "match_rate_sd": 0.02218096937238881,
+      "provider_capable_rate_mean": 0.9495,
+      "provider_capable_rate_sd": 0.01814833515685437,
+      "re_dispatch_rate_mean": 0.0505,
+      "re_dispatch_rate_sd": 0.018148335156854396,
+      "avg_resolution_time_min_mean": 68.56329218664595,
+      "avg_resolution_time_min_sd": 2.321257563862008
+    }
+  },
+  "significance": {
+    "resolution_time_paired_t": -17.555408307066276,
+    "resolution_time_p_value": 0.0,
+    "match_rate_mcnemar_chi2": null,
+    "match_rate_mcnemar_p_value": 1.0,
+    "match_rate_mcnemar_b": 0.0,
+    "match_rate_mcnemar_c": 0.0,
+    "capable_rate_mcnemar_chi2": 584.6779661016949,
+    "capable_rate_mcnemar_p_value": 0.0,
+    "capable_rate_mcnemar_b": 633.0,
+    "capable_rate_mcnemar_c": 16.0
+  }
+}
