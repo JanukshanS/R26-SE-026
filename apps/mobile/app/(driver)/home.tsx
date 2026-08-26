@@ -25,8 +25,6 @@ import { getVehicleInsurance, type VehicleInsurance } from "@lib/vehicleInsuranc
 import { isExpiringSoon } from "@lib/insurer-field-format";
 import { useHardwareBack } from "@lib/useHardwareBack";
 import { isTripActive } from "@lib/tripRecorder";
-import { getCachedClaims, listMyClaims } from "@lib/claims-api";
-import { loadDismissedClaimId } from "@lib/claim-upload-dedupe";
 import { useIncompleteUploadStatus } from "@/features/report-accident/hooks/use-incomplete-upload-status";
 import { ClaimUploadReminderModal } from "@/features/report-accident/components/claim-upload-reminder-modal";
 
@@ -61,9 +59,6 @@ export default function DriverHomeScreen() {
   const [showVehiclePicker, setShowVehiclePicker] = useState(false);
   // Vehicle tapped in the picker, awaiting confirmation before actually switching.
   const [pendingVehicle, setPendingVehicle] = useState<Vehicle | null>(null);
-  // True while the Insurance button's existing-claim check (a network call) is in
-  // flight — shown as a spinner in place of the icon so the tap doesn't feel dead.
-  const [checkingInsuranceStatus, setCheckingInsuranceStatus] = useState(false);
   // Shown when the selected vehicle's insurance is expiring soon and the driver taps Insurance.
   const [renewalReminderVisible, setRenewalReminderVisible] = useState(false);
   // Shown when the driver taps Insurance with no vehicle on file at all.
@@ -149,46 +144,12 @@ export default function DriverHomeScreen() {
       });
       return;
     }
-    // Already have a finished claim on the server (from this session, an
-    // older one, or a different device) — go straight to its submitted
-    // view instead of the 4-steps screen. Local files aren't needed for
-    // this, only the backend's own record of it. Prefer the cache warmed
-    // at login (claims-api.ts) — instant, no spinner needed. Only fall back
-    // to a live fetch (with a spinner, since this one takes a moment) if
-    // that cache isn't ready yet for some reason.
-    //
-    // But if the driver already dismissed this exact claim via "Start New
-    // Claim", don't redirect back to it even though the server hasn't seen a
-    // newer one yet — they may be mid-way through a new claim's steps locally.
-    const dismissedId = await loadDismissedClaimId();
-    const cached = getCachedClaims();
-    if (cached) {
-      const latest = cached[0];
-      if (latest && latest.status !== "uploading" && latest.id !== dismissedId) {
-        router.push({
-          pathname: "/(insurance)/upload-accident-details",
-          params: { existingClaimId: latest.id, vehicleId: selectedVehicle?._id },
-        });
-        return;
-      }
-    } else {
-      setCheckingInsuranceStatus(true);
-      try {
-        const claims = await listMyClaims();
-        const latest = claims[0];
-        if (latest && latest.status !== "uploading" && latest.id !== dismissedId) {
-          router.push({
-            pathname: "/(insurance)/upload-accident-details",
-            params: { existingClaimId: latest.id, vehicleId: selectedVehicle?._id },
-          });
-          return;
-        }
-      } catch {
-        // Best-effort — fall through to the normal 4-steps flow if this check fails.
-      } finally {
-        setCheckingInsuranceStatus(false);
-      }
-    }
+    // Always land on the 4-steps screen — even once a claim has already been
+    // submitted for these photos. That screen shows each step's own
+    // locked/"Done" view in that case (see (insurance)/index.tsx's
+    // claimReportLocked handling) and its "Report Accident" button opens the
+    // upload/status view from there, rather than this button skipping past
+    // the steps screen straight to that status view on every subsequent visit.
     router.push({
       pathname: "/(insurance)",
       params: { vehicleId: selectedVehicle?._id },
@@ -537,7 +498,6 @@ export default function DriverHomeScreen() {
                 icon="ShieldCheck"
                 label="Insurance"
                 badge={hasNoVehicles || incompleteUpload != null || missingInsuranceDetails || insuranceExpiringSoon}
-                loading={checkingInsuranceStatus}
                 onPress={() => {
                   void (async () => {
                     // No vehicle to attach a claim to at all — stop here, before any of the

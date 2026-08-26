@@ -18,6 +18,7 @@ export const AREAS: { href: string; label: string; roles: Role[] }[] = [
   { href: "/report", label: "Report", roles: ["driver", "provider", "ops"] },
   { href: "/provider", label: "Provider", roles: ["provider", "ops"] },
   { href: "/dashboard", label: "Operations", roles: ["ops"] },
+  { href: "/insurer", label: "Insurer", roles: ["ops"] },
   { href: "/admin", label: "Admin", roles: ["ops"] },
 ];
 

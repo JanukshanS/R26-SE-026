@@ -1,0 +1,35 @@
+diff --git a/node_modules/react-native-background-actions/android/src/main/java/com/asterinet/react/bgactions/RNBackgroundActionsTask.java b/node_modules/react-native-background-actions/android/src/main/java/com/asterinet/react/bgactions/RNBackgroundActionsTask.java
+index 0000000..0000000 100644
+--- a/node_modules/react-native-background-actions/android/src/main/java/com/asterinet/react/bgactions/RNBackgroundActionsTask.java
++++ b/node_modules/react-native-background-actions/android/src/main/java/com/asterinet/react/bgactions/RNBackgroundActionsTask.java
+@@ -23,7 +23,11 @@
+ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
+
+     public static final int SERVICE_NOTIFICATION_ID = 92901;
+-    private static final String CHANNEL_ID = "RN_BACKGROUND_ACTIONS_CHANNEL";
++    // Renamed from RN_BACKGROUND_ACTIONS_CHANNEL: Android never lets code raise an
++    // existing channel's importance after it's been created once on a device, so
++    // bumping IMPORTANCE_LOW -> IMPORTANCE_DEFAULT below only takes effect under a
++    // fresh channel id, not the old one.
++    private static final String CHANNEL_ID = "RN_BACKGROUND_ACTIONS_CHANNEL_V2";
+
+     @SuppressLint("UnspecifiedImmutableFlag")
+     @NonNull
+@@ -59,7 +63,7 @@
+                 .setSmallIcon(iconInt)
+                 .setContentIntent(contentIntent)
+                 .setOngoing(true)
+-                .setPriority(NotificationCompat.PRIORITY_MIN)
++                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                 .setColor(color);
+
+         final Bundle progressBarBundle = bgOptions.getProgressBar();
+@@ -130,7 +134,7 @@
+
+     private void createNotificationChannel(@NonNull final String taskTitle, @NonNull final String taskDesc) {
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+-            final int importance = NotificationManager.IMPORTANCE_LOW;
++            final int importance = NotificationManager.IMPORTANCE_DEFAULT;
+             final NotificationChannel channel = new NotificationChannel(CHANNEL_ID, taskTitle, importance);
+             channel.setDescription(taskDesc);
+             final NotificationManager notificationManager = getSystemService(NotificationManager.class);
