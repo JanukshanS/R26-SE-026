@@ -151,8 +151,24 @@ export async function getVehicleHealth(vehicleId: string): Promise<VehicleHealth
       `${BASE_URL}/vehicle/${encodeURIComponent(vehicleId)}/health`,
       { headers: await authHeaders(), signal }
     );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      // Swallowing this into a generic "couldn't load" left every real cause -
+      // a timeout, an auth failure, a 500 - looking identical on screen and in
+      // the logs, which is what turned "which of five things broke" into a
+      // guessing game the first time this ran against a real host instead of
+      // localhost.
+      const body = await res.text().catch(() => "");
+      console.log(`[maintenanceApi] health ${res.status} for ${vehicleId}: ${body.slice(0, 300)}`);
+      throw new Error(`HTTP ${res.status}`);
+    }
     return normalizeHealth(await res.json(), vehicleId);
+  } catch (err) {
+    // The other half of the gap above: `fetch` itself can throw before any
+    // response exists at all - the 5s AbortController firing, a TLS failure,
+    // no route to host. Rethrown unchanged so callers see the same error;
+    // logged first because that path previously left nothing to look at.
+    console.log(`[maintenanceApi] health request failed for ${vehicleId}:`, err);
+    throw err;
   } finally {
     cancel();
   }
