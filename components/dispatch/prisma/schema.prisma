@@ -208,6 +208,12 @@ model Provider {
   phone        String?
   vehiclePlate String?
 
+  // Provider-set typical minutes-to-fix, keyed by ServiceType — only for
+  // services in `capabilities`. {} until a provider sets any. Feeds the
+  // provider-profile "Services" editor; the ECM optimizer still uses its
+  // own global per-service-type constant until that's wired to read this.
+  serviceTimes Json @default("{}")
+
   dispatchDecisions DispatchDecision[]
   assignedIncidents Incident[]           @relation("AssignedIncidents")
   feedbacks         ResolutionFeedback[]
