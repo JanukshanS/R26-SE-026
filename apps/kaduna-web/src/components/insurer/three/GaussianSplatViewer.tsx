@@ -6,10 +6,23 @@ type GaussianSplatViewerProps = {
   url: string;
 };
 
+// Session-level cache: stable file path → ArrayBuffer
+// Key strips query params so re-generated signed URLs for the same file still hit the cache.
+const splatCache = new Map<string, ArrayBuffer>();
+
+function stableKey(url: string): string {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return url.split("?")[0];
+  }
+}
+
 export function GaussianSplatViewer({ url }: GaussianSplatViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const viewerRef = useRef<any>(null);
+  const blobUrlRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,10 +33,28 @@ export function GaussianSplatViewer({ url }: GaussianSplatViewerProps) {
     setLoading(true);
     setError(null);
 
-    import("@mkkellogg/gaussian-splats-3d").then((GS3D) => {
+    async function init() {
+      const GS3D = await import("@mkkellogg/gaussian-splats-3d");
       if (cancelled || !containerRef.current) return;
 
-      const container = containerRef.current;
+      // Use cached buffer or fetch and cache it
+      const key = stableKey(url);
+      let buffer = splatCache.get(key);
+      if (!buffer) {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Failed to fetch model (HTTP ${res.status})`);
+        buffer = await res.arrayBuffer();
+        splatCache.set(key, buffer);
+      }
+
+      if (cancelled) return;
+
+      // Create a short-lived blob URL from the cached buffer
+      const blob = new Blob([buffer], { type: "application/octet-stream" });
+      const blobUrl = URL.createObjectURL(blob);
+      blobUrlRef.current = blobUrl;
+
+      const container = containerRef.current!;
       const viewer = new GS3D.Viewer({
         rootElement: container,
         cameraUp: [0, 0, 1],
@@ -35,31 +66,23 @@ export function GaussianSplatViewer({ url }: GaussianSplatViewerProps) {
         gpuAcceleratedSort: false,
         sharedMemoryForWorkers: false,
       });
-
       viewerRef.current = viewer;
 
-      viewer
-        .addSplatScene(url, {
-          splatAlphaRemovalThreshold: 5,
-          showLoadingUI: false,
-          format: GS3D.SceneFormat.Ply,
-        })
-        .then(() => {
-          if (!cancelled) {
-            setLoading(false);
-            viewer.start();
-          }
-        })
-        .catch((err: unknown) => {
-          if (!cancelled) {
-            console.error("GaussianSplatViewer: failed to load splat:", err);
-            setError(String(err));
-            setLoading(false);
-          }
-        });
-    }).catch((err: unknown) => {
+      await viewer.addSplatScene(blobUrl, {
+        splatAlphaRemovalThreshold: 5,
+        showLoadingUI: false,
+        format: GS3D.SceneFormat.Ply,
+      });
+
       if (!cancelled) {
-        console.error("GaussianSplatViewer: failed to import library:", err);
+        setLoading(false);
+        viewer.start();
+      }
+    }
+
+    init().catch((err: unknown) => {
+      if (!cancelled) {
+        console.error("GaussianSplatViewer:", err);
         setError(String(err));
         setLoading(false);
       }
@@ -71,6 +94,10 @@ export function GaussianSplatViewer({ url }: GaussianSplatViewerProps) {
         viewerRef.current.stop?.();
         viewerRef.current.dispose?.();
         viewerRef.current = null;
+      }
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
       }
     };
   }, [url]);

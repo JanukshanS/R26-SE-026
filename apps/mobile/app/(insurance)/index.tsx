@@ -2,11 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomNavBar } from '@/components/ui/bottom-nav-bar';
+import { GlowHalo } from '@/features/guided-capture/components/glow-halo';
 import {
   isDrivingLicenceCaptureComplete,
   loadDrivingLicenceState,
@@ -33,6 +34,8 @@ import { findInsuranceCompany, type InsuranceCompany } from '@/lib/insuranceComp
 import { getVehicles } from '@/lib/vehicleApi';
 import { getVehicleInsurance } from '@/lib/vehicleInsuranceApi';
 import { loadSelectedVehicleId } from '@/lib/selected-vehicle-store';
+import { loadClaimVehicleId, saveClaimVehicleId } from '@/lib/claim-vehicle-store';
+import { getClaimUploadProgressSnapshot, subscribeClaimUploadProgress } from '@/lib/claim-upload-progress-bus';
 import { computeClaimBundleUploadKey, isClaimReportSubmittedLocked } from '@/lib/claim-upload-dedupe';
 import { captureLocationSnapshot } from '@/lib/location-snapshot-store';
 import {
@@ -140,7 +143,8 @@ function TaskCard({
   onPress: () => void;
 }) {
   return (
-    <View style={styles.taskCardGlowWrap}>
+    <View style={[styles.taskCardGlowWrap, glow && styles.taskCardGlowWrapActive]}>
+      <GlowHalo active={glow} color={INSURANCE_PRIMARY} inset={4} borderRadius={20} />
       <Pressable
         disabled={disabled}
         style={({ pressed }) => [styles.taskCard, glow && styles.taskCardGlowing, pressed && styles.taskCardPressed]}
@@ -175,7 +179,16 @@ export default function InsuranceHomeScreen() {
   const [licenceComplete, setLicenceComplete] = useState(false);
   const [drunkTestComplete, setDrunkTestComplete] = useState(false);
   const [thirdPartyComplete, setThirdPartyComplete] = useState(false);
-  const [claimReportLocked, setClaimReportLocked] = useState(false);
+  // The disk-persisted "already submitted" flag — refreshed on every focus (see the
+  // effect below), but that read is async, so it lags a beat behind the moment an
+  // upload actually finishes. Combined with the live upload-progress bus below into
+  // claimReportLocked, which reflects a just-finished upload immediately: without
+  // that, quickly backing out of Upload Accident Details right as it hits 100% and
+  // returning here could still show "Report Accident" in its normal (not yet
+  // grayed-out) state for a moment.
+  const [claimReportLockedFromDisk, setClaimReportLockedFromDisk] = useState(false);
+  const uploadBusProgress = useSyncExternalStore(subscribeClaimUploadProgress, getClaimUploadProgressSnapshot);
+  const claimReportLocked = claimReportLockedFromDisk || uploadBusProgress.phase === 'succeeded';
   const [insuranceCompany, setInsuranceCompany] = useState<InsuranceCompany | null>(null);
   const [vehicleMissingInsurer, setVehicleMissingInsurer] = useState(false);
   const [navigating, setNavigating] = useState(false);
@@ -211,10 +224,26 @@ export default function InsuranceHomeScreen() {
           setResolvingInsurer(true);
         }
         try {
+          // Once a claim has actually started, the vehicle it's pinned to (see
+          // onTaskPress below) always wins over whatever is currently selected on
+          // Home — the Call button must keep pointing at the claim's own insurer,
+          // not silently follow the driver switching vehicles elsewhere.
+          const pinnedVehicleId = await loadClaimVehicleId();
           const persistedId = await loadSelectedVehicleId();
-          const resolvedVehicleId = persistedId ?? vehicleId;
+          const resolvedVehicleId = pinnedVehicleId ?? persistedId ?? vehicleId;
           if (!cancelled) {
             setEffectiveVehicleId(resolvedVehicleId);
+          }
+          // Backfill for a claim that already began before this pin existed (or
+          // before it ever got a chance to fire) — onTaskPress below only writes
+          // the pin on a claim's very first Guided Capture entry, so a claim
+          // already mid-flight would otherwise never get pinned at all. Whatever
+          // vehicle is resolving right now is the best available answer for it.
+          if (!pinnedVehicleId && resolvedVehicleId) {
+            const guidedEntry = await loadGuidedCaptureEntryMeta();
+            if (guidedEntry) {
+              await saveClaimVehicleId(resolvedVehicleId);
+            }
           }
           // getVehicleById() isn't needed just to get an id we already have —
           // getVehicleInsurance() takes the vehicle id directly, cutting one full
@@ -286,7 +315,7 @@ export default function InsuranceHomeScreen() {
         setLicenceComplete(isDrivingLicenceCaptureComplete(licenceState));
         setDrunkTestComplete(isDrunkTestVideoCaptured(drunkState));
         setThirdPartyComplete(isThirdPartyStepComplete(thirdState));
-        setClaimReportLocked(submittedLocked);
+        setClaimReportLockedFromDisk(submittedLocked);
       })();
       return () => {
         cancelled = true;
@@ -384,6 +413,12 @@ export default function InsuranceHomeScreen() {
           await saveGuidedCaptureEntryMeta(meta);
           if (__DEV__) {
             console.log('[Guided Capture entry — time & location at tap]', meta);
+          }
+          // This is the true start of a new claim — pin its vehicle now, from
+          // whatever is currently selected, so later switching the selected
+          // vehicle on Home doesn't change which insurer this claim calls.
+          if (effectiveVehicleId) {
+            await saveClaimVehicleId(effectiveVehicleId);
           }
         }
       } finally {
@@ -517,7 +552,8 @@ export default function InsuranceHomeScreen() {
               </View>
             </View>
           ) : insuranceCompany ? (
-            <View style={styles.callInsurerGlowWrap}>
+            <View style={[styles.callInsurerGlowWrap, showGlow && styles.callInsurerGlowWrapActive]}>
+              <GlowHalo active={showGlow} color={INSURANCE_PRIMARY} inset={4} borderRadius={20} />
               <Pressable
                 disabled={anyLoading}
                 style={({ pressed }) => [
@@ -674,6 +710,17 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
     marginBottom: 32,
+    // So GlowHalo (an absolutely-positioned sibling with negative insets) sits
+    // relative to this wrap's own edges, not some further-up ancestor.
+    position: 'relative',
+  },
+  // While glowing, this wrap's own static gray border would sit right next to
+  // callInsurerBtn's now-orange border (near-zero gap between them), reading
+  // as one noticeably thicker/bigger ring than the plain single-border look.
+  // Hiding this outer border while glowing leaves exactly one visible 1px
+  // border — same thickness as always, just recolored.
+  callInsurerGlowWrapActive: {
+    borderColor: 'transparent',
   },
   // flexDirection: 'row' directly on the Pressable (not a centered inner
   // wrapper) so the icon sits at a fixed left position regardless of how
@@ -686,14 +733,20 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     paddingVertical: 16,
     paddingHorizontal: 16,
-    // borderWidth stays present at all times (only borderColor ever changes,
-    // via callInsurerBtnGlowing below) — toggling borderWidth itself between 0
-    // and 1 makes Android rebuild this view's background drawable, which
-    // flashes an opaque white frame over the button (hiding its text/icon)
-    // right as the glow turns on or off.
-    borderWidth: 1,
+    // borderWidth stays present at all times, and at a fixed value (only
+    // borderColor ever changes, via callInsurerBtnGlowing below) — toggling
+    // borderWidth itself between two different values makes Android rebuild
+    // this view's background drawable, which flashes an opaque white frame
+    // over the button (hiding its text/icon) right as the glow turns on or
+    // off. 2 (not 1) so the glow reads clearly — invisible either way while
+    // borderColor stays transparent, so this doesn't affect the plain look.
+    borderWidth: 2,
     borderColor: 'transparent',
-    backgroundColor: 'transparent',
+    // Opaque (matching the wrap it sits in), not transparent — GlowHalo sits
+    // behind this as a sibling, and a transparent background here let it
+    // wash through the whole button's interior instead of only peeking out
+    // past its edges. Still overridden by callInsurerPressed on press.
+    backgroundColor: COLORS.cardBg,
     // No marginBottom here — moved to callInsurerGlowWrap (see its comment) so the
     // glow halo's insets stay symmetric. Branches that render callInsurerBtn
     // without that wrap (the resolving-state view below) apply the same wrap style
@@ -817,6 +870,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
+    // So GlowHalo (an absolutely-positioned sibling with negative insets) sits
+    // relative to this wrap's own edges, not some further-up ancestor.
+    position: 'relative',
+  },
+  // Same reasoning as callInsurerGlowWrapActive above — hides this outer gray
+  // border while the card is glowing so only taskCard's own now-orange border
+  // shows, keeping the visible border at one consistent 1px thickness.
+  taskCardGlowWrapActive: {
+    borderColor: 'transparent',
   },
   taskCard: {
     flexDirection: 'row',
@@ -826,12 +888,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     paddingVertical: 16,
     paddingHorizontal: 16,
-    // borderWidth stays present at all times (only borderColor ever changes,
-    // via taskCardGlowing below) — see callInsurerBtn's comment for why
-    // toggling borderWidth itself flashes an opaque white frame on Android.
-    borderWidth: 1,
+    // borderWidth stays present at all times, and at a fixed value (only
+    // borderColor ever changes, via taskCardGlowing below) — see
+    // callInsurerBtn's comment for why toggling borderWidth itself flashes an
+    // opaque white frame on Android. 2 (not 1) so the glow reads clearly.
+    borderWidth: 2,
     borderColor: 'transparent',
-    backgroundColor: 'transparent',
+    // Opaque (matching the wrap it sits in), not transparent — GlowHalo sits
+    // behind this as a sibling, and a transparent background here let it
+    // wash through the whole card's interior instead of only peeking out
+    // past its edges. Still overridden by taskCardPressed on press.
+    backgroundColor: COLORS.cardBg,
   },
   taskIconWrap: {
     width: 40,

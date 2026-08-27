@@ -12,6 +12,7 @@ import {
   savePersistedClaimLocation,
   setPersistedSuccessfulClaimUploadKey,
 } from '@/lib/claim-upload-dedupe';
+import { loadClaimLocationCache, saveClaimLocationCache } from '@/lib/claim-location-cache-store';
 import {
   getClaimUploadProgressSnapshot,
   IDLE_CLAIM_UPLOAD_PROGRESS,
@@ -20,6 +21,29 @@ import {
 } from '@/lib/claim-upload-progress-bus';
 import { formatGeocodedLine } from '@/lib/format-geocoded-line';
 import { formatTimestamp } from '@/lib/format-timestamp';
+
+const REVERSE_GEOCODE_TIMEOUT_MS = 6000;
+
+/**
+ * Location.reverseGeocodeAsync takes no timeout and can hang indefinitely on a
+ * flaky/offline connection — and nothing after it (including actually starting the
+ * upload) runs until it settles. Falls back to null (the caller keeps the raw
+ * coordinate string) once the wait is over, same pattern as getCurrentPositionOrNull.
+ */
+async function reverseGeocodeWithTimeout(lat: number, lng: number): Promise<string | null> {
+  try {
+    const lookup = Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+    lookup.catch(() => {});
+    const result = await Promise.race([
+      lookup,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), REVERSE_GEOCODE_TIMEOUT_MS)),
+    ]);
+    const geo = result?.[0];
+    return geo ? formatGeocodedLine(geo) : null;
+  } catch {
+    return null;
+  }
+}
 
 type ClaimantData = { fullName: string; nic: string; licenceNumber: string };
 
@@ -62,9 +86,17 @@ export function useClaimUpload(
    * of which vehicle was actually selected for that specific claim. */
   vehicleId?: string
 ): UseClaimUploadResult {
-  const [locationLine, setLocationLine] = useState<string>('Getting location…');
+  // Defaults to the reassuring "already saved" wording, not a loading placeholder —
+  // by far the most common case on mount is that the location was already resolved
+  // in an earlier pass (cache, persisted entry meta, or a fully-succeeded claim), so
+  // starting from a spinner/"Getting location…" and then almost immediately
+  // overwriting it was what made every reopen flash — or on a slower device, look
+  // stuck on — that text. Only the one genuinely slow path below (no entry meta yet,
+  // needs a fresh permission + GPS fetch) explicitly switches this back to a loading
+  // state itself.
+  const [locationLine, setLocationLine] = useState<string>('Location saved');
   const [timestampLine, setTimestampLine] = useState<string>('');
-  const [locationLoading, setLocationLoading] = useState(true);
+  const [locationLoading, setLocationLoading] = useState(false);
   /** Set only for the "no GPS location yet" block below — distinct from the shared
    * upload-progress bus's own uploadError (paused/failed), which only exists once an
    * actual background upload attempt has started. Combined into one `uploadError`
@@ -109,9 +141,10 @@ export function useClaimUpload(
         return () => {};
       }
       let cancelled = false;
-      setLocationLoading(true);
-      setLocationLine('Getting location…');
-      setTimestampLine('');
+      // Deliberately not resetting to a loading/placeholder state here on every
+      // focus — see the locationLine/locationLoading initializers above. Whatever
+      // was last shown just stays up until the async logic below has something
+      // better to say, instead of flashing "Getting location…" + a spinner first.
 
       const clearInFlight = () => {
         if (uploadInFlightForKeyRef.current === uploadKey) {
@@ -173,6 +206,76 @@ export function useClaimUpload(
           return;
         }
 
+        const fireUpload = (lat: number, lng: number, line: string) => {
+          // The actual upload runs in a background-actions foreground service (see
+          // claim-upload-background-runner.ts), independent of this effect/screen's
+          // lifecycle — fire-and-forget, not awaited, so backgrounding or navigating
+          // away from this screen can never interrupt it. Live progress is read back
+          // via the shared bus (useSyncExternalStore above), not these callbacks.
+          void startClaimUploadInBackground({
+            uploadKey,
+            vehicleId,
+            claimant: { ...claimantRef.current },
+            report: {
+              capturedAtIso: recordedAt.toISOString(),
+              capturedAtDisplayLocal: formatTimestamp(recordedAt),
+              gpsLat: lat,
+              gpsLng: lng,
+              locationLabel: line,
+            },
+          })
+            .then(() => {
+              // Not gated on `cancelled` — same reasoning as fireUpload's own call
+              // above. A real upload takes real time; by the time it actually
+              // finishes the driver has very often already navigated away or closed
+              // the app, and this bookkeeping (the persisted success key + location,
+              // which is what makes a later fresh mount show the real address
+              // instead of "Getting location…" forever) must still get written.
+              const snap = getClaimUploadProgressSnapshot();
+              // Only persist success bookkeeping once the whole attempt (across any
+              // internal pause/retry loop inside the runner) has genuinely finished
+              // successfully — a 'failed' settlement already cleared its own state.
+              if (snap.uploadKey === uploadKey && snap.phase === 'succeeded') {
+                void setPersistedSuccessfulClaimUploadKey(uploadKey);
+                // Best-effort: a storage failure here must not flip the upload into an error state.
+                void savePersistedClaimLocation({
+                  locationLine: line,
+                  timestampLine: formatTimestamp(recordedAt),
+                }).catch(() => {});
+              }
+            })
+            .finally(clearInFlight);
+        };
+
+        // Fast path: this exact claim's location was already resolved before (an
+        // earlier attempt this session, or a previous app launch) — reuse it instead
+        // of redoing GPS + reverse-geocode on every single re-entry into this screen.
+        // This matters beyond just avoiding a redundant "Getting location…" flash:
+        // reverseGeocodeAsync has no timeout of its own, so on a flaky/offline
+        // connection it can hang indefinitely — without this cache, that hang would
+        // block the upload from (re)starting on every single visit, not just the first.
+        //
+        // fireUpload() below is deliberately called unconditionally (not gated on
+        // `cancelled`) — only the UI updates (setLocationLine etc.) check it. This
+        // effect's own `cancelled` just means "this screen isn't focused any more,"
+        // which must never stop the upload from actually starting: that's the whole
+        // point of running it in a background-actions foreground service. Gating the
+        // fire call on `cancelled` here previously meant navigating away (even
+        // briefly) while location was still resolving silently killed the entire
+        // attempt before it ever reached the point of starting the upload — nothing
+        // got cached, nothing got sent, and "Resume Now" just repeated the same race
+        // every time.
+        const cachedLocation = await loadClaimLocationCache(uploadKey);
+        if (cachedLocation) {
+          if (!cancelled) {
+            setLocationLine(cachedLocation.locationLine);
+            setTimestampLine(cachedLocation.timestampLine);
+            setLocationLoading(false);
+          }
+          fireUpload(cachedLocation.lat, cachedLocation.lng, cachedLocation.locationLine);
+          return;
+        }
+
         {
           let lat: number | null = null;
           let lng: number | null = null;
@@ -182,19 +285,34 @@ export function useClaimUpload(
           if (!cancelled && persistedEntryMeta?.latitude != null && persistedEntryMeta?.longitude != null) {
             lat = persistedEntryMeta.latitude;
             lng = persistedEntryMeta.longitude;
-            line = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-            try {
-              const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-              if (geo && !cancelled) line = formatGeocodedLine(geo);
-            } catch {
-              // keep coordinates
-            }
+            // The coordinates themselves are already captured and safe at this
+            // point (from the entry-location snapshot taken when Report Accident
+            // was first tapped) — only the human-readable address lookup below is
+            // still pending, and that's a nice-to-have, not something the claim
+            // depends on. Showing it immediately, before attempting that lookup,
+            // means the driver never sees an ambiguous "Getting location…" for a
+            // location that in truth was already saved — including in the exact
+            // scenario this matters most: reopening after the app was closed
+            // mid-upload, where "Getting location…" used to look stuck.
+            line = 'Location saved';
             if (!cancelled) {
               setLocationLine(line);
               setTimestampLine(formatTimestamp(recordedAt));
               setLocationLoading(false);
             }
+            const geocoded = await reverseGeocodeWithTimeout(lat, lng);
+            if (geocoded) {
+              line = geocoded;
+              if (!cancelled) setLocationLine(line);
+            }
           } else {
+            // The one genuinely slow, uncertain path — no entry meta yet means a
+            // fresh permission prompt + GPS fix, which can take real time. This is
+            // the only place that shows a loading state at all.
+            if (!cancelled) {
+              setLocationLoading(true);
+              setLocationLine('Getting location…');
+            }
             try {
               const { status } = await Location.requestForegroundPermissionsAsync();
               if (cancelled) return;
@@ -214,16 +332,18 @@ export function useClaimUpload(
                 } else {
                   lat = pos.coords.latitude;
                   lng = pos.coords.longitude;
-                  line = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-                  try {
-                    const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-                    if (geo && !cancelled) line = formatGeocodedLine(geo);
-                  } catch {
-                    // keep coordinates
-                  }
+                  // Same reasoning as the persisted-entry-meta branch above — the
+                  // coordinates are already captured at this point, so show that
+                  // immediately rather than waiting on the optional address lookup.
+                  line = 'Location saved';
                   if (!cancelled) {
                     setLocationLine(line);
                     setTimestampLine(formatTimestamp(recordedAt));
+                  }
+                  const geocoded = await reverseGeocodeWithTimeout(lat, lng);
+                  if (geocoded) {
+                    line = geocoded;
+                    if (!cancelled) setLocationLine(line);
                   }
                 }
               }
@@ -238,56 +358,34 @@ export function useClaimUpload(
             }
           }
 
-          if (cancelled || !uploadKey) {
+          // Not gated on `cancelled` — see the fast-path comment above. Only a
+          // genuinely missing uploadKey means there's truly nothing to do.
+          if (!uploadKey) {
             clearInFlight();
             return;
           }
 
           // Block upload if GPS location was not obtained. (Checking both, not just
           // lat, also narrows lng's type below — the two are always set together in
-          // every branch above.)
+          // every branch above.) The blocking dialog itself is inherently
+          // screen-scoped (the driver has to be looking at it to act on it), so it's
+          // fine for that part alone to stay silent if the screen isn't focused.
           if (lat === null || lng === null) {
-            setLocationBlockedError(
-              'Nothing has been sent yet — your claim needs the accident location. Turn on location access for this app, then come back to this screen to retry.'
-            );
-            setLocationRequiredVisible(true);
+            if (!cancelled) {
+              setLocationBlockedError(
+                'Nothing has been sent yet — your claim needs the accident location. Turn on location access for this app, then come back to this screen to retry.'
+              );
+              setLocationRequiredVisible(true);
+            }
             clearInFlight();
             return;
           }
 
-          // The actual upload runs in a background-actions foreground service (see
-          // claim-upload-background-runner.ts), independent of this effect/screen's
-          // lifecycle — fire-and-forget, not awaited, so backgrounding or navigating
-          // away from this screen can never interrupt it. Live progress is read back
-          // via the shared bus (useSyncExternalStore above), not these callbacks.
-          void startClaimUploadInBackground({
-            uploadKey,
-            vehicleId,
-            claimant: { ...claimantRef.current },
-            report: {
-              capturedAtIso: recordedAt.toISOString(),
-              capturedAtDisplayLocal: formatTimestamp(recordedAt),
-              gpsLat: lat,
-              gpsLng: lng,
-              locationLabel: line,
-            },
-          })
-            .then(() => {
-              if (cancelled) return;
-              const snap = getClaimUploadProgressSnapshot();
-              // Only persist success bookkeeping once the whole attempt (across any
-              // internal pause/retry loop inside the runner) has genuinely finished
-              // successfully — a 'failed' settlement already cleared its own state.
-              if (snap.uploadKey === uploadKey && snap.phase === 'succeeded') {
-                void setPersistedSuccessfulClaimUploadKey(uploadKey);
-                // Best-effort: a storage failure here must not flip the upload into an error state.
-                void savePersistedClaimLocation({
-                  locationLine: line,
-                  timestampLine: formatTimestamp(recordedAt),
-                }).catch(() => {});
-              }
-            })
-            .finally(clearInFlight);
+          // Cache before firing — so the next time this claim's upload screen is
+          // entered (resuming, reopening the app, "Resume Now"), it skips straight to
+          // fireUpload above instead of redoing this whole resolution.
+          await saveClaimLocationCache({ uploadKey, lat, lng, locationLine: line, timestampLine: formatTimestamp(recordedAt) });
+          fireUpload(lat, lng, line);
         }
       })();
 

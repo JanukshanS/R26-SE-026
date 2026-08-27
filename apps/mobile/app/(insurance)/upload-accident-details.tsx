@@ -23,6 +23,7 @@ import {
 import { getCachedVehicles, getVehicles } from '@/lib/vehicleApi';
 import { getCachedVehicleInsurance, getVehicleInsurance } from '@/lib/vehicleInsuranceApi';
 import { loadSelectedVehicleId } from '@/lib/selected-vehicle-store';
+import { loadClaimVehicleId } from '@/lib/claim-vehicle-store';
 import { loadClaimantProfile } from '@/features/claimant/storage/claimant-profile-store';
 import { useClaimUpload } from '@/features/report-accident/hooks/use-claim-upload';
 import { getCachedClaims, listMyClaims, type ClaimSummary } from '@/lib/claims-api';
@@ -327,8 +328,14 @@ export default function UploadAccidentDetailsScreen() {
               targetVehicleId = match?._id ?? null;
             }
           } else {
+            // Same pin as (insurance)/index.tsx: once this claim has a vehicle
+            // pinned to it, that always wins over whatever is currently
+            // selected on Home — this screen's Call button (and the vehicle
+            // actually attributed to a resuming upload) must stay on the
+            // claim's own vehicle, not follow a later vehicle switch.
+            const pinnedVehicleId = await loadClaimVehicleId();
             const persistedId = await loadSelectedVehicleId();
-            const resolvedVehicleId = persistedId ?? vehicleId;
+            const resolvedVehicleId = pinnedVehicleId ?? persistedId ?? vehicleId;
             if (!cancelled) {
               setEffectiveVehicleId(resolvedVehicleId);
             }

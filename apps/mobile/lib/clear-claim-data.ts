@@ -26,12 +26,21 @@ import {
 import { clearAllPhotoGps } from '@/lib/photo-gps-store';
 import { clearPersistedClaimUploadSuccess } from '@/lib/claim-upload-dedupe';
 import { clearUploadProgress } from '@/lib/claim-upload-progress-store';
+import { clearClaimVehicleId } from '@/lib/claim-vehicle-store';
+import { clearClaimLocationCache } from '@/lib/claim-location-cache-store';
+import { clearClaimUploadProgress } from '@/lib/claim-upload-progress-bus';
 
 /**
  * Clears all data from a completed claim so the app is ready for a new one.
  * Claimant profile (name, NIC, licence) is intentionally preserved.
  */
 export async function clearAllClaimData(): Promise<void> {
+  // In-memory, not persisted — cleared synchronously here rather than folded into the
+  // Promise.all below, since it isn't itself async. Without this, a just-finished
+  // claim's 'succeeded' bus state would still match a brand new claim that happens to
+  // reuse the same uploadKey before its own upload has (re)set the bus itself.
+  clearClaimUploadProgress();
+
   const [guidedState, licenceState, drunkState, thirdPartyState] = await Promise.all([
     loadGuidedCaptureStoreState(),
     loadDrivingLicenceState(),
@@ -50,6 +59,8 @@ export async function clearAllClaimData(): Promise<void> {
     clearAllPhotoGps(),
     clearPersistedClaimUploadSuccess(),
     clearUploadProgress(),
+    clearClaimVehicleId(),
+    clearClaimLocationCache(),
 
     // Clear location metadata for all 4 steps
     clearInsurerCallMeta(),

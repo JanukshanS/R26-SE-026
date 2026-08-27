@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 15,
     backgroundColor: CAPTURE_ACTION_BLUE,
     borderWidth: 2,
     borderColor: CAPTURE_ACTION_BLUE,
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 15,
     backgroundColor: CAPTURE_SURFACE_WHITE,
     borderWidth: 1,
     borderColor: CAPTURE_RESET_CANCEL_BORDER,

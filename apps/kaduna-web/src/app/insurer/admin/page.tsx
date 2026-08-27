@@ -7,7 +7,10 @@ import { UsersTab } from "@/components/insurer/admin/UsersTab";
 
 const TAB_LABELS = ["Companies", "Users"] as const;
 type Tab = (typeof TAB_LABELS)[number];
-const TABS = TAB_LABELS.map((label) => ({ label, href: `#${label.toLowerCase()}` }));
+const TABS = [
+  { label: "Dashboard", href: "/insurer" },
+  ...TAB_LABELS.map((label) => ({ label, href: `#${label.toLowerCase()}` })),
+];
 
 export default function InsurerAdminPage() {
   const [tab, setTab] = useState<Tab>("Companies");
