@@ -10,11 +10,6 @@ import { useInsurerUser } from "@/lib/insurer/auth";
 import { fetchClaims } from "@/lib/insurer/claimsApi";
 import type { Claim } from "@/lib/insurer/types";
 
-const INSURER_TABS = [
-  { label: "Dashboard", href: "/insurer" },
-  { label: "Admin Panel", href: "/insurer/admin" },
-];
-
 function GlobalPipelineWidget() {
   const { activeJob, clearJob } = usePipelineJob();
   if (!activeJob) return null;
@@ -62,7 +57,7 @@ function DashboardInner() {
   );
 
   return (
-    <PortalShell title="" fullWidth stretch tabs={INSURER_TABS} active="Dashboard">
+    <PortalShell title="" fullWidth stretch>
       {user?.company_name && (
         <p className="mb-4 text-sm text-muted-foreground">{user.company_name}</p>
       )}

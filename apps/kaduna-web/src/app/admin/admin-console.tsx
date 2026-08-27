@@ -16,8 +16,10 @@ import {
 import { useAuth, type Role } from "@/lib/auth";
 import { enumLabel, listProviders, type ProviderRecord } from "@/lib/dispatchApi";
 import { supabase } from "@/lib/supabase";
+import { CompaniesTab } from "@/components/insurer/admin/CompaniesTab";
+import { API_BASE } from "@/lib/insurer/api";
 
-const TAB_LABELS = ["Users", "Providers", "Parts", "Garages"] as const;
+const TAB_LABELS = ["Users", "Providers", "Parts", "Garages", "Insurers"] as const;
 type Tab = (typeof TAB_LABELS)[number];
 
 const TABS = TAB_LABELS.map((label) => ({ label, href: `#${label.toLowerCase()}` }));
@@ -381,8 +383,223 @@ function ProvidersTab({
   );
 }
 
+// ─── Insurer Portal Users ─────────────────────────────────────
+
+type InsurerUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  company_id: string | null;
+  company_name: string | null;
+  is_active: boolean;
+};
+
+type InsurerCompany = { id: string; name: string };
+
+const INSURER_ROLE_LABEL: Record<string, string> = {
+  admin: "Ops",
+  agent: "Agent",
+  staff: "Assessor",
+};
+
+const INSURER_ROLE_TONE: Record<string, string> = {
+  admin: "bg-primary/15 text-primary",
+  agent: "bg-blue-100 text-blue-800",
+  staff: "bg-muted text-muted-foreground",
+};
+
+const INSURER_ROLES = ["admin", "agent", "staff"] as const;
+
+async function insurerHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function InsurerUsersSection() {
+  const [users, setUsers] = useState<InsurerUser[] | null>(null);
+  const [companies, setCompanies] = useState<InsurerCompany[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState({
+    email: "", name: "", password: "", role: "staff", company_id: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const hdrs = await insurerHeaders();
+      const [uRes, cRes] = await Promise.all([
+        fetch(`${API_BASE}/admin/users`, { headers: hdrs }),
+        fetch(`${API_BASE}/admin/companies`, { headers: hdrs }),
+      ]);
+      if (!uRes.ok) throw new Error(`HTTP ${uRes.status}`);
+      setUsers(await uRes.json());
+      if (cRes.ok) setCompanies(await cRes.json());
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load insurer users");
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function handleToggle(id: string) {
+    const hdrs = await insurerHeaders();
+    await fetch(`${API_BASE}/admin/users/${id}`, { method: "PATCH", headers: hdrs });
+    void load();
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setFormError(null);
+    try {
+      const hdrs = { ...(await insurerHeaders()), "Content-Type": "application/json" };
+      const res = await fetch(`${API_BASE}/admin/users`, {
+        method: "POST",
+        headers: hdrs,
+        body: JSON.stringify({ ...form, company_id: form.company_id || null }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error((err as { detail?: string }).detail ?? "Failed to create user");
+      }
+      await load();
+      setShowModal(false);
+      setForm({ email: "", name: "", password: "", role: "staff", company_id: "" });
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mt-10 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-display text-base font-semibold tracking-tight">Insurer Portal Users</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Agents and assessors who access the insurer dashboard</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowModal(true)}
+          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+        >
+          + Add User
+        </button>
+      </div>
+
+      {loadError ? (
+        <ErrorCard title="Couldn't load insurer users" message={loadError} onRetry={() => void load()} />
+      ) : !users ? (
+        <TableSkeleton />
+      ) : users.length === 0 ? (
+        <EmptyCard title="No insurer users yet" body="Add agents and assessors who will handle claims in the insurer dashboard." />
+      ) : (
+        <div className="rounded-xl border border-border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((u) => (
+                <TableRow key={u.id}>
+                  <TableCell className="font-medium">{u.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={INSURER_ROLE_LABEL[u.role] ?? u.role}
+                      tone={INSURER_ROLE_TONE[u.role] ?? "bg-muted text-muted-foreground"}
+                    />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{u.company_name ?? "—"}</TableCell>
+                  <TableCell>
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${u.is_active ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"}`}>
+                      {u.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <button
+                      type="button"
+                      onClick={() => void handleToggle(u.id)}
+                      className="rounded-md border border-input px-3 py-1 text-xs font-medium hover:bg-accent transition-colors"
+                    >
+                      {u.is_active ? "Deactivate" : "Activate"}
+                    </button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowModal(false)}>
+          <div className="w-[min(480px,94vw)] rounded-xl border border-border bg-card shadow-lg flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <h3 className="text-sm font-semibold">Add Insurer Portal User</h3>
+              <button type="button" onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-foreground text-xl leading-none">×</button>
+            </div>
+            <div className="px-5 py-4 flex flex-col gap-4">
+              {(["name", "email", "password"] as const).map((field) => (
+                <div key={field} className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-muted-foreground capitalize">{field === "name" ? "Full Name" : field.charAt(0).toUpperCase() + field.slice(1)}</label>
+                  <input
+                    type={field === "password" ? "password" : field === "email" ? "email" : "text"}
+                    value={form[field]}
+                    onChange={(e) => setForm({ ...form, [field]: e.target.value })}
+                    placeholder={field === "name" ? "Jane Silva" : field === "email" ? "jane@company.lk" : "••••••••"}
+                    className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+              ))}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Role</label>
+                <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  {INSURER_ROLES.map((r) => (
+                    <option key={r} value={r}>{INSURER_ROLE_LABEL[r]}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Company</label>
+                <select value={form.company_id} onChange={(e) => setForm({ ...form, company_id: e.target.value })} className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">— None —</option>
+                  {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              {formError && <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{formError}</p>}
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-border">
+              <button type="button" onClick={() => setShowModal(false)} className="rounded-md border border-input px-4 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent transition-colors">Cancel</button>
+              <button type="button" onClick={() => void handleSave()} disabled={saving || !form.email || !form.name || !form.password} className="rounded-md px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed">
+                {saving ? "Saving…" : "Create User"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const USER_SUB_TABS = ["App Users", "Insurer Portal Users"] as const;
+type UserSubTab = (typeof USER_SUB_TABS)[number];
+
 export default function AdminConsole() {
   const [tab, setTab] = useState<Tab>("Users");
+  const [userSubTab, setUserSubTab] = useState<UserSubTab>("App Users");
 
   // Read on mount (not during render) so the prerendered HTML always matches.
   useEffect(() => {
@@ -428,12 +645,34 @@ export default function AdminConsole() {
   return (
     <PortalShell title="Administration" tabs={TABS} active={tab}>
       {tab === "Users" ? (
-        <UsersTab
-          profiles={profiles}
-          error={profilesError}
-          reload={loadProfiles}
-          onRoleChanged={setProfiles}
-        />
+        <>
+          <nav className="flex gap-1 border-b border-border mb-6">
+            {USER_SUB_TABS.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setUserSubTab(t)}
+                className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm transition-colors ${
+                  userSubTab === t
+                    ? "border-primary font-medium text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </nav>
+          {userSubTab === "App Users" ? (
+            <UsersTab
+              profiles={profiles}
+              error={profilesError}
+              reload={loadProfiles}
+              onRoleChanged={setProfiles}
+            />
+          ) : (
+            <InsurerUsersSection />
+          )}
+        </>
       ) : tab === "Providers" ? (
         <ProvidersTab
           providers={providers}
@@ -443,8 +682,10 @@ export default function AdminConsole() {
         />
       ) : tab === "Parts" ? (
         <PartsTab />
-      ) : (
+      ) : tab === "Garages" ? (
         <GaragesTab />
+      ) : (
+        <CompaniesTab />
       )}
     </PortalShell>
   );
