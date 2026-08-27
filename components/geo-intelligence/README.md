@@ -86,9 +86,31 @@ curl -X POST http://localhost:5001/v1/score \
   "priority": "HIGH",
   "factors": { "capacity_loss": 0.5, "traffic_volume": 0.85, "temporal": 1.0,
                "location": 0.7, "incident_severity": 0.7 },
-  "prediction": { "queue_km": 5.0, "vehicle_hours_lost": 150.0, "recovery_min": 30.0 }
+  "prediction": { "queue_km": 5.0, "vehicle_hours_lost": 150.0, "recovery_min": 30.0 },
+  "sensitivity": {
+    "factor": 1.12, "adjusted_score": 8.4,
+    "nearby": [ { "type": "hospital", "name": "National Hospital", "distance_m": 220,
+                  "boost": 0.087, "active": true } ],
+    "is_holiday": false, "is_getaway_eve": false, "data_available": true
+  }
 }
 ```
+
+## Sensitivity overlay
+
+`/v1/score` also returns a **sensitivity overlay** (`src/sensitivity.py`): a capped
+multiplier (max +35%) for incidents near hospitals (exp-decay ≤1.2 km), schools
+(150 m, weekday school hours only), bridges (≤100 m of an OSM `bridge=yes` way),
+and marketplaces (200 m, weekends/dawn), plus a **getaway-eve** boost on working
+days that precede a 3+ day holiday run (`data/sl_holidays_2026.json` — lunar dates
+marked unverified, confirm against the gazette). Pass the optional `date` field
+(ISO 8601) to enable the calendar component.
+
+The base 5-factor score is **unchanged** — the overlay reports `factor` and
+`adjusted_score` separately, per the July 2026 research consensus (overlay, not a
+6th weighted factor, pending SUMO re-validation). POI data: OpenStreetMap via
+`python scripts/download_colombo_poi.py` → `data/poi/colombo_poi.json`; if the
+file is missing the overlay degrades to `factor: 1.0, data_available: false`.
 
 ## Model & validation
 
