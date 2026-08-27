@@ -1,0 +1,10619 @@
+{
+ "hospitals": [
+  {
+   "name": "Asiri Surgical Hospital",
+   "lat": 6.894549,
+   "lng": 79.879717
+  },
+  {
+   "name": "Joseph Fraser Memorial Hospital",
+   "lat": 6.895205,
+   "lng": 79.865219
+  },
+  {
+   "name": "Wethara District Hospital",
+   "lat": 6.784624,
+   "lng": 79.97563
+  },
+  {
+   "name": "Sri Jayawardenapura teaching hospital",
+   "lat": 6.868334,
+   "lng": 79.926152
+  },
+  {
+   "name": "Divisional Hospital Thalangama",
+   "lat": 6.906233,
+   "lng": 79.92852
+  },
+  {
+   "name": "Pannipitiya Nursing Home",
+   "lat": 6.846822,
+   "lng": 79.952262
+  },
+  {
+   "name": "Western Hospital",
+   "lat": 6.911705,
+   "lng": 79.885636
+  },
+  {
+   "name": "Colombo General Hospital",
+   "lat": 6.917244,
+   "lng": 79.867195
+  },
+  {
+   "name": "Nawinna Medicare Hospital",
+   "lat": 6.85465,
+   "lng": 79.914341
+  },
+  {
+   "name": "Mulleriyawa Hospital",
+   "lat": 6.924771,
+   "lng": 79.942918
+  },
+  {
+   "name": "Hemas Hospital",
+   "lat": 6.988737,
+   "lng": 79.89121
+  },
+  {
+   "name": "Hekitta Mental Hospital",
+   "lat": 6.98282,
+   "lng": 79.876898
+  },
+  {
+   "name": "Leprosy Hospital",
+   "lat": 6.982809,
+   "lng": 79.875514
+  },
+  {
+   "name": "Siddhalepa",
+   "lat": 6.831185,
+   "lng": 79.877322
+  },
+  {
+   "name": "Sulaiman",
+   "lat": 6.942059,
+   "lng": 79.865806
+  },
+  {
+   "name": "Dehiwala Medical Centre",
+   "lat": 6.860723,
+   "lng": 79.866416
+  },
+  {
+   "name": "McCarthy Private Hospital",
+   "lat": 6.913964,
+   "lng": 79.869757
+  },
+  {
+   "name": "De Soysa Hospital for Women",
+   "lat": 6.919806,
+   "lng": 79.870245
+  },
+  {
+   "name": "Kiribathgoda Base Hospital",
+   "lat": 6.983836,
+   "lng": 79.929215
+  },
+  {
+   "name": "Lanka Pharmacy",
+   "lat": 6.980817,
+   "lng": 79.930063
+  },
+  {
+   "name": "IDH Hospital",
+   "lat": 6.922507,
+   "lng": 79.916497
+  },
+  {
+   "name": "Dental Surgery",
+   "lat": 6.925104,
+   "lng": 79.864668
+  },
+  {
+   "name": "De Soysa Hospital",
+   "lat": 6.784048,
+   "lng": 79.877683
+  },
+  {
+   "name": "Park Hospital",
+   "lat": 6.887211,
+   "lng": 79.872535
+  },
+  {
+   "name": "Chest Hospital Welisara",
+   "lat": 7.02425,
+   "lng": 79.90294
+  },
+  {
+   "name": "Browns Hospital",
+   "lat": 7.027774,
+   "lng": 79.920615
+  },
+  {
+   "name": "Kandana Base Hospital",
+   "lat": 7.041239,
+   "lng": 79.903739
+  },
+  {
+   "name": "Ranwwiru Sewana Hospital",
+   "lat": 7.023994,
+   "lng": 79.92274
+  },
+  {
+   "name": "Dr Muhsin - Dental Clinic",
+   "lat": 6.895718,
+   "lng": 79.860471
+  },
+  {
+   "name": "Neurology Ward",
+   "lat": 6.919277,
+   "lng": 79.870419
+  },
+  {
+   "name": "Cardiac Ward",
+   "lat": 6.920689,
+   "lng": 79.86962
+  },
+  {
+   "name": "Accident Ward",
+   "lat": 6.9187,
+   "lng": 79.867198
+  },
+  {
+   "name": "Meegoda Ayurveda Hospital",
+   "lat": 6.846132,
+   "lng": 80.042246
+  },
+  {
+   "name": "Dental Institute",
+   "lat": 6.845711,
+   "lng": 79.928611
+  },
+  {
+   "name": "Ayurveda Corporation",
+   "lat": 6.855884,
+   "lng": 79.9177
+  },
+  {
+   "name": "Nursing Home",
+   "lat": 6.850799,
+   "lng": 79.921516
+  },
+  {
+   "name": "Asia Hospital",
+   "lat": 6.84531,
+   "lng": 79.92922
+  },
+  {
+   "name": "Katugampala Weda Madura",
+   "lat": 6.812446,
+   "lng": 79.963345
+  },
+  {
+   "name": "Padukka Base Hospital",
+   "lat": 6.840055,
+   "lng": 80.08966
+  },
+  {
+   "name": "Medi Clinic wellawatte",
+   "lat": 6.878155,
+   "lng": 79.859971
+  },
+  {
+   "name": "Ratnam's",
+   "lat": 6.921108,
+   "lng": 79.856855
+  },
+  {
+   "name": "Biyagama Hospital",
+   "lat": 6.946943,
+   "lng": 79.99394
+  },
+  {
+   "name": "Nugegoda Nursing Home",
+   "lat": 6.868549,
+   "lng": 79.891323
+  },
+  {
+   "name": "Asiri Laboratory",
+   "lat": 6.892042,
+   "lng": 79.929018
+  },
+  {
+   "name": "Colombo Friend-in-Need Society",
+   "lat": 6.916409,
+   "lng": 79.855909
+  },
+  {
+   "name": "Medicare",
+   "lat": 6.92158,
+   "lng": 79.872312
+  },
+  {
+   "name": "Borella Private Hospital",
+   "lat": 6.913924,
+   "lng": 79.880517
+  },
+  {
+   "name": "YMBA Hospital",
+   "lat": 6.933396,
+   "lng": 79.894408
+  },
+  {
+   "name": "Homagama Base Hospital",
+   "lat": 6.846907,
+   "lng": 79.992365
+  },
+  {
+   "name": "Suwentha Eye Hospital",
+   "lat": 6.927053,
+   "lng": 79.91257
+  },
+  {
+   "name": "Leesons Hospital",
+   "lat": 7.031656,
+   "lng": 79.922045
+  },
+  {
+   "name": "Odent Dental Surgery",
+   "lat": 6.844928,
+   "lng": 79.930804
+  },
+  {
+   "name": "Lunawa Aryuweda Hospital",
+   "lat": 6.783547,
+   "lng": 79.878048
+  },
+  {
+   "name": "Radawana Divisional Hospital",
+   "lat": 7.032436,
+   "lng": 80.100181
+  },
+  {
+   "name": "General",
+   "lat": 6.973056,
+   "lng": 79.914186
+  },
+  {
+   "name": "ayurvedic hospital",
+   "lat": 7.021941,
+   "lng": 80.009878
+  },
+  {
+   "name": "Dental Ward (Colombo National Hospital)",
+   "lat": 6.917271,
+   "lng": 79.866146
+  },
+  {
+   "name": "Western Dispensary",
+   "lat": 6.913006,
+   "lng": 79.884149
+  },
+  {
+   "name": "Western Dispensary",
+   "lat": 6.892657,
+   "lng": 79.871278
+  },
+  {
+   "name": "Government Dispensery",
+   "lat": 6.976721,
+   "lng": 80.117468
+  },
+  {
+   "name": null,
+   "lat": 6.872366,
+   "lng": 79.864763
+  },
+  {
+   "name": "Vasan Eye Care",
+   "lat": 6.901727,
+   "lng": 79.853075
+  },
+  {
+   "name": "Ratnam Private Hospital",
+   "lat": 6.920625,
+   "lng": 79.857625
+  },
+  {
+   "name": "Navy Hospital Welisara",
+   "lat": 7.018888,
+   "lng": 79.900535
+  },
+  {
+   "name": "Lions Club Eye Hospital",
+   "lat": 6.983221,
+   "lng": 79.876161
+  },
+  {
+   "name": "Lanka Hospitals",
+   "lat": 6.888475,
+   "lng": 79.876645
+  },
+  {
+   "name": "M D.H. Jayawardana Divisional Hospital Nawagamuwa",
+   "lat": 6.922506,
+   "lng": 80.014342
+  },
+  {
+   "name": "Free Dispensary",
+   "lat": 6.964792,
+   "lng": 79.864981
+  },
+  {
+   "name": "Rawana Arana",
+   "lat": 6.88543,
+   "lng": 79.899098
+  },
+  {
+   "name": "Body Doc Medical Center",
+   "lat": 6.895551,
+   "lng": 79.960167
+  },
+  {
+   "name": "Air Force Hospital - Colombo",
+   "lat": 6.91995,
+   "lng": 79.883353
+  },
+  {
+   "name": "Nawaloka specialist centre",
+   "lat": 6.920224,
+   "lng": 79.853536
+  },
+  {
+   "name": "Lunawa hospital",
+   "lat": 6.783666,
+   "lng": 79.877507
+  },
+  {
+   "name": "Maharhishi Ayurveda Hospital",
+   "lat": 6.830397,
+   "lng": 79.865675
+  },
+  {
+   "name": "Kiribathgoda hospital",
+   "lat": 6.97769,
+   "lng": 79.926984
+  },
+  {
+   "name": "Nightingale Hospital",
+   "lat": 6.972184,
+   "lng": 79.891792
+  },
+  {
+   "name": "Oxford Lanka Medical",
+   "lat": 6.955933,
+   "lng": 79.887575
+  },
+  {
+   "name": "Half Way Home Mulleriyawa",
+   "lat": 6.92225,
+   "lng": 79.947422
+  },
+  {
+   "name": "Nawala Medical Centre",
+   "lat": 6.886956,
+   "lng": 79.887269
+  },
+  {
+   "name": "Diabetic Foot Care & Rehabilitation Centre",
+   "lat": 6.891428,
+   "lng": 79.887388
+  },
+  {
+   "name": "Suwasewana Ayurvedic center",
+   "lat": 6.825115,
+   "lng": 79.975449
+  },
+  {
+   "name": "Rohana wijayasiri wedamahatha",
+   "lat": 6.801235,
+   "lng": 79.978709
+  },
+  {
+   "name": "Ranpatha Weda Madura",
+   "lat": 6.848755,
+   "lng": 79.948586
+  },
+  {
+   "name": "Lak suwa sahana",
+   "lat": 6.956163,
+   "lng": 79.915109
+  },
+  {
+   "name": "Family Medical Centre",
+   "lat": 6.763208,
+   "lng": 79.928591
+  },
+  {
+   "name": "Army Hospital",
+   "lat": 6.900073,
+   "lng": 79.875833
+  },
+  {
+   "name": null,
+   "lat": 6.810924,
+   "lng": 80.084325
+  },
+  {
+   "name": "Medi Channel Centre",
+   "lat": 6.942467,
+   "lng": 79.890776
+  },
+  {
+   "name": null,
+   "lat": 6.85071,
+   "lng": 79.907713
+  },
+  {
+   "name": "Sri Jeewarakshaka Bhayshajyalaya Ayurvedic Medical Center",
+   "lat": 6.852294,
+   "lng": 79.865973
+  },
+  {
+   "name": "Sri Jeewarakshaka Bhayshajyalaya",
+   "lat": 6.852219,
+   "lng": 79.866031
+  },
+  {
+   "name": "Medihub",
+   "lat": 6.938818,
+   "lng": 79.892823
+  },
+  {
+   "name": "Lanka Hospital",
+   "lat": 6.889678,
+   "lng": 79.875778
+  },
+  {
+   "name": "Rajagiriya Ayurvedic Hospital",
+   "lat": 6.911653,
+   "lng": 79.88835
+  },
+  {
+   "name": "Prison Hospital",
+   "lat": 6.92295,
+   "lng": 79.880421
+  },
+  {
+   "name": "Colombo South Teaching Hospital",
+   "lat": 6.867691,
+   "lng": 79.876248
+  },
+  {
+   "name": "Suvika Fertility Centre",
+   "lat": 6.879428,
+   "lng": 79.887006
+  },
+  {
+   "name": "Winlanka Hospital",
+   "lat": 6.868177,
+   "lng": 79.885622
+  },
+  {
+   "name": "Lady Ridgeway Hospital",
+   "lat": 6.917746,
+   "lng": 79.876105
+  },
+  {
+   "name": "Mendis Aurvedic Hospital",
+   "lat": 6.911938,
+   "lng": 79.875515
+  },
+  {
+   "name": "Asiri Hospital",
+   "lat": 6.893306,
+   "lng": 79.87438
+  },
+  {
+   "name": "Dompe Hospital",
+   "lat": 6.949314,
+   "lng": 80.059392
+  },
+  {
+   "name": "Angoda Mental Hospital",
+   "lat": 6.926167,
+   "lng": 79.926251
+  },
+  {
+   "name": "Jeewaka Private Hospital",
+   "lat": 6.840611,
+   "lng": 80.093269
+  },
+  {
+   "name": "North Colombo Teaching Hospital",
+   "lat": 7.02965,
+   "lng": 79.924965
+  },
+  {
+   "name": "Durdans Hospital",
+   "lat": 6.902258,
+   "lng": 79.853367
+  },
+  {
+   "name": "National Hospital of Sri Lanka",
+   "lat": 6.918522,
+   "lng": 79.868063
+  },
+  {
+   "name": "Ayurvedic Medicine Center",
+   "lat": 7.033991,
+   "lng": 79.976724
+  },
+  {
+   "name": "Asiri Central Hospital",
+   "lat": 6.920356,
+   "lng": 79.86572
+  },
+  {
+   "name": "Ayurvedic Medicine Center",
+   "lat": 7.034195,
+   "lng": 79.976214
+  },
+  {
+   "name": "Natural Back Health Service",
+   "lat": 6.897691,
+   "lng": 79.958492
+  },
+  {
+   "name": "Dr. Neville Fernando Sri Lanka - Russia Friendship Teaching Hospital",
+   "lat": 6.924878,
+   "lng": 79.962506
+  },
+  {
+   "name": "Kotalawala Nursing Home",
+   "lat": 6.918007,
+   "lng": 79.973862
+  },
+  {
+   "name": "Castle Street Hospital for Women",
+   "lat": 6.909622,
+   "lng": 79.88463
+  },
+  {
+   "name": "Medical Center",
+   "lat": 6.976563,
+   "lng": 79.914456
+  },
+  {
+   "name": "Nawaloka Hospital",
+   "lat": 6.920702,
+   "lng": 79.853575
+  },
+  {
+   "name": "Rawana Arana Ayurveda Medical Center",
+   "lat": 6.894328,
+   "lng": 79.878491
+  },
+  {
+   "name": null,
+   "lat": 6.896174,
+   "lng": 79.923076
+  },
+  {
+   "name": "Joseph Fraser Memorial Hospital",
+   "lat": 6.895367,
+   "lng": 79.864992
+  },
+  {
+   "name": "National Institute of Infectious Diseases",
+   "lat": 6.924076,
+   "lng": 79.918767
+  },
+  {
+   "name": "Blood Bank Narahenpita",
+   "lat": 6.891324,
+   "lng": 79.877355
+  },
+  {
+   "name": "Police Hospital",
+   "lat": 6.891791,
+   "lng": 79.877517
+  },
+  {
+   "name": null,
+   "lat": 6.88258,
+   "lng": 79.88795
+  },
+  {
+   "name": null,
+   "lat": 6.886365,
+   "lng": 79.889877
+  },
+  {
+   "name": "RAZAVI Medical Complex",
+   "lat": 6.837962,
+   "lng": 79.919186
+  },
+  {
+   "name": "Apeksha Cancer Hospital Maharagama",
+   "lat": 6.837312,
+   "lng": 79.919967
+  },
+  {
+   "name": null,
+   "lat": 6.880366,
+   "lng": 79.900717
+  },
+  {
+   "name": "Army Camp Hospital",
+   "lat": 6.847947,
+   "lng": 80.016407
+  },
+  {
+   "name": "National STD / AIDS Control Programme (NSACP)",
+   "lat": 6.91974,
+   "lng": 79.865771
+  },
+  {
+   "name": "Hemas Hospital",
+   "lat": 6.87843,
+   "lng": 79.935494
+  },
+  {
+   "name": "Ninewells Hospital",
+   "lat": 6.895079,
+   "lng": 79.882604
+  },
+  {
+   "name": "Oruwala Hospital",
+   "lat": 6.880821,
+   "lng": 79.992837
+  },
+  {
+   "name": "National Eye Hospital",
+   "lat": 6.918539,
+   "lng": 79.865254
+  },
+  {
+   "name": "Ceylinco Healthcare Centre",
+   "lat": 6.916398,
+   "lng": 79.859131
+  },
+  {
+   "name": "Kings Hospital",
+   "lat": 6.89513,
+   "lng": 79.879272
+  },
+  {
+   "name": "Lessons Hospital",
+   "lat": 7.031743,
+   "lng": 79.921999
+  },
+  {
+   "name": "Seth ulpatha weda medura",
+   "lat": 6.881425,
+   "lng": 79.978463
+  },
+  {
+   "name": "Royal Hospital",
+   "lat": 6.87602,
+   "lng": 79.863831
+  },
+  {
+   "name": null,
+   "lat": 6.872407,
+   "lng": 79.941742
+  },
+  {
+   "name": null,
+   "lat": 6.983566,
+   "lng": 79.92902
+  },
+  {
+   "name": null,
+   "lat": 6.983676,
+   "lng": 79.928464
+  },
+  {
+   "name": "University Hospital KDU",
+   "lat": 6.825164,
+   "lng": 79.907372
+  },
+  {
+   "name": null,
+   "lat": 6.91716,
+   "lng": 79.868142
+  },
+  {
+   "name": "Helan Hospital",
+   "lat": 6.841337,
+   "lng": 79.999042
+  },
+  {
+   "name": "Play Ground",
+   "lat": 6.904463,
+   "lng": 80.120269
+  },
+  {
+   "name": "ground",
+   "lat": 6.917661,
+   "lng": 80.100105
+  },
+  {
+   "name": "Lunawa Hospital",
+   "lat": 6.78401,
+   "lng": 79.877835
+  }
+ ],
+ "source": "OpenStreetMap via Overpass API (ODbL)",
+ "generated_utc": "2026-08-26T15:48:29Z",
+ "bbox_south_west_north_east": [
+  6.75,
+  79.82,
+  7.05,
+  80.15
+ ],
+ "schools": [
+  {
+   "name": "Somaweera Chandrasiri Junior School",
+   "lat": 6.803356,
+   "lng": 79.923005
+  },
+  {
+   "name": "Kingston College International",
+   "lat": 6.87985,
+   "lng": 79.862441
+  },
+  {
+   "name": "Gateway College Colombo",
+   "lat": 6.903073,
+   "lng": 79.899681
+  },
+  {
+   "name": "Muslim Ladies College",
+   "lat": 6.881668,
+   "lng": 79.861429
+  },
+  {
+   "name": "Deepangoda Sri Medhananda Maha Vidyalaya",
+   "lat": 6.816558,
+   "lng": 79.982013
+  },
+  {
+   "name": "President's College",
+   "lat": 6.839618,
+   "lng": 80.003576
+  },
+  {
+   "name": "Niyandagala Kanishta Vidyalaya",
+   "lat": 6.826409,
+   "lng": 79.989489
+  },
+  {
+   "name": "Vidyadeepa Maha Vidyalaya",
+   "lat": 6.829551,
+   "lng": 79.966435
+  },
+  {
+   "name": "Deepangoda Primary School",
+   "lat": 6.812792,
+   "lng": 79.98291
+  },
+  {
+   "name": "Ananda Vidyalaya,  Kottawa",
+   "lat": 6.844234,
+   "lng": 79.958168
+  },
+  {
+   "name": "Dharmapala Vidyalaya Kottawa North",
+   "lat": 6.865524,
+   "lng": 79.958487
+  },
+  {
+   "name": "Vidya Wardana",
+   "lat": 6.88808,
+   "lng": 79.929977
+  },
+  {
+   "name": "President's College",
+   "lat": 6.844379,
+   "lng": 79.929622
+  },
+  {
+   "name": "Vidyakara Balika Vidyalaya",
+   "lat": 6.845125,
+   "lng": 79.926006
+  },
+  {
+   "name": "Ananda College",
+   "lat": 6.924336,
+   "lng": 79.86855
+  },
+  {
+   "name": "Weluwana Vidyalaya",
+   "lat": 6.926872,
+   "lng": 79.879824
+  },
+  {
+   "name": "Seewali Vidyalaya",
+   "lat": 6.923538,
+   "lng": 79.880597
+  },
+  {
+   "name": null,
+   "lat": 6.872983,
+   "lng": 79.888547
+  },
+  {
+   "name": "Buwanekaba Vidyalaya",
+   "lat": 6.848843,
+   "lng": 79.924939
+  },
+  {
+   "name": "Ladies College",
+   "lat": 6.907875,
+   "lng": 79.857921
+  },
+  {
+   "name": "Mahanama College",
+   "lat": 6.905454,
+   "lng": 79.853831
+  },
+  {
+   "name": "Sri Rahula Balika Maha Vidyalaya",
+   "lat": 6.903637,
+   "lng": 79.956132
+  },
+  {
+   "name": "Bollegala Maha Vidyalayaa",
+   "lat": 6.944396,
+   "lng": 79.948151
+  },
+  {
+   "name": "Wedamulla Vidyalaya",
+   "lat": 6.967165,
+   "lng": 79.901255
+  },
+  {
+   "name": "Lyceum Int. School",
+   "lat": 6.98741,
+   "lng": 79.887136
+  },
+  {
+   "name": "Presbyterian Girls School",
+   "lat": 6.850498,
+   "lng": 79.863384
+  },
+  {
+   "name": "St. Mary's College",
+   "lat": 6.86001,
+   "lng": 79.865798
+  },
+  {
+   "name": "Sirimavo Bandaranayake Vidyalaya",
+   "lat": 6.895012,
+   "lng": 79.863653
+  },
+  {
+   "name": "Vidyaraja Maha Vidyalaya",
+   "lat": 6.881365,
+   "lng": 79.959747
+  },
+  {
+   "name": "Siddhartha Vidyalaya",
+   "lat": 6.867638,
+   "lng": 79.916025
+  },
+  {
+   "name": "Ananda Balika Vidyalaya",
+   "lat": 6.885119,
+   "lng": 79.897265
+  },
+  {
+   "name": "Buddhagosha College",
+   "lat": 6.865499,
+   "lng": 79.871553
+  },
+  {
+   "name": "S W R D Bandaranayake School",
+   "lat": 6.911889,
+   "lng": 79.886945
+  },
+  {
+   "name": "British School",
+   "lat": 6.906145,
+   "lng": 79.877519
+  },
+  {
+   "name": "German Technical Institute",
+   "lat": 6.803595,
+   "lng": 79.887687
+  },
+  {
+   "name": "Girls High School",
+   "lat": 6.834606,
+   "lng": 79.864985
+  },
+  {
+   "name": "C.W.W Kannangara Vidyalaya",
+   "lat": 6.919001,
+   "lng": 79.877254
+  },
+  {
+   "name": "Rathnawali Balika Maha Vidyalaya",
+   "lat": 6.918351,
+   "lng": 79.874475
+  },
+  {
+   "name": "All Saints College",
+   "lat": 6.920503,
+   "lng": 79.87529
+  },
+  {
+   "name": "Zahira College",
+   "lat": 6.927702,
+   "lng": 79.86483
+  },
+  {
+   "name": "Nalanda College",
+   "lat": 6.923442,
+   "lng": 79.873681
+  },
+  {
+   "name": "N I B M",
+   "lat": 6.906436,
+   "lng": 79.870785
+  },
+  {
+   "name": "St. Josephs College",
+   "lat": 6.948152,
+   "lng": 79.874796
+  },
+  {
+   "name": "Don Bosco Palliyawatta",
+   "lat": 6.986808,
+   "lng": 79.869871
+  },
+  {
+   "name": "British Council",
+   "lat": 6.89975,
+   "lng": 79.856454
+  },
+  {
+   "name": "St.Thomas Preparatory School",
+   "lat": 6.916803,
+   "lng": 79.847597
+  },
+  {
+   "name": "Colombo South International College",
+   "lat": 6.866423,
+   "lng": 79.880296
+  },
+  {
+   "name": "St. Paul's college",
+   "lat": 6.88587,
+   "lng": 79.858125
+  },
+  {
+   "name": "St. Lawrance Girls School",
+   "lat": 6.874794,
+   "lng": 79.861419
+  },
+  {
+   "name": "Wycherley International School",
+   "lat": 6.900592,
+   "lng": 79.867238
+  },
+  {
+   "name": "St Mary's Girl School",
+   "lat": 6.913717,
+   "lng": 79.85331
+  },
+  {
+   "name": "St. Micheals College",
+   "lat": 6.913611,
+   "lng": 79.852795
+  },
+  {
+   "name": "Royal Institute Nugegoda",
+   "lat": 6.872306,
+   "lng": 79.893517
+  },
+  {
+   "name": "Sri Jayawardanepura Girl School",
+   "lat": 6.892036,
+   "lng": 79.900427
+  },
+  {
+   "name": "Dharmashoka Primary School",
+   "lat": 6.845007,
+   "lng": 79.935252
+  },
+  {
+   "name": "Central College Maharagama",
+   "lat": 6.84328,
+   "lng": 79.935256
+  },
+  {
+   "name": "Asian International School",
+   "lat": 6.884889,
+   "lng": 79.872977
+  },
+  {
+   "name": "Institute of Architects",
+   "lat": 6.906462,
+   "lng": 79.871185
+  },
+  {
+   "name": "Institute of Engineers (IESL)",
+   "lat": 6.906856,
+   "lng": 79.872054
+  },
+  {
+   "name": "Dudley Senanayake College",
+   "lat": 6.890663,
+   "lng": 79.873441
+  },
+  {
+   "name": "Sumaga Vidyalaya",
+   "lat": 6.848452,
+   "lng": 79.870139
+  },
+  {
+   "name": "St. Lawrence Convent",
+   "lat": 6.875645,
+   "lng": 79.862181
+  },
+  {
+   "name": "St. Clare's Girl School",
+   "lat": 6.876539,
+   "lng": 79.8616
+  },
+  {
+   "name": "Lumbini Balika Vidyalaya",
+   "lat": 6.876476,
+   "lng": 79.86423
+  },
+  {
+   "name": "Mahamaya Balika Vidyalaya",
+   "lat": 6.862447,
+   "lng": 79.895308
+  },
+  {
+   "name": "St. Margerets convent",
+   "lat": 6.91456,
+   "lng": 79.853105
+  },
+  {
+   "name": "St. Anthony's Balika Vidyalaya",
+   "lat": 6.907977,
+   "lng": 79.855309
+  },
+  {
+   "name": "St.Mary's Vidyalaya",
+   "lat": 6.894564,
+   "lng": 79.857457
+  },
+  {
+   "name": "Wellawatta Vidyalaya",
+   "lat": 6.880358,
+   "lng": 79.868254
+  },
+  {
+   "name": "Janadhipathi Balika Vidyalaya",
+   "lat": 6.895878,
+   "lng": 79.893392
+  },
+  {
+   "name": "Ananda Vidyalaya Nawala",
+   "lat": 6.893098,
+   "lng": 79.888811
+  },
+  {
+   "name": "Ananda Sastralaya kotte",
+   "lat": 6.882926,
+   "lng": 79.902713
+  },
+  {
+   "name": "Sri Subuthi Vidyalaya",
+   "lat": 6.902909,
+   "lng": 79.924044
+  },
+  {
+   "name": "Sri Rewatha College",
+   "lat": 6.868101,
+   "lng": 79.897401
+  },
+  {
+   "name": "Maligawatta Mahavidyalaya",
+   "lat": 6.941693,
+   "lng": 79.878092
+  },
+  {
+   "name": "St. Joseph's Pre School",
+   "lat": 6.963262,
+   "lng": 79.862959
+  },
+  {
+   "name": "Sangamitta balika Vidyalaya",
+   "lat": 6.921216,
+   "lng": 79.873131
+  },
+  {
+   "name": "Aquinas College",
+   "lat": 6.917658,
+   "lng": 79.874397
+  },
+  {
+   "name": "Carey College",
+   "lat": 6.918332,
+   "lng": 79.871217
+  },
+  {
+   "name": "Yasodara Balika vidyalaya",
+   "lat": 6.916902,
+   "lng": 79.872584
+  },
+  {
+   "name": "Stafford College",
+   "lat": 6.923121,
+   "lng": 79.866987
+  },
+  {
+   "name": "Nurses Training Institute",
+   "lat": 6.88942,
+   "lng": 79.881976
+  },
+  {
+   "name": "Maligakanda Maha Vidyalaya",
+   "lat": 6.926637,
+   "lng": 79.872949
+  },
+  {
+   "name": "Alhijra School",
+   "lat": 6.928991,
+   "lng": 79.874901
+  },
+  {
+   "name": "Ananda Balika Viidyalaya Maradana",
+   "lat": 6.926946,
+   "lng": 79.869655
+  },
+  {
+   "name": "Clifton Balika vidyalaya",
+   "lat": 6.927244,
+   "lng": 79.868389
+  },
+  {
+   "name": "Vidyadaya Pirivena",
+   "lat": 6.92735,
+   "lng": 79.86944
+  },
+  {
+   "name": "Anuruddha Balika Vidyalaya",
+   "lat": 6.929576,
+   "lng": 79.87841
+  },
+  {
+   "name": "Hameed Al Hussaini College",
+   "lat": 6.940888,
+   "lng": 79.859804
+  },
+  {
+   "name": "Vivekananda College",
+   "lat": 6.943145,
+   "lng": 79.859482
+  },
+  {
+   "name": "Wolfendhal Girls School",
+   "lat": 6.941985,
+   "lng": 79.859708
+  },
+  {
+   "name": "Kotahena Central College",
+   "lat": 6.941463,
+   "lng": 79.862336
+  },
+  {
+   "name": "St. Anne's Convent",
+   "lat": 6.944274,
+   "lng": 79.858077
+  },
+  {
+   "name": "St.Marry's College",
+   "lat": 6.943784,
+   "lng": 79.858356
+  },
+  {
+   "name": "Holy Family Convent Rajagiriya",
+   "lat": 6.911287,
+   "lng": 79.89483
+  },
+  {
+   "name": "Vidyakeerthi Vidyalaya",
+   "lat": 6.91625,
+   "lng": 79.892137
+  },
+  {
+   "name": "Sri Parakumbha Vidyalaya",
+   "lat": 6.914397,
+   "lng": 79.890324
+  },
+  {
+   "name": "ColHenry Olcat Vidyalaya",
+   "lat": 6.925804,
+   "lng": 79.895989
+  },
+  {
+   "name": "Prince of Wales' College",
+   "lat": 6.785222,
+   "lng": 79.883947
+  },
+  {
+   "name": null,
+   "lat": 6.789616,
+   "lng": 79.896978
+  },
+  {
+   "name": "Gamini Vidyalaya",
+   "lat": 6.95348,
+   "lng": 79.89053
+  },
+  {
+   "name": "Waragoda Junior school",
+   "lat": 6.948571,
+   "lng": 79.885337
+  },
+  {
+   "name": "Sri Lanka Institute of Chartered Accountants",
+   "lat": 6.901712,
+   "lng": 79.871152
+  },
+  {
+   "name": "Sathara Institute",
+   "lat": 6.844824,
+   "lng": 79.930222
+  },
+  {
+   "name": "Mahamathya Vidyalaya",
+   "lat": 6.874376,
+   "lng": 79.993382
+  },
+  {
+   "name": "Carmel Convent",
+   "lat": 6.974868,
+   "lng": 79.877855
+  },
+  {
+   "name": "Thalangama Maha Vidyalaya",
+   "lat": 6.913676,
+   "lng": 79.946716
+  },
+  {
+   "name": "Kothalawalapura Vidyalaya",
+   "lat": 6.814309,
+   "lng": 79.873887
+  },
+  {
+   "name": "Lalith Athulathmudali Vocational Training Centre",
+   "lat": 6.81436,
+   "lng": 79.877471
+  },
+  {
+   "name": "Neelammahara school",
+   "lat": 6.828645,
+   "lng": 79.920157
+  },
+  {
+   "name": "Ananda Samarakoon Vidyalaya",
+   "lat": 6.806913,
+   "lng": 79.908994
+  },
+  {
+   "name": "Vidyaraja Vidyalaya",
+   "lat": 6.792171,
+   "lng": 79.894563
+  },
+  {
+   "name": null,
+   "lat": 6.782156,
+   "lng": 79.880994
+  },
+  {
+   "name": "Amal International School",
+   "lat": 6.884208,
+   "lng": 79.869364
+  },
+  {
+   "name": "Ilma International Girls School",
+   "lat": 6.886405,
+   "lng": 79.873516
+  },
+  {
+   "name": "St. Joseph's Deaf School",
+   "lat": 7.029739,
+   "lng": 79.918523
+  },
+  {
+   "name": "Peralanda Junior School",
+   "lat": 7.040435,
+   "lng": 79.908658
+  },
+  {
+   "name": "Bandaranayake Primary School",
+   "lat": 7.020304,
+   "lng": 79.923469
+  },
+  {
+   "name": "Gateway International School",
+   "lat": 6.891843,
+   "lng": 79.860864
+  },
+  {
+   "name": "St Nicholas International School",
+   "lat": 6.915824,
+   "lng": 79.870906
+  },
+  {
+   "name": "Alethea International School",
+   "lat": 6.85845,
+   "lng": 79.865841
+  },
+  {
+   "name": "Louvre Int. School",
+   "lat": 6.856859,
+   "lng": 79.946069
+  },
+  {
+   "name": null,
+   "lat": 6.846509,
+   "lng": 79.867757
+  },
+  {
+   "name": "A T I",
+   "lat": 6.797666,
+   "lng": 79.88811
+  },
+  {
+   "name": "Buwanekaba Vidyala (Primary)",
+   "lat": 6.851997,
+   "lng": 79.922408
+  },
+  {
+   "name": "I E M",
+   "lat": 6.848369,
+   "lng": 79.92443
+  },
+  {
+   "name": "OxFord",
+   "lat": 6.865474,
+   "lng": 79.911564
+  },
+  {
+   "name": "St.Thomas College",
+   "lat": 6.880091,
+   "lng": 79.899706
+  },
+  {
+   "name": "Royal Institute",
+   "lat": 6.884423,
+   "lng": 79.868007
+  },
+  {
+   "name": "Rotary",
+   "lat": 6.870941,
+   "lng": 79.890452
+  },
+  {
+   "name": "Lalith Athulathmudali College",
+   "lat": 6.82956,
+   "lng": 79.871779
+  },
+  {
+   "name": "Louvre Int. School",
+   "lat": 6.868063,
+   "lng": 79.892578
+  },
+  {
+   "name": "Yashodhara Kanishta Vidyalaya",
+   "lat": 6.971506,
+   "lng": 79.913432
+  },
+  {
+   "name": "Rotary Int. School",
+   "lat": 6.864788,
+   "lng": 79.900697
+  },
+  {
+   "name": "Bishop's College",
+   "lat": 6.914714,
+   "lng": 79.855343
+  },
+  {
+   "name": null,
+   "lat": 6.844627,
+   "lng": 79.9771
+  },
+  {
+   "name": "Dharmaraja Vidyalaya",
+   "lat": 6.843981,
+   "lng": 80.043665
+  },
+  {
+   "name": "Meegoda Maha Vidyalaya",
+   "lat": 6.852295,
+   "lng": 80.04685
+  },
+  {
+   "name": "Dharmapala Adarsha Kanishta Vidyalaya",
+   "lat": 6.830465,
+   "lng": 79.961587
+  },
+  {
+   "name": "Janajaya Vidyalaya",
+   "lat": 6.767171,
+   "lng": 79.885865
+  },
+  {
+   "name": "Our Lady of Victories Convent",
+   "lat": 6.772764,
+   "lng": 79.881102
+  },
+  {
+   "name": "Princess Of Wales' College",
+   "lat": 6.78443,
+   "lng": 79.884079
+  },
+  {
+   "name": "Moratuwa Maha Vidyalaya",
+   "lat": 6.778358,
+   "lng": 79.884862
+  },
+  {
+   "name": "Telecom Training Centre",
+   "lat": 6.768071,
+   "lng": 79.895688
+  },
+  {
+   "name": "Olaboduwa Maha Vidyalaya",
+   "lat": 6.766044,
+   "lng": 80.038953
+  },
+  {
+   "name": "Siri Piyarathana College",
+   "lat": 6.839555,
+   "lng": 80.088383
+  },
+  {
+   "name": "Siri Piyarathana Primary College",
+   "lat": 6.840604,
+   "lng": 80.091784
+  },
+  {
+   "name": "Defence Service College",
+   "lat": 6.926897,
+   "lng": 79.850567
+  },
+  {
+   "name": "Ediriweera Sarachchandra College - Himbutana",
+   "lat": 6.924069,
+   "lng": 79.940845
+  },
+  {
+   "name": "Anula Vidyalaya",
+   "lat": 6.871948,
+   "lng": 79.884599
+  },
+  {
+   "name": "St. Joseph's Girls College",
+   "lat": 6.870781,
+   "lng": 79.886745
+  },
+  {
+   "name": "Lyceum International School",
+   "lat": 6.870472,
+   "lng": 79.886278
+  },
+  {
+   "name": "Lindsay Girls College",
+   "lat": 6.895922,
+   "lng": 79.854127
+  },
+  {
+   "name": "Holy Family Convent",
+   "lat": 6.85716,
+   "lng": 79.864783
+  },
+  {
+   "name": "Stafford International School",
+   "lat": 6.907909,
+   "lng": 79.864054
+  },
+  {
+   "name": "Hunupitiya Bandaranayake College",
+   "lat": 6.983864,
+   "lng": 79.910482
+  },
+  {
+   "name": "Sri Sumangala Vidyalaya",
+   "lat": 6.985035,
+   "lng": 79.923567
+  },
+  {
+   "name": "Sri Rathanapala Maha Vidyalaya",
+   "lat": 6.975362,
+   "lng": 79.889602
+  },
+  {
+   "name": "Sapugaskanda Vishaka Girls College",
+   "lat": 6.971552,
+   "lng": 79.954648
+  },
+  {
+   "name": "Rajasinghe National College",
+   "lat": 6.90891,
+   "lng": 80.088639
+  },
+  {
+   "name": "Mayadunna Maha Vidyalaya",
+   "lat": 6.907956,
+   "lng": 80.083456
+  },
+  {
+   "name": "Pahathgama Roman Catholic School",
+   "lat": 6.901775,
+   "lng": 80.086575
+  },
+  {
+   "name": "St. John Bosco College",
+   "lat": 6.918166,
+   "lng": 80.099605
+  },
+  {
+   "name": "Kothalawala Maha Vidyalaya",
+   "lat": 6.930364,
+   "lng": 79.983503
+  },
+  {
+   "name": "Biyagama Central College",
+   "lat": 6.947441,
+   "lng": 79.993899
+  },
+  {
+   "name": "Biyagama Junior School",
+   "lat": 6.945253,
+   "lng": 79.991099
+  },
+  {
+   "name": "Walgama Maha Vidyalaya",
+   "lat": 6.959471,
+   "lng": 80.017417
+  },
+  {
+   "name": "Weera Wijayaba Vidyalaya",
+   "lat": 6.994768,
+   "lng": 80.016049
+  },
+  {
+   "name": "Akarawita Maha Vidyalaya",
+   "lat": 6.947686,
+   "lng": 80.109567
+  },
+  {
+   "name": "Belvoir Int. College",
+   "lat": 6.886743,
+   "lng": 79.860095
+  },
+  {
+   "name": "Lumbini Vidyalaya",
+   "lat": 6.884029,
+   "lng": 79.866553
+  },
+  {
+   "name": "De Mazenod College",
+   "lat": 7.049042,
+   "lng": 79.905839
+  },
+  {
+   "name": "Dharmashoka Vidyalaya",
+   "lat": 7.046024,
+   "lng": 79.908112
+  },
+  {
+   "name": "St.Sebastian's Girls College",
+   "lat": 7.046619,
+   "lng": 79.8915
+  },
+  {
+   "name": "St.Sebastian's School",
+   "lat": 6.997185,
+   "lng": 79.917226
+  },
+  {
+   "name": "O.K.I Int School",
+   "lat": 6.987063,
+   "lng": 79.89057
+  },
+  {
+   "name": "St.Anthony's College",
+   "lat": 6.984891,
+   "lng": 79.893354
+  },
+  {
+   "name": "Vidyaloka Vidyalaya",
+   "lat": 7.005747,
+   "lng": 79.886987
+  },
+  {
+   "name": "Nayakanda Boys School",
+   "lat": 6.999573,
+   "lng": 79.881796
+  },
+  {
+   "name": "Soma Devi Girls School",
+   "lat": 6.93506,
+   "lng": 79.915226
+  },
+  {
+   "name": "Sri Rajasinghe College",
+   "lat": 6.936229,
+   "lng": 79.920101
+  },
+  {
+   "name": "Dharmapala Vidyalaya",
+   "lat": 6.937891,
+   "lng": 79.916552
+  },
+  {
+   "name": "Gurukula Vidyalaya",
+   "lat": 6.958847,
+   "lng": 79.894427
+  },
+  {
+   "name": "Vijaya Vidyalaya",
+   "lat": 6.957571,
+   "lng": 79.886759
+  },
+  {
+   "name": "Darus Salam Vidyalaya",
+   "lat": 6.937617,
+   "lng": 79.871757
+  },
+  {
+   "name": "Radawana Mahagamasekera Maha Vidyalaya",
+   "lat": 7.033989,
+   "lng": 80.092953
+  },
+  {
+   "name": "Vidyawardana Maha Vidyalaya",
+   "lat": 6.894082,
+   "lng": 79.879058
+  },
+  {
+   "name": "Tamil School",
+   "lat": 6.928953,
+   "lng": 79.880876
+  },
+  {
+   "name": "Sri Rahula Vidyalaya",
+   "lat": 6.937712,
+   "lng": 79.888644
+  },
+  {
+   "name": "Sujatha Vidyalaya Nugegoda",
+   "lat": 6.865044,
+   "lng": 79.897087
+  },
+  {
+   "name": "Sri Chandrarathna Manawasinghe Vidyalaya",
+   "lat": 6.840669,
+   "lng": 79.91619
+  },
+  {
+   "name": "Sangamitta Balika Vidyalaya",
+   "lat": 6.92031,
+   "lng": 79.869194
+  },
+  {
+   "name": "Ananda College",
+   "lat": 6.924618,
+   "lng": 79.868684
+  },
+  {
+   "name": "Gareway Int. School",
+   "lat": 6.913152,
+   "lng": 79.884712
+  },
+  {
+   "name": "President's College (Primary Section)",
+   "lat": 6.856095,
+   "lng": 79.909678
+  },
+  {
+   "name": "Sapugaskanda Sobhitha Vidyalaya",
+   "lat": 6.974321,
+   "lng": 79.952631
+  },
+  {
+   "name": "Yoshida International School",
+   "lat": 6.969099,
+   "lng": 79.958828
+  },
+  {
+   "name": "Owitigama Primary School",
+   "lat": 6.97236,
+   "lng": 80.116551
+  },
+  {
+   "name": "Hermann Gmeiner School Piliyandala",
+   "lat": 6.782503,
+   "lng": 79.950043
+  },
+  {
+   "name": "St Bridget Convent",
+   "lat": 6.909776,
+   "lng": 79.864319
+  },
+  {
+   "name": "International French School of Colombo",
+   "lat": 6.894532,
+   "lng": 79.865605
+  },
+  {
+   "name": "Nagasena Vidyalaya",
+   "lat": 6.975404,
+   "lng": 79.897146
+  },
+  {
+   "name": "WP/HO Batawala Junior School",
+   "lat": 6.881361,
+   "lng": 80.05362
+  },
+  {
+   "name": "Sri Lanka Institute of Development Administration",
+   "lat": 6.899209,
+   "lng": 79.871725
+  },
+  {
+   "name": "Highland International School",
+   "lat": 6.844367,
+   "lng": 79.929955
+  },
+  {
+   "name": "Isipathana College",
+   "lat": 6.887264,
+   "lng": 79.867619
+  },
+  {
+   "name": "Walgama Gunasekara Vidyalaya",
+   "lat": 6.864353,
+   "lng": 79.996554
+  },
+  {
+   "name": "Habarakada Primary School",
+   "lat": 6.867075,
+   "lng": 80.01462
+  },
+  {
+   "name": "Subharathi Mahamatya Vidyalaya",
+   "lat": 6.850484,
+   "lng": 80.032923
+  },
+  {
+   "name": "Panagoda Sri Parakrama Maha Vidyalaya",
+   "lat": 6.863139,
+   "lng": 80.025435
+  },
+  {
+   "name": "Sugathapala Vidyalaya",
+   "lat": 6.756406,
+   "lng": 80.054548
+  },
+  {
+   "name": "Homagama Kanishta Vidyalaya",
+   "lat": 6.847379,
+   "lng": 80.002732
+  },
+  {
+   "name": "Siyane National School",
+   "lat": 6.94429,
+   "lng": 80.069585
+  },
+  {
+   "name": "Siyane National School Play Ground",
+   "lat": 6.94392,
+   "lng": 80.070577
+  },
+  {
+   "name": "Subhodhi Junior School",
+   "lat": 6.908595,
+   "lng": 79.936759
+  },
+  {
+   "name": "Sri Sangaraja Central College",
+   "lat": 6.93285,
+   "lng": 79.863282
+  },
+  {
+   "name": "Al-Hidaya Vidyalaya",
+   "lat": 6.933914,
+   "lng": 79.86349
+  },
+  {
+   "name": "Extra-Lesson Classes",
+   "lat": 6.915528,
+   "lng": 79.971609
+  },
+  {
+   "name": "Lankasaba Primary School",
+   "lat": 6.904151,
+   "lng": 79.923394
+  },
+  {
+   "name": "De La Salle College",
+   "lat": 6.962333,
+   "lng": 79.862655
+  },
+  {
+   "name": "Dharmasena Atigala Balika Vidyalaya",
+   "lat": 6.793973,
+   "lng": 79.944378
+  },
+  {
+   "name": "Sudarshi Pre School - Gongithota",
+   "lat": 7.002216,
+   "lng": 79.90771
+  },
+  {
+   "name": "Primary School Pitumpe",
+   "lat": 6.856003,
+   "lng": 80.097234
+  },
+  {
+   "name": "Ananda madya Maha Vidyalaya",
+   "lat": 6.965729,
+   "lng": 79.872006
+  },
+  {
+   "name": "St. John's Maha Vidyalaya",
+   "lat": 6.971356,
+   "lng": 79.874806
+  },
+  {
+   "name": "St. Marys College",
+   "lat": 6.970149,
+   "lng": 79.877955
+  },
+  {
+   "name": "Totawatta Methodist College",
+   "lat": 6.967587,
+   "lng": 79.878194
+  },
+  {
+   "name": "Mutuwal Hindu College",
+   "lat": 6.963852,
+   "lng": 79.865115
+  },
+  {
+   "name": "Newmans College",
+   "lat": 6.963733,
+   "lng": 79.870589
+  },
+  {
+   "name": "A.E.Gunasinghe Vidyalaya",
+   "lat": 6.93763,
+   "lng": 79.857811
+  },
+  {
+   "name": "Agamethi Vidyalaya",
+   "lat": 6.957206,
+   "lng": 79.868546
+  },
+  {
+   "name": "Ai-Hijra Maha Vidyalaya",
+   "lat": 6.929026,
+   "lng": 79.874892
+  },
+  {
+   "name": "Al - Hikma College",
+   "lat": 6.935806,
+   "lng": 79.858316
+  },
+  {
+   "name": "Al Nassar Maha Vidyalaya",
+   "lat": 6.9472,
+   "lng": 79.871373
+  },
+  {
+   "name": "Al- Ameen Vidyalaya",
+   "lat": 6.922571,
+   "lng": 79.848325
+  },
+  {
+   "name": "Al- Hidaya Maha Vidyalaya",
+   "lat": 6.933312,
+   "lng": 79.863488
+  },
+  {
+   "name": "Ananda Balika Vidyalaya",
+   "lat": 6.926799,
+   "lng": 79.869785
+  },
+  {
+   "name": "Ananda Maha Vidyalaya",
+   "lat": 6.89317,
+   "lng": 79.888405
+  },
+  {
+   "name": "Anula Primary School",
+   "lat": 6.872463,
+   "lng": 79.887348
+  },
+  {
+   "name": "Anula Vidyalaya",
+   "lat": 6.871861,
+   "lng": 79.884782
+  },
+  {
+   "name": "Arethusa College",
+   "lat": 6.874496,
+   "lng": 79.86839
+  },
+  {
+   "name": "Asian International School",
+   "lat": 6.915808,
+   "lng": 79.870943
+  },
+  {
+   "name": "Badhrawathy Maha Vidyalaya",
+   "lat": 6.886142,
+   "lng": 79.876571
+  },
+  {
+   "name": "Balika Vidyalaya",
+   "lat": 6.954265,
+   "lng": 79.863771
+  },
+  {
+   "name": "Bandaranaike Junior School",
+   "lat": 6.911798,
+   "lng": 79.886819
+  },
+  {
+   "name": "Buddhist Ladies College",
+   "lat": 6.9165,
+   "lng": 79.862575
+  },
+  {
+   "name": "C.W.W. Kannangara Vidyalaya",
+   "lat": 6.918495,
+   "lng": 79.876726
+  },
+  {
+   "name": "Cathedral Balika Primary Schoo",
+   "lat": 6.954206,
+   "lng": 79.859608
+  },
+  {
+   "name": "Catholic Church & School",
+   "lat": 6.91091,
+   "lng": 79.893715
+  },
+  {
+   "name": "Catholic Tamil School",
+   "lat": 6.919332,
+   "lng": 79.885304
+  },
+  {
+   "name": "Church & School",
+   "lat": 6.93122,
+   "lng": 79.872966
+  },
+  {
+   "name": "Claremont Hotel School",
+   "lat": 6.946085,
+   "lng": 79.865558
+  },
+  {
+   "name": "Clifton Balikaa Vidyalaya",
+   "lat": 6.92718,
+   "lng": 79.86847
+  },
+  {
+   "name": "College House",
+   "lat": 6.90031,
+   "lng": 79.859206
+  },
+  {
+   "name": "College of Ayurvedic Medicine",
+   "lat": 6.922336,
+   "lng": 79.892836
+  },
+  {
+   "name": "College of Indigenous Medicine",
+   "lat": 6.911709,
+   "lng": 79.888474
+  },
+  {
+   "name": "Darus Salam Maha Vidyalaya",
+   "lat": 6.937614,
+   "lng": 79.872274
+  },
+  {
+   "name": "Dudley Senanayake Vidyalaya",
+   "lat": 6.890965,
+   "lng": 79.872156
+  },
+  {
+   "name": "Elizabeth Moir Junior School",
+   "lat": 6.886486,
+   "lng": 79.869291
+  },
+  {
+   "name": "Etul Kotte Primary School",
+   "lat": 6.901226,
+   "lng": 79.907868
+  },
+  {
+   "name": "Fathima Muslim Girl's School",
+   "lat": 6.939701,
+   "lng": 79.86383
+  },
+  {
+   "name": "Gotami Balika Maha Vidyalaya",
+   "lat": 6.923431,
+   "lng": 79.872113
+  },
+  {
+   "name": "Hindu Ladies College",
+   "lat": 6.872436,
+   "lng": 79.862996
+  },
+  {
+   "name": "Jayanthi Vidyalaya",
+   "lat": 6.944336,
+   "lng": 79.87281
+  },
+  {
+   "name": "Jinaraja Vidyalaya",
+   "lat": 6.915121,
+   "lng": 79.851438
+  },
+  {
+   "name": null,
+   "lat": 6.93918,
+   "lng": 79.864334
+  },
+  {
+   "name": "Kotahena Govt. Tamil School",
+   "lat": 6.942667,
+   "lng": 79.86279
+  },
+  {
+   "name": "Kotahena Maha Vidyalaya",
+   "lat": 6.94308,
+   "lng": 79.863015
+  },
+  {
+   "name": "Kotahena Methodist Tamil School",
+   "lat": 6.949169,
+   "lng": 79.861325
+  },
+  {
+   "name": "Ladies College",
+   "lat": 6.9076,
+   "lng": 79.857602
+  },
+  {
+   "name": "Lawrence College",
+   "lat": 6.921612,
+   "lng": 79.865279
+  },
+  {
+   "name": "Lindsay Balika Vidyalaya",
+   "lat": 6.895493,
+   "lng": 79.853278
+  },
+  {
+   "name": "Lumbini Maha Vidyalaya",
+   "lat": 6.884184,
+   "lng": 79.866711
+  },
+  {
+   "name": "Mahabodhi Vidyalaya",
+   "lat": 6.91887,
+   "lng": 79.863919
+  },
+  {
+   "name": "Maligakanda Maha Vidyalaya",
+   "lat": 6.926515,
+   "lng": 79.872778
+  },
+  {
+   "name": "Rajasingha Maha Vidyalaya",
+   "lat": 6.941358,
+   "lng": 79.877949
+  },
+  {
+   "name": "Maradana Technical College",
+   "lat": 6.932346,
+   "lng": 79.859523
+  },
+  {
+   "name": "Methodist College",
+   "lat": 6.912115,
+   "lng": 79.848968
+  },
+  {
+   "name": "Museaus College",
+   "lat": 6.914542,
+   "lng": 79.869034
+  },
+  {
+   "name": "Muslim Vidyalaya",
+   "lat": 6.943901,
+   "lng": 79.862269
+  },
+  {
+   "name": "Padhanaghara Maha Vidyalaya",
+   "lat": 6.928736,
+   "lng": 79.868798
+  },
+  {
+   "name": "Parakramabahu Maha Vidyalaya",
+   "lat": 6.896957,
+   "lng": 79.879237
+  },
+  {
+   "name": "Prince College, Kotahena",
+   "lat": 6.951787,
+   "lng": 79.862205
+  },
+  {
+   "name": "School of Sports",
+   "lat": 6.905272,
+   "lng": 79.865692
+  },
+  {
+   "name": null,
+   "lat": 6.863075,
+   "lng": 79.864104
+  },
+  {
+   "name": null,
+   "lat": 6.875982,
+   "lng": 79.869801
+  },
+  {
+   "name": null,
+   "lat": 6.878675,
+   "lng": 79.876538
+  },
+  {
+   "name": null,
+   "lat": 6.914842,
+   "lng": 79.890218
+  },
+  {
+   "name": "Seevalee Vidyalaya",
+   "lat": 6.923323,
+   "lng": 79.881442
+  },
+  {
+   "name": "School Ground of Roman Catholic Tamil Mixed Vidyalayam, Rajagiriya",
+   "lat": 6.910787,
+   "lng": 79.894648
+  },
+  {
+   "name": "Sri Rewatha Royal College",
+   "lat": 6.867673,
+   "lng": 79.897792
+  },
+  {
+   "name": "Sri Vaishakya College",
+   "lat": 6.869561,
+   "lng": 79.864308
+  },
+  {
+   "name": "St Joseph Girls' School",
+   "lat": 6.871621,
+   "lng": 79.885508
+  },
+  {
+   "name": "St. Anthonys College",
+   "lat": 6.944475,
+   "lng": 79.857546
+  },
+  {
+   "name": "St. Benadict College",
+   "lat": 6.948836,
+   "lng": 79.864967
+  },
+  {
+   "name": "St. Benedict Primery School",
+   "lat": 6.947501,
+   "lng": 79.864967
+  },
+  {
+   "name": "St. Cleare's Girles' School",
+   "lat": 6.876851,
+   "lng": 79.862092
+  },
+  {
+   "name": "St. John's Primary School",
+   "lat": 6.868989,
+   "lng": 79.889487
+  },
+  {
+   "name": "St. John's School;St.John's College",
+   "lat": 6.930663,
+   "lng": 79.873764
+  },
+  {
+   "name": "St. Joseph's Boys' School",
+   "lat": 6.866932,
+   "lng": 79.895364
+  },
+  {
+   "name": "St. Joseph's College",
+   "lat": 6.925775,
+   "lng": 79.861121
+  },
+  {
+   "name": "St. Josephs Vidyalaya",
+   "lat": 6.948552,
+   "lng": 79.875326
+  },
+  {
+   "name": "St. Lucia Maha Vidyalaya",
+   "lat": 6.948413,
+   "lng": 79.865252
+  },
+  {
+   "name": "St. Mary Sinhala Vidyalaya",
+   "lat": 6.894788,
+   "lng": 79.857419
+  },
+  {
+   "name": "St. Mary's College",
+   "lat": 6.944266,
+   "lng": 79.858654
+  },
+  {
+   "name": "St. Mary's Girls' School",
+   "lat": 6.913866,
+   "lng": 79.853343
+  },
+  {
+   "name": "St. Mary's Girls' School",
+   "lat": 6.914536,
+   "lng": 79.853053
+  },
+  {
+   "name": "St. Michael's Vidyalaya",
+   "lat": 6.913678,
+   "lng": 79.85279
+  },
+  {
+   "name": "St. Matthew's College",
+   "lat": 6.930152,
+   "lng": 79.877756
+  },
+  {
+   "name": "St. Paul's Girls' School",
+   "lat": 6.886346,
+   "lng": 79.858423
+  },
+  {
+   "name": "Sujatha Vidyalaya",
+   "lat": 6.8638,
+   "lng": 79.898447
+  },
+  {
+   "name": "Susamayawardana Maha Vidyalaya",
+   "lat": 6.913362,
+   "lng": 79.876506
+  },
+  {
+   "name": "Tamil School",
+   "lat": 6.9285,
+   "lng": 79.880894
+  },
+  {
+   "name": "Vijayaba Maha Vidyalaya",
+   "lat": 6.946524,
+   "lng": 79.872242
+  },
+  {
+   "name": "Vivekananda College",
+   "lat": 6.943461,
+   "lng": 79.860424
+  },
+  {
+   "name": "Waragoda Kanishta Vidyalaya",
+   "lat": 6.948434,
+   "lng": 79.885261
+  },
+  {
+   "name": "Wekanda Pre School",
+   "lat": 6.919536,
+   "lng": 79.851964
+  },
+  {
+   "name": "Wellawatta Vidyalaya",
+   "lat": 6.880526,
+   "lng": 79.868272
+  },
+  {
+   "name": "Wolfendhal Girls' High School",
+   "lat": 6.942233,
+   "lng": 79.859726
+  },
+  {
+   "name": "Yasodara Balika Maha Vidyalaya",
+   "lat": 6.916934,
+   "lng": 79.872403
+  },
+  {
+   "name": "Zahira College",
+   "lat": 6.927111,
+   "lng": 79.864764
+  },
+  {
+   "name": "Ananda Sasthralaya School Ground",
+   "lat": 6.884113,
+   "lng": 79.907182
+  },
+  {
+   "name": "Mahamaya Balika Vidyalaya",
+   "lat": 6.992574,
+   "lng": 79.941772
+  },
+  {
+   "name": "Bauddha Kanishta Vidyalaya",
+   "lat": 6.848903,
+   "lng": 79.937299
+  },
+  {
+   "name": "Weera Puran Appu Vidyalaya",
+   "lat": 6.778582,
+   "lng": 79.882792
+  },
+  {
+   "name": "St Anthony's Girls School",
+   "lat": 6.965029,
+   "lng": 79.866913
+  },
+  {
+   "name": "St. Anthony's Tamil Maha Vidyalaya",
+   "lat": 6.96071,
+   "lng": 79.872094
+  },
+  {
+   "name": "St. Anthony's SinhalaMixed School",
+   "lat": 6.960994,
+   "lng": 79.871711
+  },
+  {
+   "name": "Usmaniyah Arabic College",
+   "lat": 6.962967,
+   "lng": 79.873748
+  },
+  {
+   "name": "Pamunuvila Maha Viduhala (School)",
+   "lat": 6.968944,
+   "lng": 79.939501
+  },
+  {
+   "name": "Pamunuvila Maha Viduhala (Primary School)",
+   "lat": 6.96972,
+   "lng": 79.931469
+  },
+  {
+   "name": "Millawa Kanishta Vidyalaya",
+   "lat": 6.78858,
+   "lng": 80.077997
+  },
+  {
+   "name": "Bomiriya Central College",
+   "lat": 6.934712,
+   "lng": 80.002497
+  },
+  {
+   "name": "Kumarathunga Munidasa Vidyalaya",
+   "lat": 6.934414,
+   "lng": 79.993359
+  },
+  {
+   "name": "Makuluduwa Primary School",
+   "lat": 6.813261,
+   "lng": 79.93739
+  },
+  {
+   "name": "Lenagala Kanista Vidyalaya",
+   "lat": 6.88093,
+   "lng": 80.034387
+  },
+  {
+   "name": "Artigala Kanishta Vidyalaya",
+   "lat": 6.891758,
+   "lng": 80.057908
+  },
+  {
+   "name": "B J F Dhaham Pasela",
+   "lat": 6.911526,
+   "lng": 79.887629
+  },
+  {
+   "name": null,
+   "lat": 6.893357,
+   "lng": 79.973093
+  },
+  {
+   "name": "Academy of Design",
+   "lat": 6.895285,
+   "lng": 79.857025
+  },
+  {
+   "name": "Studio Lekha",
+   "lat": 6.883248,
+   "lng": 79.858561
+  },
+  {
+   "name": "Yaathra",
+   "lat": 6.92522,
+   "lng": 79.867662
+  },
+  {
+   "name": "Alexor international college",
+   "lat": 6.93642,
+   "lng": 79.873028
+  },
+  {
+   "name": "Mercury Institute",
+   "lat": 6.907202,
+   "lng": 79.850924
+  },
+  {
+   "name": "Henegama Central College",
+   "lat": 7.019578,
+   "lng": 80.04856
+  },
+  {
+   "name": "Kirindiwela Central College",
+   "lat": 7.04734,
+   "lng": 80.134647
+  },
+  {
+   "name": "St. Joseph's College - Wattala",
+   "lat": 6.996978,
+   "lng": 79.909729
+  },
+  {
+   "name": "Kadawatha Buddhist Primary School",
+   "lat": 7.00239,
+   "lng": 79.958413
+  },
+  {
+   "name": "Gateway Achievers",
+   "lat": 6.888753,
+   "lng": 79.875341
+  },
+  {
+   "name": "Oxford College of Business",
+   "lat": 6.89962,
+   "lng": 79.859585
+  },
+  {
+   "name": "Basilica College Ragama",
+   "lat": 7.023492,
+   "lng": 79.926819
+  },
+  {
+   "name": "Karunaratne Buddhist School",
+   "lat": 7.015168,
+   "lng": 79.898526
+  },
+  {
+   "name": "Oruwala primary school",
+   "lat": 6.88943,
+   "lng": 79.997046
+  },
+  {
+   "name": "Central College Homagama",
+   "lat": 6.846844,
+   "lng": 80.005923
+  },
+  {
+   "name": "\u0d9a\u0dd0\u0db8\u0dca\u0db4\u0dc3\u0dca  \u0dc3\u0db1\u0dca\u0d9c\u0dd3\u0dad \u0d86\u0dba\u0dad\u0db1\u0dba",
+   "lat": 6.803284,
+   "lng": 79.916675
+  },
+  {
+   "name": "UNIVOTEC",
+   "lat": 6.819985,
+   "lng": 79.893396
+  },
+  {
+   "name": "St Bridget's Convent - Primary School",
+   "lat": 6.909604,
+   "lng": 79.865451
+  },
+  {
+   "name": "Mahabodhi Vidhyalaya",
+   "lat": 7.002767,
+   "lng": 79.94456
+  },
+  {
+   "name": "Guidance International Junior School",
+   "lat": 6.793317,
+   "lng": 79.945777
+  },
+  {
+   "name": "V J Academy",
+   "lat": 6.892847,
+   "lng": 79.872454
+  },
+  {
+   "name": "Sam's Place Montessori",
+   "lat": 6.893715,
+   "lng": 79.87621
+  },
+  {
+   "name": "Burhani Serandib International School",
+   "lat": 6.894898,
+   "lng": 79.853094
+  },
+  {
+   "name": "La Petite Fleur Montessori (LPF)",
+   "lat": 6.829686,
+   "lng": 79.880551
+  },
+  {
+   "name": "Step by Step Montessori",
+   "lat": 7.034925,
+   "lng": 79.93784
+  },
+  {
+   "name": "Al Ikbal Girls College",
+   "lat": 6.921087,
+   "lng": 79.852997
+  },
+  {
+   "name": "Ensef Pvt School",
+   "lat": 6.925843,
+   "lng": 79.927588
+  },
+  {
+   "name": "Premier School",
+   "lat": 6.986957,
+   "lng": 79.891944
+  },
+  {
+   "name": "M D H Jayawardena Vidyalaya",
+   "lat": 6.912752,
+   "lng": 79.928828
+  },
+  {
+   "name": "Somadevi Girls School",
+   "lat": 6.936061,
+   "lng": 79.915189
+  },
+  {
+   "name": "Kosgama Maha Vidyalaya",
+   "lat": 6.941011,
+   "lng": 80.149113
+  },
+  {
+   "name": "Munidasa Kumaratunga Vidyalaya - Bomiriya",
+   "lat": 6.934811,
+   "lng": 79.993926
+  },
+  {
+   "name": "S Mahinda Himi Vidyalaya",
+   "lat": 6.947327,
+   "lng": 79.906946
+  },
+  {
+   "name": "Pathway Montessori International",
+   "lat": 6.84939,
+   "lng": 79.948917
+  },
+  {
+   "name": "Sri Dharmaloka Vidyalya - Kelaniya",
+   "lat": 6.961568,
+   "lng": 79.901514
+  },
+  {
+   "name": "Presidents College",
+   "lat": 6.95432,
+   "lng": 79.901935
+  },
+  {
+   "name": null,
+   "lat": 6.786187,
+   "lng": 79.970486
+  },
+  {
+   "name": "Liendesay girls school",
+   "lat": 6.895624,
+   "lng": 79.852648
+  },
+  {
+   "name": "Good Shepherd Convent",
+   "lat": 6.9498,
+   "lng": 79.863455
+  },
+  {
+   "name": "WP/PILI/METHODIST VIDYALAYA",
+   "lat": 6.861503,
+   "lng": 79.865111
+  },
+  {
+   "name": "Hamsa College",
+   "lat": 6.962936,
+   "lng": 79.864277
+  },
+  {
+   "name": "OKI International School",
+   "lat": 6.976947,
+   "lng": 79.923029
+  },
+  {
+   "name": "Sri Sangabodhi Maha Vidyalaya",
+   "lat": 6.959167,
+   "lng": 79.875178
+  },
+  {
+   "name": "Roaman Catholic Primary School - Peliyagoda",
+   "lat": 6.957802,
+   "lng": 79.897621
+  },
+  {
+   "name": "ABC School of Early Learning",
+   "lat": 6.891566,
+   "lng": 79.871048
+  },
+  {
+   "name": "East Asian International school",
+   "lat": 6.860389,
+   "lng": 79.886146
+  },
+  {
+   "name": "Gothatuwa Maha Vidyalaya",
+   "lat": 6.928191,
+   "lng": 79.907954
+  },
+  {
+   "name": "Hejaaz International Boys School",
+   "lat": 6.843139,
+   "lng": 79.868215
+  },
+  {
+   "name": "Spinnaker International",
+   "lat": 6.913939,
+   "lng": 79.875078
+  },
+  {
+   "name": "Royal Institute",
+   "lat": 6.879284,
+   "lng": 79.871906
+  },
+  {
+   "name": "Turnkey IT Training",
+   "lat": 6.900983,
+   "lng": 79.85164
+  },
+  {
+   "name": "Colombo School of Construction Technology",
+   "lat": 6.884005,
+   "lng": 79.903495
+  },
+  {
+   "name": "CRI Confucius Chinese language Center",
+   "lat": 6.883903,
+   "lng": 79.865987
+  },
+  {
+   "name": "Sri Gunananda Vidyalaya",
+   "lat": 6.951476,
+   "lng": 79.861864
+  },
+  {
+   "name": "Cathedral (Boys) School",
+   "lat": 6.949729,
+   "lng": 79.862871
+  },
+  {
+   "name": "Ikra International College",
+   "lat": 6.754538,
+   "lng": 79.899402
+  },
+  {
+   "name": "Mount Hira International School",
+   "lat": 6.752619,
+   "lng": 79.900798
+  },
+  {
+   "name": "Sri Thaksala Maha Vidyalaya",
+   "lat": 6.752842,
+   "lng": 79.902743
+  },
+  {
+   "name": "Sri Jina Darmadana Vidyalaya",
+   "lat": 6.753097,
+   "lng": 79.906119
+  },
+  {
+   "name": "Sri Dharmakeerthi Dhamma School",
+   "lat": 6.802355,
+   "lng": 79.907472
+  },
+  {
+   "name": "Mahindarama Dhamma School",
+   "lat": 6.897198,
+   "lng": 79.909436
+  },
+  {
+   "name": "Nippon Computer Academy",
+   "lat": 6.897532,
+   "lng": 79.910008
+  },
+  {
+   "name": "Christian Missionary College",
+   "lat": 6.893231,
+   "lng": 79.900367
+  },
+  {
+   "name": "Sri Jayawardhanapura Maha Vidyalaya",
+   "lat": 6.892962,
+   "lng": 79.900184
+  },
+  {
+   "name": "Royal Way Minco College & Academy",
+   "lat": 6.884054,
+   "lng": 79.900104
+  },
+  {
+   "name": "Vajira Sri Children Rehabitation Home",
+   "lat": 6.885288,
+   "lng": 79.895215
+  },
+  {
+   "name": "Samarakone Walauwa, Samarakone Gardens",
+   "lat": 6.884421,
+   "lng": 79.895961
+  },
+  {
+   "name": "London English College",
+   "lat": 6.876998,
+   "lng": 79.891767
+  },
+  {
+   "name": "Gateway Kids School",
+   "lat": 6.876673,
+   "lng": 79.890762
+  },
+  {
+   "name": "Dolahena Primary School",
+   "lat": 6.812379,
+   "lng": 80.025736
+  },
+  {
+   "name": null,
+   "lat": 6.833482,
+   "lng": 80.059129
+  },
+  {
+   "name": "Pagoda Montessori School",
+   "lat": 6.881589,
+   "lng": 79.896767
+  },
+  {
+   "name": "Newgen Montessori",
+   "lat": 6.875832,
+   "lng": 79.951592
+  },
+  {
+   "name": "Wesley College Primary",
+   "lat": 6.880173,
+   "lng": 79.867495
+  },
+  {
+   "name": "Alpha Kids Ami Montessori",
+   "lat": 6.882067,
+   "lng": 79.900921
+  },
+  {
+   "name": "Najaa International School",
+   "lat": 6.83862,
+   "lng": 79.869158
+  },
+  {
+   "name": "Sevana Special School",
+   "lat": 6.881885,
+   "lng": 79.900717
+  },
+  {
+   "name": "Shyamala School of Art",
+   "lat": 6.890556,
+   "lng": 79.866182
+  },
+  {
+   "name": "Kayo School of Japanese",
+   "lat": 6.895374,
+   "lng": 79.860695
+  },
+  {
+   "name": "Methodist College Primary School",
+   "lat": 6.91089,
+   "lng": 79.849189
+  },
+  {
+   "name": null,
+   "lat": 6.973378,
+   "lng": 80.057271
+  },
+  {
+   "name": null,
+   "lat": 6.772774,
+   "lng": 80.020718
+  },
+  {
+   "name": "Shanta Mayadunne School of Cooking Art",
+   "lat": 6.844026,
+   "lng": 79.960715
+  },
+  {
+   "name": "Asian International Montessori School",
+   "lat": 6.885379,
+   "lng": 79.939116
+  },
+  {
+   "name": "Aspire Business School(institute)",
+   "lat": 6.858603,
+   "lng": 79.864767
+  },
+  {
+   "name": "Kings Hospital Nurse Training School",
+   "lat": 6.89498,
+   "lng": 79.879901
+  },
+  {
+   "name": "Sri Siduhath Kanishta Vidyalaya",
+   "lat": 7.026843,
+   "lng": 80.036882
+  },
+  {
+   "name": "Standey Thilakarathna Viddiyalaya",
+   "lat": 6.873186,
+   "lng": 79.910686
+  },
+  {
+   "name": "Boralugoda Sri Sidhdhartha Vidyalaya",
+   "lat": 6.923432,
+   "lng": 80.123807
+  },
+  {
+   "name": null,
+   "lat": 6.942534,
+   "lng": 79.890783
+  },
+  {
+   "name": "Sri Sudarshana Primary School",
+   "lat": 6.794354,
+   "lng": 79.911812
+  },
+  {
+   "name": "Holy Family Convent",
+   "lat": 6.856895,
+   "lng": 79.864
+  },
+  {
+   "name": null,
+   "lat": 6.984061,
+   "lng": 80.060685
+  },
+  {
+   "name": null,
+   "lat": 7.029847,
+   "lng": 79.891107
+  },
+  {
+   "name": "Siddhartha Maha Vidyalaya",
+   "lat": 6.945116,
+   "lng": 79.897897
+  },
+  {
+   "name": "Kottawa Dharmapala MV",
+   "lat": 6.838159,
+   "lng": 79.965845
+  },
+  {
+   "name": "Dharmapala Vidyalaya",
+   "lat": 6.843704,
+   "lng": 79.954273
+  },
+  {
+   "name": "Ratmalana Hindu College",
+   "lat": 6.814544,
+   "lng": 79.889973
+  },
+  {
+   "name": "Kandawala Maha Vidyalaya",
+   "lat": 6.815835,
+   "lng": 79.888658
+  },
+  {
+   "name": "Grade 9",
+   "lat": 6.904343,
+   "lng": 79.860175
+  },
+  {
+   "name": "Grade 7",
+   "lat": 6.904869,
+   "lng": 79.860194
+  },
+  {
+   "name": "Grade 8",
+   "lat": 6.904339,
+   "lng": 79.860491
+  },
+  {
+   "name": "Thurstan College",
+   "lat": 6.903441,
+   "lng": 79.85971
+  },
+  {
+   "name": "Palanoruwa Central College",
+   "lat": 6.76261,
+   "lng": 80.016308
+  },
+  {
+   "name": "Holy Family Convent",
+   "lat": 6.887695,
+   "lng": 79.855898
+  },
+  {
+   "name": "Kosgama Sumeda Vidyalaya",
+   "lat": 6.942077,
+   "lng": 80.135486
+  },
+  {
+   "name": "Zahira College Buildings",
+   "lat": 6.927033,
+   "lng": 79.864314
+  },
+  {
+   "name": "Piliyanda Primary School",
+   "lat": 6.799412,
+   "lng": 79.922139
+  },
+  {
+   "name": "St. Thomas College",
+   "lat": 6.837152,
+   "lng": 79.865341
+  },
+  {
+   "name": "Singapore Overseas School",
+   "lat": 6.912457,
+   "lng": 79.870677
+  },
+  {
+   "name": "Museaus College",
+   "lat": 6.914018,
+   "lng": 79.868423
+  },
+  {
+   "name": "SLTTI",
+   "lat": 6.903049,
+   "lng": 79.865474
+  },
+  {
+   "name": "Devi Balika Maha Vidyalaya",
+   "lat": 6.947482,
+   "lng": 80.060228
+  },
+  {
+   "name": "KIU University",
+   "lat": 6.907875,
+   "lng": 79.928378
+  },
+  {
+   "name": "Wesley College",
+   "lat": 6.922643,
+   "lng": 79.877151
+  },
+  {
+   "name": "Madduma Bandara Junior School",
+   "lat": 7.031021,
+   "lng": 80.029166
+  },
+  {
+   "name": null,
+   "lat": 7.048457,
+   "lng": 80.000328
+  },
+  {
+   "name": null,
+   "lat": 7.04866,
+   "lng": 80.000203
+  },
+  {
+   "name": null,
+   "lat": 7.048751,
+   "lng": 80.000055
+  },
+  {
+   "name": null,
+   "lat": 7.048871,
+   "lng": 80.000327
+  },
+  {
+   "name": null,
+   "lat": 7.048905,
+   "lng": 80.000243
+  },
+  {
+   "name": "Madduma Bandara School",
+   "lat": 7.025812,
+   "lng": 80.026037
+  },
+  {
+   "name": "Vihara Maha Devi Balika Vidyalaya",
+   "lat": 6.980692,
+   "lng": 79.927696
+  },
+  {
+   "name": null,
+   "lat": 6.881576,
+   "lng": 79.958154
+  },
+  {
+   "name": "Gothutuwa Mahavidyalaya Play Ground",
+   "lat": 6.927106,
+   "lng": 79.906965
+  },
+  {
+   "name": "Yashodara Maha Vidyalaya playground",
+   "lat": 6.909222,
+   "lng": 79.97202
+  },
+  {
+   "name": "Horizon College International",
+   "lat": 6.919686,
+   "lng": 79.963503
+  },
+  {
+   "name": null,
+   "lat": 6.970011,
+   "lng": 80.11556
+  },
+  {
+   "name": null,
+   "lat": 6.853997,
+   "lng": 80.07413
+  },
+  {
+   "name": null,
+   "lat": 7.04979,
+   "lng": 80.024152
+  },
+  {
+   "name": null,
+   "lat": 7.050035,
+   "lng": 80.023997
+  },
+  {
+   "name": null,
+   "lat": 7.047363,
+   "lng": 80.005115
+  },
+  {
+   "name": null,
+   "lat": 7.047476,
+   "lng": 80.005559
+  },
+  {
+   "name": null,
+   "lat": 7.047291,
+   "lng": 80.005514
+  },
+  {
+   "name": null,
+   "lat": 7.047157,
+   "lng": 80.005242
+  },
+  {
+   "name": null,
+   "lat": 7.048796,
+   "lng": 80.000572
+  },
+  {
+   "name": null,
+   "lat": 7.048686,
+   "lng": 80.000638
+  },
+  {
+   "name": null,
+   "lat": 7.048528,
+   "lng": 80.000623
+  },
+  {
+   "name": null,
+   "lat": 7.047473,
+   "lng": 79.983091
+  },
+  {
+   "name": null,
+   "lat": 7.037637,
+   "lng": 79.981983
+  },
+  {
+   "name": null,
+   "lat": 7.037683,
+   "lng": 79.981795
+  },
+  {
+   "name": "Mayadunna Primary School",
+   "lat": 7.037769,
+   "lng": 79.981961
+  },
+  {
+   "name": null,
+   "lat": 7.038089,
+   "lng": 80.025581
+  },
+  {
+   "name": "Perakumbadeniya Maha Vidyalaya",
+   "lat": 7.031408,
+   "lng": 79.978363
+  },
+  {
+   "name": null,
+   "lat": 7.031685,
+   "lng": 79.978584
+  },
+  {
+   "name": "Sunflower Nursery & Daycare",
+   "lat": 7.035246,
+   "lng": 79.989997
+  },
+  {
+   "name": "ABC school",
+   "lat": 6.881616,
+   "lng": 79.900463
+  },
+  {
+   "name": "Sinhala class",
+   "lat": 6.83991,
+   "lng": 80.058172
+  },
+  {
+   "name": "I-Gate College",
+   "lat": 6.870327,
+   "lng": 79.937226
+  },
+  {
+   "name": "Saint Peter's College",
+   "lat": 6.880576,
+   "lng": 79.860724
+  },
+  {
+   "name": "GN Office",
+   "lat": 7.04713,
+   "lng": 80.010117
+  },
+  {
+   "name": null,
+   "lat": 7.04916,
+   "lng": 79.994762
+  },
+  {
+   "name": null,
+   "lat": 7.0389,
+   "lng": 80.017014
+  },
+  {
+   "name": "Isipathana College",
+   "lat": 6.88762,
+   "lng": 79.868929
+  },
+  {
+   "name": "Nayakakanda Convent",
+   "lat": 6.994285,
+   "lng": 79.884946
+  },
+  {
+   "name": "St. Andrew's College",
+   "lat": 6.958403,
+   "lng": 79.860845
+  },
+  {
+   "name": null,
+   "lat": 6.963933,
+   "lng": 79.866237
+  },
+  {
+   "name": "Sri Srilananda School",
+   "lat": 7.048972,
+   "lng": 79.968241
+  },
+  {
+   "name": "Devi Balika Vidyalaya",
+   "lat": 6.909963,
+   "lng": 79.882689
+  },
+  {
+   "name": "Ceylinco Sussex College",
+   "lat": 6.90121,
+   "lng": 79.954606
+  },
+  {
+   "name": "Sunflower Nursery & Daycare",
+   "lat": 7.035486,
+   "lng": 79.989685
+  },
+  {
+   "name": "Christ King College",
+   "lat": 7.039211,
+   "lng": 80.026301
+  },
+  {
+   "name": "Mihidu junior school",
+   "lat": 7.016492,
+   "lng": 80.024952
+  },
+  {
+   "name": null,
+   "lat": 7.050261,
+   "lng": 80.00091
+  },
+  {
+   "name": null,
+   "lat": 7.047356,
+   "lng": 80.005349
+  },
+  {
+   "name": "Colombo International School CIS",
+   "lat": 6.908928,
+   "lng": 79.870653
+  },
+  {
+   "name": null,
+   "lat": 6.891277,
+   "lng": 79.872324
+  },
+  {
+   "name": null,
+   "lat": 7.042628,
+   "lng": 79.987563
+  },
+  {
+   "name": "Amunugoda Kumaradasa Kanishta Vidyalaya",
+   "lat": 7.048992,
+   "lng": 79.984985
+  },
+  {
+   "name": "Sri Parakumba Maha Vidyalaya",
+   "lat": 7.031026,
+   "lng": 79.978231
+  },
+  {
+   "name": "piyum kekulu per school",
+   "lat": 6.902926,
+   "lng": 79.968051
+  },
+  {
+   "name": null,
+   "lat": 6.957676,
+   "lng": 79.886657
+  },
+  {
+   "name": null,
+   "lat": 6.957413,
+   "lng": 79.88691
+  },
+  {
+   "name": null,
+   "lat": 6.957396,
+   "lng": 79.886709
+  },
+  {
+   "name": null,
+   "lat": 6.957854,
+   "lng": 79.886754
+  },
+  {
+   "name": "Dutugemunu MV",
+   "lat": 6.965889,
+   "lng": 79.886959
+  },
+  {
+   "name": null,
+   "lat": 6.960483,
+   "lng": 79.865744
+  },
+  {
+   "name": "Helena Wijewardane Girls School",
+   "lat": 6.955569,
+   "lng": 79.917509
+  },
+  {
+   "name": "Dharmapala Vidalaya",
+   "lat": 6.937931,
+   "lng": 79.916657
+  },
+  {
+   "name": "Nisansala",
+   "lat": 6.916245,
+   "lng": 79.99348
+  },
+  {
+   "name": null,
+   "lat": 6.949019,
+   "lng": 79.875868
+  },
+  {
+   "name": null,
+   "lat": 6.94878,
+   "lng": 79.875663
+  },
+  {
+   "name": "English school",
+   "lat": 6.909271,
+   "lng": 79.970326
+  },
+  {
+   "name": null,
+   "lat": 7.049861,
+   "lng": 80.024048
+  },
+  {
+   "name": null,
+   "lat": 6.828446,
+   "lng": 79.934629
+  },
+  {
+   "name": "Malagala Maha Vidyalaya",
+   "lat": 6.791483,
+   "lng": 80.112725
+  },
+  {
+   "name": "Malagala Maha Vidyalaya",
+   "lat": 6.791747,
+   "lng": 80.113312
+  },
+  {
+   "name": "MDH Jayawardhana Vidyalaya",
+   "lat": 6.815527,
+   "lng": 80.09626
+  },
+  {
+   "name": "Vidayadana School playground",
+   "lat": 6.855343,
+   "lng": 79.968863
+  },
+  {
+   "name": "Don't Know",
+   "lat": 6.906623,
+   "lng": 79.94511
+  },
+  {
+   "name": null,
+   "lat": 6.906734,
+   "lng": 79.945048
+  },
+  {
+   "name": null,
+   "lat": 6.906618,
+   "lng": 79.945177
+  },
+  {
+   "name": null,
+   "lat": 6.906607,
+   "lng": 79.945025
+  },
+  {
+   "name": "President's College",
+   "lat": 6.906765,
+   "lng": 79.89271
+  },
+  {
+   "name": "Vidura College",
+   "lat": 6.873827,
+   "lng": 79.949978
+  },
+  {
+   "name": "Mahinda Rajapaksa National School",
+   "lat": 6.823849,
+   "lng": 80.039355
+  },
+  {
+   "name": "Royal Institute Nugegoda",
+   "lat": 6.872352,
+   "lng": 79.893398
+  },
+  {
+   "name": "Visakha Vidyalaya",
+   "lat": 6.891676,
+   "lng": 79.859481
+  },
+  {
+   "name": "Malabe Boys Model School",
+   "lat": 6.90395,
+   "lng": 79.95771
+  },
+  {
+   "name": "Gothami Balika Vidyalaya",
+   "lat": 6.92387,
+   "lng": 79.872112
+  },
+  {
+   "name": "Vidyaloka Maha Vidyalaya",
+   "lat": 6.829328,
+   "lng": 79.934404
+  },
+  {
+   "name": "Linfield College",
+   "lat": 6.829393,
+   "lng": 79.934928
+  },
+  {
+   "name": "ESOL College (Pvt) Ltd",
+   "lat": 6.845697,
+   "lng": 79.938518
+  },
+  {
+   "name": null,
+   "lat": 6.848396,
+   "lng": 79.937509
+  },
+  {
+   "name": null,
+   "lat": 7.039061,
+   "lng": 80.113253
+  },
+  {
+   "name": "WP/GM/ Dekatana Primary College",
+   "lat": 6.966911,
+   "lng": 80.041049
+  },
+  {
+   "name": "Dompe Primary School",
+   "lat": 6.957468,
+   "lng": 80.051931
+  },
+  {
+   "name": "Dompe Maha Vidyalaya",
+   "lat": 6.958654,
+   "lng": 80.051586
+  },
+  {
+   "name": null,
+   "lat": 6.847959,
+   "lng": 80.088172
+  },
+  {
+   "name": null,
+   "lat": 6.886779,
+   "lng": 79.874817
+  },
+  {
+   "name": "Hewawitharana Maha Vidyalaya",
+   "lat": 6.912111,
+   "lng": 79.893774
+  },
+  {
+   "name": "S De S Jayasinghe Central College",
+   "lat": 6.853629,
+   "lng": 79.874143
+  },
+  {
+   "name": "Deaf & Blind School",
+   "lat": 6.811184,
+   "lng": 79.885128
+  },
+  {
+   "name": "Baptist Vidyalaya",
+   "lat": 7.000674,
+   "lng": 79.953237
+  },
+  {
+   "name": null,
+   "lat": 6.832233,
+   "lng": 79.865693
+  },
+  {
+   "name": null,
+   "lat": 6.832332,
+   "lng": 79.865682
+  },
+  {
+   "name": "Kirillawala Maha Vidyalaya",
+   "lat": 7.016159,
+   "lng": 79.969161
+  },
+  {
+   "name": "AMI Montessori School",
+   "lat": 6.846486,
+   "lng": 79.896572
+  },
+  {
+   "name": "Ananda Vidyalaya",
+   "lat": 6.846817,
+   "lng": 79.898094
+  },
+  {
+   "name": "Arawwala Junior School",
+   "lat": 6.838557,
+   "lng": 79.946383
+  },
+  {
+   "name": "Boralesgamuwa Primary School",
+   "lat": 6.83892,
+   "lng": 79.900746
+  },
+  {
+   "name": "Brisbane International School",
+   "lat": 6.838179,
+   "lng": 79.901234
+  },
+  {
+   "name": "Boralesgamuwa Maha Vidyalaya",
+   "lat": 6.837523,
+   "lng": 79.902357
+  },
+  {
+   "name": "Atthidiya Primary School",
+   "lat": 6.834293,
+   "lng": 79.885442
+  },
+  {
+   "name": "Model primary School",
+   "lat": 6.835452,
+   "lng": 79.885235
+  },
+  {
+   "name": "Victoria International",
+   "lat": 6.842648,
+   "lng": 79.885016
+  },
+  {
+   "name": "Science College",
+   "lat": 6.830135,
+   "lng": 79.876454
+  },
+  {
+   "name": "Mahara President's College",
+   "lat": 6.989622,
+   "lng": 79.938669
+  },
+  {
+   "name": "Asoka Vidyalaya",
+   "lat": 6.922765,
+   "lng": 79.867375
+  },
+  {
+   "name": "Sri Gunananda Vidyalaya",
+   "lat": 6.95117,
+   "lng": 79.861768
+  },
+  {
+   "name": null,
+   "lat": 6.998016,
+   "lng": 79.987139
+  },
+  {
+   "name": null,
+   "lat": 6.997918,
+   "lng": 79.988853
+  },
+  {
+   "name": null,
+   "lat": 6.840643,
+   "lng": 80.079851
+  },
+  {
+   "name": "Kelani Maha Vidyalaya",
+   "lat": 6.94911,
+   "lng": 79.918715
+  },
+  {
+   "name": "President's College",
+   "lat": 6.951793,
+   "lng": 79.909976
+  },
+  {
+   "name": "Overseas School of Colombo",
+   "lat": 6.893112,
+   "lng": 79.929556
+  },
+  {
+   "name": null,
+   "lat": 6.814615,
+   "lng": 80.149783
+  },
+  {
+   "name": null,
+   "lat": 6.932089,
+   "lng": 79.899957
+  },
+  {
+   "name": null,
+   "lat": 6.873954,
+   "lng": 79.891483
+  },
+  {
+   "name": "St.johnn",
+   "lat": 6.926319,
+   "lng": 79.873101
+  },
+  {
+   "name": "Chundikuli Girls College",
+   "lat": 6.926472,
+   "lng": 79.8736
+  },
+  {
+   "name": "Pitipana Maha College",
+   "lat": 6.822679,
+   "lng": 80.030277
+  },
+  {
+   "name": "Royal College",
+   "lat": 6.904109,
+   "lng": 79.860532
+  },
+  {
+   "name": "Sirimavo Bandaranaike Vidyalaya",
+   "lat": 6.89735,
+   "lng": 79.862993
+  },
+  {
+   "name": null,
+   "lat": 6.957351,
+   "lng": 80.033983
+  },
+  {
+   "name": "Rajapola Maha Vidyalaya",
+   "lat": 6.869703,
+   "lng": 80.119832
+  },
+  {
+   "name": null,
+   "lat": 6.77832,
+   "lng": 79.88542
+  },
+  {
+   "name": "Sri Sobhitha Vidyalaya",
+   "lat": 6.92012,
+   "lng": 79.894454
+  },
+  {
+   "name": "D. S. Senanayake College",
+   "lat": 6.908525,
+   "lng": 79.87505
+  },
+  {
+   "name": "Ramanathan Hindu Ladies College",
+   "lat": 6.883944,
+   "lng": 79.86057
+  },
+  {
+   "name": "Practice ground",
+   "lat": 6.910612,
+   "lng": 79.883242
+  },
+  {
+   "name": null,
+   "lat": 6.884225,
+   "lng": 79.861525
+  },
+  {
+   "name": "WP/KE?Uruwala Junior School",
+   "lat": 7.046997,
+   "lng": 80.046237
+  },
+  {
+   "name": "Henegama Mahabodhi Junior Secondary College",
+   "lat": 7.02336,
+   "lng": 80.047638
+  },
+  {
+   "name": "Kahatana Vidyalaya",
+   "lat": 7.032927,
+   "lng": 80.051327
+  },
+  {
+   "name": null,
+   "lat": 6.930637,
+   "lng": 79.983986
+  },
+  {
+   "name": "Heamamali balika vidyalaya",
+   "lat": 6.935452,
+   "lng": 79.872839
+  },
+  {
+   "name": "St. John's College",
+   "lat": 6.869889,
+   "lng": 79.890027
+  },
+  {
+   "name": "Samudradevi Vidyalaya",
+   "lat": 6.870589,
+   "lng": 79.890223
+  },
+  {
+   "name": "Samudradevi Primary School",
+   "lat": 6.859894,
+   "lng": 79.905141
+  },
+  {
+   "name": null,
+   "lat": 6.965258,
+   "lng": 80.019185
+  },
+  {
+   "name": null,
+   "lat": 6.794338,
+   "lng": 79.911804
+  },
+  {
+   "name": null,
+   "lat": 6.799229,
+   "lng": 79.921298
+  },
+  {
+   "name": null,
+   "lat": 6.850216,
+   "lng": 79.86359
+  },
+  {
+   "name": "Hunupitiya Bandaranayake College",
+   "lat": 6.983524,
+   "lng": 79.910377
+  },
+  {
+   "name": null,
+   "lat": 7.042513,
+   "lng": 79.859684
+  },
+  {
+   "name": null,
+   "lat": 6.902894,
+   "lng": 79.89944
+  },
+  {
+   "name": "Mahanama Collage",
+   "lat": 6.906148,
+   "lng": 79.854816
+  },
+  {
+   "name": "Ladies' College",
+   "lat": 6.907202,
+   "lng": 79.857097
+  },
+  {
+   "name": "St. Anthony 's Balika Vidyalaya",
+   "lat": 6.907917,
+   "lng": 79.855049
+  },
+  {
+   "name": "Bishop's College",
+   "lat": 6.914683,
+   "lng": 79.855214
+  },
+  {
+   "name": null,
+   "lat": 6.781795,
+   "lng": 79.879996
+  },
+  {
+   "name": "Imbulgoda Rajasinghe Vidyalaya",
+   "lat": 7.04873,
+   "lng": 79.999957
+  },
+  {
+   "name": "Padmaawathee Central College",
+   "lat": 6.971068,
+   "lng": 80.040914
+  }
+ ],
+ "markets": [
+  {
+   "name": "Kiribathgoda Public Supermarket",
+   "lat": 6.978798,
+   "lng": 79.92973
+  },
+  {
+   "name": "Padukka Public Market",
+   "lat": 6.841229,
+   "lng": 80.090322
+  },
+  {
+   "name": "Ragama Market",
+   "lat": 7.028688,
+   "lng": 79.922516
+  },
+  {
+   "name": "Maradana Market - Mariya Kade",
+   "lat": 6.925963,
+   "lng": 79.865588
+  },
+  {
+   "name": "Maharagama Public Fair",
+   "lat": 6.845951,
+   "lng": 79.926387
+  },
+  {
+   "name": "Pet Shop",
+   "lat": 6.848252,
+   "lng": 79.885261
+  },
+  {
+   "name": "Delkanda Sunday Fair",
+   "lat": 6.861496,
+   "lng": 79.900351
+  },
+  {
+   "name": "Hanwella Fair",
+   "lat": 6.909637,
+   "lng": 80.08127
+  },
+  {
+   "name": "Kosgama Fair",
+   "lat": 6.941087,
+   "lng": 80.137015
+  },
+  {
+   "name": "Wattala",
+   "lat": 6.989497,
+   "lng": 79.892657
+  },
+  {
+   "name": "Viskam Niwasa",
+   "lat": 6.898013,
+   "lng": 79.860467
+  },
+  {
+   "name": "Karagampitiya Sunday Market",
+   "lat": 6.850541,
+   "lng": 79.871997
+  },
+  {
+   "name": "Boralesgamuwa Public Market",
+   "lat": 6.840978,
+   "lng": 79.901949
+  },
+  {
+   "name": null,
+   "lat": 6.933152,
+   "lng": 79.894326
+  },
+  {
+   "name": null,
+   "lat": 6.932575,
+   "lng": 79.893509
+  },
+  {
+   "name": "Public Market",
+   "lat": 6.93695,
+   "lng": 79.89607
+  },
+  {
+   "name": "Kandana Old Market",
+   "lat": 7.048111,
+   "lng": 79.896766
+  },
+  {
+   "name": "Dompe Weekly Market",
+   "lat": 6.950634,
+   "lng": 80.057585
+  },
+  {
+   "name": "Pugoda Fair",
+   "lat": 6.976422,
+   "lng": 80.120301
+  },
+  {
+   "name": "Mega City Athurugiriya",
+   "lat": 6.877185,
+   "lng": 79.990522
+  },
+  {
+   "name": "Homagama Fair",
+   "lat": 6.846509,
+   "lng": 80.003384
+  },
+  {
+   "name": "Street Market",
+   "lat": 6.936606,
+   "lng": 79.854252
+  },
+  {
+   "name": null,
+   "lat": 6.943932,
+   "lng": 79.956419
+  },
+  {
+   "name": "Public Market Kohuwala",
+   "lat": 6.866989,
+   "lng": 79.884863
+  },
+  {
+   "name": "Good Market",
+   "lat": 6.905485,
+   "lng": 79.865504
+  },
+  {
+   "name": "Dematagoda Public Market",
+   "lat": 6.930006,
+   "lng": 79.878439
+  },
+  {
+   "name": "Bambalapitiya (Milagiriya) Public Market",
+   "lat": 6.893621,
+   "lng": 79.855713
+  },
+  {
+   "name": "Wellawatte Market",
+   "lat": 6.874526,
+   "lng": 79.861672
+  },
+  {
+   "name": null,
+   "lat": 6.937111,
+   "lng": 79.854167
+  },
+  {
+   "name": "Vegetables and Fruits Market",
+   "lat": 6.937324,
+   "lng": 79.854206
+  },
+  {
+   "name": "Fruit store",
+   "lat": 6.855823,
+   "lng": 80.089452
+  },
+  {
+   "name": "vegetable",
+   "lat": 6.858055,
+   "lng": 80.091855
+  },
+  {
+   "name": "Fish Market",
+   "lat": 6.876151,
+   "lng": 79.991282
+  },
+  {
+   "name": "Economic Centre Ratmalana",
+   "lat": 6.80933,
+   "lng": 79.874339
+  },
+  {
+   "name": null,
+   "lat": 6.832048,
+   "lng": 79.885268
+  },
+  {
+   "name": null,
+   "lat": 6.950357,
+   "lng": 80.057312
+  },
+  {
+   "name": "Tuesday Fair",
+   "lat": 6.845556,
+   "lng": 79.97053
+  },
+  {
+   "name": "IDH Supermarket",
+   "lat": 6.923651,
+   "lng": 79.91335
+  },
+  {
+   "name": "Supreme Orchid Plant Nursery",
+   "lat": 6.924758,
+   "lng": 80.010513
+  },
+  {
+   "name": null,
+   "lat": 6.968578,
+   "lng": 79.888255
+  },
+  {
+   "name": "Malabe Weekly Market (Wednesday & Sunday)",
+   "lat": 6.903155,
+   "lng": 79.954817
+  },
+  {
+   "name": null,
+   "lat": 6.903042,
+   "lng": 79.918747
+  },
+  {
+   "name": null,
+   "lat": 7.032659,
+   "lng": 80.028427
+  },
+  {
+   "name": null,
+   "lat": 6.96237,
+   "lng": 79.929117
+  },
+  {
+   "name": null,
+   "lat": 6.958652,
+   "lng": 79.878097
+  },
+  {
+   "name": "Mt Lavenia Public Market",
+   "lat": 6.832843,
+   "lng": 79.866873
+  },
+  {
+   "name": "Kotahena Market",
+   "lat": 6.947883,
+   "lng": 79.861855
+  },
+  {
+   "name": null,
+   "lat": 6.948098,
+   "lng": 79.861117
+  },
+  {
+   "name": "Central Fish Market Complex - Paliyagoda",
+   "lat": 6.968528,
+   "lng": 79.888315
+  },
+  {
+   "name": "Edinburgh Hall",
+   "lat": 6.938289,
+   "lng": 79.854234
+  },
+  {
+   "name": null,
+   "lat": 6.903781,
+   "lng": 79.911211
+  }
+ ],
+ "bridges": [
+  {
+   "name": "Olcott Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.93414,
+     79.847633
+    ],
+    [
+     6.934202,
+     79.847987
+    ],
+    [
+     6.934224,
+     79.848122
+    ]
+   ]
+  },
+  {
+   "name": "Sir Chittampalam A. Gardiner Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.930989,
+     79.847041
+    ],
+    [
+     6.931184,
+     79.846987
+    ]
+   ]
+  },
+  {
+   "name": "Sir Chittampalam A. Gardiner Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.931218,
+     79.847074
+    ],
+    [
+     6.93102,
+     79.847119
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "primary",
+   "points": [
+    [
+     6.928324,
+     79.863709
+    ],
+    [
+     6.928645,
+     79.863674
+    ]
+   ]
+  },
+  {
+   "name": "Dr. N. M. Perera Mawatha (Cotta Road)",
+   "road_type": "primary",
+   "points": [
+    [
+     6.910811,
+     79.889065
+    ],
+    [
+     6.910831,
+     79.889236
+    ]
+   ]
+  },
+  {
+   "name": "H. Sri Nassanka Mawatha (Maya Avenue)",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.878608,
+     79.872824
+    ],
+    [
+     6.87864,
+     79.87303
+    ]
+   ]
+  },
+  {
+   "name": "Mattakkuliya Bridge",
+   "road_type": "primary",
+   "points": [
+    [
+     6.980116,
+     79.8755
+    ],
+    [
+     6.980916,
+     79.875206
+    ]
+   ]
+  },
+  {
+   "name": "Stace Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.944432,
+     79.875335
+    ],
+    [
+     6.944559,
+     79.875049
+    ]
+   ]
+  },
+  {
+   "name": "Nawala Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.904867,
+     79.894495
+    ],
+    [
+     6.904582,
+     79.894369
+    ]
+   ]
+  },
+  {
+   "name": "Angulana Station road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.798471,
+     79.874953
+    ],
+    [
+     6.798563,
+     79.875084
+    ]
+   ]
+  },
+  {
+   "name": "Galle Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.852839,
+     79.865839
+    ],
+    [
+     6.849829,
+     79.866024
+    ]
+   ]
+  },
+  {
+   "name": "Galle Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.849822,
+     79.865969
+    ],
+    [
+     6.852834,
+     79.865808
+    ]
+   ]
+  },
+  {
+   "name": "Dr. Danister de Silva Mawatha (Baseline Road)",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.934211,
+     79.87812
+    ],
+    [
+     6.93954,
+     79.878217
+    ]
+   ]
+  },
+  {
+   "name": "Pannipitiya Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.84865,
+     79.948523
+    ],
+    [
+     6.847334,
+     79.948604
+    ]
+   ]
+  },
+  {
+   "name": "Pannipitiya Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.847346,
+     79.948523
+    ],
+    [
+     6.848987,
+     79.948382
+    ]
+   ]
+  },
+  {
+   "name": "High Level Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.846891,
+     80.017462
+    ],
+    [
+     6.847176,
+     80.01727
+    ]
+   ]
+  },
+  {
+   "name": "Orugodawatta Flyover",
+   "road_type": "primary",
+   "points": [
+    [
+     6.944703,
+     79.881859
+    ],
+    [
+     6.944748,
+     79.882644
+    ],
+    [
+     6.944129,
+     79.884321
+    ],
+    [
+     6.942645,
+     79.886622
+    ],
+    [
+     6.942458,
+     79.886801
+    ]
+   ]
+  },
+  {
+   "name": "Dr. Danister de Silva Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.943375,
+     79.878325
+    ],
+    [
+     6.943121,
+     79.878343
+    ]
+   ]
+  },
+  {
+   "name": "Dr. Danister de Silva Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.94312,
+     79.87823
+    ],
+    [
+     6.943351,
+     79.878215
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "primary",
+   "points": [
+    [
+     6.931228,
+     79.883383
+    ],
+    [
+     6.931139,
+     79.88313
+    ]
+   ]
+  },
+  {
+   "name": "Keththarama Temple Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.941932,
+     79.872042
+    ],
+    [
+     6.942148,
+     79.871992
+    ]
+   ]
+  },
+  {
+   "name": "New Kelani Bridge",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.953474,
+     79.881073
+    ],
+    [
+     6.954777,
+     79.882199
+    ],
+    [
+     6.955389,
+     79.882747
+    ]
+   ]
+  },
+  {
+   "name": "New Kelani Bridge",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.955337,
+     79.882807
+    ],
+    [
+     6.953488,
+     79.881186
+    ]
+   ]
+  },
+  {
+   "name": "Kelani Railway Flyover",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.964176,
+     79.896471
+    ],
+    [
+     6.965125,
+     79.897385
+    ],
+    [
+     6.965961,
+     79.898292
+    ]
+   ]
+  },
+  {
+   "name": "Hekitta Bridge",
+   "road_type": "primary",
+   "points": [
+    [
+     6.982761,
+     79.882515
+    ],
+    [
+     6.982864,
+     79.882257
+    ]
+   ]
+  },
+  {
+   "name": "New Kelani Bridge Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.950843,
+     79.874824
+    ],
+    [
+     6.950876,
+     79.874638
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.986938,
+     79.874276
+    ],
+    [
+     6.986924,
+     79.874569
+    ]
+   ]
+  },
+  {
+   "name": "Beach Park Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.971912,
+     79.872666
+    ],
+    [
+     6.971852,
+     79.87277
+    ]
+   ]
+  },
+  {
+   "name": "Kelani Railway Flyover",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.965907,
+     79.898343
+    ],
+    [
+     6.96481,
+     79.897179
+    ],
+    [
+     6.964133,
+     79.896535
+    ]
+   ]
+  },
+  {
+   "name": "Ragama Flyover",
+   "road_type": "primary",
+   "points": [
+    [
+     7.028136,
+     79.923233
+    ],
+    [
+     7.028222,
+     79.92301
+    ],
+    [
+     7.028279,
+     79.922776
+    ],
+    [
+     7.028308,
+     79.922494
+    ],
+    [
+     7.028187,
+     79.920515
+    ],
+    [
+     7.028159,
+     79.920244
+    ],
+    [
+     7.028131,
+     79.920059
+    ]
+   ]
+  },
+  {
+   "name": "Justice Akbar Mawatha",
+   "road_type": "primary",
+   "points": [
+    [
+     6.92386,
+     79.850474
+    ],
+    [
+     6.923755,
+     79.849563
+    ],
+    [
+     6.923716,
+     79.849378
+    ]
+   ]
+  },
+  {
+   "name": "Olcott Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.932377,
+     79.857543
+    ],
+    [
+     6.932233,
+     79.857703
+    ]
+   ]
+  },
+  {
+   "name": "Sedawatta Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.956861,
+     79.878073
+    ],
+    [
+     6.956914,
+     79.877994
+    ]
+   ]
+  },
+  {
+   "name": "St. Sebastian Hill",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.933204,
+     79.859797
+    ],
+    [
+     6.933416,
+     79.859703
+    ]
+   ]
+  },
+  {
+   "name": "Wharf Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.937297,
+     79.846869
+    ],
+    [
+     6.93721,
+     79.847205
+    ],
+    [
+     6.937395,
+     79.84841
+    ]
+   ]
+  },
+  {
+   "name": "New Kelani Bridge Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.952267,
+     79.880018
+    ],
+    [
+     6.952492,
+     79.880214
+    ]
+   ]
+  },
+  {
+   "name": "New Kelani Bridge Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.952435,
+     79.880268
+    ],
+    [
+     6.952219,
+     79.880084
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.81455,
+     79.86907
+    ],
+    [
+     6.814478,
+     79.869299
+    ]
+   ]
+  },
+  {
+   "name": "Galle Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.863494,
+     79.86363
+    ],
+    [
+     6.863199,
+     79.863687
+    ]
+   ]
+  },
+  {
+   "name": "Galle Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.919108,
+     79.847146
+    ],
+    [
+     6.918873,
+     79.847233
+    ]
+   ]
+  },
+  {
+   "name": "Galle Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.918818,
+     79.847151
+    ],
+    [
+     6.9191,
+     79.84706
+    ]
+   ]
+  },
+  {
+   "name": "Galle Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.863103,
+     79.863616
+    ],
+    [
+     6.863426,
+     79.863555
+    ]
+   ]
+  },
+  {
+   "name": "Marine Drive",
+   "road_type": "primary",
+   "points": [
+    [
+     6.878649,
+     79.856771
+    ],
+    [
+     6.879062,
+     79.856673
+    ]
+   ]
+  },
+  {
+   "name": "Sea Beach Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.79498,
+     79.8736
+    ],
+    [
+     6.794615,
+     79.873672
+    ]
+   ]
+  },
+  {
+   "name": "Old Galle Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.771973,
+     79.887628
+    ],
+    [
+     6.771655,
+     79.885938
+    ]
+   ]
+  },
+  {
+   "name": "Welipara (Chandra Silva Mawatha)",
+   "road_type": "primary",
+   "points": [
+    [
+     6.877941,
+     79.891684
+    ],
+    [
+     6.877925,
+     79.891852
+    ]
+   ]
+  },
+  {
+   "name": "Sri Jayewardenepura Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.906416,
+     79.903143
+    ],
+    [
+     6.906337,
+     79.903622
+    ]
+   ]
+  },
+  {
+   "name": "Vijaya Kumaratunga Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.888424,
+     79.876976
+    ],
+    [
+     6.888086,
+     79.877009
+    ]
+   ]
+  },
+  {
+   "name": "Elvitigala Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.899663,
+     79.877259
+    ],
+    [
+     6.899476,
+     79.87725
+    ]
+   ]
+  },
+  {
+   "name": "Vijaya Kumaratunga Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.888043,
+     79.876887
+    ],
+    [
+     6.888404,
+     79.876842
+    ]
+   ]
+  },
+  {
+   "name": "Sri Jayewardenepura Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.909368,
+     79.888773
+    ],
+    [
+     6.909478,
+     79.888636
+    ]
+   ]
+  },
+  {
+   "name": "Elvitigala Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.899479,
+     79.877121
+    ],
+    [
+     6.899652,
+     79.877124
+    ]
+   ]
+  },
+  {
+   "name": "Sri Jayewardenepura Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.909559,
+     79.888722
+    ],
+    [
+     6.909455,
+     79.888845
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.868294,
+     79.865617
+    ],
+    [
+     6.86831,
+     79.86584
+    ]
+   ]
+  },
+  {
+   "name": "Nawala Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.88797,
+     79.882757
+    ],
+    [
+     6.888238,
+     79.882443
+    ]
+   ]
+  },
+  {
+   "name": "Sri Sambuddhatwa Jayanthi Mawatha (Havelock Road)",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.883829,
+     79.868166
+    ],
+    [
+     6.88403,
+     79.867996
+    ]
+   ]
+  },
+  {
+   "name": "Sri Saranankara Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.864391,
+     79.86721
+    ],
+    [
+     6.864529,
+     79.867185
+    ]
+   ]
+  },
+  {
+   "name": "Hospital Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.863653,
+     79.868374
+    ],
+    [
+     6.863752,
+     79.868501
+    ]
+   ]
+  },
+  {
+   "name": "Parliament Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.892392,
+     79.92188
+    ],
+    [
+     6.8921,
+     79.92209
+    ]
+   ]
+  },
+  {
+   "name": "Rev. Fr. Lucian Dep Mawatha",
+   "road_type": "tertiary",
+   "points": [
+    [
+     7.043972,
+     79.862805
+    ],
+    [
+     7.043939,
+     79.862666
+    ]
+   ]
+  },
+  {
+   "name": "D. R. Wijewardene Mawatha",
+   "road_type": "primary",
+   "points": [
+    [
+     6.931702,
+     79.853827
+    ],
+    [
+     6.93178,
+     79.853571
+    ]
+   ]
+  },
+  {
+   "name": "Welewatte Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.944254,
+     79.887618
+    ],
+    [
+     6.944087,
+     79.887641
+    ]
+   ]
+  },
+  {
+   "name": "D. R. Wijewardene Mawatha",
+   "road_type": "primary",
+   "points": [
+    [
+     6.931856,
+     79.853594
+    ],
+    [
+     6.931777,
+     79.853849
+    ]
+   ]
+  },
+  {
+   "name": "Senevirathnarama Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.949936,
+     79.91942
+    ],
+    [
+     6.949434,
+     79.920797
+    ],
+    [
+     6.949368,
+     79.920939
+    ]
+   ]
+  },
+  {
+   "name": "Alwis Town Mawatha",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.987118,
+     79.888028
+    ],
+    [
+     6.987256,
+     79.88775
+    ]
+   ]
+  },
+  {
+   "name": "Colombo-Kandy Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.985492,
+     79.934256
+    ],
+    [
+     6.985745,
+     79.934481
+    ]
+   ]
+  },
+  {
+   "name": "Colombo-Kandy Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.985688,
+     79.934534
+    ],
+    [
+     6.985447,
+     79.934316
+    ]
+   ]
+  },
+  {
+   "name": "Port Access Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.954993,
+     79.865844
+    ],
+    [
+     6.954981,
+     79.866436
+    ]
+   ]
+  },
+  {
+   "name": "H. Joe Perera Mawatha (Aluthmawatha Road)",
+   "road_type": "primary",
+   "points": [
+    [
+     6.956636,
+     79.861476
+    ],
+    [
+     6.95615,
+     79.860995
+    ]
+   ]
+  },
+  {
+   "name": "Southern Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.810663,
+     79.984941
+    ],
+    [
+     6.810964,
+     79.984983
+    ]
+   ]
+  },
+  {
+   "name": "Southern Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.810943,
+     79.985082
+    ],
+    [
+     6.810619,
+     79.985035
+    ]
+   ]
+  },
+  {
+   "name": "Royal Garden",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.903457,
+     79.900497
+    ],
+    [
+     6.903659,
+     79.90047
+    ]
+   ]
+  },
+  {
+   "name": "Southern Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.783367,
+     79.980227
+    ],
+    [
+     6.784916,
+     79.980479
+    ]
+   ]
+  },
+  {
+   "name": "Southern Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.784929,
+     79.980564
+    ],
+    [
+     6.783351,
+     79.98032
+    ]
+   ]
+  },
+  {
+   "name": "Borupana Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.818394,
+     79.898451
+    ],
+    [
+     6.818681,
+     79.898858
+    ],
+    [
+     6.818745,
+     79.89895
+    ]
+   ]
+  },
+  {
+   "name": "Weediyagoda Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.768707,
+     79.972712
+    ],
+    [
+     6.768944,
+     79.972767
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.916392,
+     79.887468
+    ],
+    [
+     6.916099,
+     79.887498
+    ]
+   ]
+  },
+  {
+   "name": "Sri Jayewardenepura Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.90313,
+     79.908461
+    ],
+    [
+     6.903325,
+     79.908901
+    ]
+   ]
+  },
+  {
+   "name": "Sri Jayewardenepura Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.903214,
+     79.908959
+    ],
+    [
+     6.90302,
+     79.908519
+    ]
+   ]
+  },
+  {
+   "name": "Kottawa Thalagala Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.800207,
+     80.000444
+    ],
+    [
+     6.80012,
+     80.000614
+    ]
+   ]
+  },
+  {
+   "name": "Horana - Padukka Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.760756,
+     80.054696
+    ],
+    [
+     6.760881,
+     80.054829
+    ]
+   ]
+  },
+  {
+   "name": "Horana - Padukka Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.766457,
+     80.057445
+    ],
+    [
+     6.766698,
+     80.057291
+    ]
+   ]
+  },
+  {
+   "name": "New Kelani Bridge Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.950984,
+     79.874605
+    ],
+    [
+     6.950956,
+     79.874807
+    ]
+   ]
+  },
+  {
+   "name": "Sri Dharmaram Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.820217,
+     79.867231
+    ],
+    [
+     6.820237,
+     79.867265
+    ]
+   ]
+  },
+  {
+   "name": "Moratuwa-Piliyandala Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.795096,
+     79.905096
+    ],
+    [
+     6.795041,
+     79.904523
+    ]
+   ]
+  },
+  {
+   "name": "Station Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.787932,
+     79.87934
+    ],
+    [
+     6.787963,
+     79.879516
+    ]
+   ]
+  },
+  {
+   "name": "Dehiwela Road (Dehiwela-Maharagama Road)",
+   "road_type": "primary",
+   "points": [
+    [
+     6.843985,
+     79.891509
+    ],
+    [
+     6.84372,
+     79.891656
+    ]
+   ]
+  },
+  {
+   "name": "High Level Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.862953,
+     79.901607
+    ],
+    [
+     6.862916,
+     79.901705
+    ]
+   ]
+  },
+  {
+   "name": "Main Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.844565,
+     79.884838
+    ],
+    [
+     6.844825,
+     79.884877
+    ]
+   ]
+  },
+  {
+   "name": "Temple Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.837533,
+     79.891757
+    ],
+    [
+     6.837376,
+     79.891102
+    ]
+   ]
+  },
+  {
+   "name": "Udahamulla Station Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.863255,
+     79.901733
+    ],
+    [
+     6.863221,
+     79.901827
+    ]
+   ]
+  },
+  {
+   "name": "Talawatugoda Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.881791,
+     79.915425
+    ],
+    [
+     6.881958,
+     79.915219
+    ]
+   ]
+  },
+  {
+   "name": "Longden Place",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.897889,
+     79.872473
+    ],
+    [
+     6.897781,
+     79.872535
+    ]
+   ]
+  },
+  {
+   "name": "Pelawatte Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.894849,
+     79.924573
+    ],
+    [
+     6.894664,
+     79.924747
+    ]
+   ]
+  },
+  {
+   "name": "Buthgamuwa Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.910286,
+     79.904378
+    ],
+    [
+     6.910296,
+     79.903919
+    ]
+   ]
+  },
+  {
+   "name": "New Kolonnawa Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.923772,
+     79.891079
+    ],
+    [
+     6.923513,
+     79.891166
+    ]
+   ]
+  },
+  {
+   "name": "Amaragoda - Pothuarawa Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.888796,
+     79.957628
+    ],
+    [
+     6.888716,
+     79.957655
+    ]
+   ]
+  },
+  {
+   "name": "Athurugiriya Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.89275,
+     79.963021
+    ],
+    [
+     6.892877,
+     79.962912
+    ]
+   ]
+  },
+  {
+   "name": "Mihindu Mawatha",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.898122,
+     79.966528
+    ],
+    [
+     6.898192,
+     79.966691
+    ]
+   ]
+  },
+  {
+   "name": "Millenium Drive",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.917172,
+     79.959196
+    ],
+    [
+     6.917098,
+     79.958942
+    ]
+   ]
+  },
+  {
+   "name": "Kaduwela Bridge (New Kandy Road)",
+   "road_type": "primary",
+   "points": [
+    [
+     6.936183,
+     79.984864
+    ],
+    [
+     6.936577,
+     79.9857
+    ]
+   ]
+  },
+  {
+   "name": "Avissawella Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.907162,
+     80.065645
+    ],
+    [
+     6.907387,
+     80.065965
+    ]
+   ]
+  },
+  {
+   "name": "Avissawella Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.933508,
+     79.992501
+    ],
+    [
+     6.933665,
+     79.99281
+    ]
+   ]
+  },
+  {
+   "name": "Hanwella - Pugoda - Kirindiwela - Urapola Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.909442,
+     80.0833
+    ],
+    [
+     6.910456,
+     80.083456
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Horana Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.784356,
+     79.979681
+    ],
+    [
+     6.784295,
+     79.979901
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.973086,
+     80.123935
+    ],
+    [
+     6.973812,
+     80.122789
+    ]
+   ]
+  },
+  {
+   "name": "High Level Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.917351,
+     80.098315
+    ],
+    [
+     6.91766,
+     80.098348
+    ]
+   ]
+  },
+  {
+   "name": "Olcott Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.934136,
+     79.848137
+    ],
+    [
+     6.934049,
+     79.847648
+    ]
+   ]
+  },
+  {
+   "name": "Olcott Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.93222,
+     79.857606
+    ],
+    [
+     6.93237,
+     79.857437
+    ]
+   ]
+  },
+  {
+   "name": "Thelangapatha Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.971434,
+     79.893813
+    ],
+    [
+     6.971154,
+     79.894569
+    ]
+   ]
+  },
+  {
+   "name": "Gunasekara Mawatha",
+   "road_type": "tertiary",
+   "points": [
+    [
+     7.019498,
+     79.889229
+    ],
+    [
+     7.019573,
+     79.890774
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     6.838528,
+     79.980233
+    ],
+    [
+     6.838448,
+     79.981137
+    ],
+    [
+     6.838687,
+     79.981493
+    ],
+    [
+     6.83908,
+     79.98161
+    ]
+   ]
+  },
+  {
+   "name": "Pagnaloka Mawatha",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.843318,
+     79.871199
+    ],
+    [
+     6.84327,
+     79.87113
+    ]
+   ]
+  },
+  {
+   "name": "Wattegedara Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.845556,
+     79.9153
+    ],
+    [
+     6.845553,
+     79.915161
+    ]
+   ]
+  },
+  {
+   "name": "D. R. Wijewardene Mawatha",
+   "road_type": "primary",
+   "points": [
+    [
+     6.932612,
+     79.848451
+    ],
+    [
+     6.932541,
+     79.847887
+    ]
+   ]
+  },
+  {
+   "name": "D. R. Wijewardene Mawatha",
+   "road_type": "primary",
+   "points": [
+    [
+     6.93262,
+     79.847877
+    ],
+    [
+     6.932694,
+     79.848441
+    ]
+   ]
+  },
+  {
+   "name": "Port Access Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.953708,
+     79.870865
+    ],
+    [
+     6.953477,
+     79.871143
+    ]
+   ]
+  },
+  {
+   "name": "New Kolonnawa Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.920012,
+     79.892281
+    ],
+    [
+     6.919915,
+     79.892209
+    ]
+   ]
+  },
+  {
+   "name": "Parliament Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.901855,
+     79.911596
+    ],
+    [
+     6.90201,
+     79.911509
+    ]
+   ]
+  },
+  {
+   "name": "Sarana Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.909968,
+     79.892879
+    ],
+    [
+     6.909739,
+     79.892816
+    ]
+   ]
+  },
+  {
+   "name": "Jinadasa Niyathapala Mawatha (Nawala Road)",
+   "road_type": "primary",
+   "points": [
+    [
+     6.883709,
+     79.886847
+    ],
+    [
+     6.884072,
+     79.886898
+    ]
+   ]
+  },
+  {
+   "name": "Sirimavo Bandaranaike Mawatha (Prince of Wales Avenue)",
+   "road_type": "primary",
+   "points": [
+    [
+     6.95621,
+     79.875582
+    ],
+    [
+     6.956033,
+     79.87555
+    ]
+   ]
+  },
+  {
+   "name": "Sirimavo Bandaranaike Mawatha (Prince of Wales Avenue)",
+   "road_type": "primary",
+   "points": [
+    [
+     6.956051,
+     79.875471
+    ],
+    [
+     6.956213,
+     79.875509
+    ]
+   ]
+  },
+  {
+   "name": "Nagalagam Street",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.955558,
+     79.876703
+    ],
+    [
+     6.955348,
+     79.876561
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Katunayake Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.963898,
+     79.890267
+    ],
+    [
+     6.963376,
+     79.889789
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Katunayake Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.988593,
+     79.900654
+    ],
+    [
+     6.987519,
+     79.899989
+    ],
+    [
+     6.986567,
+     79.899631
+    ],
+    [
+     6.985741,
+     79.899413
+    ],
+    [
+     6.985061,
+     79.899306
+    ],
+    [
+     6.984565,
+     79.899262
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Katunayake Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.984594,
+     79.899151
+    ],
+    [
+     6.98535,
+     79.899235
+    ],
+    [
+     6.985977,
+     79.899355
+    ],
+    [
+     6.986813,
+     79.899593
+    ],
+    [
+     6.987943,
+     79.900087
+    ],
+    [
+     6.988666,
+     79.900574
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Katunayake Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.963468,
+     79.889696
+    ],
+    [
+     6.963987,
+     79.890148
+    ]
+   ]
+  },
+  {
+   "name": "Peliyagoda Interchange Access Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.968066,
+     79.892114
+    ],
+    [
+     6.968105,
+     79.893049
+    ],
+    [
+     6.968233,
+     79.893737
+    ],
+    [
+     6.968427,
+     79.89441
+    ]
+   ]
+  },
+  {
+   "name": "Bopitiya-Kandana Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     7.049251,
+     79.880739
+    ],
+    [
+     7.049388,
+     79.881509
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     7.007606,
+     79.92823
+    ],
+    [
+     7.007068,
+     79.926314
+    ],
+    [
+     7.006577,
+     79.924368
+    ],
+    [
+     7.006289,
+     79.92209
+    ],
+    [
+     7.006264,
+     79.920049
+    ],
+    [
+     7.006475,
+     79.917993
+    ],
+    [
+     7.006959,
+     79.915805
+    ],
+    [
+     7.007748,
+     79.91361
+    ],
+    [
+     7.008664,
+     79.911788
+    ],
+    [
+     7.009391,
+     79.910616
+    ],
+    [
+     7.011031,
+     79.908518
+    ],
+    [
+     7.012201,
+     79.907014
+    ],
+    [
+     7.013962,
+     79.904224
+    ],
+    [
+     7.015148,
+     79.901791
+    ],
+    [
+     7.015936,
+     79.899801
+    ],
+    [
+     7.016728,
+     79.897379
+    ],
+    [
+     7.017331,
+     79.894309
+    ],
+    [
+     7.017439,
+     79.891212
+    ],
+    [
+     7.017592,
+     79.888441
+    ],
+    [
+     7.017679,
+     79.887574
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     6.841259,
+     79.980597
+    ],
+    [
+     6.841128,
+     79.980005
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.843389,
+     79.979636
+    ],
+    [
+     6.843721,
+     79.979554
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.843756,
+     79.979718
+    ],
+    [
+     6.843431,
+     79.979801
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     6.841196,
+     79.979986
+    ],
+    [
+     6.841329,
+     79.980583
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.845043,
+     79.979274
+    ],
+    [
+     6.84572,
+     79.979152
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.84575,
+     79.979292
+    ],
+    [
+     6.845076,
+     79.979421
+    ]
+   ]
+  },
+  {
+   "name": "Malabe - Athurugiriya Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.884151,
+     79.975743
+    ],
+    [
+     6.88372,
+     79.977913
+    ]
+   ]
+  },
+  {
+   "name": "Athurugiriya-Kottawa Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.84873,
+     79.978323
+    ],
+    [
+     6.848796,
+     79.979135
+    ]
+   ]
+  },
+  {
+   "name": "Balika Niwasa Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.852255,
+     79.978113
+    ],
+    [
+     6.852353,
+     79.978683
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "trunk",
+   "points": [
+    [
+     6.93257,
+     79.846207
+    ],
+    [
+     6.932445,
+     79.846423
+    ]
+   ]
+  },
+  {
+   "name": "York Street",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.932346,
+     79.84639
+    ],
+    [
+     6.932468,
+     79.846168
+    ]
+   ]
+  },
+  {
+   "name": "Dr. N. M. Perera Mawatha (Cotta Road)",
+   "road_type": "primary",
+   "points": [
+    [
+     6.910752,
+     79.889241
+    ],
+    [
+     6.910737,
+     79.889075
+    ]
+   ]
+  },
+  {
+   "name": "Pothuarawa Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.895711,
+     79.944335
+    ],
+    [
+     6.895695,
+     79.944471
+    ]
+   ]
+  },
+  {
+   "name": "Pothuarawa Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.89559,
+     79.945577
+    ],
+    [
+     6.895618,
+     79.945665
+    ]
+   ]
+  },
+  {
+   "name": "Pothuarawa Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.895627,
+     79.944899
+    ],
+    [
+     6.895604,
+     79.945031
+    ]
+   ]
+  },
+  {
+   "name": "Port Access Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.953391,
+     79.871108
+    ],
+    [
+     6.953625,
+     79.870815
+    ]
+   ]
+  },
+  {
+   "name": "Port Access Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.954892,
+     79.866424
+    ],
+    [
+     6.954905,
+     79.865832
+    ]
+   ]
+  },
+  {
+   "name": "Adikarana Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.93387,
+     79.861898
+    ],
+    [
+     6.93404,
+     79.861805
+    ]
+   ]
+  },
+  {
+   "name": "Torrington Avenue",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.89562,
+     79.870204
+    ],
+    [
+     6.895563,
+     79.87033
+    ]
+   ]
+  },
+  {
+   "name": "Southern Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.788227,
+     79.98113
+    ],
+    [
+     6.789019,
+     79.981291
+    ]
+   ]
+  },
+  {
+   "name": "Southern Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.788985,
+     79.981393
+    ],
+    [
+     6.788194,
+     79.981241
+    ]
+   ]
+  },
+  {
+   "name": "Ragama-Kadawatha Road",
+   "road_type": "primary",
+   "points": [
+    [
+     7.001974,
+     79.949045
+    ],
+    [
+     7.002003,
+     79.949213
+    ]
+   ]
+  },
+  {
+   "name": "Madinnagoda Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.916165,
+     79.899546
+    ],
+    [
+     6.915954,
+     79.898904
+    ]
+   ]
+  },
+  {
+   "name": "Negombo Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.995047,
+     79.896361
+    ],
+    [
+     6.994738,
+     79.896034
+    ]
+   ]
+  },
+  {
+   "name": "Negombo Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.994789,
+     79.895977
+    ],
+    [
+     6.995108,
+     79.896307
+    ]
+   ]
+  },
+  {
+   "name": "Hendala Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.991089,
+     79.892407
+    ],
+    [
+     6.991257,
+     79.892086
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Katunayake Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     7.004803,
+     79.901654
+    ],
+    [
+     7.003124,
+     79.903244
+    ],
+    [
+     7.001528,
+     79.904084
+    ],
+    [
+     6.999103,
+     79.904593
+    ],
+    [
+     6.997363,
+     79.904449
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Katunayake Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.997348,
+     79.904361
+    ],
+    [
+     6.999592,
+     79.904435
+    ],
+    [
+     7.001511,
+     79.903946
+    ],
+    [
+     7.003602,
+     79.902698
+    ],
+    [
+     7.004689,
+     79.90158
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.94277,
+     79.973477
+    ],
+    [
+     6.940927,
+     79.972773
+    ],
+    [
+     6.939222,
+     79.972276
+    ],
+    [
+     6.937917,
+     79.97201
+    ],
+    [
+     6.936923,
+     79.97188
+    ],
+    [
+     6.93604,
+     79.971818
+    ],
+    [
+     6.935161,
+     79.971795
+    ],
+    [
+     6.933919,
+     79.971832
+    ],
+    [
+     6.932981,
+     79.971905
+    ],
+    [
+     6.931964,
+     79.97207
+    ],
+    [
+     6.931091,
+     79.972298
+    ],
+    [
+     6.930645,
+     79.97244
+    ],
+    [
+     6.930204,
+     79.972615
+    ],
+    [
+     6.929523,
+     79.972945
+    ],
+    [
+     6.928757,
+     79.973408
+    ],
+    [
+     6.927971,
+     79.974008
+    ],
+    [
+     6.926993,
+     79.974874
+    ],
+    [
+     6.925423,
+     79.976682
+    ]
+   ]
+  },
+  {
+   "name": "R. A. de Mel Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.880558,
+     79.861957
+    ],
+    [
+     6.880272,
+     79.862118
+    ]
+   ]
+  },
+  {
+   "name": "Colombo-Katunayake Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.960064,
+     79.886981
+    ],
+    [
+     6.958957,
+     79.886003
+    ]
+   ]
+  },
+  {
+   "name": "Colombo-Katunayake Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.959091,
+     79.885913
+    ],
+    [
+     6.960175,
+     79.88687
+    ]
+   ]
+  },
+  {
+   "name": "Kaduwela Road (New Kandy Road)",
+   "road_type": "primary",
+   "points": [
+    [
+     6.905778,
+     79.963416
+    ],
+    [
+     6.905707,
+     79.963265
+    ]
+   ]
+  },
+  {
+   "name": "Makola-Udupila Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.984605,
+     79.992586
+    ],
+    [
+     6.984549,
+     79.99244
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.975001,
+     79.999491
+    ],
+    [
+     6.975108,
+     79.99939
+    ]
+   ]
+  },
+  {
+   "name": "New Nuge Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.963632,
+     79.882605
+    ],
+    [
+     6.963565,
+     79.882892
+    ]
+   ]
+  },
+  {
+   "name": "New Nuge Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.959445,
+     79.887033
+    ],
+    [
+     6.958973,
+     79.887527
+    ]
+   ]
+  },
+  {
+   "name": "P. de S. Kularatne Mawatha",
+   "road_type": "primary",
+   "points": [
+    [
+     6.928777,
+     79.864161
+    ],
+    [
+     6.928483,
+     79.864388
+    ]
+   ]
+  },
+  {
+   "name": "High Level Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.87031,
+     79.887216
+    ],
+    [
+     6.869331,
+     79.88961
+    ]
+   ]
+  },
+  {
+   "name": "Menerigama Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.790822,
+     80.136893
+    ],
+    [
+     6.791119,
+     80.136677
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Katunayake Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.976779,
+     79.896987
+    ],
+    [
+     6.976903,
+     79.897152
+    ]
+   ]
+  },
+  {
+   "name": "Sri Jayewardenepura Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.906243,
+     79.903611
+    ],
+    [
+     6.906326,
+     79.90313
+    ]
+   ]
+  },
+  {
+   "name": "Wattala-Mahara Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.997326,
+     79.924257
+    ],
+    [
+     6.99746,
+     79.924511
+    ]
+   ]
+  },
+  {
+   "name": "Biyagama Makola Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.970702,
+     79.971807
+    ],
+    [
+     6.970777,
+     79.972455
+    ]
+   ]
+  },
+  {
+   "name": "Makola-Udupila Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.981305,
+     79.968134
+    ],
+    [
+     6.981226,
+     79.967523
+    ]
+   ]
+  },
+  {
+   "name": "Kadawatha-Mawaramandiya Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.98998,
+     79.963478
+    ],
+    [
+     6.989876,
+     79.964411
+    ]
+   ]
+  },
+  {
+   "name": "Iroshan Chamatkara Mawatha",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.996832,
+     79.961771
+    ],
+    [
+     6.996946,
+     79.962307
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.999158,
+     79.961525
+    ],
+    [
+     7.001088,
+     79.961166
+    ],
+    [
+     7.003467,
+     79.960728
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     7.003467,
+     79.960728
+    ],
+    [
+     7.005141,
+     79.96043
+    ],
+    [
+     7.006667,
+     79.959927
+    ],
+    [
+     7.008049,
+     79.959133
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     6.999815,
+     79.961295
+    ],
+    [
+     7.000228,
+     79.961043
+    ],
+    [
+     7.000543,
+     79.960254
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     6.94277,
+     79.973477
+    ],
+    [
+     6.941758,
+     79.973185
+    ],
+    [
+     6.940917,
+     79.972926
+    ],
+    [
+     6.939915,
+     79.972636
+    ]
+   ]
+  },
+  {
+   "name": "Kaduwela - Biyagama New Cross Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.938496,
+     79.972193
+    ],
+    [
+     6.937147,
+     79.971985
+    ]
+   ]
+  },
+  {
+   "name": "Kaduwela - Biyagama New Cross Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.937137,
+     79.971633
+    ],
+    [
+     6.938359,
+     79.971814
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.992707,
+     79.963049
+    ],
+    [
+     6.994361,
+     79.962583
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.99438,
+     79.962682
+    ],
+    [
+     6.992734,
+     79.963153
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.98796,
+     79.964863
+    ],
+    [
+     6.98256,
+     79.967333
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.982502,
+     79.967209
+    ],
+    [
+     6.987918,
+     79.964709
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.893451,
+     79.97814
+    ],
+    [
+     6.89525,
+     79.978567
+    ],
+    [
+     6.897312,
+     79.97897
+    ],
+    [
+     6.899278,
+     79.979267
+    ],
+    [
+     6.901188,
+     79.97948
+    ],
+    [
+     6.90428,
+     79.979854
+    ],
+    [
+     6.907224,
+     79.980466
+    ],
+    [
+     6.908841,
+     79.980909
+    ],
+    [
+     6.910338,
+     79.981396
+    ],
+    [
+     6.911928,
+     79.982002
+    ],
+    [
+     6.913952,
+     79.982825
+    ],
+    [
+     6.91479,
+     79.983089
+    ],
+    [
+     6.915444,
+     79.983231
+    ],
+    [
+     6.916167,
+     79.983312
+    ],
+    [
+     6.91726,
+     79.98328
+    ],
+    [
+     6.917993,
+     79.983146
+    ],
+    [
+     6.918825,
+     79.982878
+    ],
+    [
+     6.919833,
+     79.98237
+    ],
+    [
+     6.920622,
+     79.981833
+    ],
+    [
+     6.92137,
+     79.981231
+    ],
+    [
+     6.921687,
+     79.980947
+    ]
+   ]
+  },
+  {
+   "name": "Peliyagoda Interchange Access Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.968344,
+     79.894429
+    ],
+    [
+     6.968081,
+     79.893519
+    ],
+    [
+     6.96796,
+     79.892427
+    ],
+    [
+     6.967966,
+     79.89209
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.874238,
+     79.977667
+    ],
+    [
+     6.874307,
+     79.978175
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.925319,
+     79.976619
+    ],
+    [
+     6.927046,
+     79.974642
+    ],
+    [
+     6.929177,
+     79.972998
+    ],
+    [
+     6.930793,
+     79.972237
+    ],
+    [
+     6.932573,
+     79.971821
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.951726,
+     79.976251
+    ],
+    [
+     6.953599,
+     79.976395
+    ],
+    [
+     6.95444,
+     79.976443
+    ],
+    [
+     6.957071,
+     79.97634
+    ],
+    [
+     6.959787,
+     79.975959
+    ],
+    [
+     6.96604,
+     79.974035
+    ],
+    [
+     6.967633,
+     79.973463
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.967675,
+     79.973581
+    ],
+    [
+     6.962933,
+     79.975231
+    ],
+    [
+     6.958628,
+     79.976279
+    ],
+    [
+     6.956092,
+     79.976501
+    ],
+    [
+     6.953587,
+     79.976503
+    ],
+    [
+     6.951709,
+     79.976352
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.932573,
+     79.971821
+    ],
+    [
+     6.933641,
+     79.971694
+    ],
+    [
+     6.934786,
+     79.971633
+    ],
+    [
+     6.935757,
+     79.971641
+    ],
+    [
+     6.93669,
+     79.971694
+    ],
+    [
+     6.937518,
+     79.971783
+    ],
+    [
+     6.938894,
+     79.972028
+    ],
+    [
+     6.93976,
+     79.972249
+    ],
+    [
+     6.940956,
+     79.972605
+    ],
+    [
+     6.942811,
+     79.973345
+    ]
+   ]
+  },
+  {
+   "name": "Dr. Danister de Silva Mawatha (Baseline Road)",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.939563,
+     79.878337
+    ],
+    [
+     6.934217,
+     79.878226
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.946878,
+     79.921998
+    ],
+    [
+     6.945112,
+     79.9225
+    ]
+   ]
+  },
+  {
+   "name": "Kaluaggala-Labugama-Kalatuwawa Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.903759,
+     80.123473
+    ],
+    [
+     6.903527,
+     80.123587
+    ]
+   ]
+  },
+  {
+   "name": "Buthgamuwa Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.912968,
+     79.908701
+    ],
+    [
+     6.912846,
+     79.908546
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     6.939526,
+     79.972012
+    ],
+    [
+     6.940768,
+     79.972392
+    ],
+    [
+     6.941583,
+     79.972735
+    ],
+    [
+     6.942811,
+     79.973345
+    ]
+   ]
+  },
+  {
+   "name": "Welivita Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.937903,
+     79.961424
+    ],
+    [
+     6.937676,
+     79.961479
+    ]
+   ]
+  },
+  {
+   "name": "Colombo-Piliyandala-Horana Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.845837,
+     79.899748
+    ],
+    [
+     6.845961,
+     79.899677
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "primary",
+   "points": [
+    [
+     6.928783,
+     79.864085
+    ],
+    [
+     6.928515,
+     79.864294
+    ]
+   ]
+  },
+  {
+   "name": "Meepe-Ingiriya Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.80249,
+     80.144758
+    ],
+    [
+     6.802221,
+     80.144683
+    ]
+   ]
+  },
+  {
+   "name": "Main Street",
+   "road_type": "primary",
+   "points": [
+    [
+     6.936775,
+     79.847816
+    ],
+    [
+     6.936666,
+     79.847372
+    ]
+   ]
+  },
+  {
+   "name": "Main Street",
+   "road_type": "primary",
+   "points": [
+    [
+     6.936749,
+     79.84737
+    ],
+    [
+     6.936853,
+     79.847798
+    ]
+   ]
+  },
+  {
+   "name": "Port Access Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.955313,
+     79.864607
+    ],
+    [
+     6.955118,
+     79.864955
+    ]
+   ]
+  },
+  {
+   "name": "Port Access Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.955065,
+     79.864865
+    ],
+    [
+     6.955237,
+     79.864571
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.910748,
+     80.105943
+    ],
+    [
+     6.910619,
+     80.105965
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Katunayake Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.976805,
+     79.897242
+    ],
+    [
+     6.976678,
+     79.897062
+    ]
+   ]
+  },
+  {
+   "name": "Weediyagoda Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.773419,
+     79.981584
+    ],
+    [
+     6.772964,
+     79.981048
+    ]
+   ]
+  },
+  {
+   "name": "Malabe - Godagama Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.865436,
+     80.02196
+    ],
+    [
+     6.865464,
+     80.021823
+    ]
+   ]
+  },
+  {
+   "name": "Panagoda-Ambulgama Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.869269,
+     80.025222
+    ],
+    [
+     6.869317,
+     80.02527
+    ]
+   ]
+  },
+  {
+   "name": "Panagoda-Ambulgama Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.878268,
+     80.028898
+    ],
+    [
+     6.878317,
+     80.028956
+    ]
+   ]
+  },
+  {
+   "name": "High Level Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.854445,
+     80.078946
+    ],
+    [
+     6.854388,
+     80.079392
+    ]
+   ]
+  },
+  {
+   "name": "High Level Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.898837,
+     80.087793
+    ],
+    [
+     6.899092,
+     80.087769
+    ]
+   ]
+  },
+  {
+   "name": "Malabe - Godagama Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.865665,
+     80.005005
+    ],
+    [
+     6.865792,
+     80.004848
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.921736,
+     79.981012
+    ],
+    [
+     6.920903,
+     79.981715
+    ],
+    [
+     6.919869,
+     79.982453
+    ],
+    [
+     6.918811,
+     79.982989
+    ],
+    [
+     6.918057,
+     79.983223
+    ],
+    [
+     6.917267,
+     79.983375
+    ],
+    [
+     6.916298,
+     79.983408
+    ],
+    [
+     6.915571,
+     79.983348
+    ],
+    [
+     6.914788,
+     79.983182
+    ],
+    [
+     6.91391,
+     79.982902
+    ],
+    [
+     6.9119,
+     79.982082
+    ],
+    [
+     6.91031,
+     79.981473
+    ],
+    [
+     6.908809,
+     79.980985
+    ],
+    [
+     6.907209,
+     79.980541
+    ],
+    [
+     6.904263,
+     79.979934
+    ],
+    [
+     6.901183,
+     79.979562
+    ],
+    [
+     6.899265,
+     79.979348
+    ],
+    [
+     6.897299,
+     79.97905
+    ],
+    [
+     6.895225,
+     79.978648
+    ],
+    [
+     6.893429,
+     79.97822
+    ]
+   ]
+  },
+  {
+   "name": "Peliyagoda Interchange Access Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.968829,
+     79.898479
+    ],
+    [
+     6.968935,
+     79.897829
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     6.969439,
+     79.893346
+    ],
+    [
+     6.969598,
+     79.893509
+    ],
+    [
+     6.96974,
+     79.893601
+    ]
+   ]
+  },
+  {
+   "name": "Peliyagoda Interchange Access Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.969022,
+     79.897827
+    ],
+    [
+     6.968896,
+     79.898498
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     6.969705,
+     79.894204
+    ],
+    [
+     6.969437,
+     79.894299
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Katunayake Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.969373,
+     79.893636
+    ],
+    [
+     6.969706,
+     79.893729
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Katunayake Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.969702,
+     79.893844
+    ],
+    [
+     6.969351,
+     79.893759
+    ]
+   ]
+  },
+  {
+   "name": "Dutugemunu Mawatha",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.962476,
+     79.891485
+    ],
+    [
+     6.96247,
+     79.891653
+    ]
+   ]
+  },
+  {
+   "name": "Kaduwela Athurugiriya Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.93061,
+     79.992828
+    ],
+    [
+     6.930479,
+     79.993155
+    ]
+   ]
+  },
+  {
+   "name": "Malwana-Dompe Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.95011,
+     80.040939
+    ],
+    [
+     6.950114,
+     80.041232
+    ]
+   ]
+  },
+  {
+   "name": "Hanwella - Malwana Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.940205,
+     80.019307
+    ],
+    [
+     6.940169,
+     80.019218
+    ]
+   ]
+  },
+  {
+   "name": "Habarakada-Ranala Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.906195,
+     80.031103
+    ],
+    [
+     6.906057,
+     80.030799
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.957561,
+     80.075044
+    ],
+    [
+     6.957423,
+     80.074978
+    ]
+   ]
+  },
+  {
+   "name": "Buthgamuwa Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.92802,
+     79.916713
+    ],
+    [
+     6.927941,
+     79.916656
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     7.00347,
+     79.960959
+    ],
+    [
+     6.999446,
+     79.961637
+    ]
+   ]
+  },
+  {
+   "name": "Hekitta Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.982046,
+     79.885989
+    ],
+    [
+     6.982109,
+     79.885869
+    ]
+   ]
+  },
+  {
+   "name": "Kandana-Walpola-Thewaththa Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     7.049202,
+     79.902861
+    ],
+    [
+     7.049171,
+     79.902804
+    ]
+   ]
+  },
+  {
+   "name": "Welikadamulla Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     7.000498,
+     79.90462
+    ],
+    [
+     7.000682,
+     79.904965
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     7.017391,
+     79.892437
+    ],
+    [
+     7.017075,
+     79.890051
+    ],
+    [
+     7.016497,
+     79.889747
+    ],
+    [
+     7.016079,
+     79.889708
+    ]
+   ]
+  },
+  {
+   "name": "Ambatale Bridge",
+   "road_type": "primary",
+   "points": [
+    [
+     6.937496,
+     79.946463
+    ],
+    [
+     6.937495,
+     79.946797
+    ]
+   ]
+  },
+  {
+   "name": "Avissawella Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.937171,
+     79.897019
+    ],
+    [
+     6.937163,
+     79.897483
+    ]
+   ]
+  },
+  {
+   "name": "Hill Street (Dehiwela-Maharagama Road)",
+   "road_type": "primary",
+   "points": [
+    [
+     6.849663,
+     79.877196
+    ],
+    [
+     6.849669,
+     79.877106
+    ]
+   ]
+  },
+  {
+   "name": "Kottawa-Thalagala Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.81044,
+     79.98597
+    ],
+    [
+     6.810278,
+     79.986205
+    ]
+   ]
+  },
+  {
+   "name": "Kesbewa - Kindelpitiya - Bandaragama Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.758651,
+     79.948725
+    ],
+    [
+     6.758771,
+     79.948268
+    ]
+   ]
+  },
+  {
+   "name": "Marine Drive",
+   "road_type": "primary",
+   "points": [
+    [
+     6.862489,
+     79.860076
+    ],
+    [
+     6.862749,
+     79.860019
+    ]
+   ]
+  },
+  {
+   "name": "Piyarathana Mawatha",
+   "road_type": "tertiary",
+   "points": [
+    [
+     7.049351,
+     80.002623
+    ],
+    [
+     7.049206,
+     80.00274
+    ]
+   ]
+  },
+  {
+   "name": "Meepe-Ingiriya Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.853345,
+     80.106879
+    ],
+    [
+     6.853389,
+     80.106714
+    ]
+   ]
+  },
+  {
+   "name": "Meepe-Ingiriya Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.853599,
+     80.105984
+    ],
+    [
+     6.853636,
+     80.105874
+    ]
+   ]
+  },
+  {
+   "name": "Leslie Ranagala Mawatha",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.917638,
+     79.884241
+    ],
+    [
+     6.917543,
+     79.884234
+    ]
+   ]
+  },
+  {
+   "name": "Ambatale Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.95365,
+     79.890131
+    ],
+    [
+     6.95363,
+     79.889818
+    ]
+   ]
+  },
+  {
+   "name": "Biyagama Makola Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.961539,
+     79.992689
+    ],
+    [
+     6.961548,
+     79.992983
+    ]
+   ]
+  },
+  {
+   "name": "New Kandy Rd",
+   "road_type": "primary",
+   "points": [
+    [
+     6.973715,
+     80.002278
+    ],
+    [
+     6.973755,
+     80.002316
+    ]
+   ]
+  },
+  {
+   "name": "Defence Headquarters Access Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.899997,
+     79.927305
+    ],
+    [
+     6.899877,
+     79.927526
+    ]
+   ]
+  },
+  {
+   "name": "Weedagama - Gonapola road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.752823,
+     79.994389
+    ],
+    [
+     6.752998,
+     79.994971
+    ]
+   ]
+  },
+  {
+   "name": "High Level Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.85553,
+     80.061856
+    ],
+    [
+     6.855473,
+     80.061668
+    ]
+   ]
+  },
+  {
+   "name": "Hanwella - Malwana Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.947432,
+     80.015926
+    ],
+    [
+     6.947621,
+     80.015845
+    ]
+   ]
+  },
+  {
+   "name": "Hanwella - Pugoda - Kirindiwela - Urapola Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.953347,
+     80.098435
+    ],
+    [
+     6.953502,
+     80.098638
+    ]
+   ]
+  },
+  {
+   "name": "Hanwella - Pugoda - Kirindiwela - Urapola Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.965859,
+     80.111078
+    ],
+    [
+     6.965983,
+     80.111336
+    ]
+   ]
+  },
+  {
+   "name": "Malabe - Godagama Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.865816,
+     80.01714
+    ],
+    [
+     6.865807,
+     80.017057
+    ]
+   ]
+  },
+  {
+   "name": "Kadawatha-Mawaramandiya Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.991306,
+     79.957183
+    ],
+    [
+     6.991226,
+     79.957308
+    ]
+   ]
+  },
+  {
+   "name": "Kawdana Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.840344,
+     79.878903
+    ],
+    [
+     6.840392,
+     79.878675
+    ]
+   ]
+  },
+  {
+   "name": "Kawdana Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.840031,
+     79.880536
+    ],
+    [
+     6.840054,
+     79.880409
+    ]
+   ]
+  },
+  {
+   "name": "Abeysekara Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.83984,
+     79.87432
+    ],
+    [
+     6.839763,
+     79.874214
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Horana Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.783761,
+     79.982845
+    ],
+    [
+     6.783709,
+     79.983005
+    ]
+   ]
+  },
+  {
+   "name": "High Level Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.939608,
+     80.127054
+    ],
+    [
+     6.939891,
+     80.127517
+    ]
+   ]
+  },
+  {
+   "name": "High Level Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.941689,
+     80.14371
+    ],
+    [
+     6.941524,
+     80.143853
+    ]
+   ]
+  },
+  {
+   "name": "Ambatale Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.943221,
+     79.924568
+    ],
+    [
+     6.943206,
+     79.924483
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.943664,
+     79.923464
+    ],
+    [
+     6.943547,
+     79.923511
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     7.00347,
+     79.960959
+    ],
+    [
+     7.002328,
+     79.961278
+    ],
+    [
+     7.002085,
+     79.961613
+    ],
+    [
+     7.002263,
+     79.962119
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     7.002201,
+     79.962157
+    ],
+    [
+     7.001695,
+     79.961504
+    ],
+    [
+     7.000957,
+     79.961451
+    ],
+    [
+     6.999876,
+     79.961601
+    ]
+   ]
+  },
+  {
+   "name": "Ihala Biyanwila Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     7.001304,
+     79.960786
+    ],
+    [
+     7.001301,
+     79.960559
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     7.000609,
+     79.960353
+    ],
+    [
+     7.000521,
+     79.96072
+    ],
+    [
+     7.000909,
+     79.961038
+    ],
+    [
+     7.001851,
+     79.961023
+    ]
+   ]
+  },
+  {
+   "name": "Iroshan Chamatkara Mawatha",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.996474,
+     79.957565
+    ],
+    [
+     6.996466,
+     79.957685
+    ]
+   ]
+  },
+  {
+   "name": "Colombo-Kandy Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.96792,
+     79.903022
+    ],
+    [
+     6.967906,
+     79.903235
+    ]
+   ]
+  },
+  {
+   "name": "Colombo-Kandy Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.967828,
+     79.903238
+    ],
+    [
+     6.967838,
+     79.902991
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.781528,
+     79.902709
+    ],
+    [
+     6.781619,
+     79.90278
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     7.013062,
+     79.891995
+    ],
+    [
+     7.012822,
+     79.890462
+    ],
+    [
+     7.012868,
+     79.890294
+    ]
+   ]
+  },
+  {
+   "name": "Galle Face Centre Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.92967,
+     79.842636
+    ],
+    [
+     6.930236,
+     79.842451
+    ]
+   ]
+  },
+  {
+   "name": "Galle Face Centre Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.930258,
+     79.842521
+    ],
+    [
+     6.929692,
+     79.842706
+    ]
+   ]
+  },
+  {
+   "name": "Delgoda-Dompe-Giridara Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.96849,
+     80.047761
+    ],
+    [
+     6.968294,
+     80.047868
+    ]
+   ]
+  },
+  {
+   "name": "Habarakada-Ranala Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.893263,
+     80.019717
+    ],
+    [
+     6.893219,
+     80.019606
+    ]
+   ]
+  },
+  {
+   "name": "Galagedara - Padukka Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.845284,
+     80.088723
+    ],
+    [
+     6.845506,
+     80.088638
+    ]
+   ]
+  },
+  {
+   "name": "Pepiliyana Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.858671,
+     79.894006
+    ],
+    [
+     6.85882,
+     79.894093
+    ]
+   ]
+  },
+  {
+   "name": "Mulleriyawa Hospital Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.932422,
+     79.926659
+    ],
+    [
+     6.932709,
+     79.926546
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.944677,
+     79.974199
+    ],
+    [
+     6.946063,
+     79.974806
+    ],
+    [
+     6.947839,
+     79.975419
+    ],
+    [
+     6.948391,
+     79.975577
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.948372,
+     79.975654
+    ],
+    [
+     6.946528,
+     79.975067
+    ],
+    [
+     6.945094,
+     79.974481
+    ],
+    [
+     6.944645,
+     79.97427
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.956396,
+     79.979138
+    ],
+    [
+     6.956131,
+     79.979131
+    ]
+   ]
+  },
+  {
+   "name": "Karadiyana Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.814107,
+     79.90206
+    ],
+    [
+     6.8143,
+     79.902008
+    ]
+   ]
+  },
+  {
+   "name": "Sri Sangaraja Mawatha",
+   "road_type": "primary",
+   "points": [
+    [
+     6.936454,
+     79.866399
+    ],
+    [
+     6.936297,
+     79.866392
+    ]
+   ]
+  },
+  {
+   "name": "Sri Sangaraja Mawatha",
+   "road_type": "primary",
+   "points": [
+    [
+     6.936156,
+     79.86628
+    ],
+    [
+     6.936349,
+     79.866286
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Horana Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.784208,
+     79.979887
+    ],
+    [
+     6.784292,
+     79.97965
+    ]
+   ]
+  },
+  {
+   "name": "Japan Sri Lanka Friendship Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.879014,
+     79.928404
+    ],
+    [
+     6.878799,
+     79.928407
+    ]
+   ]
+  },
+  {
+   "name": "Defence Headquarters Access Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.899806,
+     79.927483
+    ],
+    [
+     6.899924,
+     79.927256
+    ]
+   ]
+  },
+  {
+   "name": "Parliament Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.892098,
+     79.921978
+    ],
+    [
+     6.892347,
+     79.921788
+    ]
+   ]
+  },
+  {
+   "name": "Pelawatte Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.894621,
+     79.924695
+    ],
+    [
+     6.894802,
+     79.924523
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     7.01784,
+     79.888766
+    ],
+    [
+     7.017601,
+     79.889995
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     7.017776,
+     79.887576
+    ],
+    [
+     7.017576,
+     79.890718
+    ],
+    [
+     7.017433,
+     79.894278
+    ],
+    [
+     7.01699,
+     79.896824
+    ],
+    [
+     7.016029,
+     79.899832
+    ],
+    [
+     7.014855,
+     79.902698
+    ],
+    [
+     7.01383,
+     79.904667
+    ],
+    [
+     7.012529,
+     79.906724
+    ],
+    [
+     7.009969,
+     79.910009
+    ],
+    [
+     7.008759,
+     79.911839
+    ],
+    [
+     7.007855,
+     79.91361
+    ],
+    [
+     7.007051,
+     79.915854
+    ],
+    [
+     7.006519,
+     79.918379
+    ],
+    [
+     7.006347,
+     79.921072
+    ],
+    [
+     7.006528,
+     79.923448
+    ],
+    [
+     7.007168,
+     79.926289
+    ],
+    [
+     7.007702,
+     79.928198
+    ]
+   ]
+  },
+  {
+   "name": "Avissawella Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.906934,
+     80.054467
+    ],
+    [
+     6.906715,
+     80.054749
+    ]
+   ]
+  },
+  {
+   "name": "Kaluaggala-Akarawita Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.929993,
+     80.096093
+    ],
+    [
+     6.929782,
+     80.096087
+    ]
+   ]
+  },
+  {
+   "name": "M.D.H Jayawardana Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.906336,
+     79.992345
+    ],
+    [
+     6.906589,
+     79.992347
+    ]
+   ]
+  },
+  {
+   "name": "Thunadahena Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.907828,
+     79.9802
+    ],
+    [
+     6.907745,
+     79.980441
+    ]
+   ]
+  },
+  {
+   "name": "Colombo-Kandy Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.968701,
+     79.911103
+    ],
+    [
+     6.968783,
+     79.911291
+    ]
+   ]
+  },
+  {
+   "name": "Colombo-Kandy Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.968717,
+     79.911317
+    ],
+    [
+     6.968633,
+     79.911128
+    ]
+   ]
+  },
+  {
+   "name": "Tyre Corporation Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.968538,
+     79.913896
+    ],
+    [
+     6.968798,
+     79.913824
+    ]
+   ]
+  },
+  {
+   "name": "Old Kandy Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.967087,
+     79.916468
+    ],
+    [
+     6.967151,
+     79.916636
+    ]
+   ]
+  },
+  {
+   "name": "Temple Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.967317,
+     79.921637
+    ],
+    [
+     6.967288,
+     79.921758
+    ]
+   ]
+  },
+  {
+   "name": "Sapugaskanda-Gonawala Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.961768,
+     79.942444
+    ],
+    [
+     6.961684,
+     79.94229
+    ]
+   ]
+  },
+  {
+   "name": "Sudharshana Nanayakkara Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.971543,
+     79.933835
+    ],
+    [
+     6.971457,
+     79.933715
+    ]
+   ]
+  },
+  {
+   "name": "Kohalwila Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.970539,
+     79.924463
+    ],
+    [
+     6.97037,
+     79.92452
+    ]
+   ]
+  },
+  {
+   "name": "Pannipitiya Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.864317,
+     79.942259
+    ],
+    [
+     6.864169,
+     79.942288
+    ]
+   ]
+  },
+  {
+   "name": "High Level Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.847214,
+     80.017329
+    ],
+    [
+     6.846981,
+     80.017487
+    ]
+   ]
+  },
+  {
+   "name": "H. Sri Nassanka Mawatha (Maya Avenue)",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.878551,
+     79.873064
+    ],
+    [
+     6.878522,
+     79.872921
+    ]
+   ]
+  },
+  {
+   "name": "Pannipitiya Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.864158,
+     79.94223
+    ],
+    [
+     6.864307,
+     79.942211
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Horana Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.787263,
+     79.962502
+    ],
+    [
+     6.787251,
+     79.962622
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Horana Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.787186,
+     79.962607
+    ],
+    [
+     6.787194,
+     79.962516
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Horana Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.78363,
+     79.983011
+    ],
+    [
+     6.783696,
+     79.982846
+    ]
+   ]
+  },
+  {
+   "name": "Attidiya Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.822401,
+     79.878747
+    ],
+    [
+     6.822431,
+     79.878798
+    ]
+   ]
+  },
+  {
+   "name": "Port Access Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.956577,
+     79.860599
+    ],
+    [
+     6.956522,
+     79.860663
+    ]
+   ]
+  },
+  {
+   "name": "Port Access Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.956484,
+     79.860564
+    ],
+    [
+     6.956552,
+     79.860524
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     7.015975,
+     79.889486
+    ],
+    [
+     7.016682,
+     79.889339
+    ],
+    [
+     7.016988,
+     79.889133
+    ],
+    [
+     7.017297,
+     79.888768
+    ],
+    [
+     7.017604,
+     79.887573
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     7.01786,
+     79.887587
+    ],
+    [
+     7.017985,
+     79.888216
+    ],
+    [
+     7.018359,
+     79.88859
+    ],
+    [
+     7.018472,
+     79.888699
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     6.949816,
+     79.879451
+    ],
+    [
+     6.949815,
+     79.879662
+    ],
+    [
+     6.949895,
+     79.879842
+    ],
+    [
+     6.950033,
+     79.879959
+    ],
+    [
+     6.950188,
+     79.880013
+    ],
+    [
+     6.950367,
+     79.879996
+    ],
+    [
+     6.950543,
+     79.879929
+    ],
+    [
+     6.95062,
+     79.879778
+    ],
+    [
+     6.950636,
+     79.87958
+    ],
+    [
+     6.950565,
+     79.879361
+    ],
+    [
+     6.950327,
+     79.879071
+    ],
+    [
+     6.949829,
+     79.878797
+    ],
+    [
+     6.949468,
+     79.878641
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     6.950347,
+     79.878293
+    ],
+    [
+     6.950005,
+     79.878969
+    ],
+    [
+     6.949816,
+     79.879451
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     6.949877,
+     79.879125
+    ],
+    [
+     6.950289,
+     79.878197
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     6.952972,
+     79.881189
+    ],
+    [
+     6.951513,
+     79.880107
+    ],
+    [
+     6.951275,
+     79.880026
+    ],
+    [
+     6.951001,
+     79.880005
+    ],
+    [
+     6.950783,
+     79.880043
+    ],
+    [
+     6.950389,
+     79.880159
+    ],
+    [
+     6.950187,
+     79.880176
+    ],
+    [
+     6.949987,
+     79.880118
+    ],
+    [
+     6.949836,
+     79.880013
+    ],
+    [
+     6.949731,
+     79.879826
+    ],
+    [
+     6.949702,
+     79.879631
+    ],
+    [
+     6.949747,
+     79.87941
+    ],
+    [
+     6.949877,
+     79.879125
+    ]
+   ]
+  },
+  {
+   "name": "New Elevated Kelani Bridge Road",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.95324,
+     79.871764
+    ],
+    [
+     6.952845,
+     79.872101
+    ],
+    [
+     6.951593,
+     79.873882
+    ],
+    [
+     6.951038,
+     79.874732
+    ],
+    [
+     6.950698,
+     79.876744
+    ]
+   ]
+  },
+  {
+   "name": "New Elevated Kelani Bridge Road",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.950544,
+     79.876767
+    ],
+    [
+     6.950787,
+     79.874941
+    ],
+    [
+     6.950824,
+     79.874773
+    ],
+    [
+     6.950948,
+     79.874389
+    ],
+    [
+     6.951098,
+     79.874125
+    ],
+    [
+     6.951501,
+     79.873478
+    ],
+    [
+     6.95227,
+     79.872351
+    ]
+   ]
+  },
+  {
+   "name": "Golden Gate Kalyani",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.946019,
+     79.878219
+    ],
+    [
+     6.947003,
+     79.878212
+    ],
+    [
+     6.947491,
+     79.878286
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     6.948602,
+     79.878378
+    ],
+    [
+     6.949784,
+     79.87845
+    ],
+    [
+     6.949901,
+     79.878439
+    ],
+    [
+     6.949998,
+     79.878398
+    ],
+    [
+     6.95012,
+     79.87829
+    ],
+    [
+     6.95019,
+     79.878199
+    ],
+    [
+     6.950258,
+     79.878063
+    ],
+    [
+     6.950327,
+     79.877815
+    ],
+    [
+     6.950544,
+     79.876767
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     6.950698,
+     79.876744
+    ],
+    [
+     6.950494,
+     79.878478
+    ],
+    [
+     6.950834,
+     79.879102
+    ],
+    [
+     6.951882,
+     79.880092
+    ]
+   ]
+  },
+  {
+   "name": "Golden Gate Kalyani",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.956788,
+     79.884381
+    ],
+    [
+     6.953222,
+     79.881411
+    ],
+    [
+     6.951113,
+     79.879508
+    ],
+    [
+     6.950657,
+     79.879163
+    ],
+    [
+     6.949941,
+     79.878772
+    ],
+    [
+     6.949468,
+     79.878641
+    ]
+   ]
+  },
+  {
+   "name": "Golden Gate Kalyani",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.948602,
+     79.878378
+    ],
+    [
+     6.94952,
+     79.878523
+    ],
+    [
+     6.950225,
+     79.878796
+    ],
+    [
+     6.950687,
+     79.879068
+    ],
+    [
+     6.951644,
+     79.879888
+    ],
+    [
+     6.9533,
+     79.881311
+    ],
+    [
+     6.956878,
+     79.884279
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     7.012923,
+     79.890324
+    ],
+    [
+     7.012933,
+     79.891058
+    ],
+    [
+     7.013146,
+     79.891941
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     7.008949,
+     79.933339
+    ],
+    [
+     7.008482,
+     79.933335
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     7.009598,
+     79.94331
+    ],
+    [
+     7.009385,
+     79.939596
+    ],
+    [
+     7.008999,
+     79.935503
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     7.009106,
+     79.935486
+    ],
+    [
+     7.009703,
+     79.943296
+    ]
+   ]
+  },
+  {
+   "name": "Outer Circular Highway",
+   "road_type": "motorway",
+   "points": [
+    [
+     7.008181,
+     79.959298
+    ],
+    [
+     7.006455,
+     79.96024
+    ],
+    [
+     7.00347,
+     79.960959
+    ]
+   ]
+  },
+  {
+   "name": "Kaduwela Bridge (New Kandy Road)",
+   "road_type": "primary",
+   "points": [
+    [
+     6.936494,
+     79.985753
+    ],
+    [
+     6.936089,
+     79.984901
+    ]
+   ]
+  },
+  {
+   "name": "Biyagama Makola Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.970693,
+     79.972465
+    ],
+    [
+     6.970616,
+     79.971817
+    ]
+   ]
+  },
+  {
+   "name": "Orugodawatta Flyover",
+   "road_type": "primary",
+   "points": [
+    [
+     6.942458,
+     79.886801
+    ],
+    [
+     6.944058,
+     79.884288
+    ],
+    [
+     6.944647,
+     79.882819
+    ],
+    [
+     6.944703,
+     79.881859
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.797848,
+     79.991368
+    ],
+    [
+     6.797751,
+     79.991325
+    ]
+   ]
+  },
+  {
+   "name": "Golden Gate Kalyani",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.94863,
+     79.878593
+    ],
+    [
+     6.946993,
+     79.878641
+    ],
+    [
+     6.946335,
+     79.878645
+    ]
+   ]
+  },
+  {
+   "name": "Prathibimbarama Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.861657,
+     79.873773
+    ],
+    [
+     6.861758,
+     79.873764
+    ]
+   ]
+  },
+  {
+   "name": "Colombo-Piliyandala-Horana Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.845993,
+     79.899737
+    ],
+    [
+     6.845871,
+     79.899805
+    ]
+   ]
+  },
+  {
+   "name": "Port Access Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.956215,
+     79.859596
+    ],
+    [
+     6.956206,
+     79.859472
+    ]
+   ]
+  },
+  {
+   "name": "De Saram Lane",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.956587,
+     79.860703
+    ],
+    [
+     6.95655,
+     79.860685
+    ]
+   ]
+  },
+  {
+   "name": "K. Cyril C. Perera Mawatha (Bloemendahl Road)",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.953886,
+     79.866373
+    ],
+    [
+     6.953673,
+     79.866543
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Horana Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.765619,
+     80.010243
+    ],
+    [
+     6.765914,
+     80.009775
+    ]
+   ]
+  },
+  {
+   "name": "Galle Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.879505,
+     79.859788
+    ],
+    [
+     6.879872,
+     79.859681
+    ]
+   ]
+  },
+  {
+   "name": "High Level Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.838498,
+     79.980318
+    ],
+    [
+     6.837648,
+     79.982773
+    ]
+   ]
+  },
+  {
+   "name": "High Level Road",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.837573,
+     79.982727
+    ],
+    [
+     6.838425,
+     79.980282
+    ]
+   ]
+  },
+  {
+   "name": "Malagala Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.773289,
+     80.108172
+    ],
+    [
+     6.773102,
+     80.108132
+    ]
+   ]
+  },
+  {
+   "name": "Justice Akbar Mawatha",
+   "road_type": "primary",
+   "points": [
+    [
+     6.923583,
+     79.848634
+    ],
+    [
+     6.923507,
+     79.848285
+    ]
+   ]
+  },
+  {
+   "name": "Leslie Ranagala Mawatha",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.918525,
+     79.882893
+    ],
+    [
+     6.918523,
+     79.882953
+    ]
+   ]
+  },
+  {
+   "name": "Dr. Danister de Silva Mawatha (Baseline Road)",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.927852,
+     79.878029
+    ],
+    [
+     6.927793,
+     79.878027
+    ]
+   ]
+  },
+  {
+   "name": "Dr. Danister de Silva Mawatha (Baseline Road)",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.927827,
+     79.877917
+    ],
+    [
+     6.927886,
+     79.87792
+    ]
+   ]
+  },
+  {
+   "name": "Dr. Danister de Silva Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.947877,
+     79.878421
+    ],
+    [
+     6.948138,
+     79.878428
+    ]
+   ]
+  },
+  {
+   "name": "Dr. Danister de Silva Mawatha",
+   "road_type": "trunk",
+   "points": [
+    [
+     6.948145,
+     79.878524
+    ],
+    [
+     6.947969,
+     79.87852
+    ]
+   ]
+  },
+  {
+   "name": "Talawatugoda Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.87692,
+     79.927233
+    ],
+    [
+     6.87689,
+     79.927554
+    ]
+   ]
+  },
+  {
+   "name": "D M Colombage Mawatha",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.88253,
+     79.88434
+    ],
+    [
+     6.88253,
+     79.884629
+    ]
+   ]
+  },
+  {
+   "name": "Talawatugoda Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.876818,
+     79.927545
+    ],
+    [
+     6.87685,
+     79.927222
+    ]
+   ]
+  },
+  {
+   "name": "Japan Sri Lanka Friendship Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.878806,
+     79.928333
+    ],
+    [
+     6.879022,
+     79.92833
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Horana Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.765936,
+     80.009873
+    ],
+    [
+     6.765663,
+     80.010315
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     6.950289,
+     79.878197
+    ],
+    [
+     6.950359,
+     79.877962
+    ],
+    [
+     6.950446,
+     79.877524
+    ],
+    [
+     6.950544,
+     79.876767
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     6.950698,
+     79.876744
+    ],
+    [
+     6.950347,
+     79.878293
+    ]
+   ]
+  },
+  {
+   "name": "Golden Gate Kalyani",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.949468,
+     79.878641
+    ],
+    [
+     6.94863,
+     79.878593
+    ]
+   ]
+  },
+  {
+   "name": "Golden Gate Kalyani",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.947491,
+     79.878286
+    ],
+    [
+     6.948128,
+     79.878347
+    ],
+    [
+     6.948602,
+     79.878378
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "secondary_link",
+   "points": [
+    [
+     6.87368,
+     79.872736
+    ],
+    [
+     6.873581,
+     79.872693
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary_link",
+   "points": [
+    [
+     6.873551,
+     79.872589
+    ],
+    [
+     6.873708,
+     79.872554
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "primary",
+   "points": [
+    [
+     6.87368,
+     79.872736
+    ],
+    [
+     6.873535,
+     79.872903
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "primary",
+   "points": [
+    [
+     6.873581,
+     79.872693
+    ],
+    [
+     6.873708,
+     79.872554
+    ]
+   ]
+  },
+  {
+   "name": "Stratford Avenue",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.873748,
+     79.872755
+    ],
+    [
+     6.87368,
+     79.872736
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "primary",
+   "points": [
+    [
+     6.873746,
+     79.872658
+    ],
+    [
+     6.87368,
+     79.872736
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "secondary_link",
+   "points": [
+    [
+     6.873743,
+     79.872864
+    ],
+    [
+     6.873535,
+     79.872903
+    ]
+   ]
+  },
+  {
+   "name": "Havelock Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.873708,
+     79.872554
+    ],
+    [
+     6.873739,
+     79.872523
+    ]
+   ]
+  },
+  {
+   "name": "Sri Dhamma Mawatha (Campbell Avenue)",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.928486,
+     79.87509
+    ],
+    [
+     6.92854,
+     79.87509
+    ]
+   ]
+  },
+  {
+   "name": "Horana - Padukka Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.833828,
+     80.092051
+    ],
+    [
+     6.833865,
+     80.092137
+    ]
+   ]
+  },
+  {
+   "name": "Poruwadanda-Handapangoda Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.791398,
+     80.138541
+    ],
+    [
+     6.791352,
+     80.138475
+    ]
+   ]
+  },
+  {
+   "name": "Meepe-Ingiriya Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.789771,
+     80.143271
+    ],
+    [
+     6.789667,
+     80.143291
+    ]
+   ]
+  },
+  {
+   "name": "Palagama Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.759408,
+     79.972212
+    ],
+    [
+     6.759078,
+     79.972059
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.757054,
+     79.959824
+    ],
+    [
+     6.756959,
+     79.959864
+    ]
+   ]
+  },
+  {
+   "name": "Weediyagoda-Weedhagama Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.753346,
+     79.989789
+    ],
+    [
+     6.753301,
+     79.989808
+    ]
+   ]
+  },
+  {
+   "name": "Kaduwela Road (New Kandy Road)",
+   "road_type": "primary",
+   "points": [
+    [
+     6.924463,
+     79.978408
+    ],
+    [
+     6.924054,
+     79.978166
+    ]
+   ]
+  },
+  {
+   "name": "Kaduwela Road (New Kandy Road)",
+   "road_type": "primary",
+   "points": [
+    [
+     6.924096,
+     79.978111
+    ],
+    [
+     6.924499,
+     79.97835
+    ]
+   ]
+  },
+  {
+   "name": "Piliyandala-Maharagama Road",
+   "road_type": "secondary",
+   "points": [
+    [
+     6.835194,
+     79.933524
+    ],
+    [
+     6.835185,
+     79.933541
+    ]
+   ]
+  },
+  {
+   "name": "Piliyandala-Maharagama Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.833695,
+     79.934828
+    ],
+    [
+     6.833662,
+     79.934837
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Katunayake Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.991124,
+     79.902604
+    ],
+    [
+     6.990793,
+     79.902408
+    ]
+   ]
+  },
+  {
+   "name": "Colombo - Katunayake Expressway",
+   "road_type": "motorway",
+   "points": [
+    [
+     6.990862,
+     79.902313
+    ],
+    [
+     6.991176,
+     79.902514
+    ]
+   ]
+  },
+  {
+   "name": "Kosgama-Pugoda Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.944041,
+     80.138632
+    ],
+    [
+     6.944122,
+     80.13863
+    ]
+   ]
+  },
+  {
+   "name": "Justice Akbar Mawatha",
+   "road_type": "primary",
+   "points": [
+    [
+     6.923575,
+     79.848299
+    ],
+    [
+     6.923624,
+     79.848564
+    ]
+   ]
+  },
+  {
+   "name": "Justice Akbar Mawatha",
+   "road_type": "primary",
+   "points": [
+    [
+     6.923716,
+     79.849378
+    ],
+    [
+     6.923583,
+     79.848634
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "primary_link",
+   "points": [
+    [
+     6.923716,
+     79.849378
+    ],
+    [
+     6.923481,
+     79.848708
+    ],
+    [
+     6.923262,
+     79.848499
+    ],
+    [
+     6.922673,
+     79.848586
+    ]
+   ]
+  },
+  {
+   "name": "Sri Uttarananda Mawatha",
+   "road_type": "primary",
+   "points": [
+    [
+     6.919281,
+     79.84924
+    ],
+    [
+     6.920744,
+     79.84906
+    ],
+    [
+     6.922105,
+     79.848707
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "primary",
+   "points": [
+    [
+     6.926807,
+     79.846874
+    ],
+    [
+     6.926614,
+     79.847967
+    ],
+    [
+     6.92667,
+     79.848339
+    ],
+    [
+     6.926963,
+     79.849344
+    ]
+   ]
+  },
+  {
+   "name": "Bangalawatte Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     7.004097,
+     79.89434
+    ],
+    [
+     7.004124,
+     79.89444
+    ]
+   ]
+  },
+  {
+   "name": "Mattakkuliya Bridge",
+   "road_type": "primary",
+   "points": [
+    [
+     6.980916,
+     79.875206
+    ],
+    [
+     6.98162,
+     79.874973
+    ]
+   ]
+  },
+  {
+   "name": "Pamunugama Road (New Negombo Road)",
+   "road_type": "primary",
+   "points": [
+    [
+     7.027495,
+     79.865662
+    ],
+    [
+     7.027462,
+     79.865431
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "primary_link",
+   "points": [
+    [
+     6.923487,
+     79.848473
+    ],
+    [
+     6.923381,
+     79.848355
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.923511,
+     79.848609
+    ],
+    [
+     6.923463,
+     79.848341
+    ]
+   ]
+  },
+  {
+   "name": "Kossinna - Ganemulla Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     7.043139,
+     79.974176
+    ],
+    [
+     7.043111,
+     79.973952
+    ]
+   ]
+  },
+  {
+   "name": "Kadawatha - Mawaramandiya Road",
+   "road_type": "primary",
+   "points": [
+    [
+     6.991538,
+     79.956701
+    ],
+    [
+     6.991466,
+     79.95682
+    ]
+   ]
+  },
+  {
+   "name": "Sri Nigrodharama Road",
+   "road_type": "tertiary",
+   "points": [
+    [
+     6.925673,
+     79.879915
+    ],
+    [
+     6.925661,
+     79.880027
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     7.013516,
+     79.890613
+    ],
+    [
+     7.013809,
+     79.890849
+    ]
+   ]
+  },
+  {
+   "name": null,
+   "road_type": "motorway_link",
+   "points": [
+    [
+     7.01229,
+     79.89102
+    ],
+    [
+     7.012409,
+     79.890879
+    ]
+   ]
+  }
+ ]
+}
