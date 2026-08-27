@@ -150,6 +150,97 @@ def test_early_readings_are_flagged_provisional(ctx):
     assert "provisional" in h["components"][0]["confidence_note"]
 
 
+def test_health_does_not_regress_into_a_query_per_component(ctx, tmp_path):
+    """A real health check was traced to 17 sequential database round trips -
+    three near-identical per-component service lookups, four separate
+    health-floor reads, four separate commits, and the trip table queried
+    twice. None of that changed what a driver saw, so it was pure overhead,
+    and on a real device it was the difference between a fast screen and a
+    5-10 second wait.
+
+    This does not assert the exact number 17 became some other exact number -
+    that would break on the next unrelated schema change. It asserts a
+    generous ceiling, so if the batching in app/baseline.py and
+    _attach_faults ever regresses back toward one-query-per-component, this
+    fails LOUD instead of silently costing another 5 seconds on a real
+    device with nothing in a code review to catch it.
+    """
+    from sqlalchemy import create_engine, event
+    from sqlalchemy.orm import sessionmaker
+
+    client, model = ctx
+    V = "QCOUNT"
+
+    # A vehicle with real baseline + service history, not the no-baseline
+    # shortcut every other test in this file takes - that shortcut skips
+    # resolve_component_states and latest_resetting_records entirely, so it
+    # would not exercise the thing being guarded here at all.
+    client.put(f"/vehicle/{V}/baseline", json={"condition": "used", "odometer_km": 40_000})
+    _trip(client, V)
+    client.post(f"/vehicle/{V}/service", json={
+        "component": "brake", "service_type": "replacement",
+        "service_date": "2026-01-01", "km_on_component": 0})
+
+    # One call to warm the ComponentHealthFloor rows - the interesting case is
+    # steady state, where those rows already exist and are being read and
+    # possibly updated, not the one-time "no floor row yet" insert path.
+    client.get(f"/vehicle/{V}/health")
+
+    # A second, separate engine+session pair pointed at the SAME database
+    # file, so the counting connection is not the one the app's own
+    # dependency-injected session uses - counting on a shared connection would
+    # also pick up whatever SQLAlchemy does internally to manage that session.
+    db_path = None
+    for existing in tmp_path.glob("*.db"):
+        db_path = existing
+    assert db_path is not None, "expected the ctx fixture's sqlite file to exist by now"
+
+    counting_engine = create_engine(f"sqlite:///{db_path}")
+    statements: list[str] = []
+
+    def _count(conn, cursor, statement, *_args):
+        statements.append(statement)
+
+    event.listen(counting_engine, "before_cursor_execute", _count)
+    # The app's own session is a different connection to the same file, so
+    # this cannot observe it directly - instead, temporarily point the app at
+    # THIS engine for the one request being measured.
+    from app.database import get_db as real_get_db
+
+    def _instrumented_get_db():
+        session = sessionmaker(bind=counting_engine)()
+        try:
+            yield session
+        finally:
+            session.close()
+
+    from app.main import app as fastapi_app
+    original_override = fastapi_app.dependency_overrides[real_get_db]
+    fastapi_app.dependency_overrides[real_get_db] = _instrumented_get_db
+    try:
+        r = client.get(f"/vehicle/{V}/health")
+        assert r.status_code == 200, r.text
+    finally:
+        # Restore the fixture's own session, not just any session - the ctx
+        # fixture's own teardown still needs to run against ITS engine.
+        fastapi_app.dependency_overrides[real_get_db] = original_override
+        event.remove(counting_engine, "before_cursor_execute", _count)
+        counting_engine.dispose()
+
+    # Measured at exactly 7 with every batching fix in place: trips, baseline,
+    # resetting-records (one query for all wear components, not three), engine
+    # oil, health floors (one query for all four components, not four), one
+    # commit for all of them (not four), and one fault-history query. Ceiling
+    # set to 10 rather than asserting 7 exactly, so an unrelated schema change
+    # does not break this - but the regression this guards against adds AT
+    # LEAST one query per component (4 more), which 10 still catches outright.
+    print(f"[query-count] {len(statements)} statements for one /health call")
+    assert len(statements) <= 10, (
+        f"{len(statements)} statements for one health check - expected 7. "
+        f"Statements:\n" + "\n".join(statements)
+    )
+
+
 def test_short_trips_are_never_discarded(ctx):
     """Someone driving 800 m twice a day still accumulates real wear, and
     short-hop driving is harder on an engine than long runs. Their data must
