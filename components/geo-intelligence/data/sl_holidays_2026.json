@@ -1,0 +1,30 @@
+{
+  "note": "Sri Lanka public holidays 2026 for the sensitivity overlay (src/sensitivity.py). Verified 2026-08-27 against the official government holiday calendar (govt.sl/en-us/public-holidays.php), cross-checked with utils.lk/holidays. 2026 is an intercalary (adhi) year: 13 Poya days, with Adhi Poson on May 30. Islamic festival days (verified=false) may be adjusted by the Colombo Grand Mosque after moon sighting - re-check near each date. The overlay logic is data-driven: correcting a date here changes behaviour without any code change.",
+  "holidays": [
+    {"date": "2026-01-03", "name": "Duruthu Full Moon Poya Day", "verified": true},
+    {"date": "2026-01-15", "name": "Tamil Thai Pongal Day", "verified": true},
+    {"date": "2026-02-01", "name": "Navam Full Moon Poya Day", "verified": true},
+    {"date": "2026-02-04", "name": "Independence Day", "verified": true},
+    {"date": "2026-02-15", "name": "Maha Shivaratri Day", "verified": true},
+    {"date": "2026-03-02", "name": "Medin Full Moon Poya Day", "verified": true},
+    {"date": "2026-03-21", "name": "Eid al-Fitr (Ramazan Festival Day)", "verified": false},
+    {"date": "2026-04-01", "name": "Bak Full Moon Poya Day", "verified": true},
+    {"date": "2026-04-03", "name": "Good Friday", "verified": true},
+    {"date": "2026-04-13", "name": "Day prior to Sinhala & Tamil New Year", "verified": true},
+    {"date": "2026-04-14", "name": "Sinhala & Tamil New Year Day", "verified": true},
+    {"date": "2026-05-01", "name": "May Day / Vesak Full Moon Poya Day", "verified": true},
+    {"date": "2026-05-02", "name": "Day following Vesak Poya", "verified": true},
+    {"date": "2026-05-28", "name": "Eid al-Adha (Hadji Festival Day)", "verified": false},
+    {"date": "2026-05-30", "name": "Adhi Poson Full Moon Poya Day", "verified": true},
+    {"date": "2026-06-29", "name": "Poson Full Moon Poya Day", "verified": true},
+    {"date": "2026-07-29", "name": "Esala Full Moon Poya Day", "verified": true},
+    {"date": "2026-08-26", "name": "Milad-un-Nabi (Holy Prophet's Birthday)", "verified": false},
+    {"date": "2026-08-27", "name": "Nikini Full Moon Poya Day", "verified": true},
+    {"date": "2026-09-26", "name": "Binara Full Moon Poya Day", "verified": true},
+    {"date": "2026-10-25", "name": "Vap Full Moon Poya Day", "verified": true},
+    {"date": "2026-11-08", "name": "Deepavali Festival Day", "verified": true},
+    {"date": "2026-11-24", "name": "Il Full Moon Poya Day", "verified": true},
+    {"date": "2026-12-23", "name": "Unduvap Full Moon Poya Day", "verified": true},
+    {"date": "2026-12-25", "name": "Christmas Day", "verified": true}
+  ]
+}
