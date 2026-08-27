@@ -7,10 +7,9 @@ import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from app.controllers.fault_controller import active_faults
+from app.controllers.fault_controller import history
 from app.controllers.fault_presenter import sort_faults, to_out
 from app.database import get_db
-from app.models.fault import DTCEvent
 from app.models import TripMetrics
 from app.baseline import (
     MIN_DISTANCE_FOR_CONFIDENCE_KM,
@@ -18,6 +17,7 @@ from app.baseline import (
     apply_health_floor,
     current_odometer_km,
     engine_oil_state,
+    load_health_floors,
     resolve_component_states,
 )
 from app.schemas import (
@@ -162,15 +162,20 @@ def vehicle_health(
 def _attach_faults(
     db: Session, vehicle_id: str, response: VehicleHealthResponse
 ) -> VehicleHealthResponse:
-    rows = active_faults(db, vehicle_id)
-    all_faults = sort_faults([to_out(r) for r in rows])
+    # ONE query instead of two. history() already returns every row for this
+    # vehicle - resolved and active - so "has this vehicle ever been scanned"
+    # is just "is that list non-empty", and filtering it in Python for the
+    # unresolved ones is the same answer active_faults() would have given with
+    # its own separate query. The 200-row cap does not change either result:
+    # a real vehicle's live fault count is always far below it, and the
+    # checked flag only needs to know whether at least one row exists at all.
+    rows = history(db, vehicle_id, limit=200)
+    all_faults = sort_faults([to_out(r) for r in rows if r.resolved_at is None])
 
     response.faults = all_faults
     # "Checked" means some trip actually completed a code read. Without this a
     # car whose adapter cannot read codes looks identical to one with none.
-    response.faults_checked = (
-        db.query(DTCEvent).filter(DTCEvent.vehicle_id == vehicle_id).count() > 0
-    )
+    response.faults_checked = bool(rows)
 
     by_component: dict = {}
     for fault in all_faults:
@@ -323,10 +328,16 @@ def _vehicle_health_wear(
     # fed positionally to the tyre model, and in training that column is the
     # odometer of a vehicle that started at 0 - so summing app-recorded trips
     # told the model "20 km" about a car with 41,000 km on its tyres.
-    odometer_km, recorded_trip_km, baseline = current_odometer_km(db, vehicle_id)
+    # trips=trips: this vehicle's full row set was already fetched above, so
+    # the odometer's own trip-distance SUM is taken from those rows instead of
+    # asking Postgres the same question in a second round trip.
+    odometer_km, recorded_trip_km, baseline = current_odometer_km(db, vehicle_id, trips=trips)
     total_mileage = odometer_km
     states = resolve_component_states(db, vehicle_id, odometer_km, baseline)
     oil = engine_oil_state(db, vehicle_id, odometer_km)
+    # One query for all four components' floor rows, not one per component -
+    # see load_health_floors and apply_health_floor in app/baseline.py.
+    floors = load_health_floors(db, vehicle_id)
 
     def wavg(vals: List[float]) -> float:
         return float(np.average(vals, weights=weights))
@@ -453,8 +464,11 @@ def _vehicle_health_wear(
         # style, so a few gentle trips pushed it UP - 56 then 64 then 67 - which
         # told the driver their worn parts had recovered. Clamp to the worst
         # reading ever seen; only fitting a new part clears it.
+        # No commit here - see apply_health_floor's docstring. Every component
+        # in this loop stages its write into the same `floors` dict and the
+        # same session; one commit after the loop covers all of them.
         health_pct, rul_km, clamped = apply_health_floor(
-            db, vehicle_id, component, health_pct, rul_km
+            floors, db, vehicle_id, component, health_pct, rul_km
         )
         if clamped:
             note = note + " - held at the worst reading so far"
@@ -480,6 +494,10 @@ def _vehicle_health_wear(
                 **extra,
             )
         )
+
+    # The one commit for every floor row apply_health_floor staged in the loop
+    # above - up to four inserts/updates, one round trip instead of four.
+    db.commit()
 
     overall_pct = round(float(np.mean(health_scores)), 1)
 
