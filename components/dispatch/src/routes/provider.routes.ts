@@ -24,7 +24,7 @@ import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { assertOwnsProvider } from '../middleware/auth';
 import { createProviderSchema, locationSchema, updateProviderProfileSchema } from '../utils/validators';
-import { getProviderCapabilities } from '../constants/capability-matrix';
+import { getAllServiceTypes, getProviderCapabilities } from '../constants/capability-matrix';
 import { ProviderType, ServiceType } from '../types';
 
 export const providerRouter = Router();
@@ -278,14 +278,20 @@ providerRouter.patch('/:id/profile', async (req, res) => {
     // (new if provided, else the existing one) is what serviceTimes keys are
     // checked against below — so submitting both in one request narrows
     // capabilities and sets times for the narrowed set in a single step.
+    //
+    // `type` sets a provider's default/specialization set at registration
+    // (still true — see POST / above) but is NOT a ceiling on what they can
+    // ADD: a Locksmith may also carry jump-start cables and fuel cans. The
+    // real ceiling is every service type any provider type can do, i.e. not
+    // a free-form string — see getAllServiceTypes().
     let effectiveCapabilities = existing.capabilities as ServiceType[];
     if (parsed.data.capabilities !== undefined) {
-      const allowed = new Set(getProviderCapabilities(existing.type as ProviderType));
+      const allowed = new Set(getAllServiceTypes());
       const notAllowed = parsed.data.capabilities.filter((c) => !allowed.has(c as ServiceType));
       if (notAllowed.length > 0) {
         res.status(400).json({
           success: false,
-          error: `A ${existing.type} can't offer: ${notAllowed.join(', ')}`,
+          error: `Not a real service type: ${notAllowed.join(', ')}`,
           timestamp: new Date().toISOString(),
         });
         return;

@@ -99,6 +99,7 @@ dispatchRouter.post('/optimize', async (req, res) => {
       longitude: p.longitude,
       capabilities: p.capabilities as ServiceType[],
       trustScore: p.trustScore,
+      serviceTimes: p.serviceTimes as Record<string, number>,
     }));
 
     // Extract probability distribution from triage

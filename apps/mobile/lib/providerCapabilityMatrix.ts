@@ -1,11 +1,14 @@
 /**
- * Provider Type → Service Type capability ceiling.
+ * Provider Type → Service Type default/specialization set.
  *
  * Mirrors components/dispatch/src/constants/capability-matrix.ts exactly —
- * the backend is the source of truth and enforces this same rule on
- * PATCH /providers/:id/profile, this copy only drives which toggles the
- * Services screen shows. A provider's own `capabilities` (editable) is a
- * SUBSET of this; this is the fixed ceiling their `type` allows.
+ * the backend is the source of truth and re-validates this same shape on
+ * PATCH /providers/:id/profile. `type` sets a provider's default
+ * capabilities at registration and drives the Services screen's "your
+ * specialization" grouping — it is NOT a ceiling on what a provider can
+ * ADD (a Locksmith may also carry jump-start cables and fuel cans). The
+ * real ceiling is ALL_SERVICE_TYPES below: any service type any provider
+ * type can do, not a free-form string.
  *
  * @author Janukshan Sivakumar - IT22635266
  */
@@ -63,3 +66,9 @@ export const PROVIDER_CAPABILITY_MATRIX: Record<ProviderType, ServiceType[]> = {
     "FLOOD_RECOVERY",
   ],
 };
+
+/** Every service type any provider type can do — the real ceiling for a
+ *  provider's own editable `capabilities`, not just their `type`'s set. */
+export const ALL_SERVICE_TYPES: ServiceType[] = Array.from(
+  new Set(Object.values(PROVIDER_CAPABILITY_MATRIX).flat())
+);

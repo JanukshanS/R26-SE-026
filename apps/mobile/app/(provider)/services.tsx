@@ -17,14 +17,15 @@ import {
   type ProviderRecord,
   type ServiceType,
 } from "@lib/dispatchApi";
-import { PROVIDER_CAPABILITY_MATRIX } from "@lib/providerCapabilityMatrix";
+import { ALL_SERVICE_TYPES, PROVIDER_CAPABILITY_MATRIX } from "@lib/providerCapabilityMatrix";
 
 /**
- * A provider's own subset of what their `type` is allowed to do (the fixed
- * capability matrix — see providerCapabilityMatrix.ts — stays the ceiling;
- * dispatch re-checks this same rule server-side). Toggling a service off also
- * drops its saved time-to-fix; toggling it back on clears to "not set" rather
- * than restoring a stale number.
+ * A provider's own capabilities, grouped into their type's default
+ * specialization set and everything else they can additionally offer (e.g.
+ * a Locksmith who also carries jump-start cables and fuel cans) — dispatch
+ * re-checks the same "real service type, not free-form" rule server-side.
+ * Toggling a service off also drops its saved time-to-fix; toggling it back
+ * on clears to "not set" rather than restoring a stale number.
  */
 export default function ProviderServicesScreen() {
   const insets = useSafeAreaInsets();
@@ -76,7 +77,9 @@ export default function ProviderServicesScreen() {
     }, [load])
   );
 
-  const ceiling = provider ? PROVIDER_CAPABILITY_MATRIX[provider.type] ?? [] : [];
+  const specialization = provider ? PROVIDER_CAPABILITY_MATRIX[provider.type] ?? [] : [];
+  const specializationSet = new Set(specialization);
+  const additional = ALL_SERVICE_TYPES.filter((s) => !specializationSet.has(s));
 
   function toggle(service: ServiceType) {
     setDirty(true);
@@ -163,80 +166,44 @@ export default function ProviderServicesScreen() {
           </Card>
         ) : (
           <>
-            <Text style={{ ...typography.caption, color: palette.textMuted }}>
-              As a {provider ? provider.type.replace(/_/g, " ").toLowerCase() : "provider"}, you can offer any of these {ceiling.length} services.
-            </Text>
+            <View style={{ gap: spacing.xs }}>
+              <Text style={{ ...typography.h3, color: palette.text }}>
+                Your specialization — {provider ? provider.type.replace(/_/g, " ").toLowerCase() : "provider"}
+              </Text>
+              <Text style={{ ...typography.caption, color: palette.textMuted }}>
+                What you registered to do. Uncheck anything you don&apos;t actually handle.
+              </Text>
+            </View>
             <View style={{ gap: spacing.sm }}>
-              {ceiling.map((service) => {
-                const on = selected.has(service);
-                return (
-                  <Card key={service} style={{ gap: spacing.sm }}>
-                    <Pressable
-                      onPress={() => toggle(service)}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: on }}
-                      style={({ pressed }) => ({
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: spacing.md,
-                        opacity: pressed ? 0.85 : 1,
-                      })}
-                    >
-                      <View
-                        style={{
-                          width: 22,
-                          height: 22,
-                          borderRadius: 6,
-                          borderWidth: 1.5,
-                          borderColor: on ? palette.brand : palette.border,
-                          backgroundColor: on ? palette.brand : "transparent",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        {on ? <Icon name="Check" size={14} color={palette.textOnBrand} /> : null}
-                      </View>
-                      <Text style={{ ...typography.body, color: palette.text, flex: 1, fontWeight: on ? "600" : "400" }}>
-                        {serviceTypeLabel(service)}
-                      </Text>
-                    </Pressable>
+              {specialization.map((service) => (
+                <ServiceRow
+                  key={service}
+                  service={service}
+                  on={selected.has(service)}
+                  time={times[service] ?? ""}
+                  onToggle={() => toggle(service)}
+                  onTimeChange={(v) => setTime(service, v)}
+                />
+              ))}
+            </View>
 
-                    {on && (
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: spacing.sm,
-                          paddingLeft: 22 + spacing.md,
-                        }}
-                      >
-                        <Icon name="Clock" size={14} color={palette.textMuted} />
-                        <Text style={{ ...typography.caption, color: palette.textMuted }}>Typical time:</Text>
-                        <TextInput
-                          value={times[service] ?? ""}
-                          onChangeText={(v) => setTime(service, v)}
-                          placeholder="e.g. 20"
-                          keyboardType="number-pad"
-                          maxLength={3}
-                          underlineColorAndroid="transparent"
-                          style={{
-                            ...typography.body,
-                            color: palette.text,
-                            borderWidth: 1,
-                            borderColor: palette.border,
-                            borderRadius: radii.md,
-                            paddingHorizontal: spacing.sm,
-                            paddingVertical: 4,
-                            width: 60,
-                            textAlign: "center",
-                          }}
-                        />
-                        <Text style={{ ...typography.caption, color: palette.textMuted }}>min</Text>
-                      </View>
-                    )}
-                  </Card>
-                );
-              })}
+            <View style={{ gap: spacing.xs, marginTop: spacing.sm }}>
+              <Text style={{ ...typography.h3, color: palette.text }}>Additional services</Text>
+              <Text style={{ ...typography.caption, color: palette.textMuted }}>
+                Anything else you can also do — e.g. a locksmith who also carries jump-start cables.
+              </Text>
+            </View>
+            <View style={{ gap: spacing.sm }}>
+              {additional.map((service) => (
+                <ServiceRow
+                  key={service}
+                  service={service}
+                  on={selected.has(service)}
+                  time={times[service] ?? ""}
+                  onToggle={() => toggle(service)}
+                  onTimeChange={(v) => setTime(service, v)}
+                />
+              ))}
             </View>
 
             <Button
@@ -250,5 +217,87 @@ export default function ProviderServicesScreen() {
 
       <ProviderBottomNavBar activeTab="services" />
     </View>
+  );
+}
+
+function ServiceRow({
+  service,
+  on,
+  time,
+  onToggle,
+  onTimeChange,
+}: {
+  service: ServiceType;
+  on: boolean;
+  time: string;
+  onToggle: () => void;
+  onTimeChange: (v: string) => void;
+}) {
+  return (
+    <Card style={{ gap: spacing.sm }}>
+      <Pressable
+        onPress={onToggle}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: on }}
+        style={({ pressed }) => ({
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing.md,
+          opacity: pressed ? 0.85 : 1,
+        })}
+      >
+        <View
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: 6,
+            borderWidth: 1.5,
+            borderColor: on ? palette.brand : palette.border,
+            backgroundColor: on ? palette.brand : "transparent",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {on ? <Icon name="Check" size={14} color={palette.textOnBrand} /> : null}
+        </View>
+        <Text style={{ ...typography.body, color: palette.text, flex: 1, fontWeight: on ? "600" : "400" }}>
+          {serviceTypeLabel(service)}
+        </Text>
+      </Pressable>
+
+      {on && (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: spacing.sm,
+            paddingLeft: 22 + spacing.md,
+          }}
+        >
+          <Icon name="Clock" size={14} color={palette.textMuted} />
+          <Text style={{ ...typography.caption, color: palette.textMuted }}>Typical time:</Text>
+          <TextInput
+            value={time}
+            onChangeText={onTimeChange}
+            placeholder="e.g. 20"
+            keyboardType="number-pad"
+            maxLength={3}
+            underlineColorAndroid="transparent"
+            style={{
+              ...typography.body,
+              color: palette.text,
+              borderWidth: 1,
+              borderColor: palette.border,
+              borderRadius: radii.md,
+              paddingHorizontal: spacing.sm,
+              paddingVertical: 4,
+              width: 60,
+              textAlign: "center",
+            }}
+          />
+          <Text style={{ ...typography.caption, color: palette.textMuted }}>min</Text>
+        </View>
+      )}
+    </Card>
   );
 }
