@@ -285,6 +285,7 @@ function Field({
           autoCapitalize={autoCapitalize}
           placeholder={placeholder}
           placeholderTextColor={palette.textMuted}
+          underlineColorAndroid="transparent"
           style={{
             ...typography.body,
             color: palette.text,

@@ -218,6 +218,7 @@ export default function ProviderServicesScreen() {
                           placeholder="e.g. 20"
                           keyboardType="number-pad"
                           maxLength={3}
+                          underlineColorAndroid="transparent"
                           style={{
                             ...typography.body,
                             color: palette.text,
