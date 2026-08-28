@@ -9,9 +9,7 @@ import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { dispatchRequestSchema, providerResponseSchema } from '../utils/validators';
 import { assertOwnsProvider } from '../middleware/auth';
-import { runDispatchOptimizer, ECMProvider } from '../services/dispatch-optimizer';
-import { ServiceTypeProbabilities, ServiceType } from '../types';
-import { fetchTrafficImpactScore } from '../services/geo-client';
+import { executeDispatch } from '../services/dispatch-executor';
 
 export const dispatchRouter = Router();
 
@@ -33,18 +31,18 @@ dispatchRouter.post('/optimize', async (req, res) => {
 
     const { incidentId, maxProviders } = parsed.data;
 
-    // Get incident with triage data
-    const incident = await prisma.incident.findUnique({
-      where: { id: incidentId },
-      include: { triageResponse: true },
+    const outcome = await executeDispatch({
+      incidentId,
+      maxProviders,
+      trafficImpactScore: parsed.data.trafficImpactScore,
+      authorization: req.headers.authorization,
     });
 
-    if (!incident) {
+    if (outcome.status === 'no_incident') {
       res.status(404).json({ success: false, error: 'Incident not found', timestamp: new Date().toISOString() });
       return;
     }
-
-    if (!incident.triageResponse) {
+    if (outcome.status === 'no_triage') {
       res.status(400).json({
         success: false,
         error: 'Triage not completed. Submit triage first via POST /api/v1/triage/submit',
@@ -52,37 +50,7 @@ dispatchRouter.post('/optimize', async (req, res) => {
       });
       return;
     }
-
-    // Traffic impact: use the client's value if supplied, otherwise fetch it live
-    // from geo-intelligence. Falls back to a neutral 5 if geo is unreachable so
-    // dispatch never hard-depends on it. 'geo-unavailable' means geo answered with
-    // an error status (misconfigured deploy), 'default' that it never answered.
-    let trafficImpactScore = parsed.data.trafficImpactScore;
-    let trafficImpactSource: 'client' | 'geo-intelligence' | 'geo-unavailable' | 'default' =
-      trafficImpactScore !== undefined ? 'client' : 'default';
-    if (trafficImpactScore === undefined) {
-      const geoScore = await fetchTrafficImpactScore({
-        latitude: incident.latitude,
-        longitude: incident.longitude,
-        probabilities: incident.triageResponse.probabilities as unknown as ServiceTypeProbabilities,
-        authorization: req.headers.authorization,
-      });
-      if (typeof geoScore === 'number') {
-        trafficImpactScore = geoScore;
-        trafficImpactSource = 'geo-intelligence';
-      } else {
-        trafficImpactScore = 5;
-        if (geoScore === 'geo-unavailable') trafficImpactSource = 'geo-unavailable';
-      }
-    }
-
-    // Get available providers
-    const dbProviders = await prisma.provider.findMany({
-      where: { status: 'AVAILABLE' },
-      take: maxProviders,
-    });
-
-    if (dbProviders.length === 0) {
+    if (outcome.status === 'no_providers') {
       res.status(404).json({
         success: false, error: 'No available providers found',
         timestamp: new Date().toISOString(),
@@ -90,61 +58,7 @@ dispatchRouter.post('/optimize', async (req, res) => {
       return;
     }
 
-    // Map DB providers to ECM interface
-    const ecmProviders: ECMProvider[] = dbProviders.map((p) => ({
-      id: p.id,
-      name: p.name,
-      type: p.type as any,
-      latitude: p.latitude,
-      longitude: p.longitude,
-      capabilities: p.capabilities as ServiceType[],
-      trustScore: p.trustScore,
-      serviceTimes: p.serviceTimes as Record<string, number>,
-    }));
-
-    // Extract probability distribution from triage
-    const probabilities = incident.triageResponse.probabilities as unknown as ServiceTypeProbabilities;
-    const incidentLocation = { latitude: incident.latitude, longitude: incident.longitude };
-
-    // Run ECM Dispatch Optimizer
-    const result = runDispatchOptimizer(ecmProviders, incidentLocation, probabilities, trafficImpactScore);
-
-    // Persist dispatch decisions to database
-    for (const ranked of result.rankedProviders) {
-      await prisma.dispatchDecision.create({
-        data: {
-          incidentId,
-          providerId: ranked.provider.id,
-          rank: ranked.rank,
-          expectedCost: ranked.expectedCost,
-          estimatedTravelTimeMin: ranked.estimatedTravelTimeMin,
-          estimatedServiceTimeMin: ranked.estimatedServiceTimeMin,
-          mismatchRisk: ranked.mismatchRisk,
-          costBreakdown: ranked.costBreakdown as any,
-          trafficImpactScore,
-          lambdaUsed: result.lambda,
-          computationTimeMs: result.computationTimeMs,
-          totalProvidersEvaluated: result.rankedProviders.length,
-        },
-      });
-    }
-
-    // Assign top provider to incident
-    await prisma.incident.update({
-      where: { id: incidentId },
-      data: {
-        assignedProviderId: result.selectedProvider.provider.id,
-        status: 'PROVIDER_ASSIGNED',
-      },
-    });
-
-    logger.info('Dispatch optimization completed and persisted', {
-      incidentId,
-      selectedProvider: result.selectedProvider.provider.name,
-      expectedCost: result.selectedProvider.expectedCost,
-      computationTimeMs: result.computationTimeMs,
-      providersEvaluated: result.rankedProviders.length,
-    });
+    const { result, trafficImpactScore, trafficImpactSource, triageTier, triageConfidence } = outcome;
 
     res.json({
       success: true,
@@ -174,8 +88,8 @@ dispatchRouter.post('/optimize', async (req, res) => {
           trafficImpactSource,
           lambda: result.lambda,
           providersEvaluated: result.rankedProviders.length,
-          triageTier: incident.triageResponse.tier,
-          triageConfidence: incident.triageResponse.confidence,
+          triageTier,
+          triageConfidence,
         },
         message: `Dispatched: ${result.selectedProvider.provider.name} (${result.selectedProvider.provider.type}) — Expected cost: ${result.selectedProvider.expectedCost.toFixed(1)} min`,
       },
@@ -193,9 +107,10 @@ dispatchRouter.post('/optimize', async (req, res) => {
  *
  * Accepting moves the incident to EN_ROUTE — the enum has no separate
  * ACCEPTED state, and EN_ROUTE is what an accepted job actually is. Declining
- * clears the assignment and returns the incident to DISPATCHING so it can be
- * re-optimised; re-running the optimizer here is deliberately left to the
- * caller, since it has no exclusion list and would re-pick the decliner.
+ * clears the assignment and returns the incident to DISPATCHING; the
+ * re-dispatch watchdog (services/redispatch-watchdog.ts) picks it up on its
+ * next poll and retries the ECM excluding this provider, so no immediate
+ * re-optimization happens here.
  */
 dispatchRouter.post('/respond', async (req, res) => {
   try {

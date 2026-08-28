@@ -316,6 +316,10 @@ export interface RankedProvider {
   estimatedServiceTimeMin: number;
   mismatchRisk:            number;
   costBreakdown:           CostBreakdown;
+  /** Whether estimatedTravelTimeMin came from a real Google Distance Matrix
+   *  lookup or the Haversine-distance fallback — surfaced so a demo/test can
+   *  show real routing data is actually in the loop, not just configured. */
+  travelTimeSource:        'google_maps' | 'haversine';
 }
 
 export interface CostBreakdown {

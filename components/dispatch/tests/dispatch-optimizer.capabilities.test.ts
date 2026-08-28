@@ -21,7 +21,7 @@ function probFor(serviceType: string, value = 1.0): ServiceTypeProbabilities {
 const incidentLocation = { latitude: 6.9271, longitude: 79.8612 };
 
 describe("runDispatchOptimizer — provider capabilities are the real source of truth, not type", () => {
-  it("treats a service outside the provider's type matrix as a MATCH when it's in their own capabilities", () => {
+  it("treats a service outside the provider's type matrix as a MATCH when it's in their own capabilities", async () => {
     // LOCKSMITH's matrix ceiling is only LOCKOUT/KEY_LOST — BATTERY_JUMP is
     // outside it — but this provider has explicitly added BATTERY_JUMP.
     const locksmithWithJumpStart: ECMProvider = {
@@ -34,7 +34,7 @@ describe("runDispatchOptimizer — provider capabilities are the real source of 
       trustScore: 0.8,
     };
 
-    const result = runDispatchOptimizer(
+    const result = await runDispatchOptimizer(
       [locksmithWithJumpStart],
       incidentLocation,
       probFor("BATTERY_JUMP"),
@@ -48,7 +48,7 @@ describe("runDispatchOptimizer — provider capabilities are the real source of 
     expect(result.rankedProviders[0].mismatchRisk).toBe(0);
   });
 
-  it("still scores a mismatch for a service truly outside the provider's own capabilities", () => {
+  it("still scores a mismatch for a service truly outside the provider's own capabilities", async () => {
     const lockOnly: ECMProvider = {
       id: "p2",
       name: "Lock-Only Locksmith",
@@ -59,7 +59,7 @@ describe("runDispatchOptimizer — provider capabilities are the real source of 
       trustScore: 0.8,
     };
 
-    const result = runDispatchOptimizer(
+    const result = await runDispatchOptimizer(
       [lockOnly],
       incidentLocation,
       probFor("BATTERY_JUMP"),
@@ -72,7 +72,7 @@ describe("runDispatchOptimizer — provider capabilities are the real source of 
 });
 
 describe("runDispatchOptimizer — provider-set service times override the platform default", () => {
-  it("uses the provider's own serviceTimes entry over the global average", () => {
+  it("uses the provider's own serviceTimes entry over the global average", async () => {
     // Global default for BATTERY_JUMP is 15 minutes (config/index.ts).
     // This provider claims they're twice as fast.
     const fastMechanic: ECMProvider = {
@@ -95,7 +95,7 @@ describe("runDispatchOptimizer — provider-set service times override the platf
       trustScore: 0.8,
     };
 
-    const result = runDispatchOptimizer(
+    const result = await runDispatchOptimizer(
       [fastMechanic, defaultMechanic],
       incidentLocation,
       probFor("BATTERY_JUMP"),
@@ -113,7 +113,7 @@ describe("runDispatchOptimizer — provider-set service times override the platf
     expect(result.rankedProviders[0].provider.id).toBe("p3");
   });
 
-  it("falls back to the platform default when a provider has no override for a service they offer", () => {
+  it("falls back to the platform default when a provider has no override for a service they offer", async () => {
     const noOverride: ECMProvider = {
       id: "p5",
       name: "No Custom Times Mechanic",
@@ -125,7 +125,7 @@ describe("runDispatchOptimizer — provider-set service times override the platf
       serviceTimes: {}, // set, but empty — must still fall back per-key
     };
 
-    const result = runDispatchOptimizer(
+    const result = await runDispatchOptimizer(
       [noOverride],
       incidentLocation,
       probFor("BATTERY_JUMP"),

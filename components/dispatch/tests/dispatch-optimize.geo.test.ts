@@ -218,19 +218,19 @@ describe("runDispatchOptimizer — traffic impact influences ranking", () => {
   };
 
   const providers = [nearLowTrust, farHighTrust];
-  const rankedIds = (score: number) =>
-    runDispatchOptimizer(providers, incidentLocation, batteryOnly, score)
+  const rankedIds = async (score: number) =>
+    (await runDispatchOptimizer(providers, incidentLocation, batteryOnly, score))
       .rankedProviders.map((p) => p.provider.id);
 
-  it("ranks providers differently at low vs high traffic impact", () => {
-    expect(rankedIds(1)).not.toEqual(rankedIds(10));
+  it("ranks providers differently at low vs high traffic impact", async () => {
+    expect(await rankedIds(1)).not.toEqual(await rankedIds(10));
   });
 
-  it("prefers the far high-trust provider at low traffic impact", () => {
-    expect(rankedIds(1)[0]).toBe("far");
+  it("prefers the far high-trust provider at low traffic impact", async () => {
+    expect((await rankedIds(1))[0]).toBe("far");
   });
 
-  it("prefers the near provider at high traffic impact", () => {
-    expect(rankedIds(10)[0]).toBe("near");
+  it("prefers the near provider at high traffic impact", async () => {
+    expect((await rankedIds(10))[0]).toBe("near");
   });
 });

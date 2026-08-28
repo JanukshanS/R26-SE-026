@@ -25,6 +25,7 @@ import { config } from './config';
 import { requireUser } from './middleware/auth';
 import { logger } from './utils/logger';
 import { prisma } from './utils/prisma';
+import { startRedispatchWatchdog, stopRedispatchWatchdog } from './services/redispatch-watchdog';
 
 // ── Import Routes ──
 import { incidentRouter } from './routes/incident.routes';
@@ -125,6 +126,8 @@ async function main() {
       logger.info('Kaduna.lk | R26-SE-026 | IT22635266');
       logger.info('─────────────────────────────────────');
     });
+
+    startRedispatchWatchdog();
   } catch (error) {
     logger.error('Failed to start server:', error);
     process.exit(1);
@@ -134,12 +137,14 @@ async function main() {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   logger.info('Shutting down gracefully...');
+  stopRedispatchWatchdog();
   await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down...');
+  stopRedispatchWatchdog();
   await prisma.$disconnect();
   process.exit(0);
 });
