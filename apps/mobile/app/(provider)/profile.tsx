@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -32,6 +32,10 @@ export default function ProviderProfileScreen() {
   const [phone, setPhone] = useState("");
   const [vehiclePlate, setVehiclePlate] = useState("");
   const [saving, setSaving] = useState(false);
+  // Read at focus time, not a useFocusEffect dep — a ref avoids re-subscribing
+  // the focus effect on every keystroke while still seeing the latest value.
+  const editingRef = useRef(false);
+  editingRef.current = editing;
 
   const load = useCallback(async () => {
     if (!providerId) {
@@ -53,8 +57,12 @@ export default function ProviderProfileScreen() {
     }
   }, [providerId]);
 
+  // Same reasoning as (provider)/services.tsx: skip the refetch while the
+  // form is open for editing, so switching tabs and back doesn't silently
+  // discard an in-progress, unsaved edit.
   useFocusEffect(
     useCallback(() => {
+      if (editingRef.current) return;
       void load();
     }, [load])
   );

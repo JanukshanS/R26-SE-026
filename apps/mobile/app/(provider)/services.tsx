@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -38,6 +38,10 @@ export default function ProviderServicesScreen() {
   const [times, setTimes] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  // Read at focus time, not a useFocusEffect dep — a ref avoids re-subscribing
+  // the focus effect on every keystroke while still seeing the latest value.
+  const dirtyRef = useRef(false);
+  dirtyRef.current = dirty;
 
   const load = useCallback(async () => {
     if (!providerId) {
@@ -61,8 +65,13 @@ export default function ProviderServicesScreen() {
     }
   }, [providerId]);
 
+  // Re-fetches on every focus (e.g. switching tabs and back) so the screen
+  // never shows stale data — but load() unconditionally overwrites `selected`/
+  // `times` from the server, which would silently discard an in-progress,
+  // unsaved edit if the provider switched tabs without hitting Save first.
   useFocusEffect(
     useCallback(() => {
+      if (dirtyRef.current) return;
       void load();
     }, [load])
   );
