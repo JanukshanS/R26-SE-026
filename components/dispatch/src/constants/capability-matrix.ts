@@ -95,28 +95,61 @@ export const CAPABILITY_MATRIX: Record<ProviderType, Set<ServiceType>> = {
   ]),
 };
 
-/** Can this provider type handle this service type? */
+/** Can this provider type handle this service type? Ceiling check only — see
+ *  providerHasCapability() for the actual per-provider dispatch-time check. */
 export function canProviderHandle(p: ProviderType, s: ServiceType): boolean {
   return CAPABILITY_MATRIX[p]?.has(s) ?? false;
 }
 
-/** All service types this provider type can handle. */
+/** All service types this provider type can handle. Registration default and
+ *  the "your specialization" set — not the ceiling for what can be ADDED;
+ *  see getAllServiceTypes() for that. */
 export function getProviderCapabilities(p: ProviderType): ServiceType[] {
   return Array.from(CAPABILITY_MATRIX[p] ?? []);
 }
 
 /**
+ * Every service type any provider type can handle — the union across the
+ * whole matrix. This is the ceiling for a provider's own editable
+ * `capabilities` list: a provider's primary `type` sets their default/
+ * specialization set, but they may additionally offer any service type here
+ * (e.g. a Locksmith who also carries jump-start cables and fuel cans),
+ * constrained to real, matrix-backed service types rather than free-form.
+ */
+export function getAllServiceTypes(): ServiceType[] {
+  const all = new Set<ServiceType>();
+  for (const set of Object.values(CAPABILITY_MATRIX)) {
+    for (const s of set) all.add(s);
+  }
+  return Array.from(all);
+}
+
+/**
+ * Can this SPECIFIC provider (by their own declared capabilities, not their
+ * type) handle this service type? This is what dispatch-optimizer.ts uses
+ * for match/mismatch — a provider's `capabilities` array is the real,
+ * editable source of truth, not a re-derivation from `type`.
+ */
+export function providerHasCapability(
+  capabilities: Iterable<ServiceType>,
+  s: ServiceType,
+): boolean {
+  return capabilities instanceof Set ? capabilities.has(s) : new Set(capabilities).has(s);
+}
+
+/**
  * Mismatch risk for a provider given a probability distribution:
  *   P(provider can't handle the actual service needed)
- * = Σ P(type_k) for type_k NOT in provider's capabilities.
+ * = Σ P(type_k) for type_k NOT in the provider's own capabilities.
  */
 export function calculateMismatchRisk(
-  p: ProviderType,
+  capabilities: Iterable<ServiceType>,
   probabilities: Record<ServiceType, number>,
 ): number {
+  const caps = capabilities instanceof Set ? capabilities : new Set(capabilities);
   let risk = 0;
   for (const [serviceType, probability] of Object.entries(probabilities)) {
-    if (!canProviderHandle(p, serviceType as ServiceType)) risk += probability;
+    if (!caps.has(serviceType as ServiceType)) risk += probability;
   }
   return risk;
 }

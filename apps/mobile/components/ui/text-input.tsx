@@ -49,6 +49,7 @@ export function TextField({ label, error, helperText, style, ...rest }: Props) {
             rest.onBlur?.(e);
           }}
           placeholderTextColor={palette.textMuted}
+          underlineColorAndroid="transparent"
           style={[
             { color: palette.text, ...typography.body, padding: 0 },
             style,

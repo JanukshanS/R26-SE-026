@@ -11,6 +11,8 @@
  * GET    /api/v1/providers/:id      — Get provider by ID
  * PATCH  /api/v1/providers/:id/status — Update provider availability
  * PATCH  /api/v1/providers/:id/location — Update provider location
+ * PATCH  /api/v1/providers/:id/profile — Update name/phone/vehicle/services
+ * GET    /api/v1/providers/:id/feedbacks — Resolution history + summary metrics
  * GET    /api/v1/providers/nearby   — Find nearby available providers
  * 
  * @module routes/provider
@@ -20,9 +22,10 @@
 import { Router } from 'express';
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
-import { createProviderSchema, locationSchema } from '../utils/validators';
-import { getProviderCapabilities } from '../constants/capability-matrix';
-import { ProviderType } from '../types';
+import { assertOwnsProvider } from '../middleware/auth';
+import { createProviderSchema, locationSchema, updateProviderProfileSchema } from '../utils/validators';
+import { getAllServiceTypes, getProviderCapabilities } from '../constants/capability-matrix';
+import { ProviderType, ServiceType } from '../types';
 
 export const providerRouter = Router();
 
@@ -234,6 +237,143 @@ providerRouter.patch('/:id/location', async (req, res) => {
       error: error.message,
       timestamp: new Date().toISOString(),
     });
+  }
+});
+
+/**
+ * PATCH /api/v1/providers/:id/profile
+ * Update editable profile fields. `capabilities` must stay a subset of what
+ * the provider's `type` can do (the fixed matrix is still the ceiling —
+ * see capability-matrix.ts); `serviceTimes` keys must be a subset of the
+ * resulting `capabilities`. Owner-only.
+ */
+providerRouter.patch('/:id/profile', async (req, res) => {
+  try {
+    const providerId = String(req.params.id);
+    if (!(await assertOwnsProvider(req, res, providerId))) return;
+
+    const parsed = updateProviderProfileSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid profile update',
+        details: parsed.error.flatten(),
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const existing = await prisma.provider.findUnique({ where: { id: providerId } });
+    if (!existing) {
+      res.status(404).json({ success: false, error: 'Provider not found', timestamp: new Date().toISOString() });
+      return;
+    }
+
+    const data: Record<string, unknown> = {};
+    if (parsed.data.name !== undefined) data.name = parsed.data.name;
+    if (parsed.data.phone !== undefined) data.phone = parsed.data.phone;
+    if (parsed.data.vehiclePlate !== undefined) data.vehiclePlate = parsed.data.vehiclePlate;
+
+    // Capabilities are validated BEFORE serviceTimes, and the resulting set
+    // (new if provided, else the existing one) is what serviceTimes keys are
+    // checked against below — so submitting both in one request narrows
+    // capabilities and sets times for the narrowed set in a single step.
+    //
+    // `type` sets a provider's default/specialization set at registration
+    // (still true — see POST / above) but is NOT a ceiling on what they can
+    // ADD: a Locksmith may also carry jump-start cables and fuel cans. The
+    // real ceiling is every service type any provider type can do, i.e. not
+    // a free-form string — see getAllServiceTypes().
+    let effectiveCapabilities = existing.capabilities as ServiceType[];
+    if (parsed.data.capabilities !== undefined) {
+      const allowed = new Set(getAllServiceTypes());
+      const notAllowed = parsed.data.capabilities.filter((c) => !allowed.has(c as ServiceType));
+      if (notAllowed.length > 0) {
+        res.status(400).json({
+          success: false,
+          error: `Not a real service type: ${notAllowed.join(', ')}`,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+      effectiveCapabilities = parsed.data.capabilities as ServiceType[];
+      data.capabilities = effectiveCapabilities;
+    }
+
+    if (parsed.data.serviceTimes !== undefined) {
+      const offered = new Set(effectiveCapabilities);
+      const notOffered = Object.keys(parsed.data.serviceTimes).filter((k) => !offered.has(k as ServiceType));
+      if (notOffered.length > 0) {
+        res.status(400).json({
+          success: false,
+          error: `Can't set a time-to-fix for a service you don't offer: ${notOffered.join(', ')}`,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+      // Merge rather than replace: a partial update (one service's time
+      // changed) must not silently drop times set for the others.
+      data.serviceTimes = { ...(existing.serviceTimes as object), ...parsed.data.serviceTimes };
+    }
+
+    const provider = await prisma.provider.update({ where: { id: providerId }, data });
+
+    logger.info('Provider profile updated', { providerId, fields: Object.keys(data) });
+
+    res.json({ success: true, data: provider, timestamp: new Date().toISOString() });
+  } catch (error: any) {
+    logger.error('Failed to update provider profile:', error);
+    res.status(500).json({ success: false, error: error.message, timestamp: new Date().toISOString() });
+  }
+});
+
+/**
+ * GET /api/v1/providers/:id/feedbacks
+ * A provider's own resolution history plus summary metrics (match rate,
+ * average resolution time, average rating). Owner-only.
+ */
+providerRouter.get('/:id/feedbacks', async (req, res) => {
+  try {
+    const providerId = String(req.params.id);
+    if (!(await assertOwnsProvider(req, res, providerId))) return;
+
+    const limit = Math.min(parseInt(String(req.query.limit || '20'), 10), 100);
+    const offset = parseInt(String(req.query.offset || '0'), 10);
+
+    const [feedbacks, total, matched, agg] = await Promise.all([
+      prisma.resolutionFeedback.findMany({
+        where: { providerId },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.resolutionFeedback.count({ where: { providerId } }),
+      prisma.resolutionFeedback.count({ where: { providerId, wasMatch: true } }),
+      prisma.resolutionFeedback.aggregate({
+        where: { providerId },
+        _avg: { resolutionTimeMinutes: true, userRating: true },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        feedbacks,
+        total,
+        limit,
+        offset,
+        summary: {
+          totalJobs: total,
+          matchRate: total > 0 ? matched / total : null,
+          averageResolutionTimeMinutes: agg._avg.resolutionTimeMinutes,
+          averageRating: agg._avg.userRating,
+        },
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    logger.error('Failed to load provider feedback history:', error);
+    res.status(500).json({ success: false, error: error.message, timestamp: new Date().toISOString() });
   }
 });
 

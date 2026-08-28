@@ -161,6 +161,8 @@ export interface ProviderRecord {
   latitude: number;
   longitude: number;
   capabilities: ServiceType[];
+  /** Provider-set typical minutes-to-fix, keyed by ServiceType. Only present for services in `capabilities`. */
+  serviceTimes: Record<string, number>;
   trustScore: number;
   totalJobs: number;
   successfulJobs: number;
@@ -410,6 +412,65 @@ export async function updateProviderLocation(
     method: "PATCH",
     body: JSON.stringify(location),
   });
+}
+
+export interface UpdateProviderProfileInput {
+  name?: string;
+  phone?: string;
+  vehiclePlate?: string;
+  /** Must stay within PROVIDER_CAPABILITY_MATRIX[type] — the backend re-checks this. */
+  capabilities?: ServiceType[];
+  /** Merged into the existing map server-side, not replaced. */
+  serviceTimes?: Record<string, number>;
+}
+
+export async function updateProviderProfile(
+  providerId: string,
+  patch: UpdateProviderProfileInput
+): Promise<ProviderRecord> {
+  return request(`/api/v1/providers/${providerId}/profile`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export interface ProviderFeedback {
+  id: string;
+  incidentId: string;
+  predictedServiceType: ServiceType;
+  predictedConfidence: number;
+  actualServiceType: ServiceType;
+  wasMatch: boolean;
+  resolutionTimeMinutes: number;
+  reDispatches: number;
+  userRating: number | null;
+  providerNotes: string | null;
+  createdAt: string;
+}
+
+export interface ProviderFeedbackSummary {
+  totalJobs: number;
+  matchRate: number | null;
+  averageResolutionTimeMinutes: number | null;
+  averageRating: number | null;
+}
+
+/** A provider's own resolution history + summary metrics. Owner-only server-side. */
+export async function getProviderFeedbacks(
+  providerId: string,
+  opts?: { limit?: number; offset?: number }
+): Promise<{
+  feedbacks: ProviderFeedback[];
+  total: number;
+  limit: number;
+  offset: number;
+  summary: ProviderFeedbackSummary;
+}> {
+  const params = new URLSearchParams();
+  if (opts?.limit !== undefined) params.set("limit", String(opts.limit));
+  if (opts?.offset !== undefined) params.set("offset", String(opts.offset));
+  const qs = params.toString();
+  return request(`/api/v1/providers/${providerId}/feedbacks${qs ? `?${qs}` : ""}`);
 }
 
 export interface ResolveIncidentInput {

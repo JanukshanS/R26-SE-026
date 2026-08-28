@@ -27,7 +27,7 @@ import {
   ProviderType, DispatchResult, RankedProvider, CostBreakdown,
   Location,
 } from '../types';
-import { canProviderHandle, calculateMismatchRisk } from '../constants/capability-matrix';
+import { calculateMismatchRisk } from '../constants/capability-matrix';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 
@@ -72,6 +72,10 @@ export interface ECMProvider {
   longitude: number;
   capabilities: ServiceType[];
   trustScore: number;
+  /** Provider-set typical minutes-to-fix, keyed by ServiceType. Only present
+   *  for services in `capabilities`; falls back to config.dispatch
+   *  .averageServiceTimes when a provider hasn't set one for a given type. */
+  serviceTimes?: Record<string, number>;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -109,15 +113,21 @@ function calculateExpectedCost(
   let expectedTotalTime = travelTimeMin;
 
   const { averageServiceTimes, reDispatchPenaltyMinutes, assessmentDelayMinutes } = config.dispatch;
+  // The provider's OWN declared capabilities, not a re-derivation from
+  // `type` — a provider's editable capability list (set via the Services
+  // screen) is the real source of truth for what they can actually do.
+  const providerCapabilities = new Set(provider.capabilities);
 
   // For each possible service type, weighted by its probability
   for (const serviceType of SERVICE_TYPES) {
     const prob = probabilities[serviceType];
     if (prob <= 0) continue;
 
-    const serviceTime = averageServiceTimes[serviceType] || 30;
+    // A provider's own time for this service, if they've set one, else the
+    // platform-wide default.
+    const serviceTime = provider.serviceTimes?.[serviceType] ?? averageServiceTimes[serviceType] ?? 30;
 
-    if (canProviderHandle(provider.type, serviceType)) {
+    if (providerCapabilities.has(serviceType)) {
       // MATCH: provider can handle this service type
       // Cost = travelTime + serviceTime (in minutes, used as cost proxy)
       const matchCost = travelTimeMin + serviceTime;
@@ -151,12 +161,12 @@ function calculateExpectedCost(
   const trustAdjustment = 1.0 / clampedTrust;
   const totalCost = rawCost * trustAdjustment;
 
-  const mismatchRisk = calculateMismatchRisk(provider.type, probabilities);
+  const mismatchRisk = calculateMismatchRisk(providerCapabilities, probabilities);
 
   // Average service time (weighted by probabilities)
   let avgServiceTime = 0;
   for (const st of SERVICE_TYPES) {
-    avgServiceTime += probabilities[st] * (averageServiceTimes[st] || 30);
+    avgServiceTime += probabilities[st] * (provider.serviceTimes?.[st] ?? averageServiceTimes[st] ?? 30);
   }
 
   const breakdown: CostBreakdown = {

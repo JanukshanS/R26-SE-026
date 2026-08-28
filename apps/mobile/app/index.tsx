@@ -8,6 +8,7 @@ import { Logo } from "@components/ui/logo";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { getMyUser } from "@lib/vehicleApi";
+import { isPendingGoogleProviderFlow } from "@lib/pending-google-provider-flow";
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
@@ -18,9 +19,18 @@ export default function WelcomeScreen() {
    * sending them to the sign-in wall would make them re-enter a password they
    * never needed. Providers go to their job feed, drivers home; anything that
    * fails (no session, offline, no profile row) falls through to Welcome.
+   *
+   * A provider's Google sign-in redirects through this exact route (see
+   * pending-google-provider-flow.ts) — if that flow is still completing,
+   * defer to it entirely instead of guessing a destination from a profile
+   * that may not have its providerId linked yet.
    */
   useEffect(() => {
     let cancelled = false;
+    if (isPendingGoogleProviderFlow()) {
+      router.replace("/(provider)/onboarding");
+      return;
+    }
     getMyUser()
       .then((user) => {
         if (cancelled) return;

@@ -7,6 +7,7 @@ import { Badge } from "@components/ui/badge";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
 import { Icon } from "@components/ui/icon";
+import { ProviderBottomNavBar, PROVIDER_NAV_BAR_HEIGHT } from "@components/ui/provider-bottom-nav-bar";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
@@ -274,7 +275,10 @@ export default function ProviderAvailableScreen() {
         </View>
       </View>
 
-      <Screen edges={["bottom"]}>
+      <Screen
+        edges={["bottom"]}
+        contentContainerStyle={{ paddingBottom: PROVIDER_NAV_BAR_HEIGHT + spacing.xl }}
+      >
         {error && (
           <Card style={{ borderLeftWidth: 4, borderLeftColor: palette.danger }}>
             <Text style={{ ...typography.bodyStrong, color: palette.danger }}>
@@ -393,47 +397,32 @@ export default function ProviderAvailableScreen() {
           )}
         </View>
 
-        <View style={{ gap: spacing.md }}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <Text style={{ ...typography.h3, color: palette.text }}>My Services</Text>
-            <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "600" }}>
-              {provider ? `${provider.capabilities.length} capabilities` : ""}
-            </Text>
-          </View>
-          <Card>
-            {loading ? (
-              <ActivityIndicator size="small" color={palette.brand} />
-            ) : provider?.capabilities.length ? (
-              provider.capabilities.map((service, idx) => (
-                <View key={service}>
-                  <Text style={{ ...typography.body, color: palette.text }}>
-                    {serviceTypeLabel(service)}
-                  </Text>
-                  {idx < provider.capabilities.length - 1 ? (
-                    <View
-                      style={{
-                        height: 1,
-                        backgroundColor: palette.border,
-                        marginVertical: spacing.sm,
-                      }}
-                    />
-                  ) : null}
-                </View>
-              ))
-            ) : (
-              <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                No capabilities configured
+        <Pressable
+          onPress={() => router.push("/(provider)/services")}
+          style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+          accessibilityRole="button"
+          accessibilityLabel="Manage my services"
+        >
+          <Card style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+            <Icon name="Wrench" size={20} color={palette.brand} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={{ ...typography.bodyStrong, color: palette.text }}>
+                My Services
               </Text>
-            )}
+              <Text style={{ ...typography.caption, color: palette.textMuted }}>
+                {loading
+                  ? "Loading…"
+                  : provider?.capabilities.length
+                    ? `${provider.capabilities.length} services · tap to edit`
+                    : "Set up what you offer"}
+              </Text>
+            </View>
+            <Icon name="ChevronRight" size={18} color={palette.textMuted} />
           </Card>
-        </View>
+        </Pressable>
       </Screen>
+
+      <ProviderBottomNavBar activeTab="jobs" />
     </View>
   );
 }

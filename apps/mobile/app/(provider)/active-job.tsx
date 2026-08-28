@@ -29,7 +29,15 @@ type Triage = {
   predictedServiceType: ServiceType;
   confidence: number;
   tier: string;
+  /** Full distribution — already on the wire (Prisma includes the whole row),
+   *  just wasn't typed here before. Lets the provider see what else it might
+   *  be, not just the single top guess, before they head out with tools. */
+  probabilities?: Record<string, number> | null;
 } | null;
+
+/** Below this, the diagnosis is genuinely uncertain — worth telling the
+ *  provider to bring a broader toolkit rather than betting on one guess. */
+const LOW_CONFIDENCE_THRESHOLD = 0.45;
 
 /**
  * Active job — the provider's view of one assigned incident:
@@ -94,6 +102,17 @@ export default function ActiveJobScreen() {
     const predicted = triage?.predictedServiceType;
     return predicted ? [predicted, ...caps.filter((c) => c !== predicted)] : caps;
   }, [job, triage]);
+
+  // Top 3 by probability, excluding the top guess already shown as the
+  // headline — "what else it might be" for deciding which tools to bring.
+  const otherPossibilities = useMemo(() => {
+    if (!triage?.probabilities) return [];
+    return Object.entries(triage.probabilities)
+      .filter(([type]) => type !== triage.predictedServiceType)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([type, prob]) => ({ type: type as ServiceType, prob }));
+  }, [triage]);
 
   async function respond(accepted: boolean) {
     if (!job || !providerId) return;
@@ -478,8 +497,53 @@ export default function ActiveJobScreen() {
                 <Row
                   label="CONFIDENCE"
                   value={`${(triage.confidence * 100).toFixed(0)}%`}
+                  valueColor={triage.confidence < LOW_CONFIDENCE_THRESHOLD ? palette.warning : undefined}
                 />
                 <Row label="MODEL" value={tierLabel(triage.tier)} />
+
+                {otherPossibilities.length > 0 ? (
+                  <View style={{ gap: 4, paddingTop: spacing.xs }}>
+                    <Text style={{ ...typography.micro, color: palette.textMuted }}>
+                      ALSO POSSIBLE
+                    </Text>
+                    {otherPossibilities.map(({ type, prob }) => (
+                      <View
+                        key={type}
+                        style={{
+                          flexDirection: "row",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Text style={{ ...typography.caption, color: palette.text }}>
+                          {serviceTypeLabel(type)}
+                        </Text>
+                        <Text style={{ ...typography.caption, color: palette.textMuted }}>
+                          {Math.round(prob * 100)}%
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
+                {triage.confidence < LOW_CONFIDENCE_THRESHOLD ? (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: spacing.sm,
+                      backgroundColor: palette.warningSoft,
+                      borderRadius: radii.md,
+                      padding: spacing.sm,
+                      marginTop: spacing.xs,
+                    }}
+                  >
+                    <Icon name="TriangleAlert" size={16} color={palette.warning} />
+                    <Text style={{ ...typography.caption, color: palette.text, flex: 1 }}>
+                      Diagnosis is uncertain — consider bringing a broader toolkit.
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             ) : (
               <Text style={{ ...typography.caption, color: palette.textMuted }}>

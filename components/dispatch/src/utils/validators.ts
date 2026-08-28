@@ -156,3 +156,16 @@ export const createProviderSchema = z.object({
   phone:        z.string().optional(),
   vehiclePlate: z.string().optional(),
 });
+
+/**
+ * `capabilities` and `serviceTimes` keys are checked against the provider's
+ * own type in the route handler (needs the DB row to know the type), not
+ * here — this only validates shape.
+ */
+export const updateProviderProfileSchema = z.object({
+  name:         z.string().min(2).max(100).optional(),
+  phone:        z.string().max(30).optional(),
+  vehiclePlate: z.string().max(20).optional(),
+  capabilities: z.array(enumOf(SERVICE_TYPES)).min(1).optional(),
+  serviceTimes: z.record(z.string(), z.number().int().min(1).max(480)).optional(),
+});

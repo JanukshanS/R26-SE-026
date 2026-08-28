@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@components/ui/button";
@@ -18,6 +18,11 @@ import {
   type ProviderType,
 } from "@lib/dispatchApi";
 import { getCurrentDriverLocation } from "@lib/driverLocation";
+import {
+  clearPendingGoogleProviderFlow,
+  isPendingGoogleProviderFlow,
+  markPendingGoogleProviderFlow,
+} from "@lib/pending-google-provider-flow";
 
 /**
  * Provider onboarding — a self-serve registration that creates a REAL,
@@ -47,6 +52,45 @@ export default function ProviderOnboardingScreen() {
   const [googleAccount, setGoogleAccount] = useState<{ name: string; email: string } | null>(null);
 
   /**
+   * Shared by both the button-press continuation below and the mount-time
+   * effect that follows it: read the profile and either land on the
+   * dashboard (existing provider) or show the remaining profile fields (new
+   * provider). Split out because the Google redirect can remount this screen
+   * (see pending-google-provider-flow.ts) between the button press and this
+   * running — whichever instance is actually live needs to be able to run it.
+   */
+  async function completeGoogleSignIn() {
+    const me = await getMyUser();
+    if (!me) {
+      setError("Signed in, but your profile could not be loaded. Please try again.");
+      return;
+    }
+    if (me.providerId) {
+      // Already a provider - this was a sign-in, not a sign-up.
+      router.replace("/(provider)/available");
+      return;
+    }
+    // New provider. The account now exists, but Google cannot tell us what
+    // service they offer or where they are, so the profile step remains.
+    setGoogleAccount({ name: me.name ?? "", email: me.email ?? "" });
+    setName((prev) => prev || me.name || "");
+    setMode("register");
+  }
+
+  // Picks up a Google flow that was interrupted by the root-screen remount
+  // described in pending-google-provider-flow.ts — a fresh mount of this
+  // screen finishes what the original button press started.
+  useEffect(() => {
+    if (!isPendingGoogleProviderFlow()) return;
+    clearPendingGoogleProviderFlow();
+    setSubmitting(true);
+    completeGoogleSignIn()
+      .catch((err) => setError((err as Error).message ?? "Google sign-in failed."))
+      .finally(() => setSubmitting(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /**
    * Google sign-in doubles as sign-up: there is no separate "register" with an
    * OAuth provider, the account simply exists afterwards. So the only question
    * is whether this account is ALREADY a provider.
@@ -54,29 +98,16 @@ export default function ProviderOnboardingScreen() {
   async function handleGoogle() {
     setError("");
     setSubmitting(true);
+    markPendingGoogleProviderFlow();
     try {
       await loginWithGoogle();
-
       // Read the profile DIRECTLY rather than from context state. The context
       // updates asynchronously via onAuthStateChange, so `user` here would
       // still hold the pre-sign-in value and the branch below would be wrong.
-      const me = await getMyUser();
-      if (!me) {
-        setError("Signed in, but your profile could not be loaded. Please try again.");
-        return;
-      }
-
-      if (me.providerId) {
-        // Already a provider - this was a sign-in, not a sign-up.
-        router.replace("/(provider)/available");
-        return;
-      }
-
-      // New provider. The account now exists, but Google cannot tell us what
-      // service they offer or where they are, so the profile step remains.
-      setGoogleAccount({ name: me.name ?? "", email: me.email ?? "" });
-      setName((prev) => prev || me.name || "");
-      setMode("register");
+      // If the root-screen remount already handed this off to the effect
+      // above, this is a harmless redundant check reaching the same result.
+      await completeGoogleSignIn();
+      clearPendingGoogleProviderFlow();
     } catch (err) {
       setError((err as Error).message ?? "Google sign-in failed.");
     } finally {
