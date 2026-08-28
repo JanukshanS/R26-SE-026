@@ -18,11 +18,16 @@ ARG NEXT_PUBLIC_SUPABASE_KEY=sb_publishable_afsnNQOy9fRKfu-5i1lWUw_AQ9vBRJO
 ARG NEXT_PUBLIC_GEO_URL=https://geo.vps.kaduna.lk
 ARG NEXT_PUBLIC_DISPATCH_URL=https://dispatch.vps.kaduna.lk
 ARG NEXT_PUBLIC_MAINTENANCE_URL=https://predict.vps.kaduna.lk
+# No default: the Maps key is restricted by HTTP referrer rather than kept
+# secret, but it still must not sit in a tracked file. Supply it as a Dokploy
+# build arg. Without it the app falls back to the Leaflet basemap.
+ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SUPABASE_KEY=$NEXT_PUBLIC_SUPABASE_KEY \
     NEXT_PUBLIC_GEO_URL=$NEXT_PUBLIC_GEO_URL \
     NEXT_PUBLIC_DISPATCH_URL=$NEXT_PUBLIC_DISPATCH_URL \
-    NEXT_PUBLIC_MAINTENANCE_URL=$NEXT_PUBLIC_MAINTENANCE_URL
+    NEXT_PUBLIC_MAINTENANCE_URL=$NEXT_PUBLIC_MAINTENANCE_URL \
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
 RUN pnpm build
 
