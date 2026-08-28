@@ -90,19 +90,9 @@ export default function LeafletMap({ incidents, hotspots, blackspots, onSelectIn
           fillOpacity: inc.live ? 0.95 : 0.8,
         });
 
-        marker.bindPopup(
-          `<div style="font-family:system-ui;font-size:12px;">
-            ${inc.live ? '<strong style="color:#F97316">● LIVE REPORT</strong><br/>' : ""}
-            <strong>${inc.id}</strong> — <span style="color:${PRIORITY_COLORS[inc.priority]}">${inc.priority}</span><br/>
-            Score: <strong>${inc.impactScore}/10</strong><br/>
-            ${inc.incidentType.replace(/_/g, " ")} on ${inc.roadType}<br/>
-            ${inc.live && inc.providerName
-              ? `Dispatched: <strong>${inc.providerName}</strong>`
-              : `Queue: ${inc.queueKm}km | VHL: ${inc.vhl}`}
-          </div>`,
-          { className: "kaduna-popup" }
-        );
-
+        // No popup: clicking selects the incident and the rail beside the map
+        // shows the full factor breakdown. A popup here repeated it and covered
+        // the markers the operator is comparing against.
         marker.on("click", () => onSelectIncident(inc));
         marker.addTo(layersRef.current.incidents);
       });

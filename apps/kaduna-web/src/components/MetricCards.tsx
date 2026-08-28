@@ -1,40 +1,69 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
 import type { Stats } from "@/lib/types";
 
 /**
- * Headline figures. Values use tabular numerals so they don't shift width as
- * filters change, and the unit is a separate muted span so the number itself
- * stays the largest thing in the card.
+ * The four figures that describe whatever is currently on the map.
+ *
+ * These sit in the rail beside the map rather than above it, so filtering and
+ * reading the result happen in one glance instead of a scroll. Values use
+ * tabular numerals so they do not shift width as filters change.
+ *
+ * `total` is every marker the map can draw — the 500 scored incidents plus any
+ * live report currently open in dispatch. It is deliberately not
+ * `stats.totalIncidents`, which counts only the scored set: comparing a
+ * filtered count that includes live reports against a denominator that excludes
+ * them produced the nonsense "515 of 500".
  */
-export default function MetricCards({ stats, shown }: { stats: Stats; shown: number }) {
-  const filtered = shown !== stats.totalIncidents;
+export default function MetricCards({
+  stats,
+  shown,
+  total,
+  live,
+}: {
+  stats: Stats;
+  shown: number;
+  total: number;
+  live: number;
+}) {
+  const filtered = shown !== total;
 
   const metrics = [
     {
-      label: "Incidents",
+      label: "On the map",
       value: shown.toLocaleString(),
-      unit: filtered ? `of ${stats.totalIncidents.toLocaleString()}` : "scored",
+      unit: filtered ? `of ${total.toLocaleString()}` : "incidents",
+      hint: live > 0 ? `${live} live` : null,
     },
-    { label: "Average impact", value: stats.avgScore.toFixed(1), unit: "of 10" },
-    { label: "Vehicle-hours lost", value: Math.round(stats.totalVHL).toLocaleString(), unit: "hrs" },
-    { label: "Queue length", value: stats.totalQueueKm.toLocaleString(), unit: "km" },
+    { label: "Average impact", value: stats.avgScore.toFixed(1), unit: "of 10", hint: null },
+    {
+      label: "Vehicle-hours lost",
+      value: Math.round(stats.totalVHL).toLocaleString(),
+      unit: "hrs",
+      hint: null,
+    },
+    { label: "Queue length", value: stats.totalQueueKm.toLocaleString(), unit: "km", hint: null },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border">
       {metrics.map((m) => (
-        <Card key={m.label}>
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">{m.label}</p>
-            <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
-              <span className="text-2xl font-semibold tabular-nums tracking-tight">{m.value}</span>
-              <span className="text-sm text-muted-foreground">{m.unit}</span>
-            </p>
-          </CardContent>
-        </Card>
+        <div key={m.label} className="bg-card px-3 py-2.5">
+          <dt className="text-xs text-muted-foreground">{m.label}</dt>
+          <dd className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5">
+            <span className="font-display text-xl font-bold tabular-nums tracking-tight">
+              {m.value}
+            </span>
+            <span className="text-xs text-muted-foreground">{m.unit}</span>
+            {m.hint && (
+              <span className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <span className="size-1.5 rounded-full bg-[var(--priority-low)]" aria-hidden />
+                {m.hint}
+              </span>
+            )}
+          </dd>
+        </div>
       ))}
-    </div>
+    </dl>
   );
 }

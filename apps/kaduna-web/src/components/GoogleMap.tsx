@@ -233,19 +233,8 @@ export default function GoogleMap({
             map,
           })
         );
+        // No info window: the rail beside the map carries the full breakdown.
         marker.addListener("click", () => {
-          openInfo(
-            marker,
-            `${inc.live ? '<strong style="color:#F97316">● LIVE REPORT</strong><br/>' : ""}
-             <strong>${inc.id}</strong> — <span style="color:${PRIORITY_COLORS[inc.priority]}">${inc.priority}</span><br/>
-             Score: <strong>${inc.impactScore}/10</strong><br/>
-             ${inc.incidentType.replace(/_/g, " ")} on ${inc.roadType}<br/>
-             ${
-               inc.live && inc.providerName
-                 ? `Dispatched: <strong>${inc.providerName}</strong>`
-                 : `Queue: ${inc.queueKm}km | VHL: ${inc.vhl}`
-             }`
-          );
           onSelectIncident(inc);
         });
       });

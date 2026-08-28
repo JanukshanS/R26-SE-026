@@ -218,103 +218,121 @@ export default function OperationsPage() {
     [allIncidents, filters]
   );
 
+  const isMap = tab === "Live map";
+  const loading = !stats || !model;
+
+  const priorityFilter = (
+    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by priority">
+      {PRIORITIES.map((p) => {
+        const on = filters.priority.includes(p);
+        return (
+          <Button
+            key={p}
+            size="sm"
+            variant={on ? "secondary" : "ghost"}
+            onClick={() => togglePriority(p)}
+            aria-pressed={on}
+            className="h-8 gap-2 px-2.5"
+          >
+            <span
+              className="size-2 rounded-full"
+              style={{ background: PRIORITY_TOKEN[p] }}
+              aria-hidden
+            />
+            <span className="text-sm">{p.charAt(0) + p.slice(1).toLowerCase()}</span>
+          </Button>
+        );
+      })}
+    </div>
+  );
+
+  const layerToggles = (
+    <div className="flex items-center gap-1.5" role="group" aria-label="Map layers">
+      {(
+        [
+          ["incidents", "Incidents", MapPin],
+          ["hotspots", "Hotspots", Flame],
+          ["heatmap", "Heatmap", Layers],
+          ["blackspots", "Blackspots (NTC)", Target],
+        ] as const
+      ).map(([key, label, Icon]) => (
+        <Button
+          key={key}
+          size="sm"
+          variant={layers[key] ? "secondary" : "ghost"}
+          onClick={() => setLayers((l) => ({ ...l, [key]: !l[key] }))}
+          aria-pressed={layers[key]}
+          className="h-8 gap-1.5 px-2.5"
+        >
+          <Icon className="size-3.5" aria-hidden />
+          <span className="hidden text-sm xl:inline">{label}</span>
+        </Button>
+      ))}
+    </div>
+  );
+
   return (
-    <PortalShell title="Operations" tabs={TABS} active={tab}>
-      <div className="space-y-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <SectionIntro tab={tab} />
-          <DataSourceBadge
-            dataSource={dataSource}
-            geoOk={geoOk}
-            liveCount={liveOn ? live.length : 0}
-          />
-        </div>
-
-        {tab === "Live map" && <ClaimStrip />}
-
-        {!stats || !model ? (
-          <div className="space-y-4">
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-[32rem] w-full" />
+    <PortalShell
+      title="Operations"
+      tabs={TABS}
+      active={tab}
+      fullWidth={isMap}
+      stretch={isMap}
+    >
+      {isMap ? (
+        loading ? (
+          <div className="flex h-full flex-col gap-3">
+            <Skeleton className="h-12 w-full shrink-0" />
+            <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_360px]">
+              <Skeleton className="h-[26rem] lg:h-full" />
+              <Skeleton className="hidden h-full lg:block" />
+            </div>
             <span className="sr-only">Loading incident data</span>
           </div>
-        ) : tab === "Live map" ? (
-          <div className="space-y-4">
-            <MetricCards stats={stats} shown={shownCount} />
+        ) : (
+          /* Console layout: one toolbar, then the map takes every remaining
+             pixel with the readouts in a rail beside it. The numbers used to
+             stack above the map, which pushed the only interactive thing on
+             the page below the fold. */
+          <div className="flex h-full flex-col gap-3 overflow-y-auto lg:overflow-hidden">
+            <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-card px-3 py-2">
+              {priorityFilter}
 
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-4 py-2.5">
-                <div
-                  className="flex flex-wrap items-center gap-1.5"
-                  role="group"
-                  aria-label="Filter by priority"
-                >
-                  {PRIORITIES.map((p) => {
-                    const on = filters.priority.includes(p);
-                    return (
-                      <Button
-                        key={p}
-                        size="sm"
-                        variant={on ? "secondary" : "ghost"}
-                        onClick={() => togglePriority(p)}
-                        aria-pressed={on}
-                        className="h-8 gap-2 px-2.5"
-                      >
-                        <span
-                          className="size-2 rounded-full"
-                          style={{ background: PRIORITY_TOKEN[p] }}
-                          aria-hidden
-                        />
-                        <span className="text-sm">{p.charAt(0) + p.slice(1).toLowerCase()}</span>
-                      </Button>
-                    );
-                  })}
-                </div>
+              <Separator orientation="vertical" className="hidden h-6 sm:block" />
 
-                <Separator orientation="vertical" className="hidden h-6 sm:block" />
-
-                <Select
-                  value={filters.roadType}
-                  onValueChange={(v) => setFilters((f) => ({ ...f, roadType: v }))}
-                >
-                  <SelectTrigger size="sm" className="w-[150px]" aria-label="Filter by road type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All road types</SelectItem>
-                    {ROAD_TYPES.map((r) => (
-                      <SelectItem key={r} value={r} className="capitalize">
-                        {r}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="ml-auto flex items-center gap-1.5">
-                  {(
-                    [
-                      ["incidents", "Incidents", MapPin],
-                      ["hotspots", "Hotspots", Flame],
-                      ["heatmap", "Heatmap", Layers],
-                      ["blackspots", "Blackspots (NTC)", Target],
-                    ] as const
-                  ).map(([key, label, Icon]) => (
-                    <Button
-                      key={key}
-                      size="sm"
-                      variant={layers[key] ? "secondary" : "ghost"}
-                      onClick={() => setLayers((l) => ({ ...l, [key]: !l[key] }))}
-                      aria-pressed={layers[key]}
-                      className="h-8 gap-1.5 px-2.5"
-                    >
-                      <Icon className="size-3.5" aria-hidden />
-                      <span className="hidden text-sm sm:inline">{label}</span>
-                    </Button>
+              <Select
+                value={filters.roadType}
+                onValueChange={(v) => setFilters((f) => ({ ...f, roadType: v }))}
+              >
+                <SelectTrigger size="sm" className="w-[150px]" aria-label="Filter by road type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All road types</SelectItem>
+                  {ROAD_TYPES.map((r) => (
+                    <SelectItem key={r} value={r} className="capitalize">
+                      {r}
+                    </SelectItem>
                   ))}
-                </div>
-              </div>
+                </SelectContent>
+              </Select>
 
-              <div className="relative h-[34rem]">
+              <div className="ml-auto flex items-center gap-3">
+                {layerToggles}
+                <Separator orientation="vertical" className="hidden h-6 lg:block" />
+                <DataSourceBadge
+                  dataSource={dataSource}
+                  geoOk={geoOk}
+                  liveCount={liveOn ? live.length : 0}
+                />
+              </div>
+            </div>
+
+            {/* Below lg the two stack and the console itself scrolls, so the
+                rail stays reachable instead of being clipped by the fixed
+                viewport height the desktop layout relies on. */}
+            <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="relative h-[26rem] overflow-hidden rounded-xl border border-border bg-card lg:h-auto">
                 <Map
                   incidents={allIncidents}
                   hotspots={hotspots}
@@ -323,28 +341,66 @@ export default function OperationsPage() {
                   filters={filters}
                   layers={layers}
                 />
-                <IncidentPanel incident={selected} onClose={() => setSelected(null)} />
               </div>
-            </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
-              <DayRibbon
-                byHour={stats.byHour}
-                incidents={allIncidents}
-                selectedHour={filters.hour}
-                onSelectHour={(h) => setFilters((f) => ({ ...f, hour: h }))}
-              />
-              <StatsPanel stats={stats} />
+              {/* The rail scrolls on its own so the map never moves. Block
+                  layout, not flex: as flex children the short cards were
+                  shrunk to nothing by the tall stats panel below them. */}
+              <aside
+                aria-label="Readouts"
+                className="space-y-3 pb-1 lg:min-h-0 lg:overflow-y-auto lg:pr-0.5"
+              >
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {TAB_INTRO["Live map"].lead}
+                </p>
+
+                <MetricCards
+                  stats={stats}
+                  shown={shownCount}
+                  total={allIncidents.length}
+                  live={liveOn ? live.length : 0}
+                />
+
+                <IncidentPanel incident={selected} onClose={() => setSelected(null)} />
+
+                <DayRibbon
+                  byHour={stats.byHour}
+                  incidents={allIncidents}
+                  selectedHour={filters.hour}
+                  onSelectHour={(h) => setFilters((f) => ({ ...f, hour: h }))}
+                />
+
+                <StatsPanel stats={stats} />
+              </aside>
             </div>
           </div>
-        ) : (
-          <div className="rounded-xl border border-border bg-card p-4 md:p-6">
-            {tab === "What-if" && <WhatIfSimulator model={model} />}
-            {tab === "Validation" && <ValidationPanel />}
-            {tab === "Dispatch" && <DispatchPanel />}
+        )
+      ) : (
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <SectionIntro tab={tab} />
+            <DataSourceBadge
+              dataSource={dataSource}
+              geoOk={geoOk}
+              liveCount={liveOn ? live.length : 0}
+            />
           </div>
-        )}
-      </div>
+
+          {/* The headline claims are provenance, not operations: they belong
+              where someone is checking whether to believe the model. */}
+          {tab === "Validation" && <ClaimStrip />}
+
+          {loading ? (
+            <Skeleton className="h-96 w-full" />
+          ) : (
+            <div className="rounded-xl border border-border bg-card p-4 md:p-6">
+              {tab === "What-if" && <WhatIfSimulator model={model} />}
+              {tab === "Validation" && <ValidationPanel />}
+              {tab === "Dispatch" && <DispatchPanel />}
+            </div>
+          )}
+        </div>
+      )}
     </PortalShell>
   );
 }
