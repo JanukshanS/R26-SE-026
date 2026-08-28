@@ -116,3 +116,7 @@ contracts/*.d.ts.map
 
 # Derived: rebuilt from knowledge/*.md whenever the corpus changes.
 components/predictive-maintenance/knowledge/.embeddings.json
+
+# Structurizr Lite runtime output (only workspace.dsl and docs/ are tracked)
+docs/architecture/workspace.json
+docs/architecture/.structurizr/

@@ -1,25 +1,49 @@
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Linking } from 'react-native';
 
-import { loadClaimantProfile, saveClaimantProfile } from '@/features/claimant/storage/claimant-profile-store';
-import { loadGuidedCaptureEntryMeta } from '@/features/guided-capture/storage/guided-capture-entry-store';
-import { loadDrunkTestEntryMeta } from '@/features/drunk-test/storage/drunk-test-entry-store';
-import { loadInsurerCallMeta } from '@/features/insurer-call/storage/insurer-call-store';
 import { getCurrentPositionOrNull } from '@/features/report-accident/get-current-position';
 import { loadReportAccidentEntryMeta } from '@/features/report-accident/storage/report-accident-entry-store';
-import { uploadFullClaimBundleToBackend } from '@/lib/capture-api';
+import { startClaimUploadInBackground } from '@/lib/claim-upload-background-runner';
 import {
   getPersistedSuccessfulClaimUploadKey,
   loadPersistedClaimLocation,
   savePersistedClaimLocation,
   setPersistedSuccessfulClaimUploadKey,
 } from '@/lib/claim-upload-dedupe';
+import { loadClaimLocationCache, saveClaimLocationCache } from '@/lib/claim-location-cache-store';
+import {
+  getClaimUploadProgressSnapshot,
+  IDLE_CLAIM_UPLOAD_PROGRESS,
+  markClaimUploadAlreadySucceeded,
+  subscribeClaimUploadProgress,
+} from '@/lib/claim-upload-progress-bus';
 import { formatGeocodedLine } from '@/lib/format-geocoded-line';
 import { formatTimestamp } from '@/lib/format-timestamp';
-import { getMyUser, getVehicles } from '@/lib/vehicleApi';
-import { getVehicleInsurance } from '@/lib/vehicleInsuranceApi';
+
+const REVERSE_GEOCODE_TIMEOUT_MS = 6000;
+
+/**
+ * Location.reverseGeocodeAsync takes no timeout and can hang indefinitely on a
+ * flaky/offline connection — and nothing after it (including actually starting the
+ * upload) runs until it settles. Falls back to null (the caller keeps the raw
+ * coordinate string) once the wait is over, same pattern as getCurrentPositionOrNull.
+ */
+async function reverseGeocodeWithTimeout(lat: number, lng: number): Promise<string | null> {
+  try {
+    const lookup = Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+    lookup.catch(() => {});
+    const result = await Promise.race([
+      lookup,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), REVERSE_GEOCODE_TIMEOUT_MS)),
+    ]);
+    const geo = result?.[0];
+    return geo ? formatGeocodedLine(geo) : null;
+  } catch {
+    return null;
+  }
+}
 
 type ClaimantData = { fullName: string; nic: string; licenceNumber: string };
 
@@ -62,25 +86,53 @@ export function useClaimUpload(
    * of which vehicle was actually selected for that specific claim. */
   vehicleId?: string
 ): UseClaimUploadResult {
-  const [locationLine, setLocationLine] = useState<string>('Getting location…');
+  // Defaults to the reassuring "already saved" wording, not a loading placeholder —
+  // by far the most common case on mount is that the location was already resolved
+  // in an earlier pass (cache, persisted entry meta, or a fully-succeeded claim), so
+  // starting from a spinner/"Getting location…" and then almost immediately
+  // overwriting it was what made every reopen flash — or on a slower device, look
+  // stuck on — that text. Only the one genuinely slow path below (no entry meta yet,
+  // needs a fresh permission + GPS fetch) explicitly switches this back to a loading
+  // state itself.
+  const [locationLine, setLocationLine] = useState<string>('Location saved');
   const [timestampLine, setTimestampLine] = useState<string>('');
-  const [locationLoading, setLocationLoading] = useState(true);
-  const [photosUploadPercent, setPhotosUploadPercent] = useState<number | null>(null);
-  const [photosUploadComplete, setPhotosUploadComplete] = useState(false);
-  const [fraudValidationPercent, setFraudValidationPercent] = useState<number | null>(null);
-  const [fraudValidationComplete, setFraudValidationComplete] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadFailedVisible, setUploadFailedVisible] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  /** Set only for the "no GPS location yet" block below — distinct from the shared
+   * upload-progress bus's own uploadError (paused/failed), which only exists once an
+   * actual background upload attempt has started. Combined into one `uploadError`
+   * field in the returned value below, same as before this hook read live progress
+   * from a shared store instead of local state. */
+  const [locationBlockedError, setLocationBlockedError] = useState<string | null>(null);
   const [locationRequiredVisible, setLocationRequiredVisible] = useState(false);
+  /** The "Upload Failed" dialog is one-shot per failure — dismissing it must not
+   * un-fail the underlying progress (the inline note stays up), so this is tracked
+   * separately from the shared bus's phase rather than folded into it. */
+  const [failureDialogDismissed, setFailureDialogDismissed] = useState(false);
   /** Bumped by the "Try again" button on the blocking alerts; re-runs the effect below.
    * Without it the only way back to an upload is leaving the screen and returning. */
   const [retryToken, setRetryToken] = useState(0);
 
-  const photosUploadedForKeyRef = useRef<string | null>(null);
-  const guidedWalkaroundUploadsDoneRef = useRef(false);
-  const fraudValidationMediaUploadsDoneRef = useRef(false);
-  /** Guards against a second concurrent run for the same key (e.g. a duplicate focus event
-   * firing mid-upload) — unlike photosUploadedForKeyRef, this is set before the upload starts. */
+  // Live progress for the currently-running (or just-finished) claim upload — a
+  // module-level store, not local state, because the actual upload runs in a
+  // react-native-background-actions foreground service independent of whether this
+  // screen/hook instance is even mounted (see claim-upload-background-runner.ts).
+  // Reopening the app after backgrounding remounts a fresh hook instance that must
+  // immediately reflect whatever the still-running background task has already
+  // achieved, not reset to a spinner.
+  const rawProgress = useSyncExternalStore(subscribeClaimUploadProgress, getClaimUploadProgressSnapshot);
+  // Guards against a stale state from a *different* claim's upload (e.g. a lingering
+  // 'failed' from before Start New Claim) bleeding into this screen's display.
+  const progress = rawProgress.uploadKey === uploadKey ? rawProgress : IDLE_CLAIM_UPLOAD_PROGRESS;
+
+  useEffect(() => {
+    if (progress.phase === 'failed') {
+      setFailureDialogDismissed(false);
+    }
+  }, [progress.phase]);
+
+  /** Guards against a second concurrent run for the same key (e.g. a duplicate focus
+   * event firing mid-upload) starting a whole second GPS-resolution pass. The actual
+   * upload call itself is separately guarded inside startClaimUploadInBackground. */
   const uploadInFlightForKeyRef = useRef<string | null>(null);
 
   useFocusEffect(
@@ -89,9 +141,16 @@ export function useClaimUpload(
         return () => {};
       }
       let cancelled = false;
-      setLocationLoading(true);
-      setLocationLine('Getting location…');
-      setTimestampLine('');
+      // Deliberately not resetting to a loading/placeholder state here on every
+      // focus — see the locationLine/locationLoading initializers above. Whatever
+      // was last shown just stays up until the async logic below has something
+      // better to say, instead of flashing "Getting location…" + a spinner first.
+
+      const clearInFlight = () => {
+        if (uploadInFlightForKeyRef.current === uploadKey) {
+          uploadInFlightForKeyRef.current = null;
+        }
+      };
 
       void (async () => {
         // No uploadKey means there's nothing to upload or resume — e.g. viewing an
@@ -114,53 +173,110 @@ export function useClaimUpload(
         }
         uploadInFlightForKeyRef.current = uploadKey;
         if (!cancelled) {
-          setUploadError(null);
+          setLocationBlockedError(null);
         }
 
-        try {
-          const parsed = reportedAtIso ? new Date(reportedAtIso) : null;
-          const recordedAt = parsed && Number.isFinite(parsed.getTime()) ? parsed : new Date();
+        const parsed = reportedAtIso ? new Date(reportedAtIso) : null;
+        const recordedAt = parsed && Number.isFinite(parsed.getTime()) ? parsed : new Date();
 
-          // Once a claim has been successfully submitted from this device, it stays locked —
-          // deleting/retaking individual photos afterward must NOT trigger a fresh re-upload.
-          // (Deliberately not comparing against the current uploadKey: retaken photos get new
-          // file URIs, which would change the key and defeat this lock. Starting over for real
-          // requires an explicit Reset / Start New Claim, which clears the persisted success key.)
-          if (uploadKey) {
-            const persistedSuccessKey = await getPersistedSuccessfulClaimUploadKey();
-            if (!cancelled && persistedSuccessKey != null) {
-              photosUploadedForKeyRef.current = uploadKey;
-              setPhotosUploadPercent(100);
-              setPhotosUploadComplete(true);
-              setFraudValidationPercent(100);
-              setFraudValidationComplete(true);
-              const saved = await loadPersistedClaimLocation();
-              if (!cancelled) {
-                if (saved) {
-                  setLocationLine(saved.locationLine);
-                  setTimestampLine(saved.timestampLine);
-                }
-                setLocationLoading(false);
-              }
-              return;
-            }
-            if (!cancelled && photosUploadedForKeyRef.current != null) {
-              setPhotosUploadPercent(100);
-              setPhotosUploadComplete(true);
-              setFraudValidationPercent(100);
-              setFraudValidationComplete(true);
-              const saved = await loadPersistedClaimLocation();
-              if (!cancelled) {
-                if (saved) {
-                  setLocationLine(saved.locationLine);
-                  setTimestampLine(saved.timestampLine);
-                }
-                setLocationLoading(false);
-              }
-              return;
-            }
+        // Once a claim has been successfully submitted from this device, it stays locked —
+        // deleting/retaking individual photos afterward must NOT trigger a fresh re-upload.
+        // (Deliberately not comparing against the current uploadKey: retaken photos get new
+        // file URIs, which would change the key and defeat this lock. Starting over for real
+        // requires an explicit Reset / Start New Claim, which clears the persisted success key.)
+        const alreadySucceededThisSession =
+          getClaimUploadProgressSnapshot().uploadKey === uploadKey &&
+          getClaimUploadProgressSnapshot().phase === 'succeeded';
+        const persistedSuccessKey = alreadySucceededThisSession
+          ? null
+          : await getPersistedSuccessfulClaimUploadKey();
+        if (!cancelled && (alreadySucceededThisSession || persistedSuccessKey != null)) {
+          if (!alreadySucceededThisSession) {
+            markClaimUploadAlreadySucceeded(uploadKey);
           }
+          const saved = await loadPersistedClaimLocation();
+          if (!cancelled) {
+            if (saved) {
+              setLocationLine(saved.locationLine);
+              setTimestampLine(saved.timestampLine);
+            }
+            setLocationLoading(false);
+          }
+          clearInFlight();
+          return;
+        }
 
+        const fireUpload = (lat: number, lng: number, line: string) => {
+          // The actual upload runs in a background-actions foreground service (see
+          // claim-upload-background-runner.ts), independent of this effect/screen's
+          // lifecycle — fire-and-forget, not awaited, so backgrounding or navigating
+          // away from this screen can never interrupt it. Live progress is read back
+          // via the shared bus (useSyncExternalStore above), not these callbacks.
+          void startClaimUploadInBackground({
+            uploadKey,
+            vehicleId,
+            claimant: { ...claimantRef.current },
+            report: {
+              capturedAtIso: recordedAt.toISOString(),
+              capturedAtDisplayLocal: formatTimestamp(recordedAt),
+              gpsLat: lat,
+              gpsLng: lng,
+              locationLabel: line,
+            },
+          })
+            .then(() => {
+              // Not gated on `cancelled` — same reasoning as fireUpload's own call
+              // above. A real upload takes real time; by the time it actually
+              // finishes the driver has very often already navigated away or closed
+              // the app, and this bookkeeping (the persisted success key + location,
+              // which is what makes a later fresh mount show the real address
+              // instead of "Getting location…" forever) must still get written.
+              const snap = getClaimUploadProgressSnapshot();
+              // Only persist success bookkeeping once the whole attempt (across any
+              // internal pause/retry loop inside the runner) has genuinely finished
+              // successfully — a 'failed' settlement already cleared its own state.
+              if (snap.uploadKey === uploadKey && snap.phase === 'succeeded') {
+                void setPersistedSuccessfulClaimUploadKey(uploadKey);
+                // Best-effort: a storage failure here must not flip the upload into an error state.
+                void savePersistedClaimLocation({
+                  locationLine: line,
+                  timestampLine: formatTimestamp(recordedAt),
+                }).catch(() => {});
+              }
+            })
+            .finally(clearInFlight);
+        };
+
+        // Fast path: this exact claim's location was already resolved before (an
+        // earlier attempt this session, or a previous app launch) — reuse it instead
+        // of redoing GPS + reverse-geocode on every single re-entry into this screen.
+        // This matters beyond just avoiding a redundant "Getting location…" flash:
+        // reverseGeocodeAsync has no timeout of its own, so on a flaky/offline
+        // connection it can hang indefinitely — without this cache, that hang would
+        // block the upload from (re)starting on every single visit, not just the first.
+        //
+        // fireUpload() below is deliberately called unconditionally (not gated on
+        // `cancelled`) — only the UI updates (setLocationLine etc.) check it. This
+        // effect's own `cancelled` just means "this screen isn't focused any more,"
+        // which must never stop the upload from actually starting: that's the whole
+        // point of running it in a background-actions foreground service. Gating the
+        // fire call on `cancelled` here previously meant navigating away (even
+        // briefly) while location was still resolving silently killed the entire
+        // attempt before it ever reached the point of starting the upload — nothing
+        // got cached, nothing got sent, and "Resume Now" just repeated the same race
+        // every time.
+        const cachedLocation = await loadClaimLocationCache(uploadKey);
+        if (cachedLocation) {
+          if (!cancelled) {
+            setLocationLine(cachedLocation.locationLine);
+            setTimestampLine(cachedLocation.timestampLine);
+            setLocationLoading(false);
+          }
+          fireUpload(cachedLocation.lat, cachedLocation.lng, cachedLocation.locationLine);
+          return;
+        }
+
+        {
           let lat: number | null = null;
           let lng: number | null = null;
           let line = 'Getting location…';
@@ -169,19 +285,34 @@ export function useClaimUpload(
           if (!cancelled && persistedEntryMeta?.latitude != null && persistedEntryMeta?.longitude != null) {
             lat = persistedEntryMeta.latitude;
             lng = persistedEntryMeta.longitude;
-            line = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-            try {
-              const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-              if (geo && !cancelled) line = formatGeocodedLine(geo);
-            } catch {
-              // keep coordinates
-            }
+            // The coordinates themselves are already captured and safe at this
+            // point (from the entry-location snapshot taken when Report Accident
+            // was first tapped) — only the human-readable address lookup below is
+            // still pending, and that's a nice-to-have, not something the claim
+            // depends on. Showing it immediately, before attempting that lookup,
+            // means the driver never sees an ambiguous "Getting location…" for a
+            // location that in truth was already saved — including in the exact
+            // scenario this matters most: reopening after the app was closed
+            // mid-upload, where "Getting location…" used to look stuck.
+            line = 'Location saved';
             if (!cancelled) {
               setLocationLine(line);
               setTimestampLine(formatTimestamp(recordedAt));
               setLocationLoading(false);
             }
+            const geocoded = await reverseGeocodeWithTimeout(lat, lng);
+            if (geocoded) {
+              line = geocoded;
+              if (!cancelled) setLocationLine(line);
+            }
           } else {
+            // The one genuinely slow, uncertain path — no entry meta yet means a
+            // fresh permission prompt + GPS fix, which can take real time. This is
+            // the only place that shows a loading state at all.
+            if (!cancelled) {
+              setLocationLoading(true);
+              setLocationLine('Getting location…');
+            }
             try {
               const { status } = await Location.requestForegroundPermissionsAsync();
               if (cancelled) return;
@@ -201,16 +332,18 @@ export function useClaimUpload(
                 } else {
                   lat = pos.coords.latitude;
                   lng = pos.coords.longitude;
-                  line = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-                  try {
-                    const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-                    if (geo && !cancelled) line = formatGeocodedLine(geo);
-                  } catch {
-                    // keep coordinates
-                  }
+                  // Same reasoning as the persisted-entry-meta branch above — the
+                  // coordinates are already captured at this point, so show that
+                  // immediately rather than waiting on the optional address lookup.
+                  line = 'Location saved';
                   if (!cancelled) {
                     setLocationLine(line);
                     setTimestampLine(formatTimestamp(recordedAt));
+                  }
+                  const geocoded = await reverseGeocodeWithTimeout(lat, lng);
+                  if (geocoded) {
+                    line = geocoded;
+                    if (!cancelled) setLocationLine(line);
                   }
                 }
               }
@@ -225,143 +358,34 @@ export function useClaimUpload(
             }
           }
 
-          if (cancelled || !uploadKey) return;
-
-          // Block upload if GPS location was not obtained.
-          if (lat === null) {
-            // 0%, not the null "still resolving" value — nothing is uploading while this
-            // is blocked, and a spinner here read as work in progress.
-            setPhotosUploadPercent(0);
-            setFraudValidationPercent(0);
-            setUploadError(
-              'Nothing has been sent yet — your claim needs the accident location. Turn on location access for this app, then come back to this screen to retry.'
-            );
-            setLocationRequiredVisible(true);
+          // Not gated on `cancelled` — see the fast-path comment above. Only a
+          // genuinely missing uploadKey means there's truly nothing to do.
+          if (!uploadKey) {
+            clearInFlight();
             return;
           }
 
-          // null (not 0) — the real resumed starting point isn't known yet until
-          // uploadFullClaimBundleToBackend resolves the capture session; the UI shows a
-          // spinner in the meantime instead of a misleading "0%".
-          setPhotosUploadPercent(null);
-          setPhotosUploadComplete(false);
-          setFraudValidationPercent(null);
-          setFraudValidationComplete(false);
-          guidedWalkaroundUploadsDoneRef.current = false;
-          fraudValidationMediaUploadsDoneRef.current = false;
-
-          try {
-            const [saved, insurerCallMeta, guidedCaptureEntryMeta, drunkTestEntryMeta, vehicles, profileUser] =
-              await Promise.all([
-                loadClaimantProfile(),
-                loadInsurerCallMeta(),
-                loadGuidedCaptureEntryMeta(),
-                loadDrunkTestEntryMeta(),
-                // Guest/unauthenticated sessions get [] back (RLS-filtered), not a thrown
-                // error — vehicle stays undefined below and the backend falls back to
-                // its own placeholders, same as before this vehicle info existed.
-                getVehicles().catch(() => []),
-                // The signed-in driver's name/NIC/licence live on their Supabase profile
-                // (set via Add Insurer) — that's the real source of truth; the local
-                // claimant-profile-store below only exists as a guest-mode fallback
-                // (there's no in-app form that ever writes to it directly).
-                getMyUser().catch(() => null),
-              ]);
-            const claimant = {
-              fullName: (profileUser?.name || claimantRef.current.fullName || saved.fullName).trim(),
-              nic: (profileUser?.nicNumber || claimantRef.current.nic || saved.nic).trim(),
-              licenceNumber: (
-                profileUser?.licenceNumber ||
-                claimantRef.current.licenceNumber ||
-                saved.licenceNumber
-              ).trim(),
-            };
-            await saveClaimantProfile(claimant);
-            // Insurer/policy number can differ per vehicle, so they come from the
-            // specific vehicle this claim was started for (vehicleId), not a guessed
-            // default — otherwise every claim silently attaches to the same vehicle
-            // regardless of which one was actually selected for it.
-            const targetVehicle = vehicleId
-              ? vehicles.find((v) => v._id === vehicleId) ?? vehicles.find((v) => v.isDefault) ?? vehicles[0]
-              : vehicles.find((v) => v.isDefault) ?? vehicles[0];
-            // Insurance lives in its own table (vehicle_insurance), not on the vehicle
-            // row itself, so the policy number is fetched separately.
-            const targetInsurance = targetVehicle
-              ? await getVehicleInsurance(targetVehicle._id).catch(() => null)
-              : null;
-            await uploadFullClaimBundleToBackend({
-              uploadKey,
-              insurerCallMeta,
-              guidedCaptureEntryMeta,
-              drunkTestEntryMeta,
-              vehicle: targetVehicle
-                ? {
-                    model: `${targetVehicle.make} ${targetVehicle.model}`.trim(),
-                    policyNumber: targetInsurance?.insurancePolicyNumber,
-                    plateNumber: targetVehicle.plateNumber,
-                    insuranceExpireMonth: targetInsurance?.insuranceExpireMonth,
-                  }
-                : undefined,
-              onGuidedProgress: (p) => { if (!cancelled) setPhotosUploadPercent(p); },
-              onFraudProgress: (p) => { if (!cancelled) setFraudValidationPercent(p); },
-              onGuidedWalkaroundUploadsComplete: () => {
-                if (!cancelled) {
-                  guidedWalkaroundUploadsDoneRef.current = true;
-                  setPhotosUploadPercent(100);
-                  setPhotosUploadComplete(true);
-                }
-              },
-              onFraudValidationMediaUploadsComplete: () => {
-                if (!cancelled) {
-                  fraudValidationMediaUploadsDoneRef.current = true;
-                  setFraudValidationPercent(100);
-                  setFraudValidationComplete(true);
-                }
-              },
-              report: {
-                capturedAtIso: recordedAt.toISOString(),
-                capturedAtDisplayLocal: formatTimestamp(recordedAt),
-                gpsLat: lat,
-                gpsLng: lng,
-                locationLabel: line,
-              },
-              claimant: {
-                fullName: claimant.fullName,
-                nic: claimant.nic,
-                licenceNumber: claimant.licenceNumber,
-              },
-            });
+          // Block upload if GPS location was not obtained. (Checking both, not just
+          // lat, also narrows lng's type below — the two are always set together in
+          // every branch above.) The blocking dialog itself is inherently
+          // screen-scoped (the driver has to be looking at it to act on it), so it's
+          // fine for that part alone to stay silent if the screen isn't focused.
+          if (lat === null || lng === null) {
             if (!cancelled) {
-              photosUploadedForKeyRef.current = uploadKey;
-              await setPersistedSuccessfulClaimUploadKey(uploadKey);
-              // Best-effort: a storage failure here must not flip the upload into an error state.
-              await savePersistedClaimLocation({ locationLine: line, timestampLine: formatTimestamp(recordedAt) }).catch(() => {});
-            }
-          } catch (e) {
-            if (!cancelled) {
-              if (__DEV__) {
-                // The raw error (network failure, server 500, etc.) is only useful for
-                // debugging — the driver sees a plain-language explanation instead (below).
-                console.log('[Claim upload failed]', e);
-              }
-              if (!guidedWalkaroundUploadsDoneRef.current) {
-                setPhotosUploadPercent(0);
-                setPhotosUploadComplete(false);
-              }
-              if (!fraudValidationMediaUploadsDoneRef.current) {
-                setFraudValidationPercent(0);
-                setFraudValidationComplete(false);
-              }
-              setUploadError(
-                'Upload stopped before it finished. Your photos are safe on this device — tap Try again, or come back to this screen to resume from where it stopped.'
+              setLocationBlockedError(
+                'Nothing has been sent yet — your claim needs the accident location. Turn on location access for this app, then come back to this screen to retry.'
               );
-              setUploadFailedVisible(true);
+              setLocationRequiredVisible(true);
             }
+            clearInFlight();
+            return;
           }
-        } finally {
-          if (uploadKey && uploadInFlightForKeyRef.current === uploadKey) {
-            uploadInFlightForKeyRef.current = null;
-          }
+
+          // Cache before firing — so the next time this claim's upload screen is
+          // entered (resuming, reopening the app, "Resume Now"), it skips straight to
+          // fireUpload above instead of redoing this whole resolution.
+          await saveClaimLocationCache({ uploadKey, lat, lng, locationLine: line, timestampLine: formatTimestamp(recordedAt) });
+          fireUpload(lat, lng, line);
         }
       })();
 
@@ -371,9 +395,9 @@ export function useClaimUpload(
     }, [uploadKey, claimantHydrated, claimantRef, reportedAtIso, vehicleId, retryToken])
   );
 
-  const dismissUploadFailed = useCallback(() => setUploadFailedVisible(false), []);
+  const dismissUploadFailed = useCallback(() => setFailureDialogDismissed(true), []);
   const retryUpload = useCallback(() => {
-    setUploadFailedVisible(false);
+    setFailureDialogDismissed(true);
     setRetryToken((n) => n + 1);
   }, []);
 
@@ -390,16 +414,23 @@ export function useClaimUpload(
     void Linking.openSettings();
   }, []);
 
+  // "Blocked on missing GPS" shows a static 0%, not the shared bus's null/idle
+  // default (which the UI reads as "still resolving" and shows a spinner for) —
+  // nothing is uploading while this is blocked, and a spinner here would read as
+  // work in progress.
+  const photosUploadPercent = locationBlockedError ? 0 : progress.photosUploadPercent;
+  const fraudValidationPercent = locationBlockedError ? 0 : progress.fraudValidationPercent;
+
   return {
     locationLine,
     timestampLine,
     locationLoading,
     photosUploadPercent,
-    photosUploadComplete,
+    photosUploadComplete: progress.photosUploadComplete,
     fraudValidationPercent,
-    fraudValidationComplete,
-    uploadError,
-    uploadFailedVisible,
+    fraudValidationComplete: progress.fraudValidationComplete,
+    uploadError: locationBlockedError ?? progress.uploadError,
+    uploadFailedVisible: progress.phase === 'failed' && !failureDialogDismissed,
     dismissUploadFailed,
     retryUpload,
     locationRequiredVisible,

@@ -449,6 +449,16 @@ components:
           - type: 'null'
           title: Speed Limit Kmh
           example: 60.0
+        date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Date
+          description: Calendar date of the incident (ISO 8601). Optional; enables the holiday /
+            long-weekend component of the sensitivity overlay and overrides day_of_week for calendar
+            logic.
+          example: '2026-08-26'
       type: object
       required:
       - latitude
@@ -460,6 +470,73 @@ components:
       - hour
       - day_of_week
       title: ScoreRequest
+    NearbySensitiveLocation:
+      properties:
+        type:
+          type: string
+          title: Type
+          description: hospital | school | bridge | market | getaway_eve
+        name:
+          type:
+          - string
+          - 'null'
+          title: Name
+        distance_m:
+          type:
+          - number
+          - 'null'
+          title: Distance M
+        boost:
+          type: number
+          title: Boost
+          description: Additive boost this location contributes
+        active:
+          type: boolean
+          title: Active
+          description: False when present but outside its time gate
+      type: object
+      required:
+      - type
+      - boost
+      - active
+      title: NearbySensitiveLocation
+    SensitivityInfo:
+      description: Sensitive-location + calendar overlay (schools, hospitals, bridges, markets,
+        long-weekend eves). The base 5-factor score is unchanged; the overlay reports a separate
+        capped multiplier and adjusted score.
+      properties:
+        factor:
+          type: number
+          title: Factor
+          description: Capped multiplier in [1.0, 1.35] applied on top of the base score
+        adjusted_score:
+          type: number
+          title: Adjusted Score
+          description: min(10, score * factor) — the overlay-adjusted impact score
+        nearby:
+          items:
+            $ref: '#/components/schemas/NearbySensitiveLocation'
+          type: array
+          title: Nearby
+        is_holiday:
+          type: boolean
+          title: Is Holiday
+        is_getaway_eve:
+          type: boolean
+          title: Is Getaway Eve
+        data_available:
+          type: boolean
+          title: Data Available
+          description: False when the POI dataset is missing (overlay degrades to 1.0)
+      type: object
+      required:
+      - factor
+      - adjusted_score
+      - nearby
+      - is_holiday
+      - is_getaway_eve
+      - data_available
+      title: SensitivityInfo
     ScoreResponse:
       properties:
         score:
@@ -478,12 +555,15 @@ components:
           additionalProperties: true
           type: object
           title: Prediction
+        sensitivity:
+          $ref: '#/components/schemas/SensitivityInfo'
       type: object
       required:
       - score
       - priority
       - factors
       - prediction
+      - sensitivity
       title: ScoreResponse
     TimelineRequest:
       properties:
@@ -543,6 +623,16 @@ components:
           - type: 'null'
           title: Speed Limit Kmh
           example: 60.0
+        date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Date
+          description: Calendar date of the incident (ISO 8601). Optional; enables the holiday /
+            long-weekend component of the sensitivity overlay and overrides day_of_week for calendar
+            logic.
+          example: '2026-08-26'
         horizon_min:
           type: integer
           maximum: 600.0

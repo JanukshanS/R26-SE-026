@@ -157,15 +157,25 @@ def trip_distance_sum(db: Session, vehicle_id: str) -> float:
 
 
 def current_odometer_km(
-    db: Session, vehicle_id: str
+    db: Session, vehicle_id: str, trips: Optional[List[TripMetrics]] = None
 ) -> Tuple[float, float, Optional[VehicleBaseline]]:
     """Real odometer, trip total, and the baseline row (None if never set).
 
     Falls back to the plain trip sum when no baseline exists, so every vehicle
     registered before this feature behaves exactly as it did before. That
     fallback is the whole migration story - there is nothing to backfill.
+
+    `trips`, when supplied, must be every TripMetrics row for this vehicle.
+    The health endpoint already fetches that full list for its own feature
+    aggregation; passing it here means the SUM is taken from rows already in
+    memory instead of asking Postgres the same question a second time in a
+    second round trip. Every other caller omits it and gets the original
+    single aggregate query, unchanged.
     """
-    trip_km = trip_distance_sum(db, vehicle_id)
+    trip_km = (
+        sum(t.distance_km for t in trips) if trips is not None
+        else trip_distance_sum(db, vehicle_id)
+    )
     baseline = db.query(VehicleBaseline).filter(
         VehicleBaseline.vehicle_id == vehicle_id
     ).first()
@@ -196,25 +206,30 @@ class ComponentState:
         return self.basis != "user"
 
 
-def latest_resetting_record(
-    db: Session, vehicle_id: str, component: str
-) -> Optional[ServiceRecord]:
-    """Most recent record that PUT A NEW PART IN for this component.
+def latest_resetting_records(db: Session, vehicle_id: str) -> Dict[str, ServiceRecord]:
+    """Most recent record that PUT A NEW PART IN, for every wear component at once.
 
     Deliberately different from the /services/latest route, which returns the
     latest record of ANY type (that is what a "last serviced" list wants). Wear
     only restarts on a resetting type, so health must ask a narrower question.
     Do not "fix" one of these to match the other.
 
+    ONE query for all of WEAR_COMPONENTS rather than one per component. This is
+    correct, not just faster, because of how the ordering composes: every row
+    for every component is fetched under a single global ORDER BY (odometer
+    desc, date desc, created desc), and a component's own rows keep their
+    relative order within that larger sequence - so the first row seen for a
+    given component while walking the results IS that component's maximum,
+    exactly as three separate per-component queries would have found.
     Ordered by odometer first because that is the physically meaningful axis -
     a driver can and does type the wrong date.
     """
     resetting = [t for t, resets in SERVICE_TYPE_RESETS_WINDOW.items() if resets]
-    return (
+    rows = (
         db.query(ServiceRecord)
         .filter(
             ServiceRecord.vehicle_id == vehicle_id,
-            ServiceRecord.component == component,
+            ServiceRecord.component.in_(WEAR_COMPONENTS),
             ServiceRecord.service_type.in_(resetting),
         )
         .order_by(
@@ -222,8 +237,12 @@ def latest_resetting_record(
             ServiceRecord.service_date.desc(),
             ServiceRecord.created_at.desc(),
         )
-        .first()
+        .all()
     )
+    latest: Dict[str, ServiceRecord] = {}
+    for row in rows:
+        latest.setdefault(row.component, row)
+    return latest
 
 
 def resolve_component_states(
@@ -250,11 +269,12 @@ def resolve_component_states(
     if baseline is None:
         return {}
 
+    latest_records = latest_resetting_records(db, vehicle_id)
     states: Dict[str, ComponentState] = {}
     for component in WEAR_COMPONENTS:
         life = float(COMPONENT_EXPECTED_LIFE_KM[component])
 
-        record = latest_resetting_record(db, vehicle_id, component)
+        record = latest_records.get(component)
         if record is not None:
             install_km = record.install_km
             km_on = max(odometer_km - install_km, 0.0)
@@ -327,8 +347,29 @@ def engine_oil_state(db: Session, vehicle_id: str, odometer_km: float) -> Engine
 # Health floor - health must never rise on its own
 # ---------------------------------------------------------------------------
 
+def load_health_floors(db: Session, vehicle_id: str) -> Dict[str, ComponentHealthFloor]:
+    """Every component's floor row for one vehicle, in a single query.
+
+    A health check clamps up to four components (engine, brake, tire,
+    battery) against their worst-ever reading. Fetching each floor
+    individually inside that loop was one round trip per component; this is
+    one round trip total, keyed for apply_health_floor to look up in memory.
+    """
+    rows = (
+        db.query(ComponentHealthFloor)
+        .filter(ComponentHealthFloor.vehicle_id == vehicle_id)
+        .all()
+    )
+    return {row.component: row for row in rows}
+
+
 def apply_health_floor(
-    db: Session, vehicle_id: str, component: str, health_pct: float, rul_km: float
+    floors: Dict[str, ComponentHealthFloor],
+    db: Session,
+    vehicle_id: str,
+    component: str,
+    health_pct: float,
+    rul_km: float,
 ) -> Tuple[float, float, bool]:
     """Clamp health to the worst value ever seen, and record new worsts.
 
@@ -338,30 +379,36 @@ def apply_health_floor(
     accumulated wear, so a gentle week makes worn brake pads look better. The
     only thing that legitimately raises health is fitting a new part, which
     clears the floor via clear_health_floor.
+
+    `floors` comes from load_health_floors, called ONCE before the caller's
+    per-component loop - not queried again here. A new floor row is staged
+    with db.add() and an existing one is mutated in place, but NEITHER is
+    committed: committing once per component, up to four times per health
+    check, was the more expensive half of the original round-trip count
+    (a commit forces a transaction sync; a plain select does not). The
+    caller commits once after every component has been processed. Because
+    this mutates `floors` and calls db.add() for a new row, calling it twice
+    for the same component before that commit would see the first call's
+    staged row on the second call rather than issuing a duplicate insert -
+    which cannot happen in practice, since predict.py calls this exactly once
+    per component per request.
     """
-    row = (
-        db.query(ComponentHealthFloor)
-        .filter(
-            ComponentHealthFloor.vehicle_id == vehicle_id,
-            ComponentHealthFloor.component == component,
-        )
-        .first()
-    )
     now = datetime.now(timezone.utc).isoformat()
+    row = floors.get(component)
 
     if row is None:
-        db.add(ComponentHealthFloor(
+        new_row = ComponentHealthFloor(
             vehicle_id=vehicle_id, component=component,
             health_pct=health_pct, rul_km=rul_km, observed_at=now,
-        ))
-        db.commit()
+        )
+        db.add(new_row)
+        floors[component] = new_row
         return health_pct, rul_km, False
 
     if health_pct < row.health_pct:
         row.health_pct = health_pct
         row.rul_km = rul_km
         row.observed_at = now
-        db.commit()
         return health_pct, rul_km, False
 
     # Today looks better than the worst we have seen. Report the worst.

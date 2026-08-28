@@ -1,0 +1,4 @@
+/* Insurer dashboard CSS has been migrated to Tailwind utility classes in JSX.
+   Layout grid, expand/collapse animations, and three.css token mappings moved
+   into styles/insurer/three.css (still imported by the insurer layout).
+   This file is no longer imported by the insurer layout. */

@@ -12,6 +12,7 @@ OpenAPI docs auto-generate at http://localhost:5001/docs.
 """
 from __future__ import annotations
 
+import datetime
 import json
 import os
 from pathlib import Path
@@ -27,6 +28,7 @@ from .impact_scoring import (
     IncidentInput,
     PriorityLevel,
 )
+from .sensitivity import overlay
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
@@ -99,6 +101,37 @@ class ScoreRequest(BaseModel):
     day_of_week: int = Field(..., ge=0, le=6, example=0,
                              description="0=Monday, 6=Sunday")
     speed_limit_kmh: Optional[float] = Field(None, example=60.0)
+    date: Optional[datetime.date] = Field(
+        None, example="2026-08-26",
+        description=(
+            "Calendar date of the incident (ISO 8601). Optional; enables the "
+            "holiday / long-weekend component of the sensitivity overlay and "
+            "overrides day_of_week for calendar logic."
+        ),
+    )
+
+
+class NearbySensitiveLocation(BaseModel):
+    type: str = Field(..., description="hospital | school | bridge | market | getaway_eve")
+    name: Optional[str] = None
+    distance_m: Optional[float] = None
+    boost: float = Field(..., description="Additive boost this location contributes")
+    active: bool = Field(..., description="False when present but outside its time gate")
+
+
+class SensitivityInfo(BaseModel):
+    factor: float = Field(
+        ..., description="Capped multiplier in [1.0, 1.35] applied on top of the base score"
+    )
+    adjusted_score: float = Field(
+        ..., description="min(10, score * factor) — the overlay-adjusted impact score"
+    )
+    nearby: List[NearbySensitiveLocation]
+    is_holiday: bool
+    is_getaway_eve: bool
+    data_available: bool = Field(
+        ..., description="False when the POI dataset is missing (overlay degrades to 1.0)"
+    )
 
 
 class ScoreResponse(BaseModel):
@@ -106,6 +139,14 @@ class ScoreResponse(BaseModel):
     priority: str = Field(..., description="CRITICAL | HIGH | MEDIUM | LOW")
     factors: dict
     prediction: dict
+    sensitivity: SensitivityInfo = Field(
+        ...,
+        description=(
+            "Sensitive-location + calendar overlay (schools, hospitals, bridges, "
+            "markets, long-weekend eves). Reported separately: the base score and "
+            "its 5 factors are unchanged."
+        ),
+    )
 
 
 class HotspotCluster(BaseModel):
@@ -177,8 +218,16 @@ def score(req: ScoreRequest) -> ScoreResponse:
         if isinstance(result.priority, PriorityLevel)
         else str(result.priority)
     )
+    score_value = round(float(result.score), 2)
+    sens = overlay.evaluate(
+        latitude=req.latitude,
+        longitude=req.longitude,
+        hour=req.hour,
+        day_of_week=req.day_of_week,
+        incident_date=req.date,
+    )
     return ScoreResponse(
-        score=round(float(result.score), 2),
+        score=score_value,
         priority=priority,
         factors={
             "capacity_loss": round(float(result.capacity_loss_factor), 3),
@@ -192,6 +241,14 @@ def score(req: ScoreRequest) -> ScoreResponse:
             "vehicle_hours_lost": _round_or_none(result.predicted_vhl),
             "recovery_min": _round_or_none(result.predicted_recovery_min),
         },
+        sensitivity=SensitivityInfo(
+            factor=sens["factor"],
+            adjusted_score=round(min(10.0, score_value * sens["factor"]), 2),
+            nearby=sens["nearby"],
+            is_holiday=sens["is_holiday"],
+            is_getaway_eve=sens["is_getaway_eve"],
+            data_available=sens["data_available"],
+        ),
     )
 
 

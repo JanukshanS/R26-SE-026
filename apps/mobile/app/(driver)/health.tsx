@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FaultCard } from "@components/ui/fault-card";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -78,6 +78,30 @@ function RingProgress({
   );
 }
 
+/**
+ * Opacity pulse for the loading state, driven natively so it stays smooth
+ * while the JS thread is busy handling the fetch it is waiting on - which is
+ * exactly when a stuttering animation would be most noticeable.
+ */
+function usePulse(active: boolean): Animated.Value {
+  const opacity = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    if (!active) {
+      opacity.setValue(0.4);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 750, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.4, duration: 750, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [active, opacity]);
+  return opacity;
+}
+
 export default function HealthScreen() {
   const { canGoBack, goBack } = useTabBack();
   const insets = useSafeAreaInsets();
@@ -130,6 +154,7 @@ export default function HealthScreen() {
 
 
   const health = data ?? EMPTY_HEALTH;
+  const pulseOpacity = usePulse(loading);
   const faults = health.faults ?? [];
   // Colour for the overall error line: the worst severity present.
   const overallFaultTone = faults.some((f) => f.severity === "urgent")
@@ -176,7 +201,10 @@ export default function HealthScreen() {
           </Text>
         </View>
         {loading ? (
-          <ActivityIndicator size="small" color={palette.brand} />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <ActivityIndicator size="small" color={palette.brand} />
+            <Text style={{ ...typography.caption, color: palette.textMuted }}>Loading</Text>
+          </View>
         ) : error ? (
           <OfflineBadge />
         ) : (
@@ -250,14 +278,14 @@ export default function HealthScreen() {
           {/* Large ring */}
           <View style={{ width: 160, height: 160 }}>
             {loading ? (
-              <View
+              <Animated.View
                 style={{
                   width: 160,
                   height: 160,
                   borderRadius: 80,
                   borderWidth: 14,
                   borderColor: palette.border,
-                  opacity: 0.35,
+                  opacity: pulseOpacity,
                 }}
               />
             ) : (
@@ -297,6 +325,25 @@ export default function HealthScreen() {
               </>
             )}
           </View>
+
+          {/* Health can take a real few seconds - it runs ML inference across
+              four components plus a distance-weighted aggregation over every
+              stored trip, not a lookup. A silent wait next to a static grey
+              ring read as frozen; this says plainly that it is working and
+              roughly how long that takes, the same reasoning already applied
+              to the fault and component-detail loading states. */}
+          {loading ? (
+            <Animated.Text
+              style={{
+                ...typography.caption,
+                color: palette.textMuted,
+                fontWeight: "600",
+                opacity: pulseOpacity,
+              }}
+            >
+              Checking your vehicle's latest readings…
+            </Animated.Text>
+          ) : null}
 
           {/* Errors noticed, in the overall card.
               One quiet line, same visual weight as the trip stats row below it
@@ -431,7 +478,9 @@ export default function HealthScreen() {
         {/* ── Component health 2×2 grid ── */}
         <Text style={{ ...typography.bodyStrong, color: palette.text }}>Component Health</Text>
 
-        <View style={{ flexDirection: "row", gap: spacing.md }}>
+        <Animated.View
+          style={{ flexDirection: "row", gap: spacing.md, opacity: loading ? pulseOpacity : 1 }}
+        >
           <View style={{ flex: 1, gap: spacing.md }}>
             {LEFT_COL.map((key) =>
               loading ? (
@@ -460,7 +509,7 @@ export default function HealthScreen() {
               )
             )}
           </View>
-        </View>
+        </Animated.View>
 
         {/* ── Navigation rows ── */}
         <NavRow

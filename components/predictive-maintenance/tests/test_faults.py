@@ -385,3 +385,22 @@ def test_faults_checked_is_false_before_any_code_read(db):
     result = _attach_faults(db, "V1", _health_fixture())
     assert result.faults_checked is False
     assert result.faults == []
+
+
+def test_a_resolved_fault_still_means_checked_but_does_not_appear(db):
+    """_attach_faults derives both faults_checked and the active list from ONE
+    history() call instead of a separate active_faults() query plus a separate
+    COUNT - a resolved fault is exactly the case where those two answers must
+    diverge (checked: yes, a scan happened; active: no, nothing is live), so it
+    is the one case that would catch the two being conflated by the merge."""
+    from app.routes.predict import _attach_faults
+
+    record_codes(db, vehicle_id="V1", trip_id="t1",
+                 codes=codes(("P0301", "confirmed")), read_ok=True)
+    record_codes(db, vehicle_id="V1", trip_id="t2", codes=[], read_ok=True)  # resolves it
+
+    result = _attach_faults(db, "V1", _health_fixture())
+
+    assert result.faults_checked is True
+    assert result.faults == []
+    assert all(c.faults == [] for c in result.components)

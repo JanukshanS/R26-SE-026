@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { loadGoogleMaps, usingGoogleMaps } from "@/lib/googleMaps";
 
 export type Coords = { latitude: number; longitude: number };
 
@@ -12,6 +13,9 @@ const DEFAULT_CENTER: [number, number] = [6.9271, 79.8612];
  * nothing to the person reporting a breakdown — a road name is what tells them
  * the pin is in the right place. Returns null on any failure; the caller falls
  * back to showing the coordinates, which are still what gets sent.
+ *
+ * Stays on Nominatim even when the basemap is Google: the Geocoding API is not
+ * enabled on the project key, and this call is not on the critical path.
  */
 async function reverseGeocode(c: Coords, signal: AbortSignal): Promise<string | null> {
   try {
@@ -35,28 +39,112 @@ async function reverseGeocode(c: Coords, signal: AbortSignal): Promise<string | 
   }
 }
 
-/**
- * Click-or-drag map pin for the breakdown location.
- *
- * Phone GPS in Colombo is routinely off by a block, and a wrong pin sends the
- * tow truck to the wrong road — so the pin is always movable, and the map is
- * the primary input rather than a preview of typed coordinates.
- */
-export default function LocationPicker({
-  value,
-  onChange,
-}: {
+interface PinMapProps {
   value: Coords | null;
   onChange: (c: Coords) => void;
-}) {
+}
+
+const MAP_CLASS = "h-72 w-full overflow-hidden rounded-lg border border-border";
+const MAP_LABEL = "Breakdown location. Click the map to place the pin.";
+
+/**
+ * Preferred pin map. Google's road geometry and junction names are closer to
+ * what the driver sees out of the windscreen than the OSM/CARTO tiles, which
+ * is the whole point of a pin the tow truck has to find.
+ */
+function GooglePinMap({ value, onChange }: PinMapProps) {
   const nodeRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  const [place, setPlace] = useState<string | null>(null);
-  const [looking, setLooking] = useState(false);
+  useEffect(() => {
+    if (!nodeRef.current) return;
+    let cancelled = false;
+
+    loadGoogleMaps()
+      .then((maps) => {
+        if (cancelled || !nodeRef.current || mapRef.current) return;
+
+        const start = value
+          ? { lat: value.latitude, lng: value.longitude }
+          : { lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] };
+
+        const map = new maps.Map(nodeRef.current, {
+          center: start,
+          zoom: value ? 16 : 12,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+          // POI pins are clickable by default and swallow the map click that
+          // is supposed to place the pin.
+          clickableIcons: false,
+        });
+
+        const marker = new maps.Marker({
+          position: start,
+          map,
+          draggable: true,
+          visible: Boolean(value),
+          title: "Drag to correct the location",
+          icon: {
+            path: maps.SymbolPath.CIRCLE,
+            scale: 9,
+            fillColor: "#dc2626",
+            fillOpacity: 1,
+            strokeColor: "#ffffff",
+            strokeWeight: 3,
+          },
+        });
+
+        marker.addListener("dragend", (e: any) => {
+          onChangeRef.current({ latitude: e.latLng.lat(), longitude: e.latLng.lng() });
+        });
+        map.addListener("click", (e: any) => {
+          onChangeRef.current({ latitude: e.latLng.lat(), longitude: e.latLng.lng() });
+        });
+
+        mapRef.current = map;
+        markerRef.current = marker;
+      })
+      .catch(() => {
+        /* The panel below still shows the coordinates, which is what gets sent. */
+      });
+
+    return () => {
+      cancelled = true;
+      markerRef.current?.setMap(null);
+      mapRef.current = null;
+      markerRef.current = null;
+    };
+    // Mount-only: `value` updates are pushed to the existing map by the effect
+    // below, so a new pin never tears down the map.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Follow externally-set coordinates ("Use my location").
+  useEffect(() => {
+    const map = mapRef.current;
+    const marker = markerRef.current;
+    if (!map || !marker || !value) return;
+    const p = { lat: value.latitude, lng: value.longitude };
+    marker.setPosition(p);
+    marker.setVisible(true);
+    map.setCenter(p);
+    if (map.getZoom() < 16) map.setZoom(16);
+  }, [value]);
+
+  return <div ref={nodeRef} role="application" aria-label={MAP_LABEL} className={MAP_CLASS} />;
+}
+
+/** Fallback pin map for deployments with no Google Maps key configured. */
+function LeafletPinMap({ value, onChange }: PinMapProps) {
+  const nodeRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   useEffect(() => {
     if (!nodeRef.current) return;
@@ -74,8 +162,8 @@ export default function LocationPicker({
         zoom: value ? 16 : 12,
         zoomControl: true,
       });
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap',
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
       }).addTo(map);
 
@@ -121,12 +209,9 @@ export default function LocationPicker({
         markerRef.current = null;
       }
     };
-    // Deliberately mount-only: `value` updates are pushed to the existing map
-    // by the effect below, so a new pin never tears down the map.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Follow externally-set coordinates ("Use my location").
   useEffect(() => {
     const map = mapRef.current;
     const marker = markerRef.current;
@@ -135,6 +220,28 @@ export default function LocationPicker({
     marker.setOpacity(1);
     map.setView([value.latitude, value.longitude], Math.max(map.getZoom(), 16));
   }, [value]);
+
+  return <div ref={nodeRef} role="application" aria-label={MAP_LABEL} className={MAP_CLASS} />;
+}
+
+const PinMap = usingGoogleMaps ? GooglePinMap : LeafletPinMap;
+
+/**
+ * Click-or-drag map pin for the breakdown location.
+ *
+ * Phone GPS in Colombo is routinely off by a block, and a wrong pin sends the
+ * tow truck to the wrong road — so the pin is always movable, and the map is
+ * the primary input rather than a preview of typed coordinates.
+ */
+export default function LocationPicker({
+  value,
+  onChange,
+}: {
+  value: Coords | null;
+  onChange: (c: Coords) => void;
+}) {
+  const [place, setPlace] = useState<string | null>(null);
+  const [looking, setLooking] = useState(false);
 
   // Name the pin. Debounced because dragging fires this on every drop and
   // Nominatim asks for at most one request a second.
@@ -160,12 +267,7 @@ export default function LocationPicker({
 
   return (
     <div>
-      <div
-        ref={nodeRef}
-        role="application"
-        aria-label="Breakdown location. Click the map to place the pin."
-        className="h-72 w-full overflow-hidden rounded-lg border border-border"
-      />
+      <PinMap value={value} onChange={onChange} />
       <div className="mt-3 rounded-lg border border-border bg-muted/40 p-3">
         {value ? (
           <>

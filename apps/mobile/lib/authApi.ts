@@ -41,7 +41,7 @@ export async function signUpEmail(
       data: {
         name: input.name,
         phone: input.phone ?? null,
-        role: input.role ?? "driver",
+        role: input.role === "provider" ? "provider" : "driver",
       },
     },
   });
