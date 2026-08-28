@@ -267,13 +267,9 @@ export function unpairElm327(): void {
  * else to the simulation. Returns `null` when nothing is paired (manual
  * vehicle → Tier-1 on the dispatch backend).
  *
- * If a real BLE read fails mid-session (e.g. the dongle drops), we degrade to
- * a simulated read rather than returning null — the emergency flow keeps a
+ * If a real read fails mid-session (e.g. the dongle drops), we degrade to a
+ * simulated read rather than returning null — the emergency flow keeps a
  * Tier-2 payload instead of silently dropping to Tier-1.
- *
- * NOTE: classic Bluetooth doesn't implement this triage-shaped read yet
- * (only the trip-recorder's `readRawObdPids` below) — a classic-paired
- * session reads simulated data here until that's added.
  */
 export async function readObdFromElm327(
   incidentId?: string
@@ -287,6 +283,17 @@ export async function readObdFromElm327(
     }
     // BLE returned nothing / threw → make sure the sim has a handle, then read
     // from it so the caller still receives Tier-2 telemetry this incident.
+    if (!sim.isPaired()) sim.pair(getPairing()?.vehicleId ?? "UNKNOWN");
+    return sim.readObd(incidentId);
+  }
+
+  if (backend === "classic" && classic.isConnected()) {
+    try {
+      const real = await classic.readObd();
+      if (real) return real;
+    } catch {
+      /* fall through to a simulated read below */
+    }
     if (!sim.isPaired()) sim.pair(getPairing()?.vehicleId ?? "UNKNOWN");
     return sim.readObd(incidentId);
   }

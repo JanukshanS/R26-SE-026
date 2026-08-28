@@ -37,8 +37,10 @@ import { scanDtcs, type DtcScan } from "@lib/elm327.dtc";
  */
 
 import { PermissionsAndroid, Platform } from "react-native";
+import type { TriageOBDData } from "./elm327.sim";
 import {
   discoverSupportedPids,
+  queryPid as protocolQueryPid,
   readEngineSignalsGeneric,
   readObdRawGeneric,
   runInitHandshake,
@@ -342,6 +344,82 @@ function sendCommand(cmd: string): Promise<string> {
     console.log(`${LOG_TAG} TIMEOUT/ERROR ${cmd} -> ${e instanceof Error ? e.message : String(e)}`);
     throw e;
   });
+}
+
+/** Query one PID via the shared protocol logic, tagged for classic in the logs. */
+function queryPid(pid: string): Promise<number[] | null> {
+  return protocolQueryPid(sendCommand, pid, LOG_TAG);
+}
+
+/**
+ * Read all the PIDs we can map to TriageOBDData. Returns null if the link is
+ * gone. Each PID is best-effort: a missing one just leaves its field
+ * `undefined`. Mirrors `elm327.ble.ts`'s `readObd()` exactly — same PIDs,
+ * same field mapping — since the underlying AT/PID protocol and the fields a
+ * generic OBD-II port can expose don't depend on the transport.
+ */
+export async function readObd(): Promise<TriageOBDData | null> {
+  if (!link) return null;
+  return withObdLock("classic.readObd", readObdUnlocked);
+}
+
+async function readObdUnlocked(): Promise<TriageOBDData | null> {
+  if (!link) return null;
+
+  const out: Partial<TriageOBDData> & { available: true } = { available: true };
+
+  // 010C — Engine RPM = ((A*256)+B)/4
+  const rpm = await queryPid("010C");
+  if (rpm && rpm.length >= 2) {
+    out.engine_rpm = Number((((rpm[0] * 256) + rpm[1]) / 4).toFixed(0));
+  }
+
+  // 0105 — Engine coolant temperature = A - 40  (°C)
+  const coolant = await queryPid("0105");
+  if (coolant && coolant.length >= 1) {
+    out.coolant_temp_c = coolant[0] - 40;
+  }
+
+  // 0104 — Calculated engine load = A * 100 / 255  (%)
+  const load = await queryPid("0104");
+  if (load && load.length >= 1) {
+    out.engine_load_percent = Number(((load[0] * 100) / 255).toFixed(1));
+  }
+
+  // 012F — Fuel tank level input = A * 100 / 255  (%)
+  const fuel = await queryPid("012F");
+  if (fuel && fuel.length >= 1) {
+    out.fuel_level_percent = Number(((fuel[0] * 100) / 255).toFixed(1));
+  }
+
+  // 0142 — Control module voltage = ((A*256)+B)/1000  (V). The closest
+  // standard PID to "battery voltage" — it's the ECU supply rail, which
+  // tracks battery voltage well enough for the Tier-2 tree.
+  const ctrlV = await queryPid("0142");
+  if (ctrlV && ctrlV.length >= 2) {
+    out.battery_voltage_v = Number((((ctrlV[0] * 256) + ctrlV[1]) / 1000).toFixed(2));
+  }
+
+  // 0146 — Ambient air temperature = A - 40  (°C)
+  const ambient = await queryPid("0146");
+  if (ambient && ambient.length >= 1) {
+    out.ambient_temp_c = ambient[0] - 40;
+  }
+
+  // 010F — Intake air temperature = A - 40  (°C), used as a proxy for
+  // `engine_temp_c` (no standard "engine block temp" PID exists).
+  const intake = await queryPid("010F");
+  if (intake && intake.length >= 1) {
+    out.engine_temp_c = intake[0] - 40;
+  }
+
+  // NOTE — fields left `undefined` on purpose because a generic OBD-II port
+  // does NOT expose them (need manufacturer-specific UDS or aftermarket
+  // sensors): battery_temp_c, battery_charge_percent, battery_health_percent,
+  // alternator_output_v, oil_pressure_psi, brake_fluid_level_psi,
+  // brake_pad_wear_mm, brake_temp_c.
+
+  return out as TriageOBDData;
 }
 
 /**
