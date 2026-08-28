@@ -17,6 +17,7 @@ import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import type { ProviderRecord } from "@lib/dispatchApi";
 import { providerTypeLabel } from "@lib/dispatchApi";
+import { fetchDrivingRoute, type LatLng } from "@lib/route";
 
 interface MapPreviewProps {
   driverLocation: { latitude: number; longitude: number };
@@ -42,6 +43,27 @@ export function MapPreview({
   const midLng = (driverLng + providerLng) / 2;
   const latDelta = Math.max(0.02, Math.abs(driverLat - providerLat) * 2.5);
   const lngDelta = Math.max(0.02, Math.abs(driverLng - providerLng) * 2.5);
+
+  // Real driving route, fetched once the provider is known. Null until it
+  // arrives, and stays null if routing fails — the polyline below then falls
+  // back to the straight line rather than disappearing.
+  const [route, setRoute] = useState<LatLng[] | null>(null);
+  useEffect(() => {
+    if (!provider) {
+      setRoute(null);
+      return;
+    }
+    let cancelled = false;
+    fetchDrivingRoute(
+      { latitude: driverLat, longitude: driverLng },
+      { latitude: providerLat, longitude: providerLng },
+    ).then((line) => {
+      if (!cancelled) setRoute(line);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [provider, driverLat, driverLng, providerLat, providerLng]);
 
   // Tiles never arriving — an unauthorised Maps key, no network, quota — has
   // no callback, so the map would otherwise spin forever. Fall back to the
@@ -123,17 +145,24 @@ export function MapPreview({
           />
         )}
 
-        {/* Straight-line route between them — a real driving route would
-            need Google Directions API; this is good enough for the demo. */}
+        {/* The driving route once OSRM answers (solid), otherwise the straight
+            line between the two pins (dashed). The dash is deliberate: it reads
+            as "approximate" so nobody mistakes the fallback for a real route. */}
         {provider && (
           <Polyline
-            coordinates={[
-              { latitude: driverLat,   longitude: driverLng   },
-              { latitude: providerLat, longitude: providerLng },
-            ]}
+            // Remount when switching between the two: on Android the native
+            // polyline keeps a dash pattern already applied to it, so clearing
+            // lineDashPattern alone leaves a real route still drawn dashed.
+            key={route ? "route" : "direct"}
+            coordinates={
+              route ?? [
+                { latitude: driverLat,   longitude: driverLng   },
+                { latitude: providerLat, longitude: providerLng },
+              ]
+            }
             strokeColor={palette.brand}
-            strokeWidth={3}
-            lineDashPattern={[6, 4]}
+            strokeWidth={route ? 4 : 3}
+            lineDashPattern={route ? undefined : [6, 4]}
           />
         )}
       </MapView>

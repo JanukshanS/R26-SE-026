@@ -7,7 +7,7 @@ import { HeaderBar } from "@components/ui/header-bar";
 import { Screen } from "@components/ui/screen";
 import { TextField } from "@components/ui/text-input";
 import { palette, typography } from "@theme/index";
-import { createVehicle } from "@lib/vehicleApi";
+import { useVehicle } from "@lib/vehicleContext";
 import { normalizePlate, plateError } from "@lib/plate-number";
 
 /**
@@ -16,6 +16,11 @@ import { normalizePlate, plateError } from "@lib/plate-number";
  * stays frictionless and the vehicle can be added later from the profile.
  */
 export default function AddVehicleScreen() {
+  // Saves through the context rather than calling the vehicles API directly: the
+  // context refreshes its vehicle list after the insert, and Home renders from that
+  // list. Going straight to the API left the row in the database but the list empty,
+  // so Home showed "No vehicle added" until the app was restarted.
+  const { addVehicle } = useVehicle();
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
   const [year, setYear] = useState("");
@@ -36,7 +41,7 @@ export default function AddVehicleScreen() {
     }
     setSubmitting(true);
     try {
-      const vehicle = await createVehicle({
+      const vehicle = await addVehicle({
         make: brand.trim(),
         model: model.trim(),
         year: year ? Number(year) : undefined,
