@@ -28,6 +28,7 @@ from .impact_scoring import (
     IncidentInput,
     PriorityLevel,
 )
+from . import roads
 from .sensitivity import overlay
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -62,31 +63,92 @@ INCIDENT_TYPE_ALIASES = {
 }
 
 
-def _to_incident(req: ScoreRequest) -> IncidentInput:
-    return IncidentInput(
+def _resolve_road(req: "ScoreRequest") -> dict:
+    """Road class and lane count for the request, with the provenance of each.
+
+    A caller that knows the road (the SUMO harness, the dashboard's what-if panel)
+    may state it and is believed. A caller holding only a GPS fix — which is every
+    real incident arriving through dispatch — omits both and gets them resolved
+    from the coordinates.
+    """
+    supplied_class = req.road_type is not None
+    supplied_lanes = req.total_lanes is not None
+
+    if supplied_class and supplied_lanes:
+        return {
+            "road_type": req.road_type,
+            "total_lanes": req.total_lanes,
+            "source": "request",
+            "lanes_source": "request",
+            "matched_road": None,
+            "distance_m": None,
+        }
+
+    info = roads.resolve(req.latitude, req.longitude)
+    if supplied_class:
+        info["road_type"] = req.road_type
+        info["source"] = "request"
+    if supplied_lanes:
+        info["total_lanes"] = req.total_lanes
+        info["lanes_source"] = "request"
+    return info
+
+
+def _to_incident(req: "ScoreRequest") -> tuple[IncidentInput, dict]:
+    """Build the model input, resolving the road and reconciling lanes_blocked.
+
+    The lanes_blocked check differs by provenance. When the caller supplied
+    total_lanes, "3 blocked of 2" is their error and is rejected. When the server
+    resolved it, the caller could not have known the lane count — rejecting would
+    break the dispatch spine on every road narrower than the triage assumed — so
+    the count is clamped and the clamp reported.
+    """
+    road = _resolve_road(req)
+    lanes_blocked = req.lanes_blocked
+    clamped = False
+    if lanes_blocked > road["total_lanes"]:
+        if road["lanes_source"] == "request":
+            raise HTTPException(
+                status_code=400,
+                detail="lanes_blocked cannot exceed total_lanes",
+            )
+        lanes_blocked = road["total_lanes"]
+        clamped = True
+
+    incident = IncidentInput(
         latitude=req.latitude,
         longitude=req.longitude,
-        road_type=req.road_type,
-        total_lanes=req.total_lanes,
-        lanes_blocked=req.lanes_blocked,
+        road_type=road["road_type"],
+        total_lanes=road["total_lanes"],
+        lanes_blocked=lanes_blocked,
         incident_type=INCIDENT_TYPE_ALIASES.get(req.incident_type, req.incident_type),
         hour=req.hour,
         day_of_week=req.day_of_week,
         speed_limit_kmh=req.speed_limit_kmh,
     )
+    return incident, {**road, "lanes_blocked_clamped": clamped}
 
 
 class ScoreRequest(BaseModel):
     latitude: float = Field(..., example=6.9271)
     longitude: float = Field(..., example=79.8612)
-    road_type: str = Field(
-        ..., example="primary",
+    road_type: Optional[str] = Field(
+        None, example="primary",
         description=(
             "One of: motorway, trunk, primary, secondary, tertiary, residential, "
-            "living_street, unclassified"
+            "living_street, unclassified. OPTIONAL — when omitted, the class is "
+            "resolved from latitude/longitude against the committed OpenStreetMap "
+            "road network. Callers that only have a GPS fix should omit it rather "
+            "than guess: a guessed class pins the Location Factor."
         ),
     )
-    total_lanes: int = Field(..., ge=1, le=8, example=2)
+    total_lanes: Optional[int] = Field(
+        None, ge=1, le=8, example=2,
+        description=(
+            "OPTIONAL — when omitted, taken from the matched road's OSM `lanes` "
+            "tag, or that road class's default."
+        ),
+    )
     lanes_blocked: int = Field(..., ge=0, le=8, example=1)
     incident_type: str = Field(
         ..., example="engine_failure",
@@ -134,11 +196,54 @@ class SensitivityInfo(BaseModel):
     )
 
 
+class RoadInfo(BaseModel):
+    """Which road the score was computed against, and how that was established.
+
+    Present so a consumer can tell a measured road class from a fallback. Before
+    road resolution existed every incident was scored as `primary`, and nothing in
+    the response revealed it.
+    """
+
+    road_type: str
+    total_lanes: int
+    source: str = Field(
+        ...,
+        description=(
+            "osm — matched the committed OpenStreetMap network; "
+            "request — the caller stated it; "
+            "default — no road within the match cutoff, or no dataset loaded, so "
+            "the historical primary/2-lane fallback was used"
+        ),
+    )
+    lanes_source: str = Field(
+        ..., description="osm | class_default | request | default"
+    )
+    matched_road: Optional[str] = Field(None, description="Road name, when OSM has one")
+    distance_m: Optional[float] = Field(
+        None, description="Distance from the incident to the matched road centreline"
+    )
+    lanes_blocked_clamped: bool = Field(
+        False,
+        description=(
+            "True when the reported lanes_blocked exceeded the resolved lane count "
+            "and was clamped down to it"
+        ),
+    )
+
+
 class ScoreResponse(BaseModel):
     score: float = Field(..., description="Impact score on a 1–10 scale")
     priority: str = Field(..., description="CRITICAL | HIGH | MEDIUM | LOW")
     factors: dict
     prediction: dict
+    road: RoadInfo = Field(
+        ...,
+        description=(
+            "The road the score was computed against and how it was established. "
+            "Check `source` before trusting the class: `default` means no road was "
+            "matched and the historical primary/2-lane fallback was used."
+        ),
+    )
     sensitivity: SensitivityInfo = Field(
         ...,
         description=(
@@ -206,12 +311,7 @@ def health() -> HealthResponse:
 
 @app.post("/v1/score", response_model=ScoreResponse, tags=["scoring"], dependencies=[Depends(require_user)])
 def score(req: ScoreRequest) -> ScoreResponse:
-    if req.lanes_blocked > req.total_lanes:
-        raise HTTPException(
-            status_code=400,
-            detail="lanes_blocked cannot exceed total_lanes",
-        )
-    incident = _to_incident(req)
+    incident, road = _to_incident(req)
     result = model.score(incident)
     priority = (
         result.priority.value
@@ -241,6 +341,7 @@ def score(req: ScoreRequest) -> ScoreResponse:
             "vehicle_hours_lost": _round_or_none(result.predicted_vhl),
             "recovery_min": _round_or_none(result.predicted_recovery_min),
         },
+        road=RoadInfo(**road),
         sensitivity=SensitivityInfo(
             factor=sens["factor"],
             adjusted_score=round(min(10.0, score_value * sens["factor"]), 2),
@@ -268,9 +369,8 @@ class UncertaintyResponse(BaseModel):
 def score_uncertainty(req: ScoreRequest) -> UncertaintyResponse:
     """90% confidence band on the impact score via Monte-Carlo over the two
     genuinely uncertain inputs (incident duration, reported lanes-blocked)."""
-    if req.lanes_blocked > req.total_lanes:
-        raise HTTPException(status_code=400, detail="lanes_blocked cannot exceed total_lanes")
-    return UncertaintyResponse(**model.score_with_uncertainty(_to_incident(req)))
+    incident, _road = _to_incident(req)
+    return UncertaintyResponse(**model.score_with_uncertainty(incident))
 
 
 class TimelineRequest(ScoreRequest):
@@ -282,10 +382,9 @@ class TimelineRequest(ScoreRequest):
 def score_timeline(req: TimelineRequest) -> dict:
     """Relative congestion-impact curve over time since the incident: the queue
     builds while the incident is active, then drains — a rise-then-decay profile."""
-    if req.lanes_blocked > req.total_lanes:
-        raise HTTPException(status_code=400, detail="lanes_blocked cannot exceed total_lanes")
+    incident, _road = _to_incident(req)
     grid = list(range(0, req.horizon_min + 1, req.step_min))
-    curve = model.impact_over_time(_to_incident(req), grid)
+    curve = model.impact_over_time(incident, grid)
     return {"minutes": grid, "impact": [round(float(v), 3) for v in curve]}
 
 

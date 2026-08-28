@@ -72,11 +72,14 @@ export async function fetchTrafficImpactScore(ctx: GeoScoreContext): Promise<Geo
   const body = {
     latitude: ctx.latitude,
     longitude: ctx.longitude,
-    // Default road class and lane count until incidents carry one; that needs an
-    // OSM lookup. Lanes blocked is derived from the triaged service type so the
-    // capacity-loss factor is not frozen along with them.
-    road_type: 'primary',
-    total_lanes: 2,
+    // road_type and total_lanes are deliberately NOT sent. We only ever had the
+    // incident's GPS fix, so this used to send a hardcoded `road_type: 'primary'`
+    // and `total_lanes: 2` — which pinned geo's Location Factor at a constant and
+    // froze the road-class half of its Traffic Volume Factor, silently disabling
+    // 15% of the impact score. Geo resolves both from the coordinates against its
+    // OpenStreetMap road network (components/geo-intelligence/src/roads.py) and
+    // reports what it matched in the response's `road` block. Omitting a field we
+    // do not know beats guessing it.
     lanes_blocked: mapServiceTypeToLanesBlocked(top),
     incident_type: mapServiceTypeToIncidentType(top),
     hour: colombo.hour,

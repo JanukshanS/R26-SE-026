@@ -616,16 +616,23 @@
             "example": 79.8612
           },
           "road_type": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "title": "Road Type",
-            "description": "One of: motorway, trunk, primary, secondary, tertiary, residential, living_street, unclassified",
+            "description": "One of: motorway, trunk, primary, secondary, tertiary, residential, living_street, unclassified. OPTIONAL - when omitted, the class is resolved from latitude/longitude against the committed OpenStreetMap road network. Callers that only have a GPS fix should omit it rather than guess: a guessed class pins the Location Factor.",
             "example": "primary"
           },
           "total_lanes": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "maximum": 8.0,
             "minimum": 1.0,
             "title": "Total Lanes",
+            "description": "OPTIONAL - when omitted, taken from the matched road's OSM `lanes` tag, or that road class's default.",
             "example": 2
           },
           "lanes_blocked": {
@@ -693,14 +700,64 @@
         "required": [
           "latitude",
           "longitude",
-          "road_type",
-          "total_lanes",
           "lanes_blocked",
           "incident_type",
           "hour",
           "day_of_week"
         ],
         "title": "ScoreRequest"
+      },
+      "RoadInfo": {
+        "properties": {
+          "road_type": {
+            "type": "string",
+            "title": "Road Type"
+          },
+          "total_lanes": {
+            "type": "integer",
+            "title": "Total Lanes"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "description": "osm - matched the committed OpenStreetMap network; request - the caller stated it; default - no road within the match cutoff, or no dataset loaded, so the historical primary/2-lane fallback was used"
+          },
+          "lanes_source": {
+            "type": "string",
+            "title": "Lanes Source",
+            "description": "osm | class_default | request | default"
+          },
+          "matched_road": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "title": "Matched Road",
+            "description": "Road name, when OSM has one"
+          },
+          "distance_m": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "title": "Distance M",
+            "description": "Distance from the incident to the matched road centreline"
+          },
+          "lanes_blocked_clamped": {
+            "type": "boolean",
+            "default": false,
+            "title": "Lanes Blocked Clamped",
+            "description": "True when the reported lanes_blocked exceeded the resolved lane count and was clamped down to it"
+          }
+        },
+        "type": "object",
+        "required": [
+          "road_type",
+          "total_lanes",
+          "source",
+          "lanes_source"
+        ],
+        "title": "RoadInfo"
       },
       "NearbySensitiveLocation": {
         "properties": {
@@ -809,6 +866,9 @@
             "type": "object",
             "title": "Prediction"
           },
+          "road": {
+            "$ref": "#/components/schemas/RoadInfo"
+          },
           "sensitivity": {
             "$ref": "#/components/schemas/SensitivityInfo"
           }
@@ -819,6 +879,7 @@
           "priority",
           "factors",
           "prediction",
+          "road",
           "sensitivity"
         ],
         "title": "ScoreResponse"
@@ -836,16 +897,23 @@
             "example": 79.8612
           },
           "road_type": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "title": "Road Type",
-            "description": "One of: motorway, trunk, primary, secondary, tertiary, residential, living_street, unclassified",
+            "description": "One of: motorway, trunk, primary, secondary, tertiary, residential, living_street, unclassified. OPTIONAL - when omitted, the class is resolved from latitude/longitude against the committed OpenStreetMap road network. Callers that only have a GPS fix should omit it rather than guess: a guessed class pins the Location Factor.",
             "example": "primary"
           },
           "total_lanes": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "maximum": 8.0,
             "minimum": 1.0,
             "title": "Total Lanes",
+            "description": "OPTIONAL - when omitted, taken from the matched road's OSM `lanes` tag, or that road class's default.",
             "example": 2
           },
           "lanes_blocked": {
@@ -929,8 +997,6 @@
         "required": [
           "latitude",
           "longitude",
-          "road_type",
-          "total_lanes",
           "lanes_blocked",
           "incident_type",
           "hour",

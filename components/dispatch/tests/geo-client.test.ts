@@ -116,8 +116,6 @@ describe("ScoreRequest body shape (OpenAPI contract)", () => {
     expect(body).toMatchObject({
       latitude: MALABE.latitude,
       longitude: MALABE.longitude,
-      road_type: "primary",
-      total_lanes: 2,
       lanes_blocked: 2,
       incident_type: "major_accident",
       hour: 14,
@@ -160,12 +158,14 @@ describe("ScoreRequest body shape (OpenAPI contract)", () => {
 });
 
 describe("road geometry and lanes_blocked derivation", () => {
-  it("keeps the documented default road class until OSM enrichment", async () => {
+  it("omits road class and lane count so geo resolves them from the GPS fix", async () => {
+    // Sending a guess here is worse than sending nothing: geo cannot tell a real
+    // primary road from our placeholder, so the Location Factor goes constant.
     mockFetchJson(200, { score: 5 });
     await fetchTrafficImpactScore({ ...MALABE, probabilities: { MAJOR_ACCIDENT: 1 } });
     const body = lastFetchBody();
-    expect(body.road_type).toBe("primary");
-    expect(body.total_lanes).toBe(2);
+    expect(body).not.toHaveProperty("road_type");
+    expect(body).not.toHaveProperty("total_lanes");
   });
 
   it("blocks both lanes for a service type needing recovery on scene", async () => {
