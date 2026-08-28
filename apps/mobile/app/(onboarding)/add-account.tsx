@@ -9,6 +9,20 @@ import { Screen } from "@components/ui/screen";
 import { TextField } from "@components/ui/text-input";
 import { palette, spacing, typography } from "@theme/index";
 import * as authApi from "@lib/authApi";
+import { getMyUser } from "@lib/vehicleApi";
+
+/**
+ * Where a freshly signed-in account belongs. Both handlers below used to send
+ * everyone to /(driver)/home, so a service provider signing in through the main
+ * Login button landed in the driver UI and only reached their job feed after a
+ * cold restart — app/index.tsx routes by providerId, this screen did not.
+ * Reads the profile directly rather than from context: context state updates
+ * asynchronously via onAuthStateChange and still holds the pre-sign-in value here.
+ */
+async function routeAfterAuth() {
+  const me = await getMyUser().catch(() => null);
+  router.replace(me?.providerId ? "/(provider)/available" : "/(driver)/home");
+}
 
 export default function AddAccountScreen() {
   const params = useLocalSearchParams<{ mode?: string }>();
@@ -51,7 +65,7 @@ export default function AddAccountScreen() {
         router.replace("/(onboarding)/add-vehicle");
       } else {
         await authApi.signInEmail(email.trim(), password);
-        router.replace("/(driver)/home");
+        await routeAfterAuth();
       }
     } catch (err) {
       setError((err as Error).message ?? "Something went wrong");
@@ -72,7 +86,7 @@ export default function AddAccountScreen() {
         setError("Google sign-in was cancelled. Try again, or use your email and password.");
         return;
       }
-      router.replace("/(driver)/home");
+      await routeAfterAuth();
     } catch (err) {
       setError((err as Error).message ?? "Google sign-in failed");
     } finally {
