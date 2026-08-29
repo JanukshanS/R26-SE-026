@@ -16,6 +16,16 @@ import type { Incident } from "@/lib/types";
  */
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
+
+/**
+ * Below this many incidents an hour's mean is one or two cases, not a pattern.
+ * 02:00 holds a single incident scoring 5.1, which drew a taller bar than
+ * 10:00's average of sixteen — the chart was reporting noise with the same
+ * confidence as the evening peak. Sparse hours are still shown, because hiding
+ * them would misrepresent the night as empty, but they are drawn as outlines so
+ * they cannot be mistaken for a trend.
+ */
+const SPARSE_N = 5;
 const label = (h: number) => `${String(h).padStart(2, "0")}:00`;
 
 export default function DayRibbon({
@@ -31,10 +41,12 @@ export default function DayRibbon({
 }) {
   const scores = HOURS.map((h) => byHour[String(h)] ?? 0);
   const max = Math.max(...scores, 1);
-  const withData = scores.filter((s) => s > 0);
-  const mean = withData.reduce((a, b) => a + b, 0) / (withData.length || 1);
-  const peak = scores.indexOf(Math.max(...scores));
   const counts = HOURS.map((h) => incidents.filter((i) => i.hour === h).length);
+  // The typical-day line averages only hours with enough incidents to mean
+  // something; otherwise a single 02:00 case moves the baseline for the day.
+  const solid = HOURS.filter((h) => counts[h] >= SPARSE_N).map((h) => scores[h]);
+  const mean = solid.reduce((a, b) => a + b, 0) / (solid.length || 1);
+  const peak = scores.indexOf(Math.max(...HOURS.map((h) => (counts[h] >= SPARSE_N ? scores[h] : 0))));
 
   return (
     <Card>
@@ -43,7 +55,8 @@ export default function DayRibbon({
           <div>
             <h2 className="text-sm font-medium">Impact by hour</h2>
             <p className="text-sm text-muted-foreground">
-              Peaks at {label(peak)} · {max.toFixed(1)} of 10. Select an hour to filter the map.
+              Peaks at {label(peak)} · {scores[peak].toFixed(1)} of 10. Outlined bars are hours
+              with fewer than {SPARSE_N} incidents. Select an hour to filter the map.
             </p>
           </div>
           {selectedHour !== null && (
@@ -64,13 +77,16 @@ export default function DayRibbon({
             const score = scores[h];
             const selected = selectedHour === h;
             const dimmed = selectedHour !== null && !selected;
+            const sparse = counts[h] > 0 && counts[h] < SPARSE_N;
             return (
               <Tooltip key={h}>
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => onSelectHour(selected ? null : h)}
                     aria-pressed={selected}
-                    aria-label={`${label(h)}, impact ${score.toFixed(1)} of 10, ${counts[h]} incidents`}
+                    aria-label={`${label(h)}, impact ${score.toFixed(1)} of 10, ${counts[h]} incidents${
+                      sparse ? ", too few to be a pattern" : ""
+                    }`}
                     className="group flex h-full flex-1 flex-col justify-end rounded-sm outline-offset-2 transition-opacity"
                     style={{ opacity: dimmed ? 0.35 : 1 }}
                   >
@@ -80,9 +96,11 @@ export default function DayRibbon({
                           ? "bg-primary"
                           : score === 0
                             ? "bg-border"
-                            : score >= mean
-                              ? "bg-primary/70 group-hover:bg-primary"
-                              : "bg-muted-foreground/40 group-hover:bg-primary/50"
+                            : sparse
+                              ? "border border-dashed border-muted-foreground/50 bg-transparent"
+                              : score >= mean
+                                ? "bg-primary/70 group-hover:bg-primary"
+                                : "bg-muted-foreground/40 group-hover:bg-primary/50"
                       }`}
                       style={{ height: score > 0 ? `${Math.max((score / max) * 100, 8)}%` : "3px" }}
                     />
@@ -93,6 +111,9 @@ export default function DayRibbon({
                   <p className="text-muted-foreground">
                     {score > 0 ? `${score.toFixed(1)} of 10` : "No data"} · {counts[h]} incidents
                   </p>
+                  {sparse && (
+                    <p className="text-muted-foreground">Too few to be a pattern</p>
+                  )}
                 </TooltipContent>
               </Tooltip>
             );
