@@ -108,12 +108,12 @@ export function CompareViewCanvas({ glbUrl, splatUrl, isLoading, expanded, onTog
         </div>
       </div>
       <div className="compare-view__canvas-wrap">
-        {isTransitioning ? (
+        {splatUrl ? (
+          <GaussianSplatViewer url={splatUrl} />
+        ) : isTransitioning ? (
           <div className="compare-view__empty">
             <div className="compare-view__spinner" aria-label="Loading" />
           </div>
-        ) : splatUrl ? (
-          <GaussianSplatViewer url={splatUrl} />
         ) : glbUrl ? (
           <Canvas shadows camera={{ position: [0, 3.5, 10], fov: 42 }} gl={{ antialias: true }}>
             <Suspense fallback={null}>
