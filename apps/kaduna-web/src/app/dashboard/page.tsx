@@ -62,16 +62,24 @@ const TAB_INTRO: Record<Tab, { lead: string; body: string }> = {
     body: "Each incident that reaches dispatch is scored as it arrives. Open a row to see the road that was matched and the five factors that produced the number.",
   },
   "Model accuracy": {
-    lead: "How well the score predicts real congestion — including where it falls short.",
-    body: "Scores are checked against SUMO traffic simulation. Ordering dispatch by impact was tested and did not reduce vehicle-hours lost, so it is not used; the score sets priority and marks the areas worth watching.",
+    lead: "How well the score predicts congestion, and what it was tested against.",
+    body: "The five weights are set from queueing physics — delay happens when demand exceeds the capacity still open — and the deployed model scores r = 0.60 against independent SUMO simulation over 120 scenarios. Refitting those weights to the simulation reaches r = 0.93, and we report it but do not deploy it: a model tuned to a simulation we built ourselves would be grading its own homework. We also tested ordering dispatch by impact, which did not reduce vehicle-hours lost, so it is not used — the score sets priority and marks the areas worth watching.",
   },
 };
 
 /** The component's honest headline claims, stated once at the top. */
 const CLAIMS = [
   { value: "25", label: "hotspot clusters", note: "mined from scored incidents on real OSM geometry" },
-  { value: "5", label: "weighted factors", note: "capacity, volume, time, road class, severity" },
-  { value: "r = 0.60", label: "against SUMO", note: "deployed expert weights, corridor grid" },
+  {
+    value: "5",
+    label: "weighted factors",
+    note: "capacity, volume, time, road class, severity — every one visible per incident",
+  },
+  {
+    value: "r = 0.60",
+    label: "against simulation",
+    note: "the weights actually deployed, over 120 SUMO scenarios",
+  },
   { value: "~13 min", label: "median per trip", note: "rerouting insight, the validated operational win" },
 ];
 
