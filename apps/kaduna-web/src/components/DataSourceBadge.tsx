@@ -19,7 +19,7 @@ export default function DataSourceBadge({
 }) {
   const live = liveCount > 0;
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
       <Badge
         variant="outline"
         className="gap-1.5 font-normal"

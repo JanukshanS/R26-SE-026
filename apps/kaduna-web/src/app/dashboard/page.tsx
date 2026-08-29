@@ -9,6 +9,7 @@ import DataSourceBadge from "@/components/DataSourceBadge";
 import DayRibbon from "@/components/DayRibbon";
 import DispatchPanel from "@/components/DispatchPanel";
 import IncidentPanel from "@/components/IncidentPanel";
+import MapLegend from "@/components/MapLegend";
 import MetricCards from "@/components/MetricCards";
 import StatsPanel from "@/components/StatsPanel";
 import ValidationPanel from "@/components/ValidationPanel";
@@ -125,11 +126,15 @@ export default function OperationsPage() {
     roadType: "all",
     hour: null as number | null,
   });
+  // Incidents only to begin with. With every layer on at once the heatmap
+  // washes out the markers it is derived from and the hotspot rings sit over
+  // both, so the first thing an operator sees is the least readable one. Each
+  // layer is one click away.
   const [layers, setLayers] = useState({
     incidents: true,
-    hotspots: true,
-    heatmap: true,
-    blackspots: true,
+    hotspots: false,
+    heatmap: false,
+    blackspots: false,
   });
   const [live, setLive] = useState<Incident[]>([]);
   const [liveOn, setLiveOn] = useState(false);
@@ -247,7 +252,7 @@ export default function OperationsPage() {
   );
 
   const layerToggles = (
-    <div className="flex items-center gap-1.5" role="group" aria-label="Map layers">
+    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Map layers">
       {(
         [
           ["incidents", "Incidents", MapPin],
@@ -281,7 +286,7 @@ export default function OperationsPage() {
     >
       {isMap ? (
         loading ? (
-          <div className="flex h-full flex-col gap-3">
+          <div className="flex flex-col gap-3 lg:h-full">
             <Skeleton className="h-12 w-full shrink-0" />
             <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_360px]">
               <Skeleton className="h-[26rem] lg:h-full" />
@@ -294,7 +299,7 @@ export default function OperationsPage() {
              pixel with the readouts in a rail beside it. The numbers used to
              stack above the map, which pushed the only interactive thing on
              the page below the fold. */
-          <div className="flex h-full flex-col gap-3 overflow-y-auto lg:overflow-hidden">
+          <div className="flex flex-col gap-3 lg:h-full lg:overflow-hidden">
             <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-card px-3 py-2">
               {priorityFilter}
 
@@ -317,7 +322,7 @@ export default function OperationsPage() {
                 </SelectContent>
               </Select>
 
-              <div className="ml-auto flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 lg:ml-auto">
                 {layerToggles}
                 <Separator orientation="vertical" className="hidden h-6 lg:block" />
                 <DataSourceBadge
@@ -362,6 +367,8 @@ export default function OperationsPage() {
                 />
 
                 <IncidentPanel incident={selected} onClose={() => setSelected(null)} />
+
+                <MapLegend />
 
                 <DayRibbon
                   byHour={stats.byHour}

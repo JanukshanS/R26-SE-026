@@ -221,6 +221,11 @@ export default function GoogleMap({
           new maps.Marker({
             position: { lat: inc.lat, lng: inc.lng },
             zIndex: 30,
+            // Render the 500 incident markers into one sprite rather than a
+            // DOM node each. Symbol-icon markers are not batched unless this
+            // is asked for explicitly, and 500 separate elements is the
+            // difference between a map that pans and one that does not.
+            optimized: true,
             icon: {
               path: maps.SymbolPath.CIRCLE,
               // Pixel radius, same formula as the Leaflet circleMarker.
