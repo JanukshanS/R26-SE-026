@@ -488,6 +488,11 @@ export default function DrunkTestScreen() {
             style={styles.camera}
             facing="front"
             mode="video"
+            // Without this, the live preview shows the natural mirrored
+            // ("looking in a mirror") view while recording, but the saved file
+            // itself comes out un-mirrored — flipped relative to what the
+            // driver actually saw and expects when they play it back.
+            mirror={true}
             mute={!recordWithMic}
             ref={cameraRef}
             onCameraReady={() => setIsCameraReady(true)}
