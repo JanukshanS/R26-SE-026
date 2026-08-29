@@ -284,8 +284,10 @@ export default function LocationPicker({
               {place ?? (looking ? "Looking up the address…" : "Pin placed on the map")}
             </p>
             <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
-              {value.latitude.toFixed(5)}, {value.longitude.toFixed(5)} — drag the pin if this
-              isn&apos;t exactly where you are.
+              {value.latitude.toFixed(5)}, {value.longitude.toFixed(5)} —{" "}
+              {confirmLabel
+                ? "drag the pin to move it."
+                : "drag the pin if this isn't exactly where you are."}
             </p>
           </>
         ) : (
