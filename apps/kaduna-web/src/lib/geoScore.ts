@@ -147,3 +147,65 @@ export function scoreIncident(req: ScoreRequest): Promise<GeoScore | null> {
   });
   return pending;
 }
+
+export interface AdHocScoreRequest {
+  latitude: number;
+  longitude: number;
+  incidentType: string;
+  totalLanes: number;
+  lanesBlocked: number;
+  hour: number;
+  dayOfWeek: number;
+  /** Calendar date, so the holiday and long-weekend components can apply. */
+  date: string;
+}
+
+export interface AdHocScore {
+  score: number;
+  priority: Priority;
+  factors: GeoScore["factors"];
+  prediction: GeoScore["prediction"];
+  road?: GeoScore["road"];
+  sensitivity?: GeoScore["sensitivity"];
+}
+
+/**
+ * Score an arbitrary point, for the what-if panel.
+ *
+ * Separate from `scoreIncident` because that one is keyed to a dispatch
+ * incident and caches per incident-hour; here every control move is a new
+ * question and the road class must be resolved from the pin rather than
+ * chosen from a list.
+ */
+export async function scoreAtLocation(req: AdHocScoreRequest): Promise<AdHocScore | null> {
+  try {
+    const res = await fetch(`${GEO_URL}/v1/score`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify({
+        latitude: req.latitude,
+        longitude: req.longitude,
+        // No road_type: resolving it from the pin is the point of the picker.
+        total_lanes: req.totalLanes,
+        lanes_blocked: Math.min(req.lanesBlocked, req.totalLanes),
+        incident_type: req.incidentType,
+        hour: req.hour,
+        day_of_week: req.dayOfWeek,
+        date: req.date,
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const s = await res.json();
+    return {
+      score: s.score,
+      priority: s.priority as Priority,
+      factors: s.factors ?? {},
+      prediction: s.prediction ?? {},
+      road: s.road ?? undefined,
+      sensitivity: s.sensitivity ?? undefined,
+    };
+  } catch {
+    return null;
+  }
+}
