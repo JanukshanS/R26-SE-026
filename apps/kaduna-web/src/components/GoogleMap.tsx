@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { matchesFilters } from "@/lib/filters";
 import { PRIORITY_COLORS, type MapProps } from "@/components/Map";
 import { loadGoogleMaps } from "@/lib/googleMaps";
 import { createHeatmapOverlay } from "@/lib/googleHeatmap";
@@ -117,10 +118,7 @@ export default function GoogleMap({
     };
 
     const filtered = incidents.filter((inc) => {
-      if (filters.priority.length > 0 && !filters.priority.includes(inc.priority)) return false;
-      if (filters.roadType && filters.roadType !== "all" && inc.roadType !== filters.roadType) return false;
-      if (filters.hour !== null && inc.hour !== filters.hour) return false;
-      return true;
+      return matchesFilters(inc, filters);
     });
 
     // Heatmap first so it sits under everything; z-index rather than add-order

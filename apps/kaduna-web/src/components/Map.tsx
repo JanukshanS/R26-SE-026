@@ -1,5 +1,6 @@
 "use client";
 
+import type { MapFilters } from "@/lib/filters";
 import dynamic from "next/dynamic";
 import type { Incident, HotspotCluster, Blackspot } from "@/lib/types";
 import { usingGoogleMaps } from "@/lib/googleMaps";
@@ -9,7 +10,7 @@ export interface MapProps {
   hotspots: HotspotCluster[];
   blackspots: Blackspot[];
   onSelectIncident: (incident: Incident) => void;
-  filters: { priority: string[]; roadType: string; hour: number | null };
+  filters: MapFilters;
   layers: { incidents: boolean; hotspots: boolean; heatmap: boolean; blackspots: boolean };
 }
 

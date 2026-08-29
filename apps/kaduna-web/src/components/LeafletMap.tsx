@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { matchesFilters } from "@/lib/filters";
 import { PRIORITY_COLORS, type MapProps } from "@/components/Map";
 
 export default function LeafletMap({ incidents, hotspots, blackspots, onSelectIncident, filters, layers }: MapProps) {
@@ -75,10 +76,7 @@ export default function LeafletMap({ incidents, hotspots, blackspots, onSelectIn
       layersRef.current.heatmap.clearLayers();
 
       const filtered = incidents.filter((inc) => {
-        if (filters.priority.length > 0 && !filters.priority.includes(inc.priority)) return false;
-        if (filters.roadType && filters.roadType !== "all" && inc.roadType !== filters.roadType) return false;
-        if (filters.hour !== null && inc.hour !== filters.hour) return false;
-        return true;
+        return matchesFilters(inc, filters);
       });
 
       if (layers.incidents) filtered.forEach((inc) => {

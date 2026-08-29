@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { Layers, MapPin, Flame, Target } from "lucide-react";
+import { Layers, MapPin, Flame, Target, Download, RotateCcw } from "lucide-react";
 
 import PortalShell from "@/components/portal/PortalShell";
 import DataSourceBadge from "@/components/DataSourceBadge";
@@ -19,6 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchLiveIncidents } from "@/lib/liveData";
+import { DAY_NAMES, NO_FILTERS, describeFilters, isFiltered, matchesFilters } from "@/lib/filters";
+import { downloadIncidentsCsv } from "@/lib/exportCsv";
 import { fetchHotspots, fetchStats, fetchGeoHealth, type DataSource } from "@/lib/geoData";
 import type { Blackspot, HotspotCluster, Incident, ModelConfig, Stats } from "@/lib/types";
 
@@ -121,11 +123,7 @@ export default function OperationsPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [model, setModel] = useState<ModelConfig | null>(null);
   const [selected, setSelected] = useState<Incident | null>(null);
-  const [filters, setFilters] = useState({
-    priority: [] as string[],
-    roadType: "all",
-    hour: null as number | null,
-  });
+  const [filters, setFilters] = useState(NO_FILTERS);
   // Incidents only to begin with. With every layer on at once the heatmap
   // washes out the markers it is derived from and the hotspot rings sit over
   // both, so the first thing an operator sees is the least readable one. Each
@@ -212,16 +210,11 @@ export default function OperationsPage() {
         : [...prev.priority, p],
     }));
 
-  const shownCount = useMemo(
-    () =>
-      allIncidents.filter((i) => {
-        if (filters.priority.length > 0 && !filters.priority.includes(i.priority)) return false;
-        if (filters.roadType !== "all" && i.roadType !== filters.roadType) return false;
-        if (filters.hour !== null && i.hour !== filters.hour) return false;
-        return true;
-      }).length,
+  const shown = useMemo(
+    () => allIncidents.filter((i) => matchesFilters(i, filters)),
     [allIncidents, filters]
   );
+  const shownCount = shown.length;
 
   const isMap = tab === "Live map";
   const loading = !stats || !model;
@@ -322,7 +315,52 @@ export default function OperationsPage() {
                 </SelectContent>
               </Select>
 
+              <Select
+                value={filters.day === null ? "all" : String(filters.day)}
+                onValueChange={(v) =>
+                  setFilters((f) => ({ ...f, day: v === "all" ? null : Number(v) }))
+                }
+              >
+                <SelectTrigger size="sm" className="w-[140px]" aria-label="Filter by day of week">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All days</SelectItem>
+                  {DAY_NAMES.map((d, i) => (
+                    <SelectItem key={d} value={String(i)}>
+                      {d}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {isFiltered(filters) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setFilters(NO_FILTERS)}
+                  className="h-8 gap-1.5 px-2.5"
+                >
+                  <RotateCcw className="size-3.5" aria-hidden />
+                  <span className="text-sm">Show all</span>
+                </Button>
+              )}
+
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2 lg:ml-auto">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => downloadIncidentsCsv(shown, describeFilters(filters))}
+                  disabled={shownCount === 0}
+                  className="h-8 gap-1.5 px-2.5"
+                  title="Download the incidents currently on the map as a CSV"
+                >
+                  <Download className="size-3.5" aria-hidden />
+                  <span className="text-sm">Export {shownCount.toLocaleString()}</span>
+                </Button>
+
+                <Separator orientation="vertical" className="hidden h-6 lg:block" />
+
                 {layerToggles}
                 <Separator orientation="vertical" className="hidden h-6 lg:block" />
                 <DataSourceBadge
