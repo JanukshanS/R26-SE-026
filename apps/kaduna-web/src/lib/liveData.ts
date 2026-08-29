@@ -40,7 +40,7 @@ async function scoreOne(inc: DispatchIncident): Promise<Incident | null> {
     roadType: s.road?.road_type ?? "primary",
     roadName: s.road?.matched_road ?? "Live report",
     totalLanes: s.road?.total_lanes ?? 2,
-    lanesBlocked: 1,
+    lanesBlocked: s.lanesBlocked ?? 1,
     incidentType: s.incidentType,
     hour: s.hour,
     dayOfWeek: s.dayOfWeek,
@@ -57,6 +57,15 @@ async function scoreOne(inc: DispatchIncident): Promise<Incident | null> {
     isf: s.factors.incident_severity ?? 0,
     live: true,
     providerName: inc.assignedProvider?.name ?? undefined,
+    sensitivity: s.sensitivity
+      ? {
+          factor: s.sensitivity.factor,
+          adjusted_score: s.sensitivity.adjusted_score,
+          nearby: s.sensitivity.nearby,
+          is_holiday: s.sensitivity.is_holiday,
+          is_getaway_eve: s.sensitivity.is_getaway_eve,
+        }
+      : undefined,
   };
   recordScore(scored, s.road?.source ?? "default");
   return scored;

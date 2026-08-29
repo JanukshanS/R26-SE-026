@@ -1,7 +1,10 @@
 // Geo-intelligence scoring client, shared by every surface that shows an
 // incident: the ops dashboard's live layer, the provider's job card and the
 // driver's incident card. One call, one cache, one wording.
-import { mapServiceTypeToIncidentType } from "./geo-service-mapping";
+import {
+  mapServiceTypeToIncidentType,
+  mapServiceTypeToLanesBlocked,
+} from "./geo-service-mapping";
 import { authHeaders } from "./supabase";
 
 const GEO_URL = process.env.NEXT_PUBLIC_GEO_URL ?? "http://localhost:5001";
@@ -12,6 +15,8 @@ export interface GeoScore {
   score: number;
   priority: Priority;
   incidentType: string;
+  /** Lanes assumed blocked, derived from the triaged service type. */
+  lanesBlocked: number;
   hour: number;
   dayOfWeek: number;
   factors: {
@@ -25,6 +30,22 @@ export interface GeoScore {
     queue_km?: number;
     vehicle_hours_lost?: number;
     recovery_min?: number;
+  };
+  /** Nearby hospitals, schools, bridges and markets, plus the calendar, which
+   *  together lift the score above the five factors. */
+  sensitivity?: {
+    factor: number;
+    adjusted_score: number;
+    nearby: Array<{
+      type: string;
+      name?: string | null;
+      distance_m?: number | null;
+      boost: number;
+      active: boolean;
+    }>;
+    is_holiday: boolean;
+    is_getaway_eve: boolean;
+    data_available: boolean;
   };
   /** Which road geo matched at these coordinates, and how it established it. */
   road?: {
@@ -76,6 +97,7 @@ export function scoreIncident(req: ScoreRequest): Promise<GeoScore | null> {
   if (hit) return hit;
 
   const incidentType = mapServiceTypeToIncidentType(req.serviceType);
+  const lanesBlocked = mapServiceTypeToLanesBlocked(req.serviceType);
   const pending = (async (): Promise<GeoScore | null> => {
     try {
       const res = await fetch(`${GEO_URL}/v1/score`, {
@@ -88,10 +110,13 @@ export function scoreIncident(req: ScoreRequest): Promise<GeoScore | null> {
           // both from the coordinates against its OpenStreetMap network and
           // reports what it matched. Sending a guess pinned the Location
           // Factor at a constant for every live incident.
-          lanes_blocked: 1,
+          lanes_blocked: lanesBlocked,
           incident_type: incidentType,
           hour,
           day_of_week: dayOfWeek,
+          // Without a date the overlay cannot know about holidays or the eve
+          // of a long weekend, so those components could never fire.
+          date: req.at.toISOString().slice(0, 10),
         }),
         signal: AbortSignal.timeout(8000),
       });
@@ -101,11 +126,13 @@ export function scoreIncident(req: ScoreRequest): Promise<GeoScore | null> {
         score: s.score,
         priority: s.priority as Priority,
         incidentType,
+        lanesBlocked,
         hour,
         dayOfWeek,
         factors: s.factors ?? {},
         prediction: s.prediction ?? {},
         road: s.road ?? undefined,
+        sensitivity: s.sensitivity ?? undefined,
       };
     } catch {
       return null;

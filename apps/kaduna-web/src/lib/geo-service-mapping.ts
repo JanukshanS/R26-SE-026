@@ -2,4 +2,6 @@
 export {
   SERVICE_TO_INCIDENT_TYPE,
   mapServiceTypeToIncidentType,
+  SERVICE_TO_LANES_BLOCKED,
+  mapServiceTypeToLanesBlocked,
 } from "contracts/geo-service-mapping";
