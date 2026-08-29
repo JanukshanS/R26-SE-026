@@ -26,6 +26,13 @@ export interface GeoScore {
     vehicle_hours_lost?: number;
     recovery_min?: number;
   };
+  /** Which road geo matched at these coordinates, and how it established it. */
+  road?: {
+    road_type: string;
+    total_lanes: number;
+    source: string;
+    matched_road?: string | null;
+  };
 }
 
 export interface ScoreRequest {
@@ -55,9 +62,10 @@ const cache = new Map<string, Promise<GeoScore | null>>();
  * the score is decoration on every surface that shows it, and a card must
  * still render when the service is down.
  *
- * Road geometry is a fixed assumption (a two-lane primary road with one lane
- * blocked) because the dispatch incident record carries no road data. The
- * dashboard's what-if simulator is where those inputs are varied.
+ * Road class and lane count come back from geo, which resolves them from the
+ * coordinates; only lanes-blocked stays an assumption, because the dispatch
+ * incident record carries no lane data. The what-if simulator is where that
+ * input is varied.
  */
 export function scoreIncident(req: ScoreRequest): Promise<GeoScore | null> {
   const hour = req.at.getHours();
@@ -76,8 +84,10 @@ export function scoreIncident(req: ScoreRequest): Promise<GeoScore | null> {
         body: JSON.stringify({
           latitude: req.latitude,
           longitude: req.longitude,
-          road_type: "primary",
-          total_lanes: 2,
+          // road_type and total_lanes are deliberately omitted: geo resolves
+          // both from the coordinates against its OpenStreetMap network and
+          // reports what it matched. Sending a guess pinned the Location
+          // Factor at a constant for every live incident.
           lanes_blocked: 1,
           incident_type: incidentType,
           hour,
@@ -95,6 +105,7 @@ export function scoreIncident(req: ScoreRequest): Promise<GeoScore | null> {
         dayOfWeek,
         factors: s.factors ?? {},
         prediction: s.prediction ?? {},
+        road: s.road ?? undefined,
       };
     } catch {
       return null;

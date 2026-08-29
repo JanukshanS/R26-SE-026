@@ -7,7 +7,7 @@ import { Layers, MapPin, Flame, Target, Download, RotateCcw } from "lucide-react
 import PortalShell from "@/components/portal/PortalShell";
 import DataSourceBadge from "@/components/DataSourceBadge";
 import DayRibbon from "@/components/DayRibbon";
-import DispatchPanel from "@/components/DispatchPanel";
+import ScoringLogPanel from "@/components/ScoringLogPanel";
 import IncidentPanel from "@/components/IncidentPanel";
 import MapLegend from "@/components/MapLegend";
 import MetricCards from "@/components/MetricCards";
@@ -35,7 +35,7 @@ const PRIORITY_TOKEN: Record<string, string> = {
 };
 const ROAD_TYPES = ["motorway", "trunk", "primary", "secondary", "tertiary", "residential"];
 
-const TAB_LABELS = ["Live map", "What-if", "Validation", "Dispatch"] as const;
+const TAB_LABELS = ["Live map", "What-if", "Scoring log", "Model accuracy"] as const;
 type Tab = (typeof TAB_LABELS)[number];
 const TABS = TAB_LABELS.map((label) => ({
   label,
@@ -51,19 +51,19 @@ const TABS = TAB_LABELS.map((label) => ({
 const TAB_INTRO: Record<Tab, { lead: string; body: string }> = {
   "Live map": {
     lead: "Every incident scored for what it does to the city, not to the driver.",
-    body: "500 scored incidents on real Colombo road geometry, 25 mined hotspot clusters, NTC accident blackspots, and any live report currently open in dispatch. Click a marker for its five factors.",
+    body: "Scored incidents across Colombo, with accident blackspots and anything currently open in dispatch. Select a marker to see the five factors behind its score.",
   },
   "What-if": {
-    lead: "Move one input and watch the score move.",
-    body: "The same breakdown scores differently on a trunk road at 8am than on a side street at midnight. This is the model itself, running in the browser — the clearest way to see what the five factors actually weigh.",
+    lead: "Change one thing and watch the score move.",
+    body: "The same breakdown costs the city more on a main road at 8am than on a side street at midnight. Move the inputs to see how much each one is worth.",
   },
-  Validation: {
-    lead: "What the model was tested against, including what failed.",
-    body: "The deployed model uses the original expert weights and scores r = 0.60 against SUMO simulation. Impact-ordered dispatch was tested and rejected — it does not reduce vehicle-hours lost. The validated value is severity triage and hotspot awareness.",
+  "Scoring log": {
+    lead: "Every score this dashboard has requested, and why.",
+    body: "Each incident that reaches dispatch is scored as it arrives. Open a row to see the road that was matched and the five factors that produced the number.",
   },
-  Dispatch: {
-    lead: "Where the score reaches the running platform.",
-    body: "Dispatch fetches an impact score per optimise call and carries it as priority metadata on the incident. It colours the decision; it does not make it.",
+  "Model accuracy": {
+    lead: "How well the score predicts real congestion — including where it falls short.",
+    body: "Scores are checked against SUMO traffic simulation. Ordering dispatch by impact was tested and did not reduce vehicle-hours lost, so it is not used; the score sets priority and marks the areas worth watching.",
   },
 };
 
@@ -433,15 +433,15 @@ export default function OperationsPage() {
 
           {/* The headline claims are provenance, not operations: they belong
               where someone is checking whether to believe the model. */}
-          {tab === "Validation" && <ClaimStrip />}
+          {tab === "Model accuracy" && <ClaimStrip />}
 
           {loading ? (
             <Skeleton className="h-96 w-full" />
           ) : (
             <div className="rounded-xl border border-border bg-card p-4 md:p-6">
               {tab === "What-if" && <WhatIfSimulator model={model} />}
-              {tab === "Validation" && <ValidationPanel />}
-              {tab === "Dispatch" && <DispatchPanel />}
+              {tab === "Model accuracy" && <ValidationPanel />}
+              {tab === "Scoring log" && <ScoringLogPanel />}
             </div>
           )}
         </div>

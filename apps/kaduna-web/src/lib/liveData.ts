@@ -3,6 +3,7 @@
 // Incident shape. Any failure returns an empty list so the static dataset (loaded
 // separately) still renders — the dashboard never goes blank.
 import { scoreIncident } from "./geoScore";
+import { recordScore } from "./scoreLog";
 import { authHeaders } from "./supabase";
 import type { Incident } from "./types";
 
@@ -30,13 +31,15 @@ async function scoreOne(inc: DispatchIncident): Promise<Incident | null> {
     at,
   });
   if (!s) return null;
-  return {
+  const scored: Incident = {
     id: inc.id.slice(0, 8),
     lat: inc.latitude,
     lng: inc.longitude,
-    roadType: "primary",
-    roadName: "Live report",
-    totalLanes: 2,
+    // Whatever geo matched at the incident's coordinates, rather than the
+    // placeholder this used to invent.
+    roadType: s.road?.road_type ?? "primary",
+    roadName: s.road?.matched_road ?? "Live report",
+    totalLanes: s.road?.total_lanes ?? 2,
     lanesBlocked: 1,
     incidentType: s.incidentType,
     hour: s.hour,
@@ -55,6 +58,8 @@ async function scoreOne(inc: DispatchIncident): Promise<Incident | null> {
     live: true,
     providerName: inc.assignedProvider?.name ?? undefined,
   };
+  recordScore(scored, s.road?.source ?? "default");
+  return scored;
 }
 
 /** Recent live incidents from dispatch, each scored by geo. [] on any failure. */

@@ -22,6 +22,10 @@ export default function LeafletMap({ incidents, hotspots, blackspots, onSelectIn
       if (node._leaflet_id || leafletMap.current) return;
 
       const map = L.map(node, {
+        // Canvas renderer: 500 circle markers as SVG elements is 500 DOM nodes
+        // to composite on every pan. The Google engine draws its incidents on
+        // a canvas for the same reason.
+        preferCanvas: true,
         center: [6.9271, 79.8612],
         zoom: 12,
         zoomControl: false,

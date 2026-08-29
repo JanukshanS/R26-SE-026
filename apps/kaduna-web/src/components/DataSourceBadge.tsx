@@ -33,7 +33,7 @@ export default function DataSourceBadge({
           className={`size-1.5 rounded-full ${dataSource === "api" ? "bg-[var(--priority-low)]" : "bg-muted-foreground"}`}
           aria-hidden
         />
-        {dataSource === "api" ? "API data" : "Static dataset"}
+        {dataSource === "api" ? "Live data" : "Saved data"}
       </Badge>
       <Badge
         variant="outline"
@@ -59,7 +59,7 @@ export default function DataSourceBadge({
           className={`size-1.5 rounded-full ${live ? "animate-pulse bg-[var(--priority-high)]" : "bg-muted-foreground"}`}
           aria-hidden
         />
-        {live ? `Live ${liveCount}` : "Demo"}
+        {live ? `Live ${liveCount}` : "No live reports"}
       </Badge>
     </div>
   );
