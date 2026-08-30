@@ -8,29 +8,31 @@
  */
 import { OptionCard } from "@components/ui/option-card";
 import { QuestionScreen } from "@components/ui/question-screen";
+import { useT } from "@lib/i18n";
 import { useEmergency, type SmokeColorChoice } from "@lib/emergencyContext";
 
-const OPTIONS: { value: NonNullable<SmokeColorChoice>; title: string; description: string; tone?: "warning" | "danger" }[] = [
-  { value: "WHITE",              title: "White smoke / steam",          description: "Coolant — possible head gasket",          tone: "warning" },
-  { value: "BLUE_GREY",          title: "Blue / grey smoke",             description: "Burning oil — worn rings or valve seals", tone: "warning" },
-  { value: "BLACK",              title: "Black smoke",                   description: "Too much fuel — injector / filter issue" },
-  { value: "ELECTRICAL_BURNING", title: "Smoke from dashboard / bonnet", description: "STOP ENGINE — electrical fire risk",      tone: "danger" },
+const OPTIONS: { value: NonNullable<SmokeColorChoice>; titleKey: string; descriptionKey: string; tone?: "warning" | "danger" }[] = [
+  { value: "WHITE",              titleKey: "emergency.smokeColor.whiteTitle",      descriptionKey: "emergency.smokeColor.whiteDesc",      tone: "warning" },
+  { value: "BLUE_GREY",          titleKey: "emergency.smokeColor.blueGreyTitle",   descriptionKey: "emergency.smokeColor.blueGreyDesc",   tone: "warning" },
+  { value: "BLACK",              titleKey: "emergency.smokeColor.blackTitle",      descriptionKey: "emergency.smokeColor.blackDesc" },
+  { value: "ELECTRICAL_BURNING", titleKey: "emergency.smokeColor.electricalTitle", descriptionKey: "emergency.smokeColor.electricalDesc", tone: "danger" },
 ];
 
 export default function SmokeColorScreen() {
+  const t = useT();
   const { smokeColor, setSmokeColor } = useEmergency();
 
   return (
     <QuestionScreen
       route="smoke-color"
-      prompt={"What colour is the smoke?"}
+      prompt={t("emergency.smokeColor.prompt")}
       canNext={!!smokeColor}
     >
       {OPTIONS.map((o) => (
         <OptionCard
           key={o.value}
-          title={o.title}
-          description={o.description}
+          title={t(o.titleKey)}
+          description={t(o.descriptionKey)}
           accent={o.tone}
           badgeTone={o.tone}
           selected={smokeColor === o.value}

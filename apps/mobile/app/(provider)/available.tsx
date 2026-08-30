@@ -26,6 +26,7 @@ import {
   type ServiceType,
 } from "@lib/dispatchApi";
 import { getCurrentDriverLocation } from "@lib/driverLocation";
+import { useT, type Translate } from "@lib/i18n";
 
 /** Statuses that mean "this job is still mine" — the backend filters one at a time. */
 const ACTIVE_JOB_STATUSES = ["PROVIDER_ASSIGNED", "EN_ROUTE", "ON_SCENE"];
@@ -34,6 +35,7 @@ const POLL_INTERVAL_MS = 5000;
 
 export default function ProviderAvailableScreen() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { user, logout } = useVehicle();
   const providerId = user?.providerId ?? null;
 
@@ -57,13 +59,12 @@ export default function ProviderAvailableScreen() {
       setProvider(me);
     } catch (err) {
       setError(
-        (err as Error).message +
-          " (is the dispatch service running on port 3001?)"
+        t("provider.available.dispatchError", { message: (err as Error).message })
       );
     } finally {
       setLoading(false);
     }
-  }, [providerId]);
+  }, [providerId, t]);
 
   useEffect(() => {
     loadProvider();
@@ -100,9 +101,8 @@ export default function ProviderAvailableScreen() {
           if (cancelled) return;
           setJobsError(
             err instanceof DispatchApiError && err.status === 403
-              ? "Your account isn't linked to this provider profile. Log out and set it up again."
-              : (err as Error).message +
-                  " (is the dispatch service running on port 3001?)"
+              ? t("provider.available.jobsForbidden")
+              : t("provider.available.dispatchError", { message: (err as Error).message })
           );
         } finally {
           inFlight = false;
@@ -115,7 +115,7 @@ export default function ProviderAvailableScreen() {
         cancelled = true;
         clearInterval(handle);
       };
-    }, [providerId, provider, offline])
+    }, [providerId, provider, offline, t])
   );
 
   async function toggleStatus() {
@@ -126,7 +126,7 @@ export default function ProviderAvailableScreen() {
       const updated = await updateProviderStatus(provider.id, nextStatus);
       setProvider(updated);
     } catch (err) {
-      Alert.alert("Failed to update status", (err as Error).message);
+      Alert.alert(t("provider.available.statusFailedTitle"), (err as Error).message);
     } finally {
       setStatusBusy(false);
     }
@@ -143,13 +143,13 @@ export default function ProviderAvailableScreen() {
       });
       setProvider(updated);
       Alert.alert(
-        "Location updated",
+        t("provider.available.locationUpdatedTitle"),
         loc.isReal
-          ? "Your position on the map has been refreshed from GPS."
-          : "GPS was unavailable, so we used your last known area."
+          ? t("provider.available.locationUpdatedGps")
+          : t("provider.available.locationUpdatedFallback")
       );
     } catch (err) {
-      Alert.alert("Failed to update location", (err as Error).message);
+      Alert.alert(t("provider.available.locationFailedTitle"), (err as Error).message);
     } finally {
       setLocationBusy(false);
     }
@@ -182,7 +182,7 @@ export default function ProviderAvailableScreen() {
       <Screen
         footer={
           <Button
-            title="Set up your provider profile"
+            title={t("provider.setup.cta")}
             onPress={() => router.replace("/(provider)/onboarding")}
           />
         }
@@ -191,7 +191,7 @@ export default function ProviderAvailableScreen() {
           <Icon name="Wrench" size={44} color={palette.brand} />
           <View style={{ alignItems: "center", gap: spacing.sm }}>
             <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
-              No provider profile yet
+              {t("provider.setup.emptyTitle")}
             </Text>
             <Text
               style={{
@@ -201,8 +201,7 @@ export default function ProviderAvailableScreen() {
                 maxWidth: 280,
               }}
             >
-              Create your provider profile to appear on the dispatch map and
-              start receiving roadside jobs near you.
+              {t("provider.setup.emptyBody")}
             </Text>
           </View>
         </View>
@@ -211,8 +210,11 @@ export default function ProviderAvailableScreen() {
   }
 
   const online = provider?.status === "AVAILABLE";
-  const displayName = provider?.name.split(" - ")[1] ?? provider?.name ?? "Provider";
-  const typeLabel = provider ? providerTypeLabel(provider.type) : "Provider";
+  const displayName =
+    provider?.name.split(" - ")[1] ?? provider?.name ?? t("provider.available.fallbackName");
+  const typeLabel = provider
+    ? providerTypeLabel(provider.type, t)
+    : t("provider.available.fallbackName");
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.background }}>
@@ -237,7 +239,7 @@ export default function ProviderAvailableScreen() {
           </View>
           <View style={{ gap: 2 }}>
             <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-              {loading ? "Loading..." : displayName}
+              {loading ? t("provider.available.loadingName") : displayName}
             </Text>
             <Text style={{ ...typography.caption, color: palette.textMuted }}>
               {typeLabel}
@@ -246,7 +248,7 @@ export default function ProviderAvailableScreen() {
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
           <Badge
-            label={online ? "Online" : provider ? "Offline" : "—"}
+            label={online ? t("provider.status.online") : provider ? t("provider.status.offline") : "—"}
             tone={online ? "success" : "neutral"}
             withDot
           />
@@ -265,11 +267,11 @@ export default function ProviderAvailableScreen() {
               backgroundColor: palette.surface,
             })}
             accessibilityRole="button"
-            accessibilityLabel="Log out"
+            accessibilityLabel={t("provider.action.logout")}
           >
             <Icon name="LogOut" size={14} color={palette.textMuted} />
             <Text style={{ ...typography.caption, color: palette.textMuted, fontWeight: "600" }}>
-              Log out
+              {t("provider.action.logout")}
             </Text>
           </Pressable>
         </View>
@@ -282,21 +284,23 @@ export default function ProviderAvailableScreen() {
         {error && (
           <Card style={{ borderLeftWidth: 4, borderLeftColor: palette.danger }}>
             <Text style={{ ...typography.bodyStrong, color: palette.danger }}>
-              Connection error
+              {t("provider.available.connectionErrorTitle")}
             </Text>
             <Text style={{ ...typography.caption, color: palette.textMuted }}>
               {error}
             </Text>
-            <Button title="Try again" variant="secondary" size="md" onPress={loadProvider} />
+            <Button title={t("provider.action.retry")} variant="secondary" size="md" onPress={loadProvider} />
           </Card>
         )}
 
         <Card>
           <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-            {loading ? "..." : online ? "Available" : "Offline"}
+            {loading ? "..." : online ? t("provider.status.available") : t("provider.status.offline")}
           </Text>
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
-            Trust score: {provider ? (provider.trustScore * 100).toFixed(0) + "%" : "—"}
+            {t("provider.available.trustScore", {
+              value: provider ? (provider.trustScore * 100).toFixed(0) + "%" : "—",
+            })}
           </Text>
           <View
             style={{
@@ -304,14 +308,24 @@ export default function ProviderAvailableScreen() {
             }}
           >
             <Button
-              title={statusBusy ? "..." : online ? "GO OFFLINE" : "GO ONLINE"}
+              title={
+                statusBusy
+                  ? "..."
+                  : online
+                    ? t("provider.available.goOffline")
+                    : t("provider.available.goOnline")
+              }
               variant="secondary"
               size="md"
               onPress={toggleStatus}
               disabled={!provider || statusBusy}
             />
             <Button
-              title={locationBusy ? "UPDATING…" : "UPDATE LOCATION"}
+              title={
+                locationBusy
+                  ? t("provider.available.updatingLocation")
+                  : t("provider.available.updateLocation")
+              }
               size="md"
               onPress={handleUpdateLocation}
               disabled={!provider || locationBusy}
@@ -327,9 +341,13 @@ export default function ProviderAvailableScreen() {
               justifyContent: "space-between",
             }}
           >
-            <Text style={{ ...typography.h3, color: palette.text }}>Assigned Jobs</Text>
+            <Text style={{ ...typography.h3, color: palette.text }}>
+              {t("provider.available.jobsHeading")}
+            </Text>
             <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "600" }}>
-              {!offline && jobs?.length ? `${jobs.length} active` : ""}
+              {!offline && jobs?.length
+                ? t("provider.available.activeCount", { count: jobs.length })
+                : ""}
             </Text>
           </View>
 
@@ -340,10 +358,10 @@ export default function ProviderAvailableScreen() {
             >
               <Icon name="PowerOff" size={40} color={palette.textMuted} />
               <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-                You&apos;re offline
+                {t("provider.available.offlineTitle")}
               </Text>
               <Text style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}>
-                Go online to start receiving jobs from dispatch.
+                {t("provider.available.offlineBody")}
               </Text>
             </Card>
           ) : (
@@ -351,7 +369,7 @@ export default function ProviderAvailableScreen() {
               {jobsError && (
                 <Card style={{ borderLeftWidth: 4, borderLeftColor: palette.danger }}>
                   <Text style={{ ...typography.bodyStrong, color: palette.danger }}>
-                    Couldn&apos;t load your jobs
+                    {t("provider.available.jobsErrorTitle")}
                   </Text>
                   <Text style={{ ...typography.caption, color: palette.textMuted }}>
                     {jobsError}
@@ -384,12 +402,12 @@ export default function ProviderAvailableScreen() {
                 >
                   <Icon name="Inbox" size={40} color={palette.textMuted} />
                   <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-                    No jobs assigned right now
+                    {t("provider.available.emptyTitle")}
                   </Text>
                   <Text
                     style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}
                   >
-                    New assignments appear here within a few seconds.
+                    {t("provider.available.emptyBody")}
                   </Text>
                 </Card>
               )}
@@ -401,20 +419,22 @@ export default function ProviderAvailableScreen() {
           onPress={() => router.push("/(provider)/services")}
           style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
           accessibilityRole="button"
-          accessibilityLabel="Manage my services"
+          accessibilityLabel={t("provider.available.servicesA11y")}
         >
           <Card style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
             <Icon name="Wrench" size={20} color={palette.brand} />
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-                My Services
+                {t("provider.services.title")}
               </Text>
               <Text style={{ ...typography.caption, color: palette.textMuted }}>
                 {loading
-                  ? "Loading…"
+                  ? t("provider.common.loading")
                   : provider?.capabilities.length
-                    ? `${provider.capabilities.length} services · tap to edit`
-                    : "Set up what you offer"}
+                    ? t("provider.available.servicesSummary", {
+                        count: provider.capabilities.length,
+                      })
+                    : t("provider.available.servicesSetup")}
               </Text>
             </View>
             <Icon name="ChevronRight" size={18} color={palette.textMuted} />
@@ -436,6 +456,7 @@ function JobCard({
   provider: ProviderRecord | null;
   onPress: () => void;
 }) {
+  const t = useT();
   const service = job.triageResponse?.predictedServiceType as ServiceType | undefined;
   const distanceKm = provider ? haversineKm(provider, job) : null;
 
@@ -444,22 +465,28 @@ function JobCard({
       onPress={onPress}
       style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
       accessibilityRole="button"
-      accessibilityLabel={`Open job ${service ? serviceTypeLabel(service) : "roadside assistance"}`}
+      accessibilityLabel={t("provider.job.openA11y", {
+        service: service ? serviceTypeLabel(service, t) : t("provider.job.fallbackServiceLower"),
+      })}
     >
       <Card style={{ gap: spacing.sm }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
           <Icon name="TriangleAlert" size={20} color={palette.danger} />
           <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>
-            {service ? serviceTypeLabel(service) : "Roadside assistance"}
+            {service ? serviceTypeLabel(service, t) : t("provider.job.fallbackService")}
           </Text>
           <Badge
-            label={jobStatusLabel(job.status)}
+            label={jobStatusLabel(job.status, t)}
             tone={job.status === "PROVIDER_ASSIGNED" ? "warning" : "brand"}
           />
         </View>
         <Text style={{ ...typography.caption, color: palette.textMuted }}>
-          {distanceKm !== null ? `${distanceKm.toFixed(1)} km away · ` : ""}
-          {receivedLabel(job.createdAt)}
+          {distanceKm !== null
+            ? t("provider.job.distanceAndAge", {
+                km: distanceKm.toFixed(1),
+                age: receivedLabel(job.createdAt, t),
+              })
+            : receivedLabel(job.createdAt, t)}
         </Text>
         <View
           style={{
@@ -469,7 +496,7 @@ function JobCard({
           }}
         >
           <Text style={{ ...typography.body, color: palette.text }}>
-            {service ? serviceTypeAction(service) : "Assess on arrival"}
+            {service ? serviceTypeAction(service, t) : t("provider.job.fallbackAction")}
           </Text>
           <Icon name="ChevronRight" size={18} color={palette.textMuted} />
         </View>
@@ -478,20 +505,20 @@ function JobCard({
   );
 }
 
-function jobStatusLabel(status: string): string {
-  if (status === "PROVIDER_ASSIGNED") return "New";
-  if (status === "EN_ROUTE") return "En route";
-  return "On scene";
+function jobStatusLabel(status: string, t: Translate): string {
+  if (status === "PROVIDER_ASSIGNED") return t("provider.jobCard.statusNew");
+  if (status === "EN_ROUTE") return t("provider.jobCard.statusEnRoute");
+  return t("provider.jobCard.statusOnScene");
 }
 
-function receivedLabel(createdAt: string): string {
+function receivedLabel(createdAt: string, t: Translate): string {
   const minutes = Math.max(
     0,
     Math.round((Date.now() - new Date(createdAt).getTime()) / 60000)
   );
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 1) return t("provider.jobCard.justNow");
+  if (minutes < 60) return t("provider.jobCard.minutesAgo", { count: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} h ago`;
+  if (hours < 24) return t("provider.jobCard.hoursAgo", { count: hours });
   return new Date(createdAt).toLocaleDateString("en-GB");
 }

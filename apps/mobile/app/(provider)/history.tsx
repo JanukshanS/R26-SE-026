@@ -16,9 +16,11 @@ import {
   type ProviderFeedback,
   type ProviderFeedbackSummary,
 } from "@lib/dispatchApi";
+import { useT, useI18n } from "@lib/i18n";
 
 export default function ProviderHistoryScreen() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { user } = useVehicle();
   const providerId = user?.providerId ?? null;
 
@@ -61,9 +63,9 @@ export default function ProviderHistoryScreen() {
           paddingBottom: spacing.lg,
         }}
       >
-        <Text style={{ ...typography.h2, color: palette.text }}>History</Text>
+        <Text style={{ ...typography.h2, color: palette.text }}>{t("provider.history.title")}</Text>
         <Text style={{ ...typography.caption, color: palette.textMuted, marginTop: 2 }}>
-          Your resolved jobs and how your diagnoses compared to what you found.
+          {t("provider.history.subtitle")}
         </Text>
       </View>
 
@@ -72,16 +74,16 @@ export default function ProviderHistoryScreen() {
         contentContainerStyle={{ paddingBottom: PROVIDER_NAV_BAR_HEIGHT + spacing.xl }}
       >
         {!providerId ? (
-          <Card><Text style={{ ...typography.body, color: palette.textMuted }}>Set up your provider profile first.</Text></Card>
+          <Card><Text style={{ ...typography.body, color: palette.textMuted }}>{t("provider.setup.prompt")}</Text></Card>
         ) : loading ? (
           <Card style={{ alignItems: "center", paddingVertical: spacing.xl }}>
             <ActivityIndicator size="small" color={palette.brand} />
           </Card>
         ) : error ? (
           <Card style={{ borderLeftWidth: 4, borderLeftColor: palette.danger }}>
-            <Text style={{ ...typography.bodyStrong, color: palette.danger }}>Couldn&apos;t load your history</Text>
+            <Text style={{ ...typography.bodyStrong, color: palette.danger }}>{t("provider.history.loadErrorTitle")}</Text>
             <Text style={{ ...typography.caption, color: palette.textMuted }}>{error}</Text>
-            <Button title="Try again" variant="secondary" size="md" onPress={load} />
+            <Button title={t("provider.action.retry")} variant="secondary" size="md" onPress={load} />
           </Card>
         ) : (
           <>
@@ -89,26 +91,28 @@ export default function ProviderHistoryScreen() {
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                 <MetricTile
                   icon="ClipboardCheck"
-                  label="Jobs completed"
+                  label={t("provider.metric.jobsCompleted")}
                   value={String(summary.totalJobs)}
                 />
                 <MetricTile
                   icon="Target"
-                  label="Diagnosis match rate"
+                  label={t("provider.metric.matchRate")}
                   value={summary.matchRate !== null ? `${Math.round(summary.matchRate * 100)}%` : "—"}
                 />
                 <MetricTile
                   icon="Clock"
-                  label="Avg. resolution time"
+                  label={t("provider.metric.avgResolutionTime")}
                   value={
                     summary.averageResolutionTimeMinutes !== null
-                      ? `${Math.round(summary.averageResolutionTimeMinutes)} min`
+                      ? t("provider.history.minutesValue", {
+                          minutes: Math.round(summary.averageResolutionTimeMinutes),
+                        })
                       : "—"
                   }
                 />
                 <MetricTile
                   icon="Star"
-                  label="Avg. rating"
+                  label={t("provider.metric.avgRating")}
                   value={summary.averageRating !== null ? summary.averageRating.toFixed(1) : "—"}
                 />
               </View>
@@ -127,10 +131,10 @@ export default function ProviderHistoryScreen() {
               >
                 <Icon name="History" size={40} color={palette.textMuted} />
                 <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-                  No completed jobs yet
+                  {t("provider.history.emptyTitle")}
                 </Text>
                 <Text style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}>
-                  Resolved jobs and your performance metrics will show up here.
+                  {t("provider.history.emptyBody")}
                 </Text>
               </Card>
             )}
@@ -154,30 +158,36 @@ function MetricTile({ icon, label, value }: { icon: Parameters<typeof Icon>[0]["
 }
 
 function FeedbackCard({ feedback }: { feedback: ProviderFeedback }) {
-  const date = new Date(feedback.createdAt).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-  });
+  const { t, formatDate } = useI18n();
+  const date = formatDate(feedback.createdAt, { day: "numeric", month: "short" });
   return (
     <Card style={{ gap: spacing.xs }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
         <Text style={{ ...typography.bodyStrong, color: palette.text, flex: 1 }}>
-          {serviceTypeLabel(feedback.actualServiceType)}
+          {serviceTypeLabel(feedback.actualServiceType, t)}
         </Text>
         <Badge
-          label={feedback.wasMatch ? "Matched diagnosis" : "Diagnosis differed"}
+          label={
+            feedback.wasMatch
+              ? t("provider.history.matched")
+              : t("provider.history.differed")
+          }
           tone={feedback.wasMatch ? "success" : "warning"}
         />
       </View>
       {!feedback.wasMatch && (
         <Text style={{ ...typography.caption, color: palette.textMuted }}>
-          Originally predicted: {serviceTypeLabel(feedback.predictedServiceType)}
+          {t("provider.history.originallyPredicted", {
+            service: serviceTypeLabel(feedback.predictedServiceType, t),
+          })}
         </Text>
       )}
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
         <Text style={{ ...typography.caption, color: palette.textMuted }}>{date}</Text>
         <Text style={{ ...typography.caption, color: palette.textMuted }}>
-          {Math.round(feedback.resolutionTimeMinutes)} min
+          {t("provider.history.minutesValue", {
+            minutes: Math.round(feedback.resolutionTimeMinutes),
+          })}
         </Text>
         {feedback.userRating !== null && (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>

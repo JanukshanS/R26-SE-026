@@ -20,6 +20,7 @@ import {
   TERMINAL_INCIDENT_STATUSES,
   type AssignedIncident,
 } from "@/lib/dispatchApi";
+import { useT, type Translate } from "@/lib/i18n";
 import {
   COMPONENT_LABELS,
   getVehicleHealth,
@@ -33,7 +34,17 @@ import { defaultVehicle, listVehicles, vehicleTitle, type Vehicle } from "@/lib/
 const TAB_LABELS = ["Overview", "Vehicles", "Incidents", "Claims"] as const;
 type Tab = (typeof TAB_LABELS)[number];
 
-const TABS = TAB_LABELS.map((label) => ({ label, href: `#${label.toLowerCase()}` }));
+const TAB_KEYS: Record<Tab, string> = {
+  Overview: "app.tab.overview",
+  Vehicles: "app.tab.vehicles",
+  Incidents: "app.tab.incidents",
+  Claims: "app.tab.claims",
+};
+
+const TABS = TAB_LABELS.map((label) => ({
+  labelKey: TAB_KEYS[label],
+  href: `#${label.toLowerCase()}`,
+}));
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -41,13 +52,13 @@ const POLL_INTERVAL_MS = 10_000;
  *  console; only PROVIDER_ASSIGNED is reworded, since "New job" is the
  *  provider's side of that event. Anything else falls back to enumLabel. */
 const STATUS_BADGE: Record<string, [string, string]> = {
-  CREATED: ["Reported", "bg-muted text-muted-foreground"],
-  PROVIDER_ASSIGNED: ["Provider assigned", "bg-amber-100 text-amber-900"],
-  EN_ROUTE: ["En route", "bg-primary/15 text-primary"],
-  ON_SCENE: ["On scene", "bg-primary/15 text-primary"],
-  RESOLVED: ["Resolved", "bg-emerald-100 text-emerald-900"],
-  ESCALATED: ["Escalated", "bg-red-100 text-red-900"],
-  CANCELLED: ["Cancelled", "bg-muted text-muted-foreground"],
+  CREATED: ["app.incidentStatus.created", "bg-muted text-muted-foreground"],
+  PROVIDER_ASSIGNED: ["app.incidentStatus.providerAssigned", "bg-amber-100 text-amber-900"],
+  EN_ROUTE: ["app.incidentStatus.enRoute", "bg-primary/15 text-primary"],
+  ON_SCENE: ["app.incidentStatus.onScene", "bg-primary/15 text-primary"],
+  RESOLVED: ["app.incidentStatus.resolved", "bg-emerald-100 text-emerald-900"],
+  ESCALATED: ["app.incidentStatus.escalated", "bg-red-100 text-red-900"],
+  CANCELLED: ["app.incidentStatus.cancelled", "bg-muted text-muted-foreground"],
 };
 
 const HEALTH_TONE: Record<ComponentStatus, string> = {
@@ -59,29 +70,33 @@ const HEALTH_TONE: Record<ComponentStatus, string> = {
 };
 
 function Badge({ status }: { status: string }) {
-  const [label, tone] = STATUS_BADGE[status] ?? [
-    enumLabel(status),
-    "bg-muted text-muted-foreground",
-  ];
+  const t = useT();
+  const badge = STATUS_BADGE[status];
+  const [label, tone] = badge
+    ? [t(badge[0]), badge[1]]
+    : [enumLabel(status), "bg-muted text-muted-foreground"];
   return <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${tone}`}>{label}</span>;
 }
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: Translate): string {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} min ago`;
+  if (mins < 1) return t("app.timeAgo.justNow");
+  if (mins < 60) return t("app.timeAgo.minutes", { count: mins });
   const hours = Math.floor(mins / 60);
-  return hours < 24 ? `${hours} h ago` : `${Math.floor(hours / 24)} d ago`;
+  return hours < 24
+    ? t("app.timeAgo.hours", { count: hours })
+    : t("app.timeAgo.days", { count: Math.floor(hours / 24) });
 }
 
-function describe(err: unknown): string {
+function describe(err: unknown, t: Translate): string {
   if (err instanceof DispatchApiError && err.status === 401) {
-    return "Your session expired. Sign out and back in.";
+    return t("app.error.sessionExpired");
   }
   return err instanceof Error ? err.message : String(err);
 }
 
 function ErrorCard({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
+  const t = useT();
   return (
     <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
       <p className="font-medium">{title}</p>
@@ -91,7 +106,7 @@ function ErrorCard({ title, message, onRetry }: { title: string; message: string
         onClick={onRetry}
         className="mt-3 rounded border border-red-300 px-3 py-1 font-medium hover:bg-red-100"
       >
-        Try again
+        {t("app.action.retry")}
       </button>
     </div>
   );
@@ -125,6 +140,7 @@ function StatCard({ label, value }: { label: string; value: number | null }) {
 }
 
 function HealthSummary({ health }: { health: VehicleHealth }) {
+  const t = useT();
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -137,8 +153,10 @@ function HealthSummary({ health }: { health: VehicleHealth }) {
           {health.overall_status}
         </span>
         <span className="text-sm text-muted-foreground">
-          {health.trip_count} trip{health.trip_count === 1 ? "" : "s"} ·{" "}
-          {Math.round(health.total_mileage_km).toLocaleString()} km recorded
+          {t("app.health.trips", {
+            count: health.trip_count,
+            km: Math.round(health.total_mileage_km).toLocaleString(),
+          })}
         </span>
       </div>
 
@@ -167,6 +185,7 @@ function HealthSummary({ health }: { health: VehicleHealth }) {
 }
 
 function IncidentCard({ incident }: { incident: AssignedIncident }) {
+  const t = useT();
   const service = incident.triageResponse?.predictedServiceType;
   const provider = incident.assignedProvider;
   const vehicle = [incident.vehicleMake, incident.vehicleModel, incident.vehicleYear]
@@ -177,7 +196,7 @@ function IncidentCard({ incident }: { incident: AssignedIncident }) {
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="font-display text-lg font-semibold tracking-tight">
-          {service ? enumLabel(service) : "Roadside assistance"}
+          {service ? enumLabel(service) : t("app.incident.defaultService")}
         </h3>
         <Badge status={incident.status} />
         <ImpactChip
@@ -188,27 +207,35 @@ function IncidentCard({ incident }: { incident: AssignedIncident }) {
           createdAt={incident.createdAt}
         />
         <span className="ml-auto text-sm text-muted-foreground">
-          {timeAgo(incident.createdAt)}
+          {timeAgo(incident.createdAt, t)}
         </span>
       </div>
 
       <dl className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <dt className="text-xs uppercase tracking-wide text-muted-foreground">Vehicle</dt>
+          <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t("app.incident.rowVehicle")}
+          </dt>
           <dd>{[vehicle, incident.registrationNo].filter(Boolean).join(" · ") || "—"}</dd>
         </div>
         <div>
-          <dt className="text-xs uppercase tracking-wide text-muted-foreground">Location</dt>
+          <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t("app.incident.rowLocation")}
+          </dt>
           <dd>
             {incident.latitude.toFixed(4)}, {incident.longitude.toFixed(4)}
           </dd>
         </div>
         <div>
-          <dt className="text-xs uppercase tracking-wide text-muted-foreground">Provider</dt>
-          <dd>{provider?.name ?? "Not assigned yet"}</dd>
+          <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t("app.incident.rowProvider")}
+          </dt>
+          <dd>{provider?.name ?? t("app.incident.providerUnassigned")}</dd>
         </div>
         <div>
-          <dt className="text-xs uppercase tracking-wide text-muted-foreground">Contact</dt>
+          <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t("app.incident.rowContact")}
+          </dt>
           <dd>
             {provider?.phone ? (
               <a className="text-primary hover:underline" href={`tel:${provider.phone}`}>
@@ -229,13 +256,14 @@ function IncidentCard({ incident }: { incident: AssignedIncident }) {
 }
 
 function ClaimCard({ claim }: { claim: ClaimSummary }) {
+  const t = useT();
   const chips = [claim.policyNumber, claim.vehicleRegNo].filter(Boolean) as string[];
 
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="font-display text-lg font-semibold tracking-tight">
-          {claim.vehicleModel || "Vehicle claim"}
+          {claim.vehicleModel || t("app.claim.defaultTitle")}
         </h3>
         <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary">
           {claimStatusLabel(claim.status)}
@@ -247,8 +275,8 @@ function ClaimCard({ claim }: { claim: ClaimSummary }) {
 
       <p className="mt-2 text-sm text-muted-foreground">
         {claim.photoCount > 0
-          ? `${claim.photoCount} photo${claim.photoCount === 1 ? "" : "s"} filed — view them in the mobile app`
-          : "No photos uploaded yet"}
+          ? t("app.claim.photos", { count: claim.photoCount })
+          : t("app.claim.noPhotos")}
         {claim.locationLabel ? ` · ${claim.locationLabel}` : ""}
       </p>
 
@@ -266,6 +294,7 @@ function ClaimCard({ claim }: { claim: ClaimSummary }) {
 }
 
 function DriverPortal() {
+  const t = useT();
   const [tab, setTab] = useState<Tab>("Overview");
 
   // Read on mount (not during render) so the prerendered HTML always matches.
@@ -290,13 +319,13 @@ function DriverPortal() {
 
   const loadVehicles = useCallback(() => {
     setVehiclesError(null);
-    listVehicles().then(setVehicles, (err) => setVehiclesError(describe(err)));
-  }, []);
+    listVehicles().then(setVehicles, (err) => setVehiclesError(describe(err, t)));
+  }, [t]);
 
   const loadClaims = useCallback(() => {
     setClaimsError(null);
-    listMyClaims().then(setClaims, (err) => setClaimsError(describe(err)));
-  }, []);
+    listMyClaims().then(setClaims, (err) => setClaimsError(describe(err, t)));
+  }, [t]);
 
   useEffect(loadVehicles, [loadVehicles]);
   useEffect(loadClaims, [loadClaims]);
@@ -343,7 +372,7 @@ function DriverPortal() {
         setIncidents(next);
         setIncidentsError(null);
       } catch (err) {
-        if (!cancelled) setIncidentsError(describe(err));
+        if (!cancelled) setIncidentsError(describe(err, t));
       } finally {
         inFlight = false;
       }
@@ -360,7 +389,7 @@ function DriverPortal() {
       if (handle) clearInterval(handle);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [vehicles, loadIncidents, loaded, anyLive]);
+  }, [vehicles, loadIncidents, loaded, anyLive, t]);
 
   const openIncidents = (incidents ?? []).filter(
     (i) => !TERMINAL_INCIDENT_STATUSES.includes(i.status)
@@ -371,30 +400,44 @@ function DriverPortal() {
   const noVehicles = vehicles?.length === 0;
 
   return (
-    <PortalShell title="My Kaduna" tabs={TABS} active={tab}>
+    <PortalShell
+      title={t("app.title")}
+      tabs={TABS.map((tb) => ({ label: t(tb.labelKey), href: tb.href }))}
+      active={t(TAB_KEYS[tab])}
+    >
       {tab === "Overview" && (
         <div className="space-y-8">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <h2 className="font-display text-xl font-semibold tracking-tight">Overview</h2>
+            <h2 className="font-display text-xl font-semibold tracking-tight">
+              {t("app.overview.heading")}
+            </h2>
             <Link
               href="/report"
               className="rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
             >
-              Report a breakdown
+              {t("app.action.report")}
             </Link>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <StatCard label="Vehicles" value={vehicles?.length ?? null} />
-            <StatCard label="Open incidents" value={incidents ? openIncidents.length : null} />
-            <StatCard label="Claims in progress" value={claims ? inProgressClaims.length : null} />
+            <StatCard label={t("app.stat.vehicles")} value={vehicles?.length ?? null} />
+            <StatCard
+              label={t("app.stat.openIncidents")}
+              value={incidents ? openIncidents.length : null}
+            />
+            <StatCard
+              label={t("app.stat.claimsInProgress")}
+              value={claims ? inProgressClaims.length : null}
+            />
           </div>
 
           <section className="space-y-3">
-            <h2 className="font-display text-lg font-semibold tracking-tight">Vehicle health</h2>
+            <h2 className="font-display text-lg font-semibold tracking-tight">
+              {t("app.section.vehicleHealth")}
+            </h2>
             {vehiclesError ? (
               <ErrorCard
-                title="Couldn't load your vehicles"
+                title={t("app.error.vehiclesTitle")}
                 message={vehiclesError}
                 onRetry={loadVehicles}
               />
@@ -402,8 +445,8 @@ function DriverPortal() {
               <CardSkeleton rows={1} />
             ) : !primary ? (
               <EmptyCard
-                title="No vehicle yet"
-                body="Add your car in the Kaduna.lk mobile app and its health summary will appear here."
+                title={t("app.vehicles.noPrimaryTitle")}
+                body={t("app.vehicles.noPrimaryBody")}
               />
             ) : (
               <div className="rounded-xl border border-border bg-card p-6">
@@ -418,8 +461,7 @@ function DriverPortal() {
                     <HealthSummary health={health[primary.id]!} />
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      No telemetry recorded yet. Connect the OBD dongle in the mobile app and
-                      drive — health predictions appear after the first trip.
+                      {t("app.health.noTelemetryPrimary")}
                     </p>
                   )}
                 </div>
@@ -428,10 +470,12 @@ function DriverPortal() {
           </section>
 
           <section className="space-y-3">
-            <h2 className="font-display text-lg font-semibold tracking-tight">Recent activity</h2>
+            <h2 className="font-display text-lg font-semibold tracking-tight">
+              {t("app.section.recentActivity")}
+            </h2>
             {incidentsError ? (
               <ErrorCard
-                title="Couldn't load your incidents"
+                title={t("app.error.incidentsTitle")}
                 message={incidentsError}
                 onRetry={() => void loadIncidents().then(setIncidents, () => {})}
               />
@@ -439,8 +483,8 @@ function DriverPortal() {
               <CardSkeleton rows={2} />
             ) : incidents.length === 0 ? (
               <EmptyCard
-                title="Nothing has happened yet — which is good news"
-                body="Breakdowns you report from the mobile app show up here with their live status and the provider on the way."
+                title={t("app.activity.emptyTitle")}
+                body={t("app.activity.emptyBody")}
               />
             ) : (
               <ul className="divide-y divide-border rounded-xl border border-border bg-card">
@@ -449,13 +493,13 @@ function DriverPortal() {
                     <span className="font-medium">
                       {i.triageResponse?.predictedServiceType
                         ? enumLabel(i.triageResponse.predictedServiceType)
-                        : "Roadside assistance"}
+                        : t("app.incident.defaultService")}
                     </span>
                     <Badge status={i.status} />
                     {i.assignedProvider?.name && (
                       <span className="text-muted-foreground">{i.assignedProvider.name}</span>
                     )}
-                    <span className="ml-auto text-muted-foreground">{timeAgo(i.createdAt)}</span>
+                    <span className="ml-auto text-muted-foreground">{timeAgo(i.createdAt, t)}</span>
                   </li>
                 ))}
               </ul>
@@ -468,7 +512,7 @@ function DriverPortal() {
         <div className="space-y-4">
           {vehiclesError ? (
             <ErrorCard
-              title="Couldn't load your vehicles"
+              title={t("app.error.vehiclesTitle")}
               message={vehiclesError}
               onRetry={loadVehicles}
             />
@@ -476,8 +520,8 @@ function DriverPortal() {
             <CardSkeleton rows={2} />
           ) : noVehicles ? (
             <EmptyCard
-              title="No vehicles yet"
-              body="Vehicles are added in the Kaduna.lk mobile app — open it, tap Vehicles, and add your make, model and plate. They'll show up here straight away."
+              title={t("app.vehicles.emptyTitle")}
+              body={t("app.vehicles.emptyBody")}
             />
           ) : (
             vehicles.map((v) => (
@@ -488,7 +532,7 @@ function DriverPortal() {
                   </h3>
                   {v.isDefault && (
                     <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary">
-                      Default
+                      {t("app.vehicles.defaultBadge")}
                     </span>
                   )}
                   <span className="ml-auto rounded bg-muted px-2 py-0.5 text-sm font-medium">
@@ -502,7 +546,7 @@ function DriverPortal() {
                     v.nickname ? [v.year, v.make, v.model].filter(Boolean).join(" ") : null,
                     v.color,
                     v.fuelType,
-                    `${v.currentMileage.toLocaleString()} km`,
+                    t("app.vehicles.mileage", { km: v.currentMileage.toLocaleString() }),
                   ]
                     .filter(Boolean)
                     .join(" · ")}
@@ -515,7 +559,7 @@ function DriverPortal() {
                     <HealthSummary health={health[v.id]!} />
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      No telemetry yet — health predictions need at least one recorded trip.
+                      {t("app.health.noTelemetry")}
                     </p>
                   )}
                 </div>
@@ -529,7 +573,7 @@ function DriverPortal() {
         <div className="space-y-4">
           {incidentsError ? (
             <ErrorCard
-              title="Couldn't load your incidents"
+              title={t("app.error.incidentsTitle")}
               message={incidentsError}
               onRetry={() => void loadIncidents().then(setIncidents, () => {})}
             />
@@ -537,11 +581,15 @@ function DriverPortal() {
             <CardSkeleton rows={2} />
           ) : incidents.length === 0 ? (
             <EmptyCard
-              title={noVehicles ? "No vehicles, no incidents" : "No breakdowns on record"}
+              title={
+                noVehicles
+                  ? t("app.incidents.emptyNoVehiclesTitle")
+                  : t("app.incidents.emptyTitle")
+              }
               body={
                 noVehicles
-                  ? "Incidents are matched to you by your vehicle's plate number. Add a vehicle in the mobile app first."
-                  : "Report a breakdown — here or in the mobile app — and you'll follow it here: status, assigned provider and their phone number, refreshed every few seconds."
+                  ? t("app.incidents.emptyNoVehiclesBody")
+                  : t("app.incidents.emptyBody")
               }
             />
           ) : (
@@ -554,16 +602,16 @@ function DriverPortal() {
         <div className="space-y-4">
           {claimsError ? (
             <ErrorCard
-              title="Couldn't load your claims"
-              message={`${claimsError} No claim has been lost.`}
+              title={t("app.error.claimsTitle")}
+              message={t("app.error.claimsBody", { message: claimsError })}
               onRetry={loadClaims}
             />
           ) : !claims ? (
             <CardSkeleton rows={2} />
           ) : claims.length === 0 ? (
             <EmptyCard
-              title="No claims yet"
-              body="Claims start with a guided photo walkaround in the mobile app. Once you file one, its status and paperwork show up here."
+              title={t("app.claims.emptyTitle")}
+              body={t("app.claims.emptyBody")}
             />
           ) : (
             claims.map((c) => <ClaimCard key={c.id} claim={c} />)

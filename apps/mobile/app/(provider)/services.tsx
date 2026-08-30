@@ -18,6 +18,7 @@ import {
   type ServiceType,
 } from "@lib/dispatchApi";
 import { ALL_SERVICE_TYPES, PROVIDER_CAPABILITY_MATRIX } from "@lib/providerCapabilityMatrix";
+import { useT } from "@lib/i18n";
 
 /**
  * A provider's own capabilities, grouped into their type's default
@@ -29,6 +30,7 @@ import { ALL_SERVICE_TYPES, PROVIDER_CAPABILITY_MATRIX } from "@lib/providerCapa
  */
 export default function ProviderServicesScreen() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { user } = useVehicle();
   const providerId = user?.providerId ?? null;
 
@@ -107,7 +109,7 @@ export default function ProviderServicesScreen() {
   async function save() {
     if (!provider) return;
     if (selected.size === 0) {
-      Alert.alert("Keep at least one service", "You need to offer at least one service to stay dispatchable.");
+      Alert.alert(t("provider.services.minOneTitle"), t("provider.services.minOneBody"));
       return;
     }
     setSaving(true);
@@ -124,9 +126,9 @@ export default function ProviderServicesScreen() {
       });
       setProvider(updated);
       setDirty(false);
-      Alert.alert("Saved", "Your services are up to date.");
+      Alert.alert(t("provider.services.savedTitle"), t("provider.services.savedBody"));
     } catch (err) {
-      Alert.alert("Couldn't save", (err as Error).message);
+      Alert.alert(t("provider.action.saveFailedTitle"), (err as Error).message);
     } finally {
       setSaving(false);
     }
@@ -142,9 +144,9 @@ export default function ProviderServicesScreen() {
           paddingBottom: spacing.lg,
         }}
       >
-        <Text style={{ ...typography.h2, color: palette.text }}>My Services</Text>
+        <Text style={{ ...typography.h2, color: palette.text }}>{t("provider.services.title")}</Text>
         <Text style={{ ...typography.caption, color: palette.textMuted, marginTop: 2 }}>
-          Choose what you offer and how long each typically takes you.
+          {t("provider.services.subtitle")}
         </Text>
       </View>
 
@@ -153,25 +155,29 @@ export default function ProviderServicesScreen() {
         contentContainerStyle={{ paddingBottom: PROVIDER_NAV_BAR_HEIGHT + spacing.xl }}
       >
         {!providerId ? (
-          <Card><Text style={{ ...typography.body, color: palette.textMuted }}>Set up your provider profile first.</Text></Card>
+          <Card><Text style={{ ...typography.body, color: palette.textMuted }}>{t("provider.setup.prompt")}</Text></Card>
         ) : loading ? (
           <Card style={{ alignItems: "center", paddingVertical: spacing.xl }}>
             <ActivityIndicator size="small" color={palette.brand} />
           </Card>
         ) : error ? (
           <Card style={{ borderLeftWidth: 4, borderLeftColor: palette.danger }}>
-            <Text style={{ ...typography.bodyStrong, color: palette.danger }}>Couldn&apos;t load your services</Text>
+            <Text style={{ ...typography.bodyStrong, color: palette.danger }}>{t("provider.services.loadErrorTitle")}</Text>
             <Text style={{ ...typography.caption, color: palette.textMuted }}>{error}</Text>
-            <Button title="Try again" variant="secondary" size="md" onPress={load} />
+            <Button title={t("provider.action.retry")} variant="secondary" size="md" onPress={load} />
           </Card>
         ) : (
           <>
             <View style={{ gap: spacing.xs }}>
               <Text style={{ ...typography.h3, color: palette.text }}>
-                Your specialization — {provider ? provider.type.replace(/_/g, " ").toLowerCase() : "provider"}
+                {t("provider.services.specializationHeading", {
+                  type: provider
+                    ? provider.type.replace(/_/g, " ").toLowerCase()
+                    : t("provider.services.specializationFallback"),
+                })}
               </Text>
               <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                What you registered to do. Uncheck anything you don&apos;t actually handle.
+                {t("provider.services.specializationBody")}
               </Text>
             </View>
             <View style={{ gap: spacing.sm }}>
@@ -188,9 +194,9 @@ export default function ProviderServicesScreen() {
             </View>
 
             <View style={{ gap: spacing.xs, marginTop: spacing.sm }}>
-              <Text style={{ ...typography.h3, color: palette.text }}>Additional services</Text>
+              <Text style={{ ...typography.h3, color: palette.text }}>{t("provider.services.additionalHeading")}</Text>
               <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                Anything else you can also do — e.g. a locksmith who also carries jump-start cables.
+                {t("provider.services.additionalBody")}
               </Text>
             </View>
             <View style={{ gap: spacing.sm }}>
@@ -207,7 +213,7 @@ export default function ProviderServicesScreen() {
             </View>
 
             <Button
-              title={saving ? "Saving…" : "Save changes"}
+              title={saving ? t("provider.action.saving") : t("provider.services.save")}
               onPress={save}
               disabled={!dirty || saving}
             />
@@ -233,6 +239,7 @@ function ServiceRow({
   onToggle: () => void;
   onTimeChange: (v: string) => void;
 }) {
+  const t = useT();
   return (
     <Card style={{ gap: spacing.sm }}>
       <Pressable
@@ -261,7 +268,7 @@ function ServiceRow({
           {on ? <Icon name="Check" size={14} color={palette.textOnBrand} /> : null}
         </View>
         <Text style={{ ...typography.body, color: palette.text, flex: 1, fontWeight: on ? "600" : "400" }}>
-          {serviceTypeLabel(service)}
+          {serviceTypeLabel(service, t)}
         </Text>
       </Pressable>
 
@@ -275,11 +282,11 @@ function ServiceRow({
           }}
         >
           <Icon name="Clock" size={14} color={palette.textMuted} />
-          <Text style={{ ...typography.caption, color: palette.textMuted }}>Typical time:</Text>
+          <Text style={{ ...typography.caption, color: palette.textMuted }}>{t("provider.services.typicalTime")}</Text>
           <TextInput
             value={time}
             onChangeText={onTimeChange}
-            placeholder="e.g. 20"
+            placeholder={t("provider.services.timePlaceholder")}
             keyboardType="number-pad"
             maxLength={3}
             underlineColorAndroid="transparent"
@@ -295,7 +302,7 @@ function ServiceRow({
               textAlign: "center",
             }}
           />
-          <Text style={{ ...typography.caption, color: palette.textMuted }}>min</Text>
+          <Text style={{ ...typography.caption, color: palette.textMuted }}>{t("provider.services.minutesUnit")}</Text>
         </View>
       )}
     </Card>

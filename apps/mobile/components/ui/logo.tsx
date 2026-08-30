@@ -1,11 +1,13 @@
 import { Text, View } from "react-native";
 import { palette, typography } from "@theme/index";
+import { useT } from "@lib/i18n";
 
 type Props = {
   size?: "sm" | "md" | "lg";
 };
 
 export function Logo({ size = "md" }: Props) {
+  const t = useT();
   const fontSize = size === "lg" ? 36 : size === "md" ? 24 : 18;
   const subtleSize = size === "lg" ? 12 : 10;
   return (
@@ -28,7 +30,7 @@ export function Logo({ size = "md" }: Props) {
           letterSpacing: 2,
         }}
       >
-        ROADSIDE ASSISTANCE
+        {t("components.logo.tagline")}
       </Text>
     </View>
   );

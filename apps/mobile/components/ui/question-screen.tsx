@@ -18,6 +18,7 @@ import { HeaderBar } from "@components/ui/header-bar";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useEmergency } from "@lib/emergencyContext";
+import { useT } from "@lib/i18n";
 import { nextRoute, stepPath, stepPosition, stepTitle, type StepRoute } from "@lib/emergencyFlow";
 
 type Props = {
@@ -55,9 +56,10 @@ export function QuestionScreen({
   hint,
   canNext = true,
   onNext,
-  nextLabel = "Next",
+  nextLabel,
   children,
 }: Props) {
+  const t = useT();
   const { q1Intent, engineState, runningIssue } = useEmergency();
   const { index, total } = stepPosition({ q1Intent, engineState, runningIssue }, route);
   const goNext = useNextStep(route);
@@ -67,7 +69,7 @@ export function QuestionScreen({
     <Screen
       footer={
         <>
-          <Button title={nextLabel} disabled={!canNext} onPress={advance} />
+          <Button title={nextLabel ?? t("emergency.question.next")} disabled={!canNext} onPress={advance} />
           <SkipToHelp />
         </>
       }
@@ -75,11 +77,11 @@ export function QuestionScreen({
       {/* Pill goes in the title slot, not `right` - HeaderBar drops its
           one-tap "home" escape when `right` is supplied, and abandoning the
           flow entirely should stay one tap away. */}
-      <HeaderBar title={`Step ${index} of ${total}`} />
+      <HeaderBar title={t("emergency.question.stepCounter", { index, total })} />
 
       <View style={{ gap: spacing.sm }}>
         <StepProgress index={index} total={total} />
-        <Text style={{ ...typography.h1, color: palette.text }}>{stepTitle(route)}</Text>
+        <Text style={{ ...typography.h1, color: palette.text }}>{t(stepTitle(route))}</Text>
         {prompt ? (
           <Text style={{ ...typography.body, color: palette.textMuted }}>{prompt}</Text>
         ) : null}
@@ -102,11 +104,12 @@ export function QuestionScreen({
  * answers collected so far instead of a fast-path payload.
  */
 function SkipToHelp() {
+  const t = useT();
   return (
     <Pressable
       onPress={() => router.push("/(emergency)/quick-dispatch")}
       accessibilityRole="button"
-      accessibilityLabel="Skip the questions and send help now"
+      accessibilityLabel={t("emergency.question.skipA11y")}
       style={({ pressed }) => ({
         opacity: pressed ? 0.7 : 1,
         alignItems: "center",
@@ -114,10 +117,10 @@ function SkipToHelp() {
       })}
     >
       <Text style={{ ...typography.bodyStrong, color: palette.supportCoral }}>
-        Skip — send help now
+        {t("emergency.question.skipTitle")}
       </Text>
       <Text style={{ ...typography.caption, color: palette.textMuted }}>
-        We&apos;ll use what you&apos;ve answered so far
+        {t("emergency.question.skipSubtitle")}
       </Text>
     </Pressable>
   );

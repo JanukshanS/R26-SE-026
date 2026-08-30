@@ -8,29 +8,31 @@
  */
 import { OptionCard } from "@components/ui/option-card";
 import { QuestionScreen } from "@components/ui/question-screen";
+import { useT } from "@lib/i18n";
 import { useEmergency, type BrakeDetailChoice } from "@lib/emergencyContext";
 
-const OPTIONS: { value: NonNullable<BrakeDetailChoice>; title: string; description: string; tone?: "warning" | "danger" }[] = [
-  { value: "SQUEALING",     title: "Squealing under braking",  description: "Pad wear indicator — replace pads soon" },
-  { value: "GRINDING",      title: "Grinding (metal-on-metal)", description: "Pads are gone — replace immediately",        tone: "warning" },
-  { value: "PULL_ONE_SIDE", title: "Pulls to one side",         description: "Caliper or hose issue" },
-  { value: "SOFT_PEDAL",    title: "Pedal is soft / sinks",     description: "Hydraulic failure — DO NOT DRIVE",            tone: "danger" },
+const OPTIONS: { value: NonNullable<BrakeDetailChoice>; titleKey: string; descriptionKey: string; tone?: "warning" | "danger" }[] = [
+  { value: "SQUEALING",     titleKey: "emergency.brakeDetail.squealingTitle", descriptionKey: "emergency.brakeDetail.squealingDesc" },
+  { value: "GRINDING",      titleKey: "emergency.brakeDetail.grindingTitle",  descriptionKey: "emergency.brakeDetail.grindingDesc",  tone: "warning" },
+  { value: "PULL_ONE_SIDE", titleKey: "emergency.brakeDetail.pullTitle",      descriptionKey: "emergency.brakeDetail.pullDesc" },
+  { value: "SOFT_PEDAL",    titleKey: "emergency.brakeDetail.softPedalTitle", descriptionKey: "emergency.brakeDetail.softPedalDesc", tone: "danger" },
 ];
 
 export default function BrakeDetailScreen() {
+  const t = useT();
   const { brakeDetail, setBrakeDetail } = useEmergency();
 
   return (
     <QuestionScreen
       route="brake-detail"
-      prompt={"What's the brake doing?"}
+      prompt={t("emergency.brakeDetail.prompt")}
       canNext={!!brakeDetail}
     >
       {OPTIONS.map((o) => (
         <OptionCard
           key={o.value}
-          title={o.title}
-          description={o.description}
+          title={t(o.titleKey)}
+          description={t(o.descriptionKey)}
           accent={o.tone}
           badgeTone={o.tone}
           selected={brakeDetail === o.value}

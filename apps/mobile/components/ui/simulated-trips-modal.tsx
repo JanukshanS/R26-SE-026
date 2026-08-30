@@ -15,6 +15,7 @@ import { useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
+import { useT } from "@lib/i18n";
 import {
   DRIVE_PROFILES,
   generateAndUploadHistory,
@@ -39,6 +40,7 @@ export function SimulatedTripsModal({
   /** Fired after a run so the caller can refetch the trip summary. */
   onCompleted: () => void;
 }) {
+  const t = useT();
   const [targetKm, setTargetKm] = useState("6000");
   const [profile, setProfile] = useState<DriveProfile>(DRIVE_PROFILES[0]);
   const [running, setRunning] = useState(false);
@@ -49,7 +51,7 @@ export function SimulatedTripsModal({
   async function run() {
     const km = Number(targetKm);
     if (!Number.isFinite(km) || km <= 0) {
-      setError("Enter a distance in km.");
+      setError(t("components.simTrips.invalidDistance"));
       return;
     }
     setError(null);
@@ -66,10 +68,10 @@ export function SimulatedTripsModal({
       setResult(res);
       if (res.tripsSent > 0) onCompleted();
       if (res.failed > 0 && res.tripsSent === 0) {
-        setError(res.firstError ?? "Every trip failed to upload.");
+        setError(res.firstError ?? t("components.simTrips.allFailed"));
       }
     } catch (e: any) {
-      setError(e?.message ?? "Could not generate trips.");
+      setError(e?.message ?? t("components.simTrips.generateFailed"));
     } finally {
       setRunning(false);
       setProgress(null);
@@ -107,7 +109,9 @@ export function SimulatedTripsModal({
           >
             <Icon name="FlaskConical" size={20} color={palette.brand} />
             <View style={{ flex: 1 }}>
-              <Text style={{ ...typography.h3, color: palette.text }}>Simulated Trips</Text>
+              <Text style={{ ...typography.h3, color: palette.text }}>
+                {t("components.simTrips.title")}
+              </Text>
               <Text style={{ ...typography.caption, color: palette.textMuted }}>
                 {vehicleId}
               </Text>
@@ -121,12 +125,10 @@ export function SimulatedTripsModal({
             {/* Distance */}
             <View style={{ gap: spacing.sm }}>
               <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-                How much driving history?
+                {t("components.simTrips.distanceQuestion")}
               </Text>
               <Text style={{ ...typography.caption, color: palette.textMuted, lineHeight: 18 }}>
-                Brake pads are rated for 40,000 km and tires 50,000 km, so wear only
-                becomes visible after thousands of kilometres. Around 6,000 km makes
-                brake damage clear.
+                {t("components.simTrips.distanceHelp")}
               </Text>
 
               <View style={{ flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" }}>
@@ -153,7 +155,7 @@ export function SimulatedTripsModal({
                           fontWeight: on ? "700" : "500",
                         }}
                       >
-                        {km.toLocaleString()} km
+                        {t("components.simTrips.km", { km: km.toLocaleString() })}
                       </Text>
                     </Pressable>
                   );
@@ -181,10 +183,10 @@ export function SimulatedTripsModal({
             {/* Driving style */}
             <View style={{ gap: spacing.sm }}>
               <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-                How was it driven?
+                {t("components.simTrips.styleQuestion")}
               </Text>
               <Text style={{ ...typography.caption, color: palette.textMuted, lineHeight: 18 }}>
-                This decides which component wears. Brakes wear on braking, not distance.
+                {t("components.simTrips.styleHelp")}
               </Text>
               {DRIVE_PROFILES.map((p) => {
                 const on = p.id === profile.id;
@@ -235,8 +237,15 @@ export function SimulatedTripsModal({
                 <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
                   <ActivityIndicator size="small" color={palette.brand} />
                   <Text style={{ ...typography.body, color: palette.text, flex: 1 }}>
-                    {progress.phase === "generating" ? "Generating…" : "Uploading…"}{" "}
-                    {progress.done}/{progress.total}
+                    {progress.phase === "generating"
+                      ? t("components.simTrips.progressGenerating", {
+                          done: progress.done,
+                          total: progress.total,
+                        })
+                      : t("components.simTrips.progressUploading", {
+                          done: progress.done,
+                          total: progress.total,
+                        })}
                   </Text>
                 </View>
                 <View
@@ -256,8 +265,10 @@ export function SimulatedTripsModal({
                   />
                 </View>
                 <Text style={{ ...typography.micro, color: palette.textMuted }}>
-                  {progress.kmStored.toFixed(0)} km stored
-                  {progress.failed > 0 ? ` · ${progress.failed} failed` : ""}
+                  {t("components.simTrips.kmStored", { km: progress.kmStored.toFixed(0) })}
+                  {progress.failed > 0
+                    ? ` · ${t("components.simTrips.failedCount", { count: progress.failed })}`
+                    : ""}
                 </Text>
               </View>
             )}
@@ -278,12 +289,19 @@ export function SimulatedTripsModal({
                     color: result.failed > 0 ? palette.warning : palette.success,
                   }}
                 >
-                  {result.tripsSent} trips · {result.kmStored.toFixed(0)} km added
+                  {t("components.simTrips.resultTrips", { count: result.tripsSent })} ·{" "}
+                  {t("components.simTrips.resultKm", { km: result.kmStored.toFixed(0) })}
                 </Text>
                 <Text style={{ ...typography.micro, color: palette.textMuted, lineHeight: 16 }}>
-                  Took {(result.elapsedMs / 1000).toFixed(1)}s
-                  {result.failed > 0 ? ` · ${result.failed} failed` : ""}
-                  {result.skipped > 0 ? ` · ${result.skipped} skipped (too short)` : ""}
+                  {t("components.simTrips.elapsed", {
+                    seconds: (result.elapsedMs / 1000).toFixed(1),
+                  })}
+                  {result.failed > 0
+                    ? ` · ${t("components.simTrips.failedCount", { count: result.failed })}`
+                    : ""}
+                  {result.skipped > 0
+                    ? ` · ${t("components.simTrips.skippedCount", { count: result.skipped })}`
+                    : ""}
                 </Text>
                 {result.firstError && (
                   <Text style={{ ...typography.micro, color: palette.danger, lineHeight: 16 }}>
@@ -291,7 +309,7 @@ export function SimulatedTripsModal({
                   </Text>
                 )}
                 <Text style={{ ...typography.micro, color: palette.textMuted, marginTop: 4 }}>
-                  Open Vehicle Health to see the effect.
+                  {t("components.simTrips.openHealth")}
                 </Text>
               </View>
             )}
@@ -335,7 +353,11 @@ export function SimulatedTripsModal({
                   color: running ? palette.textMuted : palette.textOnBrand,
                 }}
               >
-                {running ? "Working…" : result ? "Generate More" : "Generate & Upload"}
+                {running
+                  ? t("components.simTrips.working")
+                  : result
+                    ? t("components.simTrips.generateMore")
+                    : t("components.simTrips.generate")}
               </Text>
             </Pressable>
 

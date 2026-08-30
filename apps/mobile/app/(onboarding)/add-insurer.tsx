@@ -20,8 +20,10 @@ import {
   isValidLicenceNumber,
   isValidNicNumber,
 } from "@lib/insurer-field-format";
+import { useT } from "@lib/i18n";
 
 export default function AddInsurerScreen() {
+  const t = useT();
   const insets = useSafeAreaInsets();
   const { vehicleId } = useLocalSearchParams<{ vehicleId?: string }>();
   const [companies, setCompanies] = useState<InsuranceCompany[]>([]);
@@ -55,12 +57,12 @@ export default function AddInsurerScreen() {
         if (isCurrent()) setCompanies(list);
       })
       .catch(() => {
-        if (isCurrent()) setCompaniesError("Check your connection and try again.");
+        if (isCurrent()) setCompaniesError(t("onboarding.insurer.companiesLoadFailed"));
       })
       .finally(() => {
         if (isCurrent()) setCompaniesLoading(false);
       });
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadCompanies();
@@ -79,15 +81,15 @@ export default function AddInsurerScreen() {
     // invalid field shows its own error below it at once, not just the first one found.
     const nextLicenceError =
       licence.trim() && !isValidLicenceNumber(licence.trim())
-        ? "Must be 1 letter followed by 7 digits (e.g. B4818153)."
+        ? t("onboarding.insurer.licenceFormat")
         : "";
     const nextNicError =
       nic.trim() && !isValidNicNumber(nic.trim())
-        ? "Must be 12 digits, or 9 digits followed by V (e.g. 200221458V)."
+        ? t("onboarding.insurer.nicFormat")
         : "";
     const nextExpireMonthError =
       expireMonth.trim() && !isValidExpireMonth(expireMonth.trim())
-        ? "Must be a valid future month in YY/MM format (e.g. 26/09)."
+        ? t("onboarding.insurer.expiryFormat")
         : "";
     setLicenceError(nextLicenceError);
     setNicError(nextNicError);
@@ -99,8 +101,8 @@ export default function AddInsurerScreen() {
     if (!provider.trim()) {
       setError(
         companiesLoading
-          ? "Still loading insurance providers — please wait a moment and try again."
-          : "Please select your insurance provider."
+          ? t("onboarding.insurer.stillLoading")
+          : t("onboarding.insurer.providerRequired")
       );
       return;
     }
@@ -111,7 +113,7 @@ export default function AddInsurerScreen() {
     // Without that id there is nothing to attach the insurer to, so stop before saving
     // anything rather than navigating away as if it had been saved.
     if (!vehicleId) {
-      setError("Add a vehicle first — insurer details are saved against a vehicle, not your profile.");
+      setError(t("onboarding.insurer.vehicleRequired"));
       return;
     }
     setSubmitting(true);
@@ -137,17 +139,17 @@ export default function AddInsurerScreen() {
       const apiErr = err instanceof VehicleApiError ? err : null;
       if (apiErr?.code === "23505") {
         if (apiErr.message.includes("nic_number")) {
-          setNicError("This NIC Number is already registered to another account.");
+          setNicError(t("onboarding.insurer.nicTaken"));
         } else if (apiErr.message.includes("licence_number")) {
-          setLicenceError("This Driving Licence Number is already registered to another account.");
+          setLicenceError(t("onboarding.insurer.licenceTaken"));
         } else if (apiErr.message.includes("policy_number")) {
-          setPolicyError("This Policy Number is already registered to another vehicle.");
+          setPolicyError(t("onboarding.insurer.policyTaken"));
         } else {
-          setError("One of the details you entered is already registered elsewhere.");
+          setError(t("onboarding.insurer.duplicateGeneric"));
         }
         return;
       }
-      setError((err as Error).message ?? "Couldn't save your insurer details.");
+      setError((err as Error).message ?? t("onboarding.insurer.saveFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -158,12 +160,12 @@ export default function AddInsurerScreen() {
       footer={
         <>
           <Button
-            title={submitting ? "Saving…" : "Done"}
+            title={submitting ? t("onboarding.insurer.saving") : t("onboarding.insurer.save")}
             disabled={submitting}
             onPress={handleSave}
           />
           <Button
-            title="Skip"
+            title={t("onboarding.insurer.skip")}
             variant="secondary"
             disabled={submitting}
             onPress={() => router.replace("/(driver)/home")}
@@ -172,14 +174,14 @@ export default function AddInsurerScreen() {
       }
     >
       <HeaderBar />
-      <Text style={{ ...typography.h1, color: palette.text }}>Add your Insurer</Text>
+      <Text style={{ ...typography.h1, color: palette.text }}>{t("onboarding.insurer.title")}</Text>
       <Text style={{ ...typography.body, color: palette.textMuted }}>
-        We use this data when you submit an insurance claim in an emergency.
+        {t("onboarding.insurer.subtitle")}
       </Text>
 
       <View style={{ gap: spacing.sm }}>
         <Text style={{ color: palette.text, ...typography.body, fontWeight: "500" }}>
-          Your insurance provider
+          {t("onboarding.insurer.providerLabel")}
         </Text>
         <Pressable
           style={{
@@ -200,7 +202,7 @@ export default function AddInsurerScreen() {
             <ActivityIndicator size="small" color={palette.textMuted} />
           ) : (
             <Text style={{ color: palette.text, ...typography.body }}>
-              {provider || "Select your insurance provider"}
+              {provider || t("onboarding.insurer.providerPlaceholder")}
             </Text>
           )}
           <Icon name="ChevronDown" size={18} color={palette.textMuted} />
@@ -208,44 +210,44 @@ export default function AddInsurerScreen() {
       </View>
 
       <TextField
-        label="Your insurance policy number"
+        label={t("onboarding.insurer.policyLabel")}
         value={policy}
         onChangeText={(t) => {
           setPolicy(t);
           setPolicyError("");
         }}
-        placeholder="Policy Number"
+        placeholder={t("onboarding.insurer.policyPlaceholder")}
         autoCapitalize="characters"
         editable={Boolean(provider)}
         error={policyError}
-        helperText={provider ? undefined : "Select an insurance provider first."}
+        helperText={provider ? undefined : t("onboarding.insurer.selectProviderFirst")}
       />
       <TextField
-        label="Your Driving Licence Number"
+        label={t("onboarding.insurer.licenceLabel")}
         value={licence}
         onChangeText={(t) => {
           setLicence(formatLicenceNumber(t));
           setLicenceError("");
         }}
-        placeholder="Licence Number"
+        placeholder={t("onboarding.insurer.licencePlaceholder")}
         autoCapitalize="characters"
         maxLength={8}
         error={licenceError}
       />
       <TextField
-        label="NIC Number"
+        label={t("onboarding.insurer.nicLabel")}
         value={nic}
         onChangeText={(t) => {
           setNic(formatNicNumber(t));
           setNicError("");
         }}
-        placeholder="NIC Number"
+        placeholder={t("onboarding.insurer.nicPlaceholder")}
         keyboardType="numbers-and-punctuation"
         maxLength={12}
         error={nicError}
       />
       <TextField
-        label="Insurance Expiry Month"
+        label={t("onboarding.insurer.expiryLabel")}
         value={expireMonth}
         onChangeText={(t) => {
           setExpireMonth(formatExpireMonth(t));
@@ -256,17 +258,17 @@ export default function AddInsurerScreen() {
         maxLength={5}
         editable={Boolean(provider)}
         error={expireMonthError}
-        helperText={provider ? undefined : "Select an insurance provider first."}
+        helperText={provider ? undefined : t("onboarding.insurer.selectProviderFirst")}
       />
 
       {companiesError ? (
         <ErrorState
-          title="Couldn't load insurance providers"
+          title={t("onboarding.insurer.companiesLoadFailedTitle")}
           message={companiesError}
           onRetry={loadCompanies}
         />
       ) : null}
-      {error ? <ErrorState title="Couldn't save insurer details" message={error} /> : null}
+      {error ? <ErrorState title={t("onboarding.insurer.saveFailedTitle")} message={error} /> : null}
 
       {/* Insurance provider picker — same bottom-sheet pattern as the Home vehicle picker. */}
       <Modal visible={showProviderPicker} transparent animationType="slide">
@@ -288,13 +290,13 @@ export default function AddInsurerScreen() {
           >
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>
-                Select Insurance Provider
+                {t("onboarding.insurer.pickerTitle")}
               </Text>
               <Pressable
                 onPress={() => setShowProviderPicker(false)}
                 hitSlop={12}
                 accessibilityRole="button"
-                accessibilityLabel="Close"
+                accessibilityLabel={t("onboarding.insurer.close")}
               >
                 <Icon name="X" size={20} color={palette.textMuted} />
               </Pressable>
@@ -307,7 +309,7 @@ export default function AddInsurerScreen() {
             ) : companies.length === 0 ? (
               <View style={{ paddingVertical: spacing.xxl, alignItems: "center" }}>
                 <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
-                  Could not load insurance providers. Check your connection and try again.
+                  {t("onboarding.insurer.pickerLoadFailed")}
                 </Text>
               </View>
             ) : (

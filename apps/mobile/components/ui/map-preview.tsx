@@ -18,6 +18,7 @@ import { palette, radii, spacing, typography } from "@theme/index";
 import type { ProviderRecord } from "@lib/dispatchApi";
 import { providerTypeLabel } from "@lib/dispatchApi";
 import { fetchDrivingRoute, type LatLng } from "@lib/route";
+import { useT } from "@lib/i18n";
 
 interface MapPreviewProps {
   driverLocation: { latitude: number; longitude: number };
@@ -33,6 +34,7 @@ export function MapPreview({
   etaText,
   distanceText,
 }: MapPreviewProps) {
+  const t = useT();
   const driverLat = driverLocation.latitude;
   const driverLng = driverLocation.longitude;
   const providerLat = provider?.latitude  ?? driverLat;
@@ -91,7 +93,9 @@ export function MapPreview({
         }}
       >
         <Icon name="MapPin" size={22} color={palette.textMuted} />
-        <Text style={{ ...typography.bodyStrong, color: palette.text }}>Map unavailable</Text>
+        <Text style={{ ...typography.bodyStrong, color: palette.text }}>
+          {t("components.map.unavailable")}
+        </Text>
         <Text style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}>
           {driverLat.toFixed(4)}, {driverLng.toFixed(4)}
           {distanceText ? ` · ${distanceText}` : ""}
@@ -130,8 +134,8 @@ export function MapPreview({
         {/* Incident location (driver) */}
         <Marker
           coordinate={{ latitude: driverLat, longitude: driverLng }}
-          title="You"
-          description="Incident location"
+          title={t("components.map.driverPinTitle")}
+          description={t("components.map.driverPinDescription")}
           pinColor="red"
         />
 
@@ -140,7 +144,7 @@ export function MapPreview({
           <Marker
             coordinate={{ latitude: providerLat, longitude: providerLng }}
             title={provider.name}
-            description={providerTypeLabel(provider.type)}
+            description={providerTypeLabel(provider.type, t)}
             pinColor="green"
           />
         )}

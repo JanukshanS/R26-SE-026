@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import SignIn from "@/components/SignIn";
 import { roleHome, useAuth } from "@/lib/auth";
+import { useT } from "@/lib/i18n";
 
 /**
  * The system's single front door. Signed out it shows the shared sign-in card;
@@ -15,6 +16,7 @@ import { roleHome, useAuth } from "@/lib/auth";
 export default function SignInPage() {
   const { session, profile, loading } = useAuth();
   const router = useRouter();
+  const t = useT();
 
   useEffect(() => {
     if (!loading && session) router.replace(roleHome(profile));
@@ -25,7 +27,7 @@ export default function SignInPage() {
       <main className="grid min-h-screen place-items-center">
         <div
           role="status"
-          aria-label="Signing you in"
+          aria-label={t("signin.loadingA11y")}
           className="size-8 animate-spin rounded-full border-2 border-border border-t-primary"
         />
       </main>

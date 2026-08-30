@@ -19,9 +19,11 @@ import {
 } from "@lib/tripRecorder";
 import { submitTrip, type TripBatch } from "@lib/maintenanceApi";
 import { useHardwareBack } from "@lib/useHardwareBack";
+import { useT, type Translate } from "@lib/i18n";
 
 export default function ActiveTripScreen() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const [stats, setStats] = useState<TripStats | null>(getTripStats());
   const [submitting, setSubmitting] = useState(false);
   // Set when a completed trip failed to upload. endTrip() hands back the only
@@ -60,19 +62,19 @@ export default function ActiveTripScreen() {
     useCallback(() => {
       if (!pending) return false;
       Alert.alert(
-        "Trip not saved yet",
-        "This trip is only on your phone. Leaving now discards it.",
+        t("driver.activeTrip.leaveTitle"),
+        t("driver.activeTrip.leaveBody"),
         [
-          { text: "Stay", style: "cancel" },
+          { text: t("driver.activeTrip.stay"), style: "cancel" },
           {
-            text: "Discard trip",
+            text: t("driver.activeTrip.discard"),
             style: "destructive",
             onPress: () => { setPending(null); router.replace("/(driver)/home"); },
           },
         ]
       );
       return true;
-    }, [pending])
+    }, [pending, t])
   );
 
   async function saveTrip(batch: TripBatch) {
@@ -87,12 +89,14 @@ export default function ActiveTripScreen() {
     } catch (err: any) {
       setPending(batch);
       Alert.alert(
-        "Trip not saved",
-        `${err?.message ?? "Could not reach the maintenance server."}\n\nThe trip is still on your phone — tap Retry save to send it.`,
+        t("driver.activeTrip.saveFailedTitle"),
+        t("driver.activeTrip.saveFailedBody", {
+          message: err?.message ?? t("driver.activeTrip.saveFailedFallback"),
+        }),
         [
-          { text: "Retry", onPress: () => { void saveTrip(batch); } },
+          { text: t("driver.activeTrip.retry"), onPress: () => { void saveTrip(batch); } },
           {
-            text: "Discard trip",
+            text: t("driver.activeTrip.discard"),
             style: "destructive",
             onPress: () => { setPending(null); router.replace("/(driver)/home"); },
           },
@@ -112,15 +116,15 @@ export default function ActiveTripScreen() {
       const needObd = Math.max(0, MIN_OBD_READINGS - s.obdCount);
       const needImu = Math.max(0, MIN_IMU_READINGS - s.imuCount);
       const waitMsg = needImu > 0
-        ? `${needImu} more IMU snapshot${needImu !== 1 ? "s" : ""} needed`
-        : `${needObd} more OBD reading${needObd !== 1 ? "s" : ""} needed`;
-      Alert.alert("Trip too short", `Keep driving — ${waitMsg} before the trip can be saved.`, [
-        { text: "Keep driving", style: "cancel" },
+        ? t("driver.activeTrip.tooShortImu", { count: needImu })
+        : t("driver.activeTrip.tooShortObd", { count: needObd });
+      Alert.alert(t("driver.activeTrip.tooShortTitle"), waitMsg, [
+        { text: t("driver.activeTrip.keepDriving"), style: "cancel" },
         {
           // A trip started by mistake otherwise has no way out: the recorder
           // keeps its timers and the phone sensors running. endTrip() tears
           // both down, and there is nothing worth saving below the minimum.
-          text: "Discard trip",
+          text: t("driver.activeTrip.discard"),
           style: "destructive",
           onPress: async () => {
             await endTrip().catch(() => {});
@@ -131,10 +135,10 @@ export default function ActiveTripScreen() {
       return;
     }
 
-    Alert.alert("End trip?", "Trip data will be sent to the maintenance backend.", [
-      { text: "Keep driving", style: "cancel" },
+    Alert.alert(t("driver.activeTrip.endTitle"), t("driver.activeTrip.endBody"), [
+      { text: t("driver.activeTrip.keepDriving"), style: "cancel" },
       {
-        text: "End & Save",
+        text: t("driver.activeTrip.endConfirm"),
         style: "destructive",
         onPress: async () => {
           setSubmitting(true);
@@ -144,8 +148,8 @@ export default function ActiveTripScreen() {
           } catch (err: any) {
             setSubmitting(false);
             Alert.alert(
-              "Couldn't end the trip",
-              err?.message ?? "The recorder didn't stop. Try again."
+              t("driver.activeTrip.endFailedTitle"),
+              err?.message ?? t("driver.activeTrip.endFailedFallback")
             );
           }
         },
@@ -175,7 +179,7 @@ export default function ActiveTripScreen() {
             }}
           />
           <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>
-            {pending ? "Trip Recorded" : "Recording Trip"}
+            {pending ? t("driver.activeTrip.headingRecorded") : t("driver.activeTrip.headingRecording")}
           </Text>
           {/* Recording has stopped once a batch is pending — a LIVE pill there
               would claim the phone is still sampling. */}
@@ -200,7 +204,7 @@ export default function ActiveTripScreen() {
                 fontWeight: "700",
               }}
             >
-              {pending ? "NOT SAVED" : "LIVE"}
+              {pending ? t("driver.activeTrip.pillNotSaved") : t("driver.activeTrip.pillLive")}
             </Text>
           </View>
         </View>
@@ -227,7 +231,7 @@ export default function ActiveTripScreen() {
           }}
         >
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
-            Elapsed time
+            {t("driver.activeTrip.elapsed")}
           </Text>
           <Text
             style={{
@@ -243,7 +247,7 @@ export default function ActiveTripScreen() {
               read is still coming. */}
           {stats && !pending && (
             <Text style={{ ...typography.caption, color: palette.textMuted }}>
-              Next OBD read in{" "}
+              {t("driver.activeTrip.nextObdRead")}{" "}
               <Text style={{ color: palette.brand, fontWeight: "600" }}>
                 {formatMs(stats.nextObdInMs)}
               </Text>
@@ -255,7 +259,7 @@ export default function ActiveTripScreen() {
         {stats?.lastObd && (
           <View style={{ gap: spacing.sm }}>
             <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-              Live OBD Readings
+              {t("driver.activeTrip.obdHeading")}
             </Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               <OBDCell
@@ -267,49 +271,49 @@ export default function ActiveTripScreen() {
               />
               <OBDCell
                 icon="Navigation"
-                label="Speed"
+                label={t("driver.activeTrip.obdSpeed")}
                 value={`${stats.lastObd.speed_kmh}`}
                 sub="km/h"
                 color={palette.brand}
               />
               <OBDCell
                 icon="Thermometer"
-                label="Coolant"
+                label={t("driver.activeTrip.obdCoolant")}
                 value={`${stats.lastObd.coolant_temp_c}`}
                 sub="°C"
                 color={stats.lastObd.coolant_temp_c > 100 ? palette.danger : stats.lastObd.coolant_temp_c > 95 ? palette.warning : palette.success}
               />
               <OBDCell
                 icon="Zap"
-                label="Battery"
+                label={t("driver.activeTrip.obdBattery")}
                 value={`${stats.lastObd.battery_voltage_v}`}
                 sub="V"
                 color={stats.lastObd.battery_voltage_v < 12.5 ? palette.danger : stats.lastObd.battery_voltage_v < 13.5 ? palette.warning : palette.success}
               />
               <OBDCell
                 icon="Activity"
-                label="Engine Load"
+                label={t("driver.activeTrip.obdEngineLoad")}
                 value={`${stats.lastObd.engine_load_percent}`}
                 sub="%"
                 color={stats.lastObd.engine_load_percent > 80 ? palette.warning : palette.success}
               />
               <OBDCell
                 icon="Wind"
-                label="Intake Air"
+                label={t("driver.activeTrip.obdIntakeAir")}
                 value={`${stats.lastObd.intake_air_temp_c}`}
                 sub="°C"
                 color={palette.textMuted}
               />
               <OBDCell
                 icon="ChevronsUp"
-                label="Throttle"
+                label={t("driver.activeTrip.obdThrottle")}
                 value={`${stats.lastObd.throttle_percent}`}
                 sub="%"
                 color={stats.lastObd.throttle_percent > 70 ? palette.warning : palette.success}
               />
               <OBDCell
                 icon="Fuel"
-                label="Fuel Trim"
+                label={t("driver.activeTrip.obdFuelTrim")}
                 value={`${stats.lastObd.ltft_percent}`}
                 sub="% LTFT"
                 // Trim far from zero means the ECU is compensating hard for a
@@ -319,7 +323,7 @@ export default function ActiveTripScreen() {
               />
               <OBDCell
                 icon="Route"
-                label="Distance"
+                label={t("driver.activeTrip.obdDistance")}
                 value={`${(stats.distanceKm ?? 0).toFixed(2)}`}
                 sub="km"
                 color={palette.brand}
@@ -331,22 +335,22 @@ export default function ActiveTripScreen() {
         {/* Driving behaviour events (from IMU) */}
         <View style={{ gap: spacing.sm }}>
           <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-            Driving Behaviour
+            {t("driver.activeTrip.behaviourHeading")}
           </Text>
           <View style={{ flexDirection: "row", gap: spacing.sm }}>
             <EventCard
               icon="Disc"
-              label="Braking Events"
+              label={t("driver.activeTrip.brakingEvents")}
               value={stats?.brakingEvents ?? 0}
-              description="Hard stops detected"
+              description={t("driver.activeTrip.brakingEventsHint")}
               dangerAbove={4}
               warnAbove={2}
             />
             <EventCard
               icon="RotateCcw"
-              label="Cornering Events"
+              label={t("driver.activeTrip.corneringEvents")}
               value={stats?.corneringEvents ?? 0}
-              description="Sharp turns detected"
+              description={t("driver.activeTrip.corneringEventsHint")}
               dangerAbove={4}
               warnAbove={2}
             />
@@ -363,21 +367,21 @@ export default function ActiveTripScreen() {
           }}
         >
           <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-            Data Collection
+            {t("driver.activeTrip.dataHeading")}
           </Text>
           <ProgressRow
             icon="Radio"
-            label="OBD Snapshots"
+            label={t("driver.activeTrip.obdSnapshots")}
             count={stats?.obdCount ?? 0}
             min={MIN_OBD_READINGS}
-            unit={`/ ${intervalLabel(OBD_INTERVAL_MS)} each`}
+            unit={t("driver.activeTrip.progressUnit", { interval: intervalLabel(OBD_INTERVAL_MS, t) })}
           />
           <ProgressRow
             icon="Smartphone"
-            label="IMU Snapshots"
+            label={t("driver.activeTrip.imuSnapshots")}
             count={stats?.imuCount ?? 0}
             min={MIN_IMU_READINGS}
-            unit={`/ ${intervalLabel(IMU_INTERVAL_MS)} each`}
+            unit={t("driver.activeTrip.progressUnit", { interval: intervalLabel(IMU_INTERVAL_MS, t) })}
           />
           {stats && !stats.canEnd && (
             <View
@@ -389,7 +393,9 @@ export default function ActiveTripScreen() {
             >
               <Icon name="Info" size={14} color={palette.brand} />
               <Text style={{ ...typography.caption, color: palette.brand, flex: 1 }}>
-                {`Keep driving — ${Math.max(0, MIN_IMU_READINGS - (stats.imuCount))} more snapshot${Math.max(0, MIN_IMU_READINGS - stats.imuCount) !== 1 ? "s" : ""} needed`}
+                {t("driver.activeTrip.needSnapshots", {
+                  count: Math.max(0, MIN_IMU_READINGS - stats.imuCount),
+                })}
               </Text>
             </View>
           )}
@@ -403,7 +409,7 @@ export default function ActiveTripScreen() {
             >
               <Icon name="CheckCircle" size={14} color={palette.success} />
               <Text style={{ ...typography.caption, color: palette.success, fontWeight: "600" }}>
-                Enough data collected — you can end the trip
+                {t("driver.activeTrip.enoughData")}
               </Text>
             </View>
           )}
@@ -426,8 +432,7 @@ export default function ActiveTripScreen() {
       >
         {pending && !submitting && (
           <Text style={{ ...typography.caption, color: palette.warning, textAlign: "center" }}>
-            This trip is only on your phone. Tap Retry save to send it — leaving
-            this screen discards it.
+            {t("driver.activeTrip.pendingNote")}
           </Text>
         )}
         <Pressable
@@ -457,7 +462,7 @@ export default function ActiveTripScreen() {
             color={palette.textOnBrand}
           />
           <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-            {submitting ? "Saving trip…" : pending ? "Retry save" : "End Trip"}
+            {submitting ? t("driver.activeTrip.saving") : pending ? t("driver.activeTrip.retrySave") : t("driver.activeTrip.endTrip")}
           </Text>
         </Pressable>
       </View>
@@ -504,6 +509,7 @@ function EventCard({
   icon: string; label: string; value: number; description: string;
   dangerAbove: number; warnAbove: number;
 }) {
+  const t = useT();
   const color =
     value >= dangerAbove ? palette.danger
     : value >= warnAbove ? palette.warning
@@ -537,7 +543,11 @@ function EventCard({
         }}
       >
         <Text style={{ ...typography.caption, color, fontWeight: "600", fontSize: 10 }}>
-          {value >= dangerAbove ? "High" : value >= warnAbove ? "Moderate" : "Good"}
+          {value >= dangerAbove
+            ? t("driver.activeTrip.statusHigh")
+            : value >= warnAbove
+              ? t("driver.activeTrip.statusModerate")
+              : t("driver.activeTrip.statusGood")}
         </Text>
       </View>
       <Text style={{ ...typography.caption, color: palette.textMuted, fontSize: 10 }}>
@@ -612,6 +622,8 @@ function pad(n: number): string { return String(n).padStart(2, "0"); }
 
 /** Sampling cadence as shown on the progress rows. Reads the real interval so
  *  the dev build's compressed timers aren't described as the 5 min / 2 min spec. */
-function intervalLabel(ms: number): string {
-  return ms >= 60_000 ? `${ms / 60_000} min` : `${Math.round(ms / 1000)} s`;
+function intervalLabel(ms: number, t: Translate): string {
+  return ms >= 60_000
+    ? t("driver.activeTrip.intervalMinutes", { value: ms / 60_000 })
+    : t("driver.activeTrip.intervalSeconds", { value: Math.round(ms / 1000) });
 }

@@ -55,9 +55,17 @@ import { STOP_TRANSITION_TARGET_DEG } from '@/features/guided-capture/constants'
 import { useGuidedCapture } from '@/features/guided-capture/hooks/use-guided-capture';
 import { useStopTransition } from '@/features/guided-capture/hooks/use-stop-transition';
 import { captureStatusFor } from '@/features/guided-capture/tilt-status';
-import { HEIGHT_STEPS } from '@/features/guided-capture/types';
+import { HEIGHT_STEPS, type HeightStep } from '@/features/guided-capture/types';
+import { useT } from '@/lib/i18n';
+
+const HEIGHT_STEP_LOWER_KEYS: Record<HeightStep, string> = {
+  overhead: 'insurance.capture.poseOverheadLower',
+  chest: 'insurance.capture.poseChestLower',
+  waist: 'insurance.capture.poseWaistLower',
+};
 
 export default function GuidedCaptureScreen() {
+  const t = useT();
   const router = useRouter();
   const navigation = useNavigation();
   const { locked } = useLocalSearchParams<{ locked?: string }>();
@@ -168,27 +176,27 @@ export default function GuidedCaptureScreen() {
                 style={({ pressed }) => [styles.lockedHeaderBack, pressed && styles.pressed]}
                 hitSlop={12}
                 accessibilityRole="button"
-                accessibilityLabel="Go back">
+                accessibilityLabel={t('insurance.action.back')}>
                 <View style={styles.lockedHeaderChevronWrap} collapsable={false}>
                   <Ionicons name="chevron-back" size={22} color={INSURANCE_TEXT} />
                 </View>
-                <Text style={styles.lockedHeaderTitle}>Guided Capture</Text>
+                <Text style={styles.lockedHeaderTitle}>{t('insurance.captureIntro.titleShort')}</Text>
               </Pressable>
             ) : (
-              <Text style={styles.lockedHeaderTitle}>Guided Capture</Text>
+              <Text style={styles.lockedHeaderTitle}>{t('insurance.captureIntro.titleShort')}</Text>
             )}
           </View>
 
-          <Text style={styles.lockedHeadline}>Already submitted with your claim</Text>
-          <Text style={styles.lockedSubtitle}>
-            These photos were sent with your claim and can&apos;t be retaken.
-          </Text>
+          <Text style={styles.lockedHeadline}>{t('insurance.licence.lockedTitle')}</Text>
+          <Text style={styles.lockedSubtitle}>{t('insurance.licence.lockedBody')}</Text>
 
           {stopIndices.map((stopIndex) => {
             const stopPhotos = photosByStop.get(stopIndex);
             return (
               <View key={stopIndex} style={styles.lockedStopRow}>
-                <Text style={styles.lockedStopLabel}>STOP {stopIndex + 1}</Text>
+                <Text style={styles.lockedStopLabel}>
+                  {t('insurance.capture.stopLabel', { number: stopIndex + 1 })}
+                </Text>
                 <View style={styles.lockedStopTiles}>
                   {HEIGHT_STEPS.map((h) => {
                     const photo = stopPhotos?.find((p) => p.heightStep === h);
@@ -208,7 +216,11 @@ export default function GuidedCaptureScreen() {
           })}
 
           <View style={styles.lockedButtonRow}>
-            <CaptureButton title="Close" variant="primary" onPress={() => router.back()} />
+            <CaptureButton
+              title={t('insurance.action.close')}
+              variant="primary"
+              onPress={() => router.back()}
+            />
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -220,7 +232,7 @@ export default function GuidedCaptureScreen() {
   if (!permission) {
     return (
       <View style={styles.center}>
-        <Text style={styles.text}>Checking camera permission...</Text>
+        <Text style={styles.text}>{t('insurance.camera.checkingPermission')}</Text>
       </View>
     );
   }
@@ -230,16 +242,18 @@ export default function GuidedCaptureScreen() {
     // anything — the button has to send the driver to Settings instead of doing nothing.
     return (
       <View style={styles.center}>
-        <Text style={styles.text}>Camera access is required for guided capture.</Text>
+        <Text style={styles.text}>{t('insurance.capture.permissionBody')}</Text>
         <Pressable
           style={styles.permissionButton}
           onPress={() => void (permission.canAskAgain ? requestPermission() : Linking.openSettings())}>
           <Text style={styles.buttonText}>
-            {permission.canAskAgain ? 'Grant Camera Permission' : 'Open Settings'}
+            {permission.canAskAgain
+              ? t('insurance.camera.grantPermission')
+              : t('insurance.camera.openSettings')}
           </Text>
         </Pressable>
         <Pressable style={styles.textButton} onPress={() => router.back()}>
-          <Text style={styles.textButtonLabel}>Go back</Text>
+          <Text style={styles.textButtonLabel}>{t('insurance.action.back')}</Text>
         </Pressable>
       </View>
     );
@@ -249,8 +263,8 @@ export default function GuidedCaptureScreen() {
     <View style={styles.container}>
       <ResetCaptureDialog
         visible={isResetDialogVisible}
-        title="Reset This Claim"
-        message="This will delete all photos and reset Guided Capture, Driving Licence, User Verification, and 3rd Party Details. You'll start the whole claim over."
+        title={t('insurance.capture.resetTitle')}
+        message={t('insurance.capture.resetBody')}
         onCancel={onCancelResetDialog}
         onConfirm={onConfirmResetDialog}
       />
@@ -324,7 +338,7 @@ export default function GuidedCaptureScreen() {
           <View style={styles.modalBackdropContent}>
             <View style={styles.modalCard}>
               <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Captured Photos</Text>
+                <Text style={styles.modalTitle}>{t('insurance.capture.previewTitle')}</Text>
                 <Text style={styles.modalCount}>
                   ({photos.length}/{totalPhotosExpected})
                 </Text>
@@ -339,14 +353,18 @@ export default function GuidedCaptureScreen() {
                   return (
                     <View style={styles.stopRow}>
                       <View style={styles.stopRowHeader}>
-                        <Text style={styles.stopRowLabel}>STOP {stopIndex + 1}</Text>
+                        <Text style={styles.stopRowLabel}>
+                        {t('insurance.capture.stopLabel', { number: stopIndex + 1 })}
+                      </Text>
                         {stopPhotos && stopPhotos.length > 0 ? (
                           <Pressable
                             style={styles.deleteIconBtn}
                             onPress={() => onDeleteStopPress(stopIndex)}
                             hitSlop={10}
                             accessibilityRole="button"
-                            accessibilityLabel={`Delete all photos for stop ${stopIndex + 1}`}>
+                            accessibilityLabel={t('insurance.capture.deleteStopA11y', {
+                              number: stopIndex + 1,
+                            })}>
                             <Ionicons name="trash-outline" size={18} color={CAPTURE_ACTION_BLUE} />
                           </Pressable>
                         ) : null}
@@ -361,7 +379,10 @@ export default function GuidedCaptureScreen() {
                               disabled={!photo}
                               onPress={() => photo && onRetake(stopIndex, h)}
                               accessibilityRole="button"
-                              accessibilityLabel={`Retake ${h} photo, stop ${stopIndex + 1}`}>
+                              accessibilityLabel={t('insurance.capture.retakePhotoA11y', {
+                                pose: t(HEIGHT_STEP_LOWER_KEYS[h]),
+                                number: stopIndex + 1,
+                              })}>
                               {photo ? (
                                 <Image source={{ uri: photo.uri }} style={styles.tileImage} />
                               ) : (
@@ -380,15 +401,15 @@ export default function GuidedCaptureScreen() {
                 <Pressable
                   style={({ pressed }) => [styles.closeButtonOutlined, pressed && styles.closeButtonPressed]}
                   onPress={onClosePreview}>
-                  <Text style={styles.closeButtonText}>Close</Text>
+                  <Text style={styles.closeButtonText}>{t('insurance.action.close')}</Text>
                 </Pressable>
                 {allCaptured ? (
                   <Pressable
                     style={({ pressed }) => [styles.submitButton, pressed && styles.submitButtonPressed]}
                     onPress={onSubmitFinal}
                     accessibilityRole="button"
-                    accessibilityLabel="Submit photos">
-                    <Text style={styles.submitButtonText}>Submit</Text>
+                    accessibilityLabel={t('insurance.capture.submitA11y')}>
+                    <Text style={styles.submitButtonText}>{t('insurance.capture.submit')}</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -400,9 +421,9 @@ export default function GuidedCaptureScreen() {
                   <View style={styles.deleteConfirmIconCircle}>
                     <Ionicons name="trash-outline" size={30} color={CAPTURE_ACTION_BLUE} />
                   </View>
-                  <Text style={styles.deleteConfirmTitle}>Delete Stop</Text>
+                  <Text style={styles.deleteConfirmTitle}>{t('insurance.capture.deleteStopTitle')}</Text>
                   <Text style={styles.deleteConfirmMessage}>
-                    {`Delete all photos for Stop ${deleteConfirmStopIndex + 1}? This can't be undone.`}
+                    {t('insurance.capture.deleteStopBody', { number: deleteConfirmStopIndex + 1 })}
                   </Text>
                   <View style={styles.deleteConfirmActions}>
                     <Pressable
@@ -411,7 +432,7 @@ export default function GuidedCaptureScreen() {
                         pressed && styles.deleteConfirmPressed,
                       ]}
                       onPress={onCancelDeleteStop}>
-                      <Text style={styles.deleteConfirmCancelText}>Cancel</Text>
+                      <Text style={styles.deleteConfirmCancelText}>{t('insurance.action.cancel')}</Text>
                     </Pressable>
                     <Pressable
                       style={({ pressed }) => [
@@ -419,7 +440,7 @@ export default function GuidedCaptureScreen() {
                         pressed && styles.deleteConfirmPressed,
                       ]}
                       onPress={onConfirmDeleteStop}>
-                      <Text style={styles.deleteConfirmDeleteText}>Delete</Text>
+                      <Text style={styles.deleteConfirmDeleteText}>{t('insurance.action.delete')}</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -440,13 +461,13 @@ export default function GuidedCaptureScreen() {
         <View style={styles.instructionsBackdrop}>
           <View style={styles.instructionsCard}>
             <View style={styles.instructionsHeaderRow}>
-              <Text style={styles.instructionsTitle}>How to Capture</Text>
+              <Text style={styles.instructionsTitle}>{t('insurance.capture.menuHowTo')}</Text>
               <Pressable
                 style={({ pressed }) => [styles.instructionsCloseBtn, pressed && styles.closeButtonPressed]}
                 onPress={() => setInstructionsVisible(false)}
                 hitSlop={10}
                 accessibilityRole="button"
-                accessibilityLabel="Close instructions">
+                accessibilityLabel={t('insurance.capture.closeInstructionsA11y')}>
                 <Ionicons name="close" size={22} color={GRAY_900} />
               </Pressable>
             </View>

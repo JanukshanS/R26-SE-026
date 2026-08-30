@@ -4,6 +4,7 @@ import {
   VERTICAL_TILT_TOLERANCE_DEG,
 } from '@/features/guided-capture/constants';
 import type { HeightStep } from '@/features/guided-capture/types';
+import type { Translate } from '@/lib/i18n';
 
 export function isTiltAligned(pitchDeg: number, heightStep: HeightStep): boolean {
   if (heightStep === 'overhead') {
@@ -13,16 +14,16 @@ export function isTiltAligned(pitchDeg: number, heightStep: HeightStep): boolean
   return Math.abs(pitchDeg) <= VERTICAL_TILT_TOLERANCE_DEG;
 }
 
-export function tiltHintFor(pitchDeg: number, heightStep: HeightStep): string {
+export function tiltHintFor(pitchDeg: number, heightStep: HeightStep, t: Translate): string {
   if (isTiltAligned(pitchDeg, heightStep)) {
-    return 'Tilt: good';
+    return t('insurance.capture.tiltGood');
   }
   if (heightStep === 'overhead') {
     return Math.abs(pitchDeg) < OVERHEAD_TILT_MIN_DEG
-      ? 'Tilt the phone down more'
-      : 'Tilt the phone up a little';
+      ? t('insurance.capture.tiltDownMore')
+      : t('insurance.capture.tiltUpALittle');
   }
-  return 'Hold the phone upright';
+  return t('insurance.capture.tiltUpright');
 }
 
 export type CaptureStatus = 'aligning' | 'almost' | 'steady';

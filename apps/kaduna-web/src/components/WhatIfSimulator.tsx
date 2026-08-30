@@ -11,6 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { calculateImpactScore } from "@/lib/scoring";
 import { scoreAtLocation, type AdHocScore } from "@/lib/geoScore";
+import { useT } from "@/lib/i18n";
 import type { ModelConfig, WhatIfInput } from "@/lib/types";
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), { ssr: false });
@@ -25,23 +26,38 @@ const ROAD_TYPES = ["motorway", "trunk", "primary", "secondary", "tertiary", "re
  * not having a bespoke entry is bounded. Durations are literature-anchored and
  * are the numbers the police session was asked to correct.
  */
-const INCIDENT_TYPES: Array<{ value: string; label: string; clearMin: number }> = [
-  { value: "accident_major", label: "Major accident", clearMin: 120 },
-  { value: "engine_failure", label: "Engine failure", clearMin: 60 },
-  { value: "accident_minor", label: "Minor accident", clearMin: 45 },
-  { value: "overheating", label: "Overheating", clearMin: 40 },
-  { value: "flat_tire", label: "Flat tyre", clearMin: 30 },
-  { value: "battery_dead", label: "Flat battery", clearMin: 25 },
-  { value: "fuel_empty", label: "Out of fuel", clearMin: 20 },
-  { value: "other", label: "Something else", clearMin: 45 },
+const INCIDENT_TYPES: Array<{ value: string; labelKey: string; clearMin: number }> = [
+  { value: "accident_major", labelKey: "dashboard.incidentType.accidentMajor", clearMin: 120 },
+  { value: "engine_failure", labelKey: "dashboard.incidentType.engineFailure", clearMin: 60 },
+  { value: "accident_minor", labelKey: "dashboard.incidentType.accidentMinor", clearMin: 45 },
+  { value: "overheating", labelKey: "dashboard.incidentType.overheating", clearMin: 40 },
+  { value: "flat_tire", labelKey: "dashboard.incidentType.flatTyre", clearMin: 30 },
+  { value: "battery_dead", labelKey: "dashboard.incidentType.flatBattery", clearMin: 25 },
+  { value: "fuel_empty", labelKey: "dashboard.incidentType.outOfFuel", clearMin: 20 },
+  { value: "other", labelKey: "dashboard.incidentType.other", clearMin: 45 },
 ];
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAYS = [
+  "dashboard.day.mon",
+  "dashboard.day.tue",
+  "dashboard.day.wed",
+  "dashboard.day.thu",
+  "dashboard.day.fri",
+  "dashboard.day.sat",
+  "dashboard.day.sun",
+];
 
 const PRIORITY_TOKEN: Record<string, string> = {
   CRITICAL: "var(--priority-critical-ink)",
   HIGH: "var(--priority-high-ink)",
   MEDIUM: "var(--priority-medium-ink)",
   LOW: "var(--priority-low-ink)",
+};
+
+const PRIORITY_LABEL: Record<string, string> = {
+  CRITICAL: "dashboard.priority.critical",
+  HIGH: "dashboard.priority.high",
+  MEDIUM: "dashboard.priority.medium",
+  LOW: "dashboard.priority.low",
 };
 
 const titled = (s: string) => s.replace(/_/g, " ");
@@ -52,6 +68,7 @@ const titled = (s: string) => s.replace(/_/g, " ");
  * a live instrument rather than a form.
  */
 export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
+  const t = useT();
   const [input, setInput] = useState<WhatIfInput>({
     roadType: "primary",
     totalLanes: 2,
@@ -124,8 +141,12 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
       <div className="grid gap-5 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="wi-road">
-            Road type
-            {pin && <span className="ml-1.5 text-muted-foreground">taken from the pin</span>}
+            {t("dashboard.whatIf.roadType")}
+            {pin && (
+              <span className="ml-1.5 text-muted-foreground">
+                {t("dashboard.whatIf.roadFromPin")}
+              </span>
+            )}
           </Label>
           <Select
             value={input.roadType}
@@ -144,7 +165,7 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="wi-incident">Incident type</Label>
+          <Label htmlFor="wi-incident">{t("dashboard.whatIf.incidentType")}</Label>
           <Select
             value={input.incidentType}
             onValueChange={(v) => setInput({ ...input, incidentType: v })}
@@ -153,10 +174,12 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {INCIDENT_TYPES.map((t) => (
-                <SelectItem key={t.value} value={t.value}>
-                  {t.label}
-                  <span className="ml-1.5 text-muted-foreground">~{t.clearMin} min to clear</span>
+              {INCIDENT_TYPES.map((it) => (
+                <SelectItem key={it.value} value={it.value}>
+                  {t(it.labelKey)}
+                  <span className="ml-1.5 text-muted-foreground">
+                    {t("dashboard.whatIf.clearMin", { minutes: it.clearMin })}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -165,7 +188,7 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
 
         <div className="space-y-3">
           <div className="flex items-baseline justify-between">
-            <Label htmlFor="wi-lanes">Total lanes</Label>
+            <Label htmlFor="wi-lanes">{t("dashboard.whatIf.totalLanes")}</Label>
             <span className="text-sm font-medium tabular-nums">{input.totalLanes}</span>
           </div>
           <Slider
@@ -182,7 +205,7 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
 
         <div className="space-y-3">
           <div className="flex items-baseline justify-between">
-            <Label htmlFor="wi-blocked">Lanes blocked</Label>
+            <Label htmlFor="wi-blocked">{t("dashboard.whatIf.lanesBlocked")}</Label>
             <span className="text-sm font-medium tabular-nums">{blocked}</span>
           </div>
           <Slider
@@ -197,7 +220,7 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
 
         <div className="space-y-3">
           <div className="flex items-baseline justify-between">
-            <Label htmlFor="wi-hour">Time of day</Label>
+            <Label htmlFor="wi-hour">{t("dashboard.whatIf.timeOfDay")}</Label>
             <span className="text-sm font-medium tabular-nums">
               {String(input.hour).padStart(2, "0")}:00
             </span>
@@ -213,7 +236,7 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="wi-day">Day</Label>
+          <Label htmlFor="wi-day">{t("dashboard.whatIf.day")}</Label>
           <Select
             value={String(input.dayOfWeek)}
             onValueChange={(v) => setInput({ ...input, dayOfWeek: Number(v) })}
@@ -223,7 +246,7 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
             </SelectTrigger>
             <SelectContent>
               {DAYS.map((d, i) => (
-                <SelectItem key={d} value={String(i)}>{d}</SelectItem>
+                <SelectItem key={d} value={String(i)}>{t(d)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -235,15 +258,14 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
       <div className="space-y-3 rounded-xl border border-border p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
-            <Label>Place it on the map</Label>
+            <Label>{t("dashboard.whatIf.placeTitle")}</Label>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Optional. With a pin, the road and anything sensitive around it come from the
-              service instead of the list above.
+              {t("dashboard.whatIf.placeBody")}
             </p>
           </div>
           {pin && (
             <Button size="sm" variant="ghost" onClick={() => setPin(null)}>
-              Clear pin
+              {t("dashboard.whatIf.clearPin")}
             </Button>
           )}
         </div>
@@ -251,30 +273,27 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
         <LocationPicker
           value={pin}
           onChange={setPin}
-          hint="Click anywhere in Colombo to score a breakdown at that spot."
-          confirmLabel="Scoring at"
+          hint={t("dashboard.whatIf.pickerHint")}
+          confirmLabel={t("dashboard.whatIf.pickerConfirm")}
         />
 
         {pin && (
           <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
-            {asking && <p className="text-muted-foreground">Scoring this spot…</p>}
+            {asking && <p className="text-muted-foreground">{t("dashboard.whatIf.scoring")}</p>}
             {!asking && !live && (
-              <p className="text-muted-foreground">
-                The scoring service did not answer, so the figures below are the in-browser
-                model using the road type selected above.
-              </p>
+              <p className="text-muted-foreground">{t("dashboard.whatIf.serviceDown")}</p>
             )}
             {!asking && live && (
               <div className="space-y-1.5">
                 <p className="text-muted-foreground">
-                  {live.road?.source === "osm" ? (
-                    <>
-                      Matched <span className="capitalize text-foreground">{live.road.road_type}</span>
-                      {live.road.matched_road ? ` — ${live.road.matched_road}` : ""}
-                    </>
-                  ) : (
-                    <>No road matched at this point, so the default was used.</>
-                  )}
+                  {live.road?.source === "osm"
+                    ? live.road.matched_road
+                      ? t("dashboard.whatIf.matchedRoadNamed", {
+                          roadType: live.road.road_type,
+                          road: live.road.matched_road,
+                        })
+                      : t("dashboard.whatIf.matchedRoad", { roadType: live.road.road_type })
+                    : t("dashboard.whatIf.noRoad")}
                 </p>
                 {live.sensitivity && live.sensitivity.factor > 1 && (
                   <ul className="space-y-0.5">
@@ -283,7 +302,9 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
                       .map((n, i) => (
                         <li key={`${n.type}-${i}`} className="text-muted-foreground">
                           {n.name ?? n.type.replace(/_/g, " ")}
-                          {n.distance_m != null ? ` · ${Math.round(n.distance_m)} m` : ""}
+                          {n.distance_m != null
+                            ? ` · ${t("dashboard.unit.metres", { m: Math.round(n.distance_m) })}`
+                            : ""}
                           <span className="text-foreground"> +{Math.round(n.boost * 100)}%</span>
                         </li>
                       ))}
@@ -307,24 +328,24 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
               >
                 {shown.score.toFixed(1)}
               </span>
-              <span className="text-lg text-muted-foreground">of 10</span>
+              <span className="text-lg text-muted-foreground">{t("dashboard.whatIf.ofTen")}</span>
             </p>
             <p className="mt-1 text-sm font-medium" style={{ color: accent }}>
-              {shown.priority.charAt(0) + shown.priority.slice(1).toLowerCase()} priority
+              {t("dashboard.whatIf.priority", { priority: t(PRIORITY_LABEL[shown.priority]) })}
             </p>
             <p className="mt-1.5 text-center text-xs text-muted-foreground">
               {usingService
-                ? "Scored by the service at the pin"
-                : "Scored in the browser from the settings above"}
+                ? t("dashboard.whatIf.byService")
+                : t("dashboard.whatIf.byBrowser")}
             </p>
           </CardContent>
         </Card>
 
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "Queue", value: shown.queueKm, unit: "km" },
-            { label: "Vehicle-hours lost", value: shown.vhl, unit: "hrs" },
-            { label: "Recovery", value: shown.recoveryMin, unit: "min" },
+            { label: t("dashboard.whatIf.queue"), value: shown.queueKm, unit: t("dashboard.unit.km") },
+            { label: t("dashboard.whatIf.vhl"), value: shown.vhl, unit: t("dashboard.unit.hrs") },
+            { label: t("dashboard.whatIf.recovery"), value: shown.recoveryMin, unit: t("dashboard.unit.min") },
           ].map((m) => (
             <Card key={m.label}>
               <CardContent className="p-4">

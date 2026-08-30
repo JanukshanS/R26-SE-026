@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 
 import { authHeaders } from "@lib/capture-api";
+import { type Translate } from "@lib/i18n";
 import type { TripBehavior } from "@lib/driverBehavior";
 
 export type { TripBehavior };
@@ -181,25 +182,37 @@ export async function getVehicleHealth(vehicleId: string): Promise<VehicleHealth
 }
 
 /** Convert RUL km → human label, e.g. "4 weeks", "Healthy", "No data" */
-export function rulToLabel(component: ComponentHealth): string {
-  if (component.status === "No data") return "No data";
-  if (component.status === "Good") return "Healthy";
+/** The five statuses the maintenance service reports, in the driver's language. */
+export function componentStatusLabel(status: ComponentStatus, t: Translate): string {
+  const keys: Record<ComponentStatus, string> = {
+    Good: "driver.health.statusGood",
+    Fair: "driver.health.statusFair",
+    Poor: "driver.health.statusPoor",
+    Critical: "driver.health.statusCritical",
+    "No data": "driver.health.statusNoData",
+  };
+  return t(keys[status]);
+}
+
+export function rulToLabel(component: ComponentHealth, t: Translate): string {
+  if (component.status === "No data") return t("driver.health.rulNoData");
+  if (component.status === "Good") return t("driver.health.rulHealthy");
   const rul = component.predicted_rul_km;
-  if (rul < 500) return "Urgent";
-  if (rul < 2000) return "~1 week";
-  if (rul < 4000) return "~4 weeks";
-  if (rul < 10000) return `${Math.round(rul / 1000)}k km`;
-  return "Healthy";
+  if (rul < 500) return t("driver.health.rulUrgent");
+  if (rul < 2000) return t("driver.health.rulOneWeek");
+  if (rul < 4000) return t("driver.health.rulFourWeeks");
+  if (rul < 10000) return t("driver.health.rulThousandKm", { value: Math.round(rul / 1000) });
+  return t("driver.health.rulHealthy");
 }
 
 /** Urgency banner copy, e.g. "Action recommend in 4 weeks" */
-export function rulToBanner(component: ComponentHealth): string {
-  if (component.status === "No data") return "No trips recorded yet — drive to assess health";
-  if (component.status === "Good") return "No action needed";
+export function rulToBanner(component: ComponentHealth, t: Translate): string {
+  if (component.status === "No data") return t("driver.health.bannerNoData");
+  if (component.status === "Good") return t("driver.health.bannerNoAction");
   const rul = component.predicted_rul_km;
-  if (rul < 500) return "Action required immediately";
-  if (rul < 2000) return "Action recommend in 1 week";
-  if (rul < 4000) return "Action recommend in 4 weeks";
+  if (rul < 500) return t("driver.health.bannerImmediate");
+  if (rul < 2000) return t("driver.health.bannerOneWeek");
+  if (rul < 4000) return t("driver.health.bannerFourWeeks");
   return `Action recommend in ~${Math.round(rul / 2000)} months`;
 }
 

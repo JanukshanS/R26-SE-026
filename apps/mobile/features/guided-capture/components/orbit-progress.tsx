@@ -19,6 +19,7 @@ import {
   GRAY_900,
   WHITE,
 } from '@/features/guided-capture/capture-ui-theme';
+import { useT } from '@/lib/i18n';
 
 type OrbitProgressProps = {
   stopCount: number;
@@ -177,6 +178,7 @@ export function OrbitProgress({
   onManualContinue,
   onNextStep,
 }: OrbitProgressProps) {
+  const t = useT();
   // Clamp so extra stops beyond stopCount (walked after the required set is done) don't
   // push the angle math outside the drawn semicircle — they just show as "fully arrived".
   // This clamped index is only for the arc geometry (dot positions are fixed to stopCount
@@ -195,7 +197,7 @@ export function OrbitProgress({
   return (
     <View style={styles.root}>
       <StopProgressLabel stopIndex={labelTargetIndex} stopCount={stopCount} />
-      <Text style={styles.title}>Keep walking to the next stop</Text>
+      <Text style={styles.title}>{t('insurance.capture.keepWalking')}</Text>
 
       <Svg width={SIZE} height={SIZE}>
         <CarIcon />
@@ -214,29 +216,29 @@ export function OrbitProgress({
       {requiredStopsDone ? (
         <View style={styles.actions}>
           <CaptureButton
-            title="Home"
+            title={t('insurance.capture.home')}
             onPress={onNextStep}
             variant="secondary"
             fullWidth={false}
             style={styles.actionBtn}
-            accessibilityLabel="Home"
+            accessibilityLabel={t('insurance.capture.home')}
           />
           <CaptureButton
-            title="Continue"
+            title={t('insurance.action.continue')}
             onPress={onManualContinue}
             variant="primary"
             fullWidth={false}
             style={styles.actionBtn}
-            accessibilityLabel="Continue"
+            accessibilityLabel={t('insurance.action.continue')}
           />
         </View>
       ) : (
         <CaptureButton
-          title="Continue"
+          title={t('insurance.action.continue')}
           onPress={onManualContinue}
           variant="primary"
           fullWidth={false}
-          accessibilityLabel="Continue"
+          accessibilityLabel={t('insurance.action.continue')}
         />
       )}
     </View>

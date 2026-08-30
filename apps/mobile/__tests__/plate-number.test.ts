@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isValidPlate, normalizePlate, plateError } from "../lib/plate-number";
+import en from "../locales/en";
 
 describe("Sri Lankan plate numbers", () => {
   it("accepts the post-2023 letter series", () => {
@@ -36,9 +37,11 @@ describe("Sri Lankan plate numbers", () => {
   });
 
   it("explains itself instead of just failing", () => {
+    // plateError returns a catalogue key now, so the message it stands for is
+    // what has to carry the explanation — resolve it and assert on that.
     expect(plateError("CAB-1234")).toBeNull();
-    expect(plateError("")).toMatch(/required/i);
-    expect(plateError("HELLO")).toMatch(/CAB-1234/);
+    expect(en[plateError("") as string]).toMatch(/required/i);
+    expect(en[plateError("HELLO") as string]).toMatch(/CAB-1234/);
   });
 
   it("does not mistake a province code for the letter group", () => {

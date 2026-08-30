@@ -15,6 +15,7 @@ import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import {
   getVehicleHealth,
+  componentStatusLabel,
   rulToLabel,
   type VehicleHealthResponse,
 } from "@lib/maintenanceApi";
@@ -24,6 +25,7 @@ import type { Vehicle } from "@lib/vehicleApi";
 import { getVehicleInsurance, type VehicleInsurance } from "@lib/vehicleInsuranceApi";
 import { isExpiringSoon } from "@lib/insurer-field-format";
 import { useHardwareBack } from "@lib/useHardwareBack";
+import { useT } from "@lib/i18n";
 import { isTripActive } from "@lib/tripRecorder";
 import { useIncompleteUploadStatus } from "@/features/report-accident/hooks/use-incomplete-upload-status";
 import { ClaimUploadReminderModal } from "@/features/report-accident/components/claim-upload-reminder-modal";
@@ -40,6 +42,7 @@ function vehicleIcon(fuelType: Vehicle["fuelType"]): IconName {
 
 export default function DriverHomeScreen() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const bottomReserve = BOTTOM_SCROLL_PADDING + insets.bottom;
 
   const { user, selectedVehicle, vehicles, vehiclesLoading, selectVehicle } = useVehicle();
@@ -80,7 +83,7 @@ export default function DriverHomeScreen() {
   const vehicleId = selectedVehicle?.plateNumber ?? "";
   const vehicleLabel = selectedVehicle
   ? (selectedVehicle.nickname || `${selectedVehicle.make} ${selectedVehicle.model}`)
-  : "No vehicle added";
+  : t("driver.home.noVehicleAdded");
 
   // Insurance lives in its own table (vehicle_insurance), not on the vehicle row itself,
   // so it's fetched separately whenever the selected vehicle changes. `undefined` (not yet
@@ -232,10 +235,13 @@ export default function DriverHomeScreen() {
             <Text style={{ ...typography.body, color: palette.text }}>
               {user ? (
                 <>
-                  Hi <Text style={{ fontWeight: "700" }}>{user.name.split(" ")[0]}!</Text>
+                  {t("driver.home.greeting")}
+                  <Text style={{ fontWeight: "700" }}>
+                    {t("driver.home.greetingName", { name: user.name.split(" ")[0] })}
+                  </Text>
                 </>
               ) : (
-                "Welcome"
+                t("driver.home.welcome")
               )}
             </Text>
           </View>
@@ -258,11 +264,11 @@ export default function DriverHomeScreen() {
                 backgroundColor: palette.brandSoft,
               })}
               accessibilityRole="button"
-              accessibilityLabel="Sign in"
+              accessibilityLabel={t("driver.home.signInA11y")}
             >
               <Icon name="LogIn" size={14} color={palette.brand} />
               <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "600" }}>
-                Sign in
+                {t("driver.home.signIn")}
               </Text>
             </Pressable>
           )}
@@ -292,7 +298,7 @@ export default function DriverHomeScreen() {
             }}
           >
             <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "700" }}>
-              {selectedVehicle?.plateNumber ?? "Add vehicle"}
+              {selectedVehicle?.plateNumber ?? t("driver.home.addVehicleChip")}
             </Text>
             <Icon name="ChevronDown" size={16} color={palette.brand} />
           </View>
@@ -323,12 +329,12 @@ export default function DriverHomeScreen() {
                 justifyContent: "space-between",
               }}
             >
-              <Text style={{ ...typography.bodyStrong, color: palette.text }}>Vehicle Health</Text>
+              <Text style={{ ...typography.bodyStrong, color: palette.text }}>{t("driver.home.healthHeading")}</Text>
               {loadingHealth ? (
                 <ActivityIndicator size="small" color={palette.brand} />
               ) : health ? (
                 <Badge
-                  label={health.overall_status}
+                  label={componentStatusLabel(health.overall_status, t)}
                   tone={
                     health.overall_status === "Good"
                       ? "success"
@@ -368,22 +374,33 @@ export default function DriverHomeScreen() {
               contentContainerStyle={{ gap: spacing.sm, paddingVertical: spacing.xs * 0.9 }}
             >
               {!vehicleId ? (
-                <HealthAlertPill text="Add a vehicle to track its health" danger={false} />
+                <HealthAlertPill text={t("driver.home.healthAddVehicle")} danger={false} />
               ) : healthError ? (
-                <HealthAlertPill text="Couldn't load vehicle health — tap to retry" />
+                <HealthAlertPill text={t("driver.home.healthLoadFailed")} />
               ) : loadingHealth || !health ? (
-                <HealthAlertPill text="Loading vehicle health…" danger={false} />
+                <HealthAlertPill text={t("driver.home.healthLoading")} danger={false} />
               ) : noData ? (
-                <HealthAlertPill text="No trips recorded yet — drive to assess" danger={false} />
+                <HealthAlertPill text={t("driver.home.healthNoTrips")} danger={false} />
               ) : alertComponents.length > 0 ? (
                 alertComponents.map((k) => (
                   <HealthAlertPill
                     key={k}
-                    text={`${k === "brake" ? "Brake Pads" : k === "engine" ? "Engine Oil" : k === "tire" ? "Tyres" : "Battery"}: ${rulToLabel(health.components[k])}`}
+                    text={t("driver.home.healthAlertPill", {
+                      component: t(
+                        k === "brake"
+                          ? "driver.home.componentBrake"
+                          : k === "engine"
+                            ? "driver.home.componentEngine"
+                            : k === "tire"
+                              ? "driver.home.componentTire"
+                              : "driver.home.componentBattery"
+                      ),
+                      status: rulToLabel(health.components[k], t),
+                    })}
                   />
                 ))
               ) : (
-                <HealthAlertPill text="All components healthy" danger={false} />
+                <HealthAlertPill text={t("driver.home.healthAllGood")} danger={false} />
               )}
             </ScrollView>
           </Card>
@@ -399,7 +416,7 @@ export default function DriverHomeScreen() {
         <Pressable
           onPress={() => router.push("/(emergency)/whats-wrong")}
           accessibilityRole="button"
-          accessibilityLabel="Get roadside help"
+          accessibilityLabel={t("driver.home.helpA11y")}
           style={({ pressed }) => ({
             opacity: pressed ? 0.92 : 1,
             borderRadius: radii.xl,
@@ -423,17 +440,17 @@ export default function DriverHomeScreen() {
         >
           <Icon name="Siren" size={34} color={palette.textOnBrand} />
           <Text style={{ color: palette.textOnBrand, fontSize: 26, fontWeight: "700" }}>
-            Need help?
+            {t("driver.home.helpTitle")}
           </Text>
           <Text style={{ ...typography.body, color: palette.textOnBrand, opacity: 0.95 }}>
-            Tell us what&apos;s wrong — we&apos;ll send someone
+            {t("driver.home.helpSubtitle")}
           </Text>
         </Pressable>
 
         <View style={{ gap: spacing.md }}>
-          <Text style={{ ...typography.h3, color: palette.text }}>Know what you need?</Text>
+          <Text style={{ ...typography.h3, color: palette.text }}>{t("driver.home.quickHeading")}</Text>
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
-            Skip the questions — we&apos;ll dispatch straight away.
+            {t("driver.home.quickSubtitle")}
           </Text>
           <View style={{ flexDirection: "row", gap: spacing.md }}>
             {/* Quick actions = fast-path dispatch to the nearest provider of
@@ -443,7 +460,7 @@ export default function DriverHomeScreen() {
             <Animated.View entering={FadeInDown.delay(0).springify()} style={{ flex: 1 }}>
               <QuickAction
                 icon="Disc"
-                label="Tyre"
+                label={t("driver.home.quickTyre")}
                 onPress={() => router.push({
                   pathname: "/(emergency)/quick-dispatch",
                   params:   { intent: "FLAT_TIRE", label: "Flat tire" },
@@ -453,7 +470,7 @@ export default function DriverHomeScreen() {
             <Animated.View entering={FadeInDown.delay(60).springify()} style={{ flex: 1 }}>
               <QuickAction
                 icon="Fuel"
-                label="Fuel"
+                label={t("driver.home.quickFuel")}
                 onPress={() => router.push({
                   pathname: "/(emergency)/quick-dispatch",
                   params:   { intent: "FUEL_EMPTY", label: "Fuel delivery" },
@@ -463,7 +480,7 @@ export default function DriverHomeScreen() {
             <Animated.View entering={FadeInDown.delay(120).springify()} style={{ flex: 1 }}>
               <QuickAction
                 icon="KeyRound"
-                label="Locksmith"
+                label={t("driver.home.quickLocksmith")}
                 onPress={() => router.push({
                   pathname: "/(emergency)/quick-dispatch",
                   params:   { intent: "LOCKOUT", label: "Locksmith" },
@@ -482,21 +499,21 @@ export default function DriverHomeScreen() {
         />
 
         <View style={{ gap: spacing.md }}>
-          <Text style={{ ...typography.h3, color: palette.text }}>Your vehicle</Text>
+          <Text style={{ ...typography.h3, color: palette.text }}>{t("driver.home.vehicleHeading")}</Text>
           <View style={{ flexDirection: "row", gap: spacing.md }}>
             <Animated.View entering={FadeInDown.delay(180).springify()} style={{ flex: 1 }}>
-              <QuickAction icon="Truck" label="Service" onPress={() => router.push("/(driver)/health")} />
+              <QuickAction icon="Truck" label={t("driver.home.actionService")} onPress={() => router.push("/(driver)/health")} />
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(240).springify()} style={{ flex: 1 }}>
               {/* No component param — this is the store entrance, not a brake
                   alert, and pinning it to "brake" showed pads to a driver whose
                   brakes are fine. */}
-              <QuickAction icon="Package" label="Order parts" onPress={() => router.push("/(driver)/order-parts")} />
+              <QuickAction icon="Package" label={t("driver.home.actionOrderParts")} onPress={() => router.push("/(driver)/order-parts")} />
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(300).springify()} style={{ flex: 1 }}>
               <QuickAction
                 icon="ShieldCheck"
-                label="Insurance"
+                label={t("driver.home.actionInsurance")}
                 badge={hasNoVehicles || incompleteUpload != null || missingInsuranceDetails || insuranceExpiringSoon}
                 onPress={() => {
                   void (async () => {
@@ -560,13 +577,13 @@ export default function DriverHomeScreen() {
               }}
             >
               <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>
-                {user ? "Switch Vehicle" : "Your Vehicles"}
+                {user ? t("driver.home.pickerTitleSwitch") : t("driver.home.pickerTitleList")}
               </Text>
               <Pressable
                 onPress={() => setShowVehiclePicker(false)}
                 hitSlop={12}
                 accessibilityRole="button"
-                accessibilityLabel="Close"
+                accessibilityLabel={t("driver.home.close")}
                 style={{
                   width: 32,
                   height: 32,
@@ -591,7 +608,7 @@ export default function DriverHomeScreen() {
               {!user ? (
                 <View style={{ gap: spacing.md, paddingVertical: spacing.md }}>
                   <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
-                    Sign in to manage multiple vehicles and sync your health data.
+                    {t("driver.home.signedOutBody")}
                   </Text>
                   <Pressable
                     onPress={() => { setShowVehiclePicker(false); router.push("/(driver)/auth"); }}
@@ -603,7 +620,7 @@ export default function DriverHomeScreen() {
                     })}
                   >
                     <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-                      Sign In / Register
+                      {t("driver.home.signInRegister")}
                     </Text>
                   </Pressable>
                 </View>
@@ -670,7 +687,7 @@ export default function DriverHomeScreen() {
                   >
                     <Icon name="Settings" size={16} color={palette.textOnBrand} />
                     <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-                      Manage Vehicles
+                      {t("driver.home.manageVehicles")}
                     </Text>
                   </Pressable>
                 </View>
@@ -717,7 +734,7 @@ export default function DriverHomeScreen() {
 
             <View style={{ gap: spacing.sm, alignItems: "center" }}>
               <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
-                Switch Vehicle
+                {t("driver.home.switchTitle")}
               </Text>
               <Text
                 style={{
@@ -728,7 +745,12 @@ export default function DriverHomeScreen() {
                 }}
               >
                 {pendingVehicle
-                  ? `Switch to ${pendingVehicle.nickname || `${pendingVehicle.make} ${pendingVehicle.model}`} (${pendingVehicle.plateNumber})?`
+                  ? t("driver.home.switchBody", {
+                      vehicle:
+                        pendingVehicle.nickname ||
+                        `${pendingVehicle.make} ${pendingVehicle.model}`,
+                      plate: pendingVehicle.plateNumber,
+                    })
                   : ""}
               </Text>
               {/* The recorder keeps the vehicle it started with, so say so
@@ -741,8 +763,9 @@ export default function DriverHomeScreen() {
                     textAlign: "center",
                   }}
                 >
-                  The trip in progress stays recorded against{" "}
-                  {selectedVehicle?.plateNumber ?? "the current vehicle"}.
+                  {t("driver.home.switchTripNote", {
+                    plate: selectedVehicle?.plateNumber ?? t("driver.home.currentVehicle"),
+                  })}
                 </Text>
               ) : null}
             </View>
@@ -760,7 +783,7 @@ export default function DriverHomeScreen() {
                   backgroundColor: pressed ? palette.homeBackground : "transparent",
                 })}
               >
-                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Cancel</Text>
+                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>{t("driver.home.cancel")}</Text>
               </Pressable>
 
               <Pressable
@@ -780,7 +803,7 @@ export default function DriverHomeScreen() {
                   backgroundColor: pressed ? palette.brandPressed : palette.brand,
                 })}
               >
-                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Switch</Text>
+                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>{t("driver.home.switch")}</Text>
               </Pressable>
             </View>
           </View>
@@ -826,7 +849,7 @@ export default function DriverHomeScreen() {
 
             <View style={{ gap: spacing.sm, alignItems: "center" }}>
               <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
-                Insurance needs renewal
+                {t("driver.home.renewalTitle")}
               </Text>
               <Text
                 style={{
@@ -837,8 +860,10 @@ export default function DriverHomeScreen() {
                 }}
               >
                 {vehicleInsurance?.insuranceExpireMonth
-                  ? `Your policy expires ${vehicleInsurance.insuranceExpireMonth}. Renew it soon to stay covered.`
-                  : "Your policy is expiring soon. Renew it to stay covered."}
+                  ? t("driver.home.renewalBodyDated", {
+                      month: vehicleInsurance.insuranceExpireMonth,
+                    })
+                  : t("driver.home.renewalBody")}
               </Text>
             </View>
 
@@ -855,7 +880,7 @@ export default function DriverHomeScreen() {
                 alignItems: "center",
               })}
             >
-              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Got it</Text>
+              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>{t("driver.home.gotIt")}</Text>
             </Pressable>
           </View>
         </View>
@@ -900,7 +925,7 @@ export default function DriverHomeScreen() {
 
             <View style={{ gap: spacing.sm, alignItems: "center" }}>
               <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
-                Add a vehicle first
+                {t("driver.home.noVehicleTitle")}
               </Text>
               <Text
                 style={{
@@ -910,7 +935,7 @@ export default function DriverHomeScreen() {
                   lineHeight: 22,
                 }}
               >
-                You need at least one vehicle on file before you can use Insurance features.
+                {t("driver.home.noVehicleBody")}
               </Text>
             </View>
 
@@ -927,7 +952,7 @@ export default function DriverHomeScreen() {
                 alignItems: "center",
               })}
             >
-              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Add Vehicle</Text>
+              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>{t("driver.home.addVehicle")}</Text>
             </Pressable>
           </View>
         </View>
@@ -981,8 +1006,10 @@ export default function DriverHomeScreen() {
             <View style={{ gap: spacing.sm, alignItems: "center" }}>
               <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
                 {pairResult
-                  ? isRealPairResult ? "Connected!" : "No Adapter Found"
-                  : "Connect OBD-II"}
+                  ? isRealPairResult
+                    ? t("driver.home.obdConnectedTitle")
+                    : t("driver.home.obdNotFoundTitle")
+                  : t("driver.home.obdConnectTitle")}
               </Text>
               <Text
                 style={{
@@ -994,11 +1021,17 @@ export default function DriverHomeScreen() {
               >
                 {pairResult
                   ? isRealPairResult
-                    ? `Connected to ${pairResult.deviceName || "your ELM327 adapter"} (${pairResult.source === "ble" ? "BLE" : "classic Bluetooth"}). Trips will use live sensor data from your car.`
-                    : "No OBD-II adapter was reachable. Check that the adapter is plugged in, Bluetooth is on, and the adapter is paired in your phone's Bluetooth settings — then try again."
+                    ? t("driver.home.obdConnectedBody", {
+                        device: pairResult.deviceName || t("driver.home.obdDeviceFallback"),
+                        transport:
+                          pairResult.source === "ble"
+                            ? t("driver.home.obdTransportBle")
+                            : t("driver.home.obdTransportClassic"),
+                      })
+                    : t("driver.home.obdNotFoundBody")
                   : pairingObd
-                  ? "Scanning for your OBD-II adapter over Bluetooth…"
-                  : "Pair an OBD-II adapter to let the app read live data from your vehicle and track its real health."}
+                  ? t("driver.home.obdScanning")
+                  : t("driver.home.obdConnectBody")}
               </Text>
               {/* In Expo Go / web the native Bluetooth module isn't loaded at
                   all, so pairing cannot succeed here by any route. Said plainly
@@ -1008,7 +1041,7 @@ export default function DriverHomeScreen() {
                 <Text
                   style={{ ...typography.micro, color: palette.textMuted, textAlign: "center" }}
                 >
-                  Bluetooth needs a dev build — pairing is unavailable in Expo Go and on web.
+                  {t("driver.home.obdDevBuildNote")}
                 </Text>
               )}
             </View>
@@ -1032,7 +1065,7 @@ export default function DriverHomeScreen() {
                 })}
               >
                 <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-                  {isRealPairResult ? "Continue" : "Try Again"}
+                  {isRealPairResult ? t("driver.home.obdContinue") : t("driver.home.obdTryAgain")}
                 </Text>
               </Pressable>
             ) : (
@@ -1055,7 +1088,7 @@ export default function DriverHomeScreen() {
                     opacity: pairingObd ? 0.5 : 1,
                   })}
                 >
-                  <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Skip</Text>
+                  <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>{t("driver.home.obdSkip")}</Text>
                 </Pressable>
 
                 <Pressable
@@ -1075,7 +1108,7 @@ export default function DriverHomeScreen() {
                 >
                   {pairingObd && <ActivityIndicator size="small" color={palette.textOnBrand} />}
                   <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-                    {pairingObd ? "Connecting…" : "Pair OBD-II"}
+                    {pairingObd ? t("driver.home.obdConnecting") : t("driver.home.obdPair")}
                   </Text>
                 </Pressable>
               </View>
@@ -1111,6 +1144,7 @@ function HealthAlertPill({ text, danger = true }: { text: string; danger?: boole
 }
 
 function TripCard({ onNeedsObd }: { onNeedsObd: () => void }) {
+  const t = useT();
   const [tripActive, setTripActive] = useState(isTripActive());
 
   // The recorder is module state: a home instance further down the stack keeps
@@ -1179,14 +1213,14 @@ function TripCard({ onNeedsObd }: { onNeedsObd: () => void }) {
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-          {tripActive ? "Trip in progress" : "Track Trip"}
+          {tripActive ? t("driver.home.tripActiveTitle") : t("driver.home.tripIdleTitle")}
         </Text>
         <Text style={{ ...typography.caption, color: palette.textMuted }}>
           {tripActive
-            ? "Recording from your OBD-II adapter — tap to view"
+            ? t("driver.home.tripActiveBody")
             : isElm327Paired()
-              ? "Starts by itself when you start the engine"
-              : "Connect your OBD-II adapter to track trips"}
+              ? t("driver.home.tripPairedBody")
+              : t("driver.home.tripUnpairedBody")}
         </Text>
       </View>
       <Icon name="ChevronRight" size={18} color={palette.textMuted} />

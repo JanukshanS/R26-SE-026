@@ -23,6 +23,7 @@ import {
   isPendingGoogleProviderFlow,
   markPendingGoogleProviderFlow,
 } from "@lib/pending-google-provider-flow";
+import { useT } from "@lib/i18n";
 
 /**
  * Provider onboarding — a self-serve registration that creates a REAL,
@@ -34,6 +35,7 @@ import {
  * carries a providerId, they're routed straight to the dashboard.
  */
 export default function ProviderOnboardingScreen() {
+  const t = useT();
   const { register, login, updateMe, loginWithGoogle, refreshUser, user } = useVehicle();
 
   const [mode, setMode] = useState<"register" | "login">("register");
@@ -62,7 +64,7 @@ export default function ProviderOnboardingScreen() {
   async function completeGoogleSignIn() {
     const me = await getMyUser();
     if (!me) {
-      setError("Signed in, but your profile could not be loaded. Please try again.");
+      setError(t("provider.onboarding.googleProfileFailed"));
       return;
     }
     if (me.providerId) {
@@ -85,7 +87,7 @@ export default function ProviderOnboardingScreen() {
     clearPendingGoogleProviderFlow();
     setSubmitting(true);
     completeGoogleSignIn()
-      .catch((err) => setError((err as Error).message ?? "Google sign-in failed."))
+      .catch((err) => setError((err as Error).message ?? t("provider.onboarding.googleFailed")))
       .finally(() => setSubmitting(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -109,7 +111,7 @@ export default function ProviderOnboardingScreen() {
       await completeGoogleSignIn();
       clearPendingGoogleProviderFlow();
     } catch (err) {
-      setError((err as Error).message ?? "Google sign-in failed.");
+      setError((err as Error).message ?? t("provider.onboarding.googleFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -121,11 +123,11 @@ export default function ProviderOnboardingScreen() {
     // With a Google account the password fields are gone - the account already
     // exists, and only the provider profile is still missing.
     if (!googleAccount && (!email.trim() || !password)) {
-      setError("Email and password are required.");
+      setError(t("provider.onboarding.credentialsRequired"));
       return;
     }
     if (mode === "register" && !name.trim()) {
-      setError("Your name (or business name) is required.");
+      setError(t("provider.onboarding.nameRequired"));
       return;
     }
 
@@ -134,9 +136,7 @@ export default function ProviderOnboardingScreen() {
       if (mode === "login") {
         const user = await login(email.trim(), password);
         if (!user.providerId) {
-          setError(
-            "This account isn't set up as a provider yet. Switch to Register to create your provider profile."
-          );
+          setError(t("provider.onboarding.notAProvider"));
           return;
         }
         router.replace("/(provider)/available");
@@ -161,7 +161,7 @@ export default function ProviderOnboardingScreen() {
       await updateMe({ providerId: created.id });
       router.replace("/(provider)/available");
     } catch (err) {
-      setError((err as Error).message ?? "Something went wrong. Please try again.");
+      setError((err as Error).message ?? t("provider.onboarding.genericError"));
     } finally {
       setSubmitting(false);
     }
@@ -174,10 +174,10 @@ export default function ProviderOnboardingScreen() {
           <Button
             title={
               submitting
-                ? "Please wait…"
+                ? t("provider.onboarding.submitting")
                 : mode === "register"
-                  ? "Create provider account"
-                  : "Sign in"
+                  ? t("provider.onboarding.createAccount")
+                  : t("provider.onboarding.signIn")
             }
             disabled={submitting}
             onPress={handleSubmit}
@@ -195,10 +195,12 @@ export default function ProviderOnboardingScreen() {
             >
               <Text style={{ ...typography.body, color: palette.textMuted }}>
                 {mode === "register"
-                  ? "Already a provider? "
-                  : "New here? "}
+                  ? t("provider.onboarding.haveAccount")
+                  : t("provider.onboarding.noAccount")}
                 <Text style={{ color: palette.brand, fontWeight: "700" }}>
-                  {mode === "register" ? "Sign In" : "Register"}
+                  {mode === "register"
+                    ? t("provider.onboarding.signInLink")
+                    : t("provider.onboarding.registerLink")}
                 </Text>
               </Text>
             </Pressable>
@@ -206,16 +208,18 @@ export default function ProviderOnboardingScreen() {
         </>
       }
     >
-      <HeaderBar />
+      <HeaderBar showLanguage showHome={false} />
 
       <View style={{ gap: spacing.xs }}>
         <Text style={{ ...typography.h1, color: palette.text }}>
-          {mode === "register" ? "Become a provider" : "Provider sign in"}
+          {mode === "register"
+            ? t("provider.onboarding.titleRegister")
+            : t("provider.onboarding.titleLogin")}
         </Text>
         <Text style={{ ...typography.body, color: palette.textMuted }}>
           {mode === "register"
-            ? "Register to receive roadside jobs near you. We use your current location to place you on the map."
-            : "Sign in to your provider account to go online and receive jobs."}
+            ? t("provider.onboarding.bodyRegister")
+            : t("provider.onboarding.bodyLogin")}
         </Text>
       </View>
 
@@ -243,13 +247,15 @@ export default function ProviderOnboardingScreen() {
           >
             <Icon name="LogIn" size={18} color={palette.text} />
             <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-              Continue with Google
+              {t("provider.onboarding.google")}
             </Text>
           </Pressable>
 
           <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
             <View style={{ flex: 1, height: 1, backgroundColor: palette.border }} />
-            <Text style={{ ...typography.caption, color: palette.textMuted }}>or</Text>
+            <Text style={{ ...typography.caption, color: palette.textMuted }}>
+              {t("provider.onboarding.or")}
+            </Text>
             <View style={{ flex: 1, height: 1, backgroundColor: palette.border }} />
           </View>
         </>
@@ -268,17 +274,17 @@ export default function ProviderOnboardingScreen() {
         >
           <Icon name="CircleCheck" size={18} color={palette.success} />
           <Text style={{ ...typography.caption, color: palette.text, flex: 1 }}>
-            Signed in as {googleAccount.email}. Just your service details left.
+            {t("provider.onboarding.googleSignedIn", { email: googleAccount.email })}
           </Text>
         </View>
       )}
 
       {(mode === "register" || googleAccount) && (
         <TextField
-          label="Name / Business name"
+          label={t("provider.field.nameLabel")}
           value={name}
           onChangeText={setName}
-          placeholder="Colombo Mobile Mechanic"
+          placeholder={t("provider.onboarding.namePlaceholder")}
           autoCapitalize="words"
         />
       )}
@@ -286,7 +292,7 @@ export default function ProviderOnboardingScreen() {
       {!googleAccount && (
         <>
           <TextField
-            label="Email Address"
+            label={t("provider.onboarding.emailLabel")}
             value={email}
             onChangeText={setEmail}
             placeholder="you@example.com"
@@ -296,10 +302,10 @@ export default function ProviderOnboardingScreen() {
           />
 
           <TextField
-            label="Password"
+            label={t("provider.onboarding.passwordLabel")}
             value={password}
             onChangeText={setPassword}
-            placeholder="At least 8 characters"
+            placeholder={t("provider.onboarding.passwordPlaceholder")}
             secureTextEntry
           />
         </>
@@ -309,7 +315,7 @@ export default function ProviderOnboardingScreen() {
         <>
           <View style={{ gap: spacing.sm }}>
             <Text style={{ color: palette.text, ...typography.body, fontWeight: "500" }}>
-              Service type
+              {t("provider.onboarding.serviceTypeLabel")}
             </Text>
             <View style={{ gap: spacing.sm }}>
               {PROVIDER_TYPES.map((pt) => {
@@ -341,7 +347,7 @@ export default function ProviderOnboardingScreen() {
                         fontWeight: selected ? "700" : "400",
                       }}
                     >
-                      {providerTypeLabel(pt)}
+                      {providerTypeLabel(pt, t)}
                     </Text>
                     {selected ? (
                       <Icon name="Check" size={18} color={palette.brand} />
@@ -353,7 +359,7 @@ export default function ProviderOnboardingScreen() {
           </View>
 
           <TextField
-            label="Phone (optional)"
+            label={t("provider.onboarding.phoneLabel")}
             value={phone}
             onChangeText={setPhone}
             placeholder="+94 77 123 4567"
@@ -361,7 +367,7 @@ export default function ProviderOnboardingScreen() {
           />
 
           <TextField
-            label="Vehicle plate (optional)"
+            label={t("provider.onboarding.plateLabel")}
             value={vehiclePlate}
             onChangeText={setVehiclePlate}
             placeholder="WP CAB-1234"
@@ -371,8 +377,7 @@ export default function ProviderOnboardingScreen() {
           <Card variant="muted" style={{ flexDirection: "row", gap: spacing.sm }}>
             <Icon name="Info" size={18} color={palette.textMuted} />
             <Text style={{ ...typography.caption, color: palette.textMuted, flex: 1 }}>
-              Your capabilities are set automatically from your service type. You
-              can go online once your profile is created.
+              {t("provider.onboarding.capabilitiesNote")}
             </Text>
           </Card>
         </>
@@ -380,7 +385,11 @@ export default function ProviderOnboardingScreen() {
 
       {error ? (
         <ErrorState
-          title={mode === "register" ? "Could not create account" : "Sign in failed"}
+          title={
+            mode === "register"
+              ? t("provider.onboarding.registerFailedTitle")
+              : t("provider.onboarding.loginFailedTitle")
+          }
           message={error}
         />
       ) : null}

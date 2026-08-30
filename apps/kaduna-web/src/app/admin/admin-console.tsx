@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { useAuth, type Role } from "@/lib/auth";
 import { enumLabel, listProviders, type ProviderRecord } from "@/lib/dispatchApi";
+import { useT } from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
 import { CompaniesTab } from "@/components/insurer/admin/CompaniesTab";
 import { API_BASE } from "@/lib/insurer/api";
@@ -22,9 +23,21 @@ import { API_BASE } from "@/lib/insurer/api";
 const TAB_LABELS = ["Users", "Providers", "Parts", "Garages", "Insurers"] as const;
 type Tab = (typeof TAB_LABELS)[number];
 
-const TABS = TAB_LABELS.map((label) => ({ label, href: `#${label.toLowerCase()}` }));
+const TAB_KEYS: Record<Tab, string> = {
+  Users: "admin.tabs.users",
+  Providers: "admin.tabs.providers",
+  Parts: "admin.tabs.parts",
+  Garages: "admin.tabs.garages",
+  Insurers: "admin.tabs.insurers",
+};
 
 const ROLES: Role[] = ["driver", "provider", "ops"];
+
+const ROLE_KEYS: Record<Role, string> = {
+  driver: "admin.role.driver",
+  provider: "admin.role.provider",
+  ops: "admin.role.ops",
+};
 
 /** Ops-visible profile row. Email lives in auth.users, which no client can read. */
 type AdminProfile = {
@@ -44,9 +57,9 @@ const ROLE_TONE: Record<Role, string> = {
 
 /** Provider status wording matches the provider console. */
 const PROVIDER_STATUS: Record<string, [string, string]> = {
-  AVAILABLE: ["Available", "bg-emerald-100 text-emerald-900"],
-  BUSY: ["Busy", "bg-amber-100 text-amber-900"],
-  OFFLINE: ["Offline", "bg-muted text-muted-foreground"],
+  AVAILABLE: ["admin.providers.statusAvailable", "bg-emerald-100 text-emerald-900"],
+  BUSY: ["admin.providers.statusBusy", "bg-amber-100 text-amber-900"],
+  OFFLINE: ["admin.providers.statusOffline", "bg-muted text-muted-foreground"],
 };
 
 function Chip({ label, tone }: { label: string; tone: string }) {
@@ -64,6 +77,7 @@ function ErrorCard({
   message: string;
   onRetry: () => void;
 }) {
+  const t = useT();
   return (
     <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
       <p className="font-medium">{title}</p>
@@ -73,7 +87,7 @@ function ErrorCard({
         onClick={onRetry}
         className="mt-3 rounded border border-red-300 px-3 py-1 font-medium hover:bg-red-100"
       >
-        Try again
+        {t("admin.action.retry")}
       </button>
     </div>
   );
@@ -105,6 +119,7 @@ function UsersTab({
   onRoleChanged: (next: AdminProfile[]) => void;
 }) {
   const { profile: me } = useAuth();
+  const t = useT();
   const [query, setQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<Record<string, string>>({});
@@ -132,14 +147,16 @@ function UsersTab({
   }
 
   if (error) {
-    return <ErrorCard title="Couldn't load users" message={error} onRetry={reload} />;
+    return (
+      <ErrorCard title={t("admin.users.loadErrorTitle")} message={error} onRetry={reload} />
+    );
   }
   if (!profiles) return <TableSkeleton />;
   if (profiles.length === 0) {
     return (
       <EmptyCard
-        title="No users yet"
-        body="Every account that signs in — mobile or web — gets a profile row here. Nobody has signed up on this project yet."
+        title={t("admin.users.emptyTitle")}
+        body={t("admin.users.emptyBody")}
       />
     );
   }
@@ -158,31 +175,35 @@ function UsersTab({
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search name, phone or id"
+          placeholder={t("admin.users.searchPlaceholder")}
           className="w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
         <span className="text-sm text-muted-foreground">
-          {q ? `${shown.length} of ${profiles.length}` : `${profiles.length}`} user
-          {profiles.length === 1 ? "" : "s"}
+          {q
+            ? t("admin.users.countFiltered", {
+                count: profiles.length,
+                shown: shown.length,
+              })
+            : t("admin.users.count", { count: profiles.length })}
         </span>
       </div>
 
       {shown.length === 0 ? (
         <EmptyCard
-          title="No match"
-          body="No user matches that search. Try part of a name, a phone number, or the start of a user id."
+          title={t("admin.users.noMatchTitle")}
+          body={t("admin.users.noMatchBody")}
         />
       ) : (
         <div className="rounded-xl border border-border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Provider</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead>Change role</TableHead>
+                <TableHead>{t("admin.users.colName")}</TableHead>
+                <TableHead>{t("admin.users.colPhone")}</TableHead>
+                <TableHead>{t("admin.users.colRole")}</TableHead>
+                <TableHead>{t("admin.users.colProvider")}</TableHead>
+                <TableHead>{t("admin.users.colJoined")}</TableHead>
+                <TableHead>{t("admin.users.colChangeRole")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -196,7 +217,7 @@ function UsersTab({
                   </TableCell>
                   <TableCell>{p.phone || "—"}</TableCell>
                   <TableCell>
-                    <Chip label={enumLabel(p.role)} tone={ROLE_TONE[p.role]} />
+                    <Chip label={t(ROLE_KEYS[p.role])} tone={ROLE_TONE[p.role]} />
                   </TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     {p.provider_id ? shortId(p.provider_id) : "—"}
@@ -207,12 +228,12 @@ function UsersTab({
                   <TableCell>
                     <select
                       value={p.role}
-                      aria-label={`Role for ${p.name || shortId(p.id)}`}
+                      aria-label={t("admin.users.roleSelectA11y", {
+                        name: p.name || shortId(p.id),
+                      })}
                       disabled={busyId === p.id || p.id === me?.id}
                       title={
-                        p.id === me?.id
-                          ? "You can't change your own role — ask another operator."
-                          : undefined
+                        p.id === me?.id ? t("admin.users.ownRoleLocked") : undefined
                       }
                       onChange={(e) => {
                         const next = e.target.value as Role;
@@ -223,7 +244,7 @@ function UsersTab({
                     >
                       {ROLES.map((r) => (
                         <option key={r} value={r}>
-                          {enumLabel(r)}
+                          {t(ROLE_KEYS[r])}
                         </option>
                       ))}
                     </select>
@@ -231,8 +252,9 @@ function UsersTab({
                     {pendingOps === p.id && (
                       <div className="mt-2 w-64 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs whitespace-normal text-amber-900">
                         <p>
-                          Give {p.name || shortId(p.id)} operator access? They&apos;ll see every
-                          incident and be able to change roles, including yours.
+                          {t("admin.users.grantOpsPrompt", {
+                            name: p.name || shortId(p.id),
+                          })}
                         </p>
                         <div className="mt-2 flex gap-2">
                           <button
@@ -240,14 +262,14 @@ function UsersTab({
                             onClick={() => setRole(p, "ops")}
                             className="rounded bg-amber-900 px-2 py-1 font-medium text-amber-50"
                           >
-                            Grant operator
+                            {t("admin.users.grantOpsConfirm")}
                           </button>
                           <button
                             type="button"
                             onClick={() => setPendingOps(null)}
                             className="rounded border border-amber-300 px-2 py-1 font-medium"
                           >
-                            Cancel
+                            {t("admin.action.cancel")}
                           </button>
                         </div>
                       </div>
@@ -278,15 +300,19 @@ function ProvidersTab({
   reload: () => void;
   profiles: AdminProfile[] | null;
 }) {
+  const t = useT();
+
   if (error) {
-    return <ErrorCard title="Couldn't load providers" message={error} onRetry={reload} />;
+    return (
+      <ErrorCard title={t("admin.providers.loadErrorTitle")} message={error} onRetry={reload} />
+    );
   }
   if (!providers) return <TableSkeleton rows={3} />;
   if (providers.length === 0) {
     return (
       <EmptyCard
-        title="No providers registered"
-        body="Providers register from the mobile app. Once one signs up, its availability, trust score and location show up here."
+        title={t("admin.providers.emptyTitle")}
+        body={t("admin.providers.emptyBody")}
       />
     );
   }
@@ -294,14 +320,15 @@ function ProvidersTab({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        {providers.length} provider{providers.length === 1 ? "" : "s"} · read-only
+        {t("admin.providers.count", { count: providers.length })}
       </p>
 
       {providers.map((p) => {
-        const [label, tone] = PROVIDER_STATUS[p.status] ?? [
-          enumLabel(p.status),
+        const [statusKey, tone] = PROVIDER_STATUS[p.status] ?? [
+          "",
           "bg-muted text-muted-foreground",
         ];
+        const label = statusKey ? t(statusKey) : enumLabel(p.status);
         const linked = (profiles ?? []).filter((u) => u.provider_id === p.id);
 
         return (
@@ -316,32 +343,43 @@ function ProvidersTab({
 
             <dl className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <dt className="text-xs uppercase tracking-wide text-muted-foreground">Type</dt>
+                <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {t("admin.providers.rowType")}
+                </dt>
                 <dd>{enumLabel(p.type)}</dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-wide text-muted-foreground">Trust</dt>
+                <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {t("admin.providers.rowTrust")}
+                </dt>
                 <dd>
                   {(p.trustScore * 100).toFixed(0)}%
                   {p.averageRating != null ? ` · ${p.averageRating.toFixed(1)}★` : ""}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-wide text-muted-foreground">Jobs</dt>
+                <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {t("admin.providers.rowJobs")}
+                </dt>
                 <dd>
-                  {p.successfulJobs}/{p.totalJobs} completed
+                  {t("admin.providers.jobsCompleted", {
+                    done: p.successfulJobs,
+                    total: p.totalJobs,
+                  })}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Location
+                  {t("admin.providers.rowLocation")}
                 </dt>
                 <dd>
                   {p.latitude.toFixed(4)}, {p.longitude.toFixed(4)}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-wide text-muted-foreground">Contact</dt>
+                <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {t("admin.providers.rowContact")}
+                </dt>
                 <dd>
                   {p.phone ? (
                     <a className="text-primary hover:underline" href={`tel:${p.phone}`}>
@@ -355,13 +393,16 @@ function ProvidersTab({
               </div>
               <div className="lg:col-span-3">
                 <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Linked account
+                  {t("admin.providers.rowLinkedAccount")}
                 </dt>
                 <dd>
                   {linked.length === 0
-                    ? "No profile points at this provider"
+                    ? t("admin.providers.noLinkedAccount")
                     : linked
-                        .map((u) => `${u.name || "Unnamed"} (${shortId(u.id)})`)
+                        .map(
+                          (u) =>
+                            `${u.name || t("admin.providers.unnamedAccount")} (${shortId(u.id)})`
+                        )
                         .join(", ")}
                 </dd>
               </div>
@@ -397,10 +438,16 @@ type InsurerUser = {
 
 type InsurerCompany = { id: string; name: string };
 
-const INSURER_ROLE_LABEL: Record<string, string> = {
-  admin: "Ops",
-  agent: "Agent",
-  staff: "Assessor",
+const INSURER_ROLE_KEYS: Record<string, string> = {
+  admin: "admin.insurerRole.admin",
+  agent: "admin.insurerRole.agent",
+  staff: "admin.insurerRole.staff",
+};
+
+const INSURER_USER_FIELD_KEYS: Record<string, string> = {
+  name: "admin.insurerUsers.fieldName",
+  email: "admin.insurerUsers.fieldEmail",
+  password: "admin.insurerUsers.fieldPassword",
 };
 
 const INSURER_ROLE_TONE: Record<string, string> = {
@@ -418,6 +465,7 @@ async function insurerHeaders(): Promise<Record<string, string>> {
 }
 
 function InsurerUsersSection() {
+  const t = useT();
   const [users, setUsers] = useState<InsurerUser[] | null>(null);
   const [companies, setCompanies] = useState<InsurerCompany[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -440,9 +488,9 @@ function InsurerUsersSection() {
       setUsers(await uRes.json());
       if (cRes.ok) setCompanies(await cRes.json());
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "Failed to load insurer users");
+      setLoadError(e instanceof Error ? e.message : t("admin.insurerUsers.loadErrorFallback"));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -464,13 +512,15 @@ function InsurerUsersSection() {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error((err as { detail?: string }).detail ?? "Failed to create user");
+        throw new Error(
+          (err as { detail?: string }).detail ?? t("admin.insurerUsers.createErrorFallback")
+        );
       }
       await load();
       setShowModal(false);
       setForm({ email: "", name: "", password: "", role: "staff", company_id: "" });
     } catch (e) {
-      setFormError(e instanceof Error ? e.message : "Error");
+      setFormError(e instanceof Error ? e.message : t("admin.insurerUsers.genericError"));
     } finally {
       setSaving(false);
     }
@@ -480,35 +530,35 @@ function InsurerUsersSection() {
     <div className="mt-10 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-display text-base font-semibold tracking-tight">Insurer Portal Users</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Agents and assessors who access the insurer dashboard</p>
+          <h2 className="font-display text-base font-semibold tracking-tight">{t("admin.insurerUsers.heading")}</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">{t("admin.insurerUsers.subheading")}</p>
         </div>
         <button
           type="button"
           onClick={() => setShowModal(true)}
           className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
         >
-          + Add User
+          {t("admin.insurerUsers.add")}
         </button>
       </div>
 
       {loadError ? (
-        <ErrorCard title="Couldn't load insurer users" message={loadError} onRetry={() => void load()} />
+        <ErrorCard title={t("admin.insurerUsers.loadErrorTitle")} message={loadError} onRetry={() => void load()} />
       ) : !users ? (
         <TableSkeleton />
       ) : users.length === 0 ? (
-        <EmptyCard title="No insurer users yet" body="Add agents and assessors who will handle claims in the insurer dashboard." />
+        <EmptyCard title={t("admin.insurerUsers.emptyTitle")} body={t("admin.insurerUsers.emptyBody")} />
       ) : (
         <div className="rounded-xl border border-border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>{t("admin.insurerUsers.colName")}</TableHead>
+                <TableHead>{t("admin.insurerUsers.colEmail")}</TableHead>
+                <TableHead>{t("admin.insurerUsers.colRole")}</TableHead>
+                <TableHead>{t("admin.insurerUsers.colCompany")}</TableHead>
+                <TableHead>{t("admin.insurerUsers.colStatus")}</TableHead>
+                <TableHead>{t("admin.insurerUsers.colActions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -518,14 +568,16 @@ function InsurerUsersSection() {
                   <TableCell className="text-muted-foreground">{u.email}</TableCell>
                   <TableCell>
                     <Chip
-                      label={INSURER_ROLE_LABEL[u.role] ?? u.role}
+                      label={INSURER_ROLE_KEYS[u.role] ? t(INSURER_ROLE_KEYS[u.role]) : u.role}
                       tone={INSURER_ROLE_TONE[u.role] ?? "bg-muted text-muted-foreground"}
                     />
                   </TableCell>
                   <TableCell className="text-muted-foreground">{u.company_name ?? "—"}</TableCell>
                   <TableCell>
                     <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${u.is_active ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"}`}>
-                      {u.is_active ? "Active" : "Inactive"}
+                      {u.is_active
+                        ? t("admin.insurerUsers.statusActive")
+                        : t("admin.insurerUsers.statusInactive")}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -534,7 +586,9 @@ function InsurerUsersSection() {
                       onClick={() => void handleToggle(u.id)}
                       className="rounded-md border border-input px-3 py-1 text-xs font-medium hover:bg-accent transition-colors"
                     >
-                      {u.is_active ? "Deactivate" : "Activate"}
+                      {u.is_active
+                        ? t("admin.insurerUsers.deactivate")
+                        : t("admin.insurerUsers.activate")}
                     </button>
                   </TableCell>
                 </TableRow>
@@ -548,13 +602,13 @@ function InsurerUsersSection() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowModal(false)}>
           <div className="w-[min(480px,94vw)] rounded-xl border border-border bg-card shadow-lg flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h3 className="text-sm font-semibold">Add Insurer Portal User</h3>
+              <h3 className="text-sm font-semibold">{t("admin.insurerUsers.modalTitle")}</h3>
               <button type="button" onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-foreground text-xl leading-none">×</button>
             </div>
             <div className="px-5 py-4 flex flex-col gap-4">
               {(["name", "email", "password"] as const).map((field) => (
                 <div key={field} className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-muted-foreground capitalize">{field === "name" ? "Full Name" : field.charAt(0).toUpperCase() + field.slice(1)}</label>
+                  <label className="text-xs font-medium text-muted-foreground capitalize">{t(INSURER_USER_FIELD_KEYS[field])}</label>
                   <input
                     type={field === "password" ? "password" : field === "email" ? "email" : "text"}
                     value={form[field]}
@@ -565,26 +619,26 @@ function InsurerUsersSection() {
                 </div>
               ))}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Role</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("admin.insurerUsers.fieldRole")}</label>
                 <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
                   {INSURER_ROLES.map((r) => (
-                    <option key={r} value={r}>{INSURER_ROLE_LABEL[r]}</option>
+                    <option key={r} value={r}>{t(INSURER_ROLE_KEYS[r])}</option>
                   ))}
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Company</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("admin.insurerUsers.fieldCompany")}</label>
                 <select value={form.company_id} onChange={(e) => setForm({ ...form, company_id: e.target.value })} className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  <option value="">— None —</option>
+                  <option value="">{t("admin.insurerUsers.companyNone")}</option>
                   {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               {formError && <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{formError}</p>}
             </div>
             <div className="flex justify-end gap-2 px-5 py-4 border-t border-border">
-              <button type="button" onClick={() => setShowModal(false)} className="rounded-md border border-input px-4 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent transition-colors">Cancel</button>
+              <button type="button" onClick={() => setShowModal(false)} className="rounded-md border border-input px-4 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent transition-colors">{t("admin.action.cancel")}</button>
               <button type="button" onClick={() => void handleSave()} disabled={saving || !form.email || !form.name || !form.password} className="rounded-md px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed">
-                {saving ? "Saving…" : "Create User"}
+                {saving ? t("admin.action.saving") : t("admin.insurerUsers.create")}
               </button>
             </div>
           </div>
@@ -597,7 +651,13 @@ function InsurerUsersSection() {
 const USER_SUB_TABS = ["App Users", "Insurer Portal Users"] as const;
 type UserSubTab = (typeof USER_SUB_TABS)[number];
 
+const USER_SUB_TAB_KEYS: Record<UserSubTab, string> = {
+  "App Users": "admin.subTabs.appUsers",
+  "Insurer Portal Users": "admin.subTabs.insurerUsers",
+};
+
 export default function AdminConsole() {
+  const t = useT();
   const [tab, setTab] = useState<Tab>("Users");
   const [userSubTab, setUserSubTab] = useState<UserSubTab>("App Users");
 
@@ -605,7 +665,7 @@ export default function AdminConsole() {
   useEffect(() => {
     const sync = () => {
       const want = window.location.hash.replace("#", "").toLowerCase();
-      setTab(TAB_LABELS.find((t) => t.toLowerCase() === want) ?? "Users");
+      setTab(TAB_LABELS.find((label) => label.toLowerCase() === want) ?? "Users");
     };
     sync();
     window.addEventListener("hashchange", sync);
@@ -642,23 +702,28 @@ export default function AdminConsole() {
   useEffect(loadProfiles, [loadProfiles]);
   useEffect(loadProviders, [loadProviders]);
 
+  const tabs = TAB_LABELS.map((label) => ({
+    label: t(TAB_KEYS[label]),
+    href: `#${label.toLowerCase()}`,
+  }));
+
   return (
-    <PortalShell title="Administration" tabs={TABS} active={tab}>
+    <PortalShell title={t("admin.title")} tabs={tabs} active={t(TAB_KEYS[tab])}>
       {tab === "Users" ? (
         <>
           <nav className="flex gap-1 border-b border-border mb-6">
-            {USER_SUB_TABS.map((t) => (
+            {USER_SUB_TABS.map((sub) => (
               <button
-                key={t}
+                key={sub}
                 type="button"
-                onClick={() => setUserSubTab(t)}
+                onClick={() => setUserSubTab(sub)}
                 className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm transition-colors ${
-                  userSubTab === t
+                  userSubTab === sub
                     ? "border-primary font-medium text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {t}
+                {t(USER_SUB_TAB_KEYS[sub])}
               </button>
             ))}
           </nav>

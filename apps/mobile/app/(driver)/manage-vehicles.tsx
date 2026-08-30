@@ -30,6 +30,7 @@ import {
   type VehicleCondition,
 } from "@lib/maintenanceApi";
 import { normalizePlate, plateError } from "@lib/plate-number";
+import { useT } from "@lib/i18n";
 import { haptics } from "@lib/haptics";
 import {
   formatExpireMonth,
@@ -49,21 +50,21 @@ const FUEL_TYPES = ["petrol", "diesel", "hybrid", "electric"] as const;
  * and engine oil is tracked separately on its own interval.
  */
 const BASELINE_STEPS = [
-  { key: "tire" as ComponentKey, label: "Tyres", icon: "CircleDot" as const },
-  { key: "brake" as ComponentKey, label: "Brakes", icon: "Disc" as const },
-  { key: "battery" as ComponentKey, label: "Battery", icon: "BatteryCharging" as const },
+  { key: "tire" as ComponentKey, labelKey: "driver.vehicles.stepTire", labelLowerKey: "driver.vehicles.stepTireLower", icon: "CircleDot" as const },
+  { key: "brake" as ComponentKey, labelKey: "driver.vehicles.stepBrake", labelLowerKey: "driver.vehicles.stepBrakeLower", icon: "Disc" as const },
+  { key: "battery" as ComponentKey, labelKey: "driver.vehicles.stepBattery", labelLowerKey: "driver.vehicles.stepBatteryLower", icon: "BatteryCharging" as const },
 ];
 
 const CONDITION_OPTIONS = [
   {
     value: "new" as VehicleCondition,
-    title: "Brand new",
-    blurb: "Bought new. Every part starts from zero.",
+    titleKey: "driver.vehicles.conditionNewTitle",
+    blurbKey: "driver.vehicles.conditionNewBlurb",
   },
   {
     value: "used" as VehicleCondition,
-    title: "Used",
-    blurb: "Already has kilometres on it. We will ask about each part next.",
+    titleKey: "driver.vehicles.conditionUsedTitle",
+    blurbKey: "driver.vehicles.conditionUsedBlurb",
   },
 ];
 
@@ -86,6 +87,7 @@ const EMPTY_FORM: Partial<VehicleInput> = {
 
 export default function ManageVehiclesScreen() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { user, vehicles, vehiclesLoading, vehicleError, refreshVehicles, selectedVehicle, selectVehicle, addVehicle, editVehicle, removeVehicle, setDefault, updateMe } = useVehicle();
   // "addVehicle" param renamed on destructure — the context already exposes an
   // `addVehicle` function above, and the two would otherwise collide.
@@ -161,11 +163,11 @@ export default function ManageVehiclesScreen() {
       await openEdit(target);
       const insurance = await getVehicleInsurance(target._id).catch(() => null);
       const missing: string[] = [];
-      if (!insurance?.insuranceProvider) missing.push("Your insurance provider");
-      if (!insurance?.insurancePolicyNumber) missing.push("Your insurance policy number");
-      if (!insurance?.insuranceExpireMonth) missing.push("Your insurance expiry date");
-      if (!user?.licenceNumber) missing.push("Your Driving Licence Number");
-      if (!user?.nicNumber) missing.push("NIC Number");
+      if (!insurance?.insuranceProvider) missing.push("driver.vehicles.missingProvider");
+      if (!insurance?.insurancePolicyNumber) missing.push("driver.vehicles.missingPolicyNumber");
+      if (!insurance?.insuranceExpireMonth) missing.push("driver.vehicles.missingExpiry");
+      if (!user?.licenceNumber) missing.push("driver.vehicles.missingLicence");
+      if (!user?.nicNumber) missing.push("driver.vehicles.missingNic");
       if (missing.length > 0) {
         setMissingLabels(missing);
         setReminderVisible(true);
@@ -248,7 +250,7 @@ export default function ManageVehiclesScreen() {
   function handleNext() {
     if (step === STEP_DETAILS) {
       if (!form.make || !form.model || !form.plateNumber) {
-        setError("Make, model and plate number are required.");
+        setError(t("driver.vehicles.errorRequiredFields"));
         return;
       }
       setError("");
@@ -258,33 +260,33 @@ export default function ManageVehiclesScreen() {
 
   function handleSave() {
     if (!form.make || !form.model || !form.plateNumber) {
-      setError("Make, model and plate number are required.");
+      setError(t("driver.vehicles.errorRequiredFields"));
       return;
     }
-    const plateProblem = plateError(form.plateNumber ?? "");
-    if (plateProblem) {
-      setError(plateProblem);
+    const plateProblemKey = plateError(form.plateNumber ?? "");
+    if (plateProblemKey) {
+      setError(t(plateProblemKey));
       return;
     }
     // Policy Number/Expiry Month are disabled in the form until a provider is picked, so
     // this shouldn't be reachable in practice — kept as a safety net regardless.
     if (!insuranceProvider && (insurancePolicyNumber.trim() || insuranceExpireMonth.trim())) {
-      setError("Select an insurance provider before adding a policy number or expiry date.");
+      setError(t("driver.vehicles.errorProviderFirst"));
       return;
     }
     // Licence/NIC/Policy Number stay optional — only enforce the format once something's
     // actually been typed, same convention as the Add your Insurer onboarding screen.
     const nextLicenceError =
       licenceNumber.trim() && !isValidLicenceNumber(licenceNumber.trim())
-        ? "Must be 1 letter followed by 7 digits (e.g. B4818153)."
+        ? t("driver.vehicles.errorLicenceFormat")
         : "";
     const nextNicError =
       nicNumber.trim() && !isValidNicNumber(nicNumber.trim())
-        ? "Must be 12 digits, or 9 digits followed by V (e.g. 200221458V)."
+        ? t("driver.vehicles.errorNicFormat")
         : "";
     const nextExpireMonthError =
       insuranceExpireMonth.trim() && !isValidExpireMonth(insuranceExpireMonth.trim())
-        ? "Must be a valid future month in YY/MM format (e.g. 26/09)."
+        ? t("driver.vehicles.errorExpiryFormat")
         : "";
     setLicenceError(nextLicenceError);
     setNicError(nextNicError);
@@ -363,12 +365,12 @@ export default function ManageVehiclesScreen() {
       // violate here; licence/NIC belong to the profile write below.
       if (err instanceof VehicleApiError && err.code === "23505") {
         if (err.message.includes("policy_number")) {
-          setPolicyError("This Policy Number is already registered to another vehicle.");
+          setPolicyError(t("driver.vehicles.errorPolicyDuplicate"));
         } else {
-          setError("One of the details you entered is already registered elsewhere.");
+          setError(t("driver.vehicles.errorDuplicate"));
         }
       } else {
-        setError(err.message ?? "Failed to save vehicle. Check your connection and try again.");
+        setError(err.message ?? t("driver.vehicles.errorSaveFailed"));
       }
       setSaving(false);
       return;
@@ -384,12 +386,14 @@ export default function ManageVehiclesScreen() {
       const duplicate =
         err instanceof VehicleApiError && err.code === "23505"
           ? err.message.includes("nic_number")
-            ? "This NIC Number is already registered to another account."
-            : "This Driving Licence Number is already registered to another account."
+            ? t("driver.vehicles.errorNicDuplicate")
+            : t("driver.vehicles.errorLicenceDuplicate")
           : null;
       Alert.alert(
-        "Licence and NIC not saved",
-        `${duplicate ?? err.message ?? "The server didn't respond."}\n\nYour vehicle was saved. Tap Edit on it to enter them again.`
+        t("driver.vehicles.profileSaveFailedTitle"),
+        t("driver.vehicles.profileSaveFailedBody", {
+          message: duplicate ?? err.message ?? t("driver.vehicles.profileSaveFailedFallback"),
+        })
       );
     } finally {
       setSaving(false);
@@ -429,19 +433,19 @@ export default function ManageVehiclesScreen() {
             >
               <Icon name="Plus" size={16} color={palette.textOnBrand} />
               <Text style={{ ...typography.caption, color: palette.textOnBrand, fontWeight: "700" }}>
-                Add
+                {t("driver.vehicles.add")}
               </Text>
             </Pressable>
           }
         />
 
         <View style={{ gap: spacing.xs }}>
-          <Text style={{ ...typography.display, color: palette.text, fontSize: 28 }}>My Vehicles</Text>
+          <Text style={{ ...typography.display, color: palette.text, fontSize: 28 }}>{t("driver.vehicles.title")}</Text>
           {user && (
             <Text style={{ ...typography.body, color: palette.textMuted }}>
               {vehiclesLoading
                 ? user.name
-                : `${vehicles.length} vehicle${vehicles.length === 1 ? "" : "s"} registered`}
+                : t("driver.vehicles.registeredCount", { count: vehicles.length })}
             </Text>
           )}
         </View>
@@ -454,7 +458,7 @@ export default function ManageVehiclesScreen() {
           <View style={{ alignItems: "center", paddingTop: 60, gap: spacing.md }}>
             <Icon name="TriangleAlert" size={48} color={palette.danger} />
             <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
-              Couldn&apos;t load your vehicles. {vehicleError}
+              {t("driver.vehicles.loadFailed", { message: vehicleError })}
             </Text>
             <Pressable
               onPress={() => { void refreshVehicles(); }}
@@ -468,7 +472,7 @@ export default function ManageVehiclesScreen() {
               })}
             >
               <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "600" }}>
-                Try again
+                {t("driver.vehicles.retry")}
               </Text>
             </Pressable>
           </View>
@@ -476,7 +480,7 @@ export default function ManageVehiclesScreen() {
           <View style={{ alignItems: "center", paddingTop: 60, gap: spacing.md }}>
             <Icon name="Car" size={48} color={palette.border} />
             <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
-              No vehicles yet. Tap &quot;Add&quot; to register your first vehicle.
+              {t("driver.vehicles.emptyBody")}
             </Text>
           </View>
         ) : (
@@ -551,16 +555,16 @@ export default function ManageVehiclesScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={{ ...typography.h3, color: palette.text }}>
                   {editingVehicle
-                    ? "Edit Vehicle"
+                    ? t("driver.vehicles.formTitleEdit")
                     : step === STEP_DETAILS
-                      ? "Add Vehicle"
+                      ? t("driver.vehicles.formTitleAdd")
                       : step === STEP_CONDITION
-                        ? "Vehicle condition"
-                        : BASELINE_STEPS[step - STEP_FIRST_COMPONENT]?.label}
+                        ? t("driver.vehicles.formTitleCondition")
+                        : t(BASELINE_STEPS[step - STEP_FIRST_COMPONENT]?.labelKey ?? "")}
                 </Text>
                 {!editingVehicle && (
                   <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                    Step {step + 1} of {lastStep + 1}
+                    {t("driver.vehicles.stepCounter", { current: step + 1, total: lastStep + 1 })}
                   </Text>
                 )}
               </View>
@@ -568,7 +572,7 @@ export default function ManageVehiclesScreen() {
                 onPress={() => setShowForm(false)}
                 hitSlop={12}
                 accessibilityRole="button"
-                accessibilityLabel="Close"
+                accessibilityLabel={t("driver.vehicles.close")}
                 style={{
                   width: 32,
                   height: 32,
@@ -587,37 +591,37 @@ export default function ManageVehiclesScreen() {
                 {(editingVehicle || step === STEP_DETAILS) && (
                 <>
                 <Text style={{ ...typography.micro, color: palette.textMuted, fontWeight: "600" }}>
-                  VEHICLE DETAILS
+                  {t("driver.vehicles.sectionDetails")}
                 </Text>
                 <Row>
                   <View style={{ flex: 1 }}>
-                    <TextField label="Make *" value={form.make ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, make: v }))} placeholder="Toyota" />
+                    <TextField label={t("driver.vehicles.fieldMake")} value={form.make ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, make: v }))} placeholder="Toyota" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <TextField label="Model *" value={form.model ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, model: v }))} placeholder="Aqua" />
+                    <TextField label={t("driver.vehicles.fieldModel")} value={form.model ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, model: v }))} placeholder="Aqua" />
                   </View>
                 </Row>
                 <Row>
                   <View style={{ flex: 1 }}>
-                    <TextField label="Plate Number *" value={form.plateNumber ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, plateNumber: v.toUpperCase() }))} placeholder="CBD-3742" autoCapitalize="characters" />
+                    <TextField label={t("driver.vehicles.fieldPlate")} value={form.plateNumber ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, plateNumber: v.toUpperCase() }))} placeholder="CBD-3742" autoCapitalize="characters" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <TextField label="Year" value={form.year?.toString() ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, year: v ? parseInt(v) : undefined }))} placeholder="2022" keyboardType="numeric" />
+                    <TextField label={t("driver.vehicles.fieldYear")} value={form.year?.toString() ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, year: v ? parseInt(v) : undefined }))} placeholder="2022" keyboardType="numeric" />
                   </View>
                 </Row>
-                <TextField label="Nickname" value={form.nickname ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, nickname: v }))} placeholder="My Toyota (optional)" />
+                <TextField label={t("driver.vehicles.fieldNickname")} value={form.nickname ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, nickname: v }))} placeholder={t("driver.vehicles.fieldNicknamePlaceholder")} />
                 <Row>
                   <View style={{ flex: 1 }}>
-                    <TextField label="Color" value={form.color ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, color: v }))} placeholder="Silver" />
+                    <TextField label={t("driver.vehicles.fieldColor")} value={form.color ?? ""} onChangeText={(v) => setForm((f) => ({ ...f, color: v }))} placeholder={t("driver.vehicles.fieldColorPlaceholder")} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <TextField label="Mileage (km)" value={form.currentMileage?.toString() ?? "0"} onChangeText={(v) => setForm((f) => ({ ...f, currentMileage: parseInt(v) || 0 }))} keyboardType="numeric" placeholder="0" />
+                    <TextField label={t("driver.vehicles.fieldMileage")} value={form.currentMileage?.toString() ?? "0"} onChangeText={(v) => setForm((f) => ({ ...f, currentMileage: parseInt(v) || 0 }))} keyboardType="numeric" placeholder="0" />
                   </View>
                 </Row>
 
                 {/* Fuel type selector */}
                 <View style={{ gap: spacing.xs }}>
-                  <Text style={{ ...typography.body, color: palette.text, fontWeight: "500" }}>Fuel Type</Text>
+                  <Text style={{ ...typography.body, color: palette.text, fontWeight: "500" }}>{t("driver.vehicles.fieldFuelType")}</Text>
                   <View style={{ flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" }}>
                     {FUEL_TYPES.map((ft) => (
                       <Pressable
@@ -661,10 +665,10 @@ export default function ManageVehiclesScreen() {
                 {(editingVehicle || step === STEP_DETAILS) ? (
                   <>
                 <Text style={{ ...typography.micro, color: palette.textMuted, fontWeight: "600", marginTop: spacing.sm }}>
-                  INSURANCE
+                  {t("driver.vehicles.sectionInsurance")}
                 </Text>
                 <View style={{ gap: spacing.xs }}>
-                  <Text style={{ ...typography.body, color: palette.text, fontWeight: "500" }}>Insurance Provider</Text>
+                  <Text style={{ ...typography.body, color: palette.text, fontWeight: "500" }}>{t("driver.vehicles.fieldProvider")}</Text>
                   <Pressable
                     style={{
                       backgroundColor: palette.surface,
@@ -681,13 +685,13 @@ export default function ManageVehiclesScreen() {
                     onPress={() => setShowProviderPicker(true)}
                   >
                     <Text style={{ color: palette.text, ...typography.body }}>
-                      {insuranceProvider || "Select your insurance provider"}
+                      {insuranceProvider || t("driver.vehicles.providerPlaceholder")}
                     </Text>
                     <Icon name="ChevronDown" size={18} color={palette.textMuted} />
                   </Pressable>
                 </View>
                 <TextField
-                  label="Insurance Policy Number"
+                  label={t("driver.vehicles.fieldPolicyNumber")}
                   value={insurancePolicyNumber}
                   onChangeText={(t) => {
                     setInsurancePolicyNumber(t);
@@ -697,10 +701,10 @@ export default function ManageVehiclesScreen() {
                   autoCapitalize="characters"
                   editable={Boolean(insuranceProvider)}
                   error={policyError}
-                  helperText={insuranceProvider ? undefined : "Select an insurance provider first."}
+                  helperText={insuranceProvider ? undefined : t("driver.vehicles.providerFirstHint")}
                 />
                 <TextField
-                  label="Insurance Expiry Month"
+                  label={t("driver.vehicles.fieldExpiryMonth")}
                   value={insuranceExpireMonth}
                   onChangeText={(t) => {
                     setInsuranceExpireMonth(formatExpireMonth(t));
@@ -711,7 +715,7 @@ export default function ManageVehiclesScreen() {
                   maxLength={5}
                   editable={Boolean(insuranceProvider)}
                   error={expireMonthError}
-                  helperText={insuranceProvider ? undefined : "Select an insurance provider first."}
+                  helperText={insuranceProvider ? undefined : t("driver.vehicles.providerFirstHint")}
                 />
 
                 {/* Your details group — profile-level (one per driver), same
@@ -720,10 +724,10 @@ export default function ManageVehiclesScreen() {
                     onboarding. Same format/validation as the Add your Insurer
                     onboarding screen (lib/insurer-field-format.ts). */}
                 <Text style={{ ...typography.micro, color: palette.textMuted, fontWeight: "600", marginTop: spacing.sm }}>
-                  YOUR DETAILS
+                  {t("driver.vehicles.sectionYourDetails")}
                 </Text>
                 <TextField
-                  label="Your Driving Licence Number"
+                  label={t("driver.vehicles.fieldLicence")}
                   value={licenceNumber}
                   onChangeText={(t) => {
                     setLicenceNumber(formatLicenceNumber(t));
@@ -735,7 +739,7 @@ export default function ManageVehiclesScreen() {
                   error={licenceError}
                 />
                 <TextField
-                  label="NIC Number"
+                  label={t("driver.vehicles.fieldNic")}
                   value={nicNumber}
                   onChangeText={(t) => {
                     setNicNumber(formatNicNumber(t));
@@ -759,8 +763,7 @@ export default function ManageVehiclesScreen() {
                   >
                     <Icon name="Info" size={16} color={palette.textMuted} />
                     <Text style={{ ...typography.caption, color: palette.textMuted, flex: 1 }}>
-                      Insurance and licence details are added separately — save the
-                      vehicle first, then tap it to add them.
+                      {t("driver.vehicles.insuranceLaterNote")}
                     </Text>
                   </View>
                 )}
@@ -776,7 +779,7 @@ export default function ManageVehiclesScreen() {
                 {!editingVehicle && step === STEP_CONDITION && (
                   <View style={{ gap: spacing.md }}>
                     <Text style={{ ...typography.body, color: palette.text }}>
-                      Is this a brand-new vehicle, or has it been driven before?
+                      {t("driver.vehicles.conditionQuestion")}
                     </Text>
                     {CONDITION_OPTIONS.map((opt) => {
                       const active = condition === opt.value;
@@ -794,16 +797,16 @@ export default function ManageVehiclesScreen() {
                           }}
                         >
                           <Text style={{ ...typography.bodyStrong, color: active ? palette.brand : palette.text }}>
-                            {opt.title}
+                            {t(opt.titleKey)}
                           </Text>
                           <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                            {opt.blurb}
+                            {t(opt.blurbKey)}
                           </Text>
                         </Pressable>
                       );
                     })}
                     <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                      This cannot be changed later, so please make sure it is right.
+                      {t("driver.vehicles.conditionLocked")}
                     </Text>
                   </View>
                 )}
@@ -821,7 +824,7 @@ export default function ManageVehiclesScreen() {
                       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
                         <Icon name={meta.icon} size={20} color={palette.brand} />
                         <Text style={{ ...typography.body, color: palette.text, flex: 1 }}>
-                          When were the {meta.label.toLowerCase()} last replaced?
+                          {t("driver.vehicles.replacedQuestion", { component: t(meta.labelLowerKey) })}
                         </Text>
                       </View>
 
@@ -837,12 +840,14 @@ export default function ManageVehiclesScreen() {
                         }}
                       >
                         <Text style={{ ...typography.bodyStrong, color: !answer.known ? palette.brand : palette.text }}>
-                          Not sure
+                          {t("driver.vehicles.notSure")}
                         </Text>
                         <Text style={{ ...typography.caption, color: palette.textMuted }}>
                           {est
-                            ? `We will assume it was serviced on schedule — about ${Math.round(est.kmOnComponent).toLocaleString()} km on them now.`
-                            : "We will estimate it from the odometer."}
+                            ? t("driver.vehicles.notSureEstimate", {
+                                km: Math.round(est.kmOnComponent).toLocaleString(),
+                              })
+                            : t("driver.vehicles.notSureFallback")}
                         </Text>
                       </Pressable>
 
@@ -858,11 +863,11 @@ export default function ManageVehiclesScreen() {
                         }}
                       >
                         <Text style={{ ...typography.bodyStrong, color: answer.known ? palette.brand : palette.text }}>
-                          I know when
+                          {t("driver.vehicles.knowWhen")}
                         </Text>
                         {answer.known ? (
                           <TextField
-                            label="Replaced at (km on the odometer)"
+                            label={t("driver.vehicles.replacedAtLabel")}
                             value={answer.installKm}
                             onChangeText={(t: string) => setAnswer({ installKm: t.replace(/[^0-9]/g, "") })}
                             placeholder={String(Math.max(Number(form.currentMileage) || 0, 0))}
@@ -870,7 +875,7 @@ export default function ManageVehiclesScreen() {
                           />
                         ) : (
                           <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                            Enter the odometer reading when it was fitted.
+                            {t("driver.vehicles.replacedAtHint")}
                           </Text>
                         )}
                       </Pressable>
@@ -888,7 +893,7 @@ export default function ManageVehiclesScreen() {
                 disabled={saving}
                 style={{ paddingVertical: spacing.sm, alignItems: "center" }}
               >
-                <Text style={{ ...typography.body, color: palette.textMuted }}>Back</Text>
+                <Text style={{ ...typography.body, color: palette.textMuted }}>{t("driver.vehicles.back")}</Text>
               </Pressable>
             )}
 
@@ -929,7 +934,11 @@ export default function ManageVehiclesScreen() {
               >
                 {saving && <ActivityIndicator size="small" color={palette.textOnBrand} />}
                 <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-                  {editingVehicle ? "Save Changes" : isLastStep ? "Add Vehicle" : "Next"}
+                  {editingVehicle
+                    ? t("driver.vehicles.saveChanges")
+                    : isLastStep
+                      ? t("driver.vehicles.addVehicle")
+                      : t("driver.vehicles.next")}
                 </Text>
               </Pressable>
             </View>
@@ -957,13 +966,13 @@ export default function ManageVehiclesScreen() {
           >
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>
-                Select Insurance Provider
+                {t("driver.vehicles.providerPickerTitle")}
               </Text>
               <Pressable
                 onPress={() => setShowProviderPicker(false)}
                 hitSlop={12}
                 accessibilityRole="button"
-                accessibilityLabel="Close"
+                accessibilityLabel={t("driver.vehicles.close")}
               >
                 <Icon name="X" size={20} color={palette.textMuted} />
               </Pressable>
@@ -972,7 +981,7 @@ export default function ManageVehiclesScreen() {
             {companies.length === 0 ? (
               <View style={{ paddingVertical: spacing.xxl, alignItems: "center" }}>
                 <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
-                  Could not load insurance providers. Check your connection and try again.
+                  {t("driver.vehicles.providerLoadFailed")}
                 </Text>
               </View>
             ) : (
@@ -1049,7 +1058,7 @@ export default function ManageVehiclesScreen() {
 
             <View style={{ gap: spacing.sm, alignItems: "center" }}>
               <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
-                Complete your insurance details
+                {t("driver.vehicles.reminderTitle")}
               </Text>
               <Text
                 style={{
@@ -1059,8 +1068,7 @@ export default function ManageVehiclesScreen() {
                   lineHeight: 22,
                 }}
               >
-                Please fill in the following before you can use Insurance features for this
-                vehicle:
+                {t("driver.vehicles.reminderBody")}
               </Text>
             </View>
 
@@ -1070,7 +1078,7 @@ export default function ManageVehiclesScreen() {
                   key={label}
                   style={{ ...typography.bodyStrong, color: palette.brand, textAlign: "center" }}
                 >
-                  {`• ${label}`}
+                  {`• ${t(label)}`}
                 </Text>
               ))}
             </View>
@@ -1085,7 +1093,7 @@ export default function ManageVehiclesScreen() {
                 alignItems: "center",
               })}
             >
-              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Got it</Text>
+              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>{t("driver.vehicles.gotIt")}</Text>
             </Pressable>
           </View>
         </View>
@@ -1127,7 +1135,7 @@ export default function ManageVehiclesScreen() {
 
             <View style={{ gap: spacing.sm, alignItems: "center" }}>
               <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
-                Save Changes
+                {t("driver.vehicles.confirmSaveTitle")}
               </Text>
               <Text
                 style={{
@@ -1137,7 +1145,7 @@ export default function ManageVehiclesScreen() {
                   lineHeight: 22,
                 }}
               >
-                Save these changes to your vehicle details?
+                {t("driver.vehicles.confirmSaveBody")}
               </Text>
             </View>
 
@@ -1154,7 +1162,7 @@ export default function ManageVehiclesScreen() {
                   backgroundColor: pressed ? palette.homeBackground : "transparent",
                 })}
               >
-                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Cancel</Text>
+                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>{t("driver.vehicles.cancel")}</Text>
               </Pressable>
 
               <Pressable
@@ -1171,7 +1179,7 @@ export default function ManageVehiclesScreen() {
                   backgroundColor: pressed ? palette.brandPressed : palette.brand,
                 })}
               >
-                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Save</Text>
+                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>{t("driver.vehicles.save")}</Text>
               </Pressable>
             </View>
           </View>
@@ -1215,7 +1223,7 @@ export default function ManageVehiclesScreen() {
 
             <View style={{ gap: spacing.sm, alignItems: "center" }}>
               <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
-                Switch Vehicle
+                {t("driver.vehicles.switchTitle")}
               </Text>
               <Text
                 style={{
@@ -1226,7 +1234,12 @@ export default function ManageVehiclesScreen() {
                 }}
               >
                 {pendingVehicle
-                  ? `Switch to ${pendingVehicle.nickname || `${pendingVehicle.make} ${pendingVehicle.model}`} (${pendingVehicle.plateNumber})?`
+                  ? t("driver.vehicles.switchBody", {
+                      vehicle:
+                        pendingVehicle.nickname ||
+                        `${pendingVehicle.make} ${pendingVehicle.model}`,
+                      plate: pendingVehicle.plateNumber,
+                    })
                   : ""}
               </Text>
             </View>
@@ -1244,7 +1257,7 @@ export default function ManageVehiclesScreen() {
                   backgroundColor: pressed ? palette.homeBackground : "transparent",
                 })}
               >
-                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Cancel</Text>
+                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>{t("driver.vehicles.cancel")}</Text>
               </Pressable>
 
               <Pressable
@@ -1264,7 +1277,7 @@ export default function ManageVehiclesScreen() {
                   backgroundColor: pressed ? palette.brandPressed : palette.brand,
                 })}
               >
-                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Switch</Text>
+                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>{t("driver.vehicles.switch")}</Text>
               </Pressable>
             </View>
           </View>
@@ -1309,7 +1322,7 @@ export default function ManageVehiclesScreen() {
 
             <View style={{ gap: spacing.sm, alignItems: "center" }}>
               <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
-                Delete Vehicle
+                {t("driver.vehicles.deleteTitle")}
               </Text>
               <Text
                 style={{
@@ -1320,7 +1333,12 @@ export default function ManageVehiclesScreen() {
                 }}
               >
                 {pendingDeleteVehicle
-                  ? `Remove ${pendingDeleteVehicle.nickname || `${pendingDeleteVehicle.make} ${pendingDeleteVehicle.model}`} (${pendingDeleteVehicle.plateNumber})?`
+                  ? t("driver.vehicles.deleteBody", {
+                      vehicle:
+                        pendingDeleteVehicle.nickname ||
+                        `${pendingDeleteVehicle.make} ${pendingDeleteVehicle.model}`,
+                      plate: pendingDeleteVehicle.plateNumber,
+                    })
                   : ""}
               </Text>
             </View>
@@ -1338,7 +1356,7 @@ export default function ManageVehiclesScreen() {
                   backgroundColor: pressed ? palette.homeBackground : "transparent",
                 })}
               >
-                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Cancel</Text>
+                <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>{t("driver.vehicles.cancel")}</Text>
               </Pressable>
 
               <Pressable
@@ -1357,7 +1375,7 @@ export default function ManageVehiclesScreen() {
                   backgroundColor: pressed ? palette.brandPressed : palette.brand,
                 })}
               >
-                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Delete</Text>
+                <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>{t("driver.vehicles.delete")}</Text>
               </Pressable>
             </View>
           </View>
@@ -1386,6 +1404,7 @@ function VehicleCard({
   onDelete: () => void;
   onSetDefault: () => void;
 }) {
+  const t = useT();
   return (
     <Pressable
       onPress={onSelect}
@@ -1419,7 +1438,7 @@ function VehicleCard({
             {isSelected && (
               <Icon name="CheckCircle" size={18} color={palette.brand} />
             )}
-            {v.isDefault && <Badge label="Default" tone="brand" />}
+            {v.isDefault && <Badge label={t("driver.vehicles.badgeDefault")} tone="brand" />}
           </View>
           <Text style={{ ...typography.body, color: palette.textMuted }}>
             {v.year ? `${v.year} · ` : ""}{v.fuelType.charAt(0).toUpperCase() + v.fuelType.slice(1)}
@@ -1464,7 +1483,7 @@ function VehicleCard({
             })}
           >
             <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "600" }}>
-              Set Default
+              {t("driver.vehicles.setDefault")}
             </Text>
           </Pressable>
         )}
@@ -1478,7 +1497,7 @@ function VehicleCard({
             backgroundColor: pressed ? palette.brandPressed : palette.brand,
           })}
         >
-          <Text style={{ ...typography.caption, color: palette.textOnBrand, fontWeight: "600" }}>Edit</Text>
+          <Text style={{ ...typography.caption, color: palette.textOnBrand, fontWeight: "600" }}>{t("driver.vehicles.edit")}</Text>
         </Pressable>
         <Pressable
           onPress={onDelete}
@@ -1490,7 +1509,7 @@ function VehicleCard({
             backgroundColor: pressed ? palette.brandPressed : palette.brand,
           })}
         >
-          <Text style={{ ...typography.caption, color: palette.textOnBrand, fontWeight: "600" }}>Delete</Text>
+          <Text style={{ ...typography.caption, color: palette.textOnBrand, fontWeight: "600" }}>{t("driver.vehicles.cardDelete")}</Text>
         </Pressable>
       </View>
     </Pressable>

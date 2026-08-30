@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Claim } from "@/lib/insurer/types";
+import { useT } from "@/lib/i18n";
 
 type ClaimsListPanelProps = {
   claims: Claim[];
@@ -28,6 +29,7 @@ export function ClaimsListPanel({
   onSelect,
   expanded,
 }: ClaimsListPanelProps) {
+  const t = useT();
   const [sortAsc, setSortAsc] = useState(false);
 
   const filtered = claims
@@ -48,14 +50,14 @@ export function ClaimsListPanel({
     <section className="rounded-xl border border-border bg-card flex flex-col min-h-0 overflow-hidden">
       {!expanded && (
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border shrink-0">
-          <h2 className="text-base font-semibold">Intelligent 3D Claim System</h2>
+          <h2 className="text-base font-semibold">{t("insurer.claims.title")}</h2>
           <div className="relative">
             <input
               type="search"
-              placeholder="Search by Name"
+              placeholder={t("insurer.claims.searchPlaceholder")}
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
-              aria-label="Search claims"
+              aria-label={t("insurer.claims.searchA11y")}
               className="rounded-md border border-input bg-background px-3 py-1.5 text-sm pr-8 w-44"
             />
             <svg
@@ -78,7 +80,11 @@ export function ClaimsListPanel({
         onClick={() => setSortAsc((v) => !v)}
         className="self-start px-4 py-1.5 text-xs text-muted-foreground hover:text-foreground shrink-0"
       >
-        {expanded ? (sortAsc ? "↑" : "↓") : `Sorted by Date ${sortAsc ? "↑" : "↓"}`}
+        {expanded
+          ? sortAsc
+            ? "↑"
+            : "↓"
+          : t("insurer.claims.sortedByDate", { direction: sortAsc ? "↑" : "↓" })}
       </button>
 
       <div className="flex-1 overflow-auto min-h-0">
@@ -92,11 +98,11 @@ export function ClaimsListPanel({
           </colgroup>
           <TableHeader>
             <TableRow>
-              {!expanded && <TableHead>NIC</TableHead>}
-              <TableHead>Customer</TableHead>
-              {!expanded && <TableHead>Vehicle Model</TableHead>}
-              {!expanded && <TableHead>Reg No.</TableHead>}
-              <TableHead>Submitted</TableHead>
+              {!expanded && <TableHead>{t("insurer.claims.colNic")}</TableHead>}
+              <TableHead>{t("insurer.claims.colCustomer")}</TableHead>
+              {!expanded && <TableHead>{t("insurer.claims.colVehicleModel")}</TableHead>}
+              {!expanded && <TableHead>{t("insurer.claims.colRegNo")}</TableHead>}
+              <TableHead>{t("insurer.claims.colSubmitted")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

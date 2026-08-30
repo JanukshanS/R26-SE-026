@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/lib/i18n";
 import type { ValidationData } from "@/lib/types";
 
 // SVG scatter geometry (viewBox units).
@@ -12,6 +13,7 @@ const PAD_T = 10;
 const PAD_B = 28;
 
 export default function ValidationPanel() {
+  const t = useT();
   const [data, setData] = useState<ValidationData | null>(null);
 
   useEffect(() => {
@@ -51,39 +53,39 @@ export default function ValidationPanel() {
   return (
     <div className="space-y-4">
       <h3 className="text-xs  text-muted-foreground font-semibold">
-        SUMO Validation
+        {t("dashboard.validation.title")}
       </h3>
 
       <div className="grid grid-cols-3 gap-2 text-center">
         <div className="rounded-lg bg-muted border border-border p-2">
           <p className="text-2xl font-bold">{data.rDeployed.toFixed(2)}</p>
           <p className="text-xs text-muted-foreground  mt-0.5">
-            Deployed r
+            {t("dashboard.validation.deployedR")}
           </p>
         </div>
         <div className="rounded-lg bg-muted border border-border p-2">
           <p className="text-2xl font-bold text-indigo-400">{data.rFitted.toFixed(2)}</p>
           <p className="text-xs text-muted-foreground  mt-0.5">
-            SUMO-fitted r
+            {t("dashboard.validation.fittedR")}
           </p>
         </div>
         <div className="rounded-lg bg-muted border border-border p-2">
           <p className="text-2xl font-bold text-indigo-400">{data.cvFitted.toFixed(3)}</p>
           <p className="text-xs text-muted-foreground  mt-0.5">
-            Held-out CV
+            {t("dashboard.validation.heldOutCv")}
           </p>
         </div>
       </div>
 
       <div className="rounded-lg bg-muted border border-border p-3">
         <p className="mb-2 text-sm font-medium text-muted-foreground">
-          Impact Score vs SUMO Speed Reduction ({data.n} scenarios)
+          {t("dashboard.validation.scatterTitle", { n: data.n })}
         </p>
         <svg
           viewBox={`0 0 ${W} ${H}`}
           className="w-full h-auto"
           role="img"
-          aria-label="Scatter of deployed impact score against SUMO speed reduction"
+          aria-label={t("dashboard.validation.scatterA11y")}
         >
           {/* Grid + axes */}
           {yTicks.map((t) => (
@@ -152,7 +154,7 @@ export default function ValidationPanel() {
             fontSize={11}
             fontWeight={700}
           >
-            r = {data.rDeployed.toFixed(2)}
+            {t("dashboard.validation.rAnnotation", { r: data.rDeployed.toFixed(2) })}
           </text>
         </svg>
         <div className="flex justify-between mt-1">
@@ -160,18 +162,13 @@ export default function ValidationPanel() {
         </div>
         <p className="text-xs text-muted-foreground text-center mt-0.5">
           <span className="inline-block w-3 border-t border-dashed border-indigo-400 align-middle mr-1" />
-          fitted line · y-axis: {data.yLabel}
+          {t("dashboard.validation.fittedLine", { label: data.yLabel })}
         </p>
       </div>
 
       <div className="rounded-lg bg-muted border border-border p-3">
         <p className="text-xs leading-relaxed text-muted-foreground">
-          The <span className="text-foreground font-semibold">deployed</span> 5-factor model
-          scores Pearson <span className="text-foreground font-semibold">r = 0.60</span> against
-          SUMO speed reduction. The SUMO-fitted sensitivity weights reach{" "}
-          <span className="text-indigo-400 font-semibold">r = 0.93</span> (held-out CV{" "}
-          <span className="text-indigo-400 font-semibold">0.924</span>) — a sensitivity
-          result, <span className="text-foreground font-semibold">not</span> the shipped model.
+          {t("dashboard.validation.note")}
         </p>
       </div>
     </div>

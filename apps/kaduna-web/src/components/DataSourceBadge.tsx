@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { useT } from "@/lib/i18n";
 
 /**
  * Live service status: where hotspot/stat data came from, whether the geo
@@ -17,6 +18,7 @@ export default function DataSourceBadge({
   geoOk: boolean;
   liveCount: number;
 }) {
+  const t = useT();
   const live = liveCount > 0;
   return (
     <div className="flex flex-wrap items-center gap-1.5">
@@ -25,41 +27,37 @@ export default function DataSourceBadge({
         className="gap-1.5 font-normal"
         title={
           dataSource === "api"
-            ? "Hotspots and stats loaded from the geo-intelligence API"
-            : "Geo API unreachable — showing the static dataset"
+            ? t("dashboard.source.apiTitle")
+            : t("dashboard.source.staticTitle")
         }
       >
         <span
           className={`size-1.5 rounded-full ${dataSource === "api" ? "bg-[var(--priority-low)]" : "bg-muted-foreground"}`}
           aria-hidden
         />
-        {dataSource === "api" ? "Live data" : "Saved data"}
+        {dataSource === "api" ? t("dashboard.source.apiLabel") : t("dashboard.source.staticLabel")}
       </Badge>
       <Badge
         variant="outline"
         className="gap-1.5 font-normal"
-        title={geoOk ? "Geo-intelligence service is healthy" : "Geo service offline"}
+        title={geoOk ? t("dashboard.source.geoOkTitle") : t("dashboard.source.geoDownTitle")}
       >
         <span
           className={`size-1.5 rounded-full ${geoOk ? "bg-[var(--priority-low)]" : "bg-muted-foreground"}`}
           aria-hidden
         />
-        {geoOk ? "Geo OK" : "Geo offline"}
+        {geoOk ? t("dashboard.source.geoOkLabel") : t("dashboard.source.geoDownLabel")}
       </Badge>
       <Badge
         variant="outline"
         className="gap-1.5 font-normal"
-        title={
-          live
-            ? "Receiving live incidents from the dispatch service"
-            : "No live backend — showing the static dataset"
-        }
+        title={live ? t("dashboard.source.liveTitle") : t("dashboard.source.noLiveTitle")}
       >
         <span
           className={`size-1.5 rounded-full ${live ? "animate-pulse bg-[var(--priority-high)]" : "bg-muted-foreground"}`}
           aria-hidden
         />
-        {live ? `Live ${liveCount}` : "No live reports"}
+        {live ? t("dashboard.source.liveLabel", { n: liveCount }) : t("dashboard.source.noLiveLabel")}
       </Badge>
     </div>
   );

@@ -8,6 +8,7 @@ import { PipelineSteps } from "@/components/insurer/dashboard/PipelineSteps";
 import { PipelineJobProvider, usePipelineJob } from "@/lib/insurer/PipelineJobContext";
 import { useInsurerUser } from "@/lib/insurer/auth";
 import { fetchClaims } from "@/lib/insurer/claimsApi";
+import { useT } from "@/lib/i18n";
 import type { Claim } from "@/lib/insurer/types";
 
 function GlobalPipelineWidget() {
@@ -24,6 +25,7 @@ function GlobalPipelineWidget() {
 }
 
 function DashboardInner() {
+  const t = useT();
   const { user } = useInsurerUser();
   const [claims, setClaims] = useState<Claim[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string>("");
@@ -61,8 +63,13 @@ function DashboardInner() {
         setClaims(data);
         if (data.length > 0) setSelectedFolder(data[0].folder);
       })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load claims"))
+      .catch((e: unknown) =>
+        setError(e instanceof Error ? e.message : t("insurer.dashboard.loadErrorFallback")),
+      )
       .finally(() => setLoading(false));
+  // Mount-only on purpose: re-running on a locale change would refetch and
+  // reset the selected claim.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedClaim = useMemo(
@@ -76,7 +83,7 @@ function DashboardInner() {
         <p className="mb-4 text-sm text-muted-foreground">{user.company_name}</p>
       )}
 
-      {loading && <p className="py-8 text-muted-foreground">Loading claims…</p>}
+      {loading && <p className="py-8 text-muted-foreground">{t("insurer.dashboard.loading")}</p>}
       {error && <p className="py-8 text-red-600">{error}</p>}
 
       {!loading && !error && (

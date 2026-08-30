@@ -23,6 +23,7 @@ import { fetchLiveIncidents } from "@/lib/liveData";
 import { DAY_NAMES, NO_FILTERS, describeFilters, isFiltered, matchesFilters } from "@/lib/filters";
 import { downloadIncidentsCsv } from "@/lib/exportCsv";
 import { fetchHotspots, fetchStats, fetchGeoHealth, type DataSource } from "@/lib/geoData";
+import { useT } from "@/lib/i18n";
 import type { Blackspot, HotspotCluster, Incident, ModelConfig, Stats } from "@/lib/types";
 
 const Map = dynamic(() => import("@/components/Map"), { ssr: false });
@@ -38,10 +39,26 @@ const ROAD_TYPES = ["motorway", "trunk", "primary", "secondary", "tertiary", "re
 
 const TAB_LABELS = ["Live map", "Where to station", "What-if", "Scoring log", "Model accuracy"] as const;
 type Tab = (typeof TAB_LABELS)[number];
+
+const TAB_KEYS: Record<Tab, string> = {
+  "Live map": "dashboard.tab.liveMap",
+  "Where to station": "dashboard.tab.whereToStation",
+  "What-if": "dashboard.tab.whatIf",
+  "Scoring log": "dashboard.tab.scoringLog",
+  "Model accuracy": "dashboard.tab.modelAccuracy",
+};
+
 const TABS = TAB_LABELS.map((label) => ({
-  label,
+  labelKey: TAB_KEYS[label],
   href: `#${label.toLowerCase().replace(/[^a-z]/g, "")}`,
 }));
+
+const PRIORITY_LABEL: Record<string, string> = {
+  CRITICAL: "dashboard.priority.critical",
+  HIGH: "dashboard.priority.high",
+  MEDIUM: "dashboard.priority.medium",
+  LOW: "dashboard.priority.low",
+};
 
 /**
  * What each view is for, in an evaluator's terms. The dashboard is the only
@@ -49,55 +66,66 @@ const TABS = TAB_LABELS.map((label) => ({
  * for — road authorities and ops, who never install the app — so every view
  * says what it shows and what it is good for before showing it.
  */
-const TAB_INTRO: Record<Tab, { lead: string; body: string }> = {
+const TAB_INTRO: Record<Tab, { leadKey: string; bodyKey: string }> = {
   "Live map": {
-    lead: "Every incident scored for what it does to the city, not to the driver.",
-    body: "Scored incidents across Colombo, with accident blackspots and anything currently open in dispatch. Select a marker to see the five factors behind its score.",
+    leadKey: "dashboard.intro.liveMap.lead",
+    bodyKey: "dashboard.intro.liveMap.body",
   },
   "Where to station": {
-    lead: "Where putting a unit would do the most good.",
-    body: "The mined clusters ranked by how much disruption they produce and how far the right kind of help is today. A busy cluster with a unit already on it ranks near the bottom, because there is nothing to recommend.",
+    leadKey: "dashboard.intro.whereToStation.lead",
+    bodyKey: "dashboard.intro.whereToStation.body",
   },
   "What-if": {
-    lead: "Change one thing and watch the score move.",
-    body: "The same breakdown costs the city more on a main road at 8am than on a side street at midnight. Move the inputs to see how much each one is worth.",
+    leadKey: "dashboard.intro.whatIf.lead",
+    bodyKey: "dashboard.intro.whatIf.body",
   },
   "Scoring log": {
-    lead: "Every score this dashboard has requested, and why.",
-    body: "Each incident that reaches dispatch is scored as it arrives. Open a row to see the road that was matched and the five factors that produced the number.",
+    leadKey: "dashboard.intro.scoringLog.lead",
+    bodyKey: "dashboard.intro.scoringLog.body",
   },
   "Model accuracy": {
-    lead: "How well the score predicts congestion, and what it was tested against.",
-    body: "The five weights are set from queueing physics — delay happens when demand exceeds the capacity still open — and the deployed model scores r = 0.60 against independent SUMO simulation over 120 scenarios. Refitting those weights to the simulation reaches r = 0.93, and we report it but do not deploy it: a model tuned to a simulation we built ourselves would be grading its own homework. We also tested ordering dispatch by impact, which did not reduce vehicle-hours lost, so it is not used — the score sets priority and marks the areas worth watching.",
+    leadKey: "dashboard.intro.modelAccuracy.lead",
+    bodyKey: "dashboard.intro.modelAccuracy.body",
   },
 };
 
 /** The component's honest headline claims, stated once at the top. */
 const CLAIMS = [
-  { value: "25", label: "hotspot clusters", note: "mined from scored incidents on real OSM geometry" },
   {
-    value: "5",
-    label: "weighted factors",
-    note: "capacity, volume, time, road class, severity — every one visible per incident",
+    valueKey: "dashboard.claim.clustersValue",
+    labelKey: "dashboard.claim.clustersLabel",
+    noteKey: "dashboard.claim.clustersNote",
   },
   {
-    value: "r = 0.60",
-    label: "against simulation",
-    note: "the weights actually deployed, over 120 SUMO scenarios",
+    valueKey: "dashboard.claim.factorsValue",
+    labelKey: "dashboard.claim.factorsLabel",
+    noteKey: "dashboard.claim.factorsNote",
   },
-  { value: "~13 min", label: "median per trip", note: "rerouting insight, the validated operational win" },
+  {
+    valueKey: "dashboard.claim.correlationValue",
+    labelKey: "dashboard.claim.correlationLabel",
+    noteKey: "dashboard.claim.correlationNote",
+  },
+  {
+    valueKey: "dashboard.claim.reroutingValue",
+    labelKey: "dashboard.claim.reroutingLabel",
+    noteKey: "dashboard.claim.reroutingNote",
+  },
 ];
 
 function ClaimStrip() {
+  const t = useT();
   return (
     <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {CLAIMS.map((c) => (
-        <div key={c.label} className="rounded-xl border border-border bg-card p-4">
-          <dt className="text-xs uppercase tracking-wide text-muted-foreground">{c.label}</dt>
+        <div key={c.labelKey} className="rounded-xl border border-border bg-card p-4">
+          <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t(c.labelKey)}
+          </dt>
           <dd className="mt-1 font-display text-2xl font-bold tracking-tight tabular-nums">
-            {c.value}
+            {t(c.valueKey)}
           </dd>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{c.note}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t(c.noteKey)}</p>
         </div>
       ))}
     </dl>
@@ -105,16 +133,18 @@ function ClaimStrip() {
 }
 
 function SectionIntro({ tab }: { tab: Tab }) {
-  const { lead, body } = TAB_INTRO[tab];
+  const t = useT();
+  const { leadKey, bodyKey } = TAB_INTRO[tab];
   return (
     <div className="max-w-3xl">
-      <p className="font-display text-lg font-semibold tracking-tight">{lead}</p>
-      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
+      <p className="font-display text-lg font-semibold tracking-tight">{t(leadKey)}</p>
+      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{t(bodyKey)}</p>
     </div>
   );
 }
 
 export default function OperationsPage() {
+  const t = useT();
   const [tab, setTab] = useState<Tab>("Live map");
 
   // Read on mount (not during render) so the prerendered HTML always matches.
@@ -233,7 +263,7 @@ export default function OperationsPage() {
   const loading = !stats || !model;
 
   const priorityFilter = (
-    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by priority">
+    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t("dashboard.filter.priorityLabel")}>
       {PRIORITIES.map((p) => {
         const on = filters.priority.includes(p);
         return (
@@ -250,7 +280,7 @@ export default function OperationsPage() {
               style={{ background: PRIORITY_TOKEN[p] }}
               aria-hidden
             />
-            <span className="text-sm">{p.charAt(0) + p.slice(1).toLowerCase()}</span>
+            <span className="text-sm">{t(PRIORITY_LABEL[p])}</span>
           </Button>
         );
       })}
@@ -258,15 +288,15 @@ export default function OperationsPage() {
   );
 
   const layerToggles = (
-    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Map layers">
+    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t("dashboard.layers.groupLabel")}>
       {(
         [
-          ["incidents", "Incidents", MapPin],
-          ["hotspots", "Hotspots", Flame],
-          ["heatmap", "Heatmap", Layers],
-          ["blackspots", "Blackspots (NTC)", Target],
+          ["incidents", "dashboard.layers.incidents", MapPin],
+          ["hotspots", "dashboard.layers.hotspots", Flame],
+          ["heatmap", "dashboard.layers.heatmap", Layers],
+          ["blackspots", "dashboard.layers.blackspots", Target],
         ] as const
-      ).map(([key, label, Icon]) => (
+      ).map(([key, labelKey, Icon]) => (
         <Button
           key={key}
           size="sm"
@@ -276,7 +306,7 @@ export default function OperationsPage() {
           className="h-8 gap-1.5 px-2.5"
         >
           <Icon className="size-3.5" aria-hidden />
-          <span className="hidden text-sm xl:inline">{label}</span>
+          <span className="hidden text-sm xl:inline">{t(labelKey)}</span>
         </Button>
       ))}
     </div>
@@ -284,9 +314,9 @@ export default function OperationsPage() {
 
   return (
     <PortalShell
-      title="Operations"
-      tabs={TABS}
-      active={tab}
+      title={t("dashboard.title")}
+      tabs={TABS.map((tb) => ({ label: t(tb.labelKey), href: tb.href }))}
+      active={t(TAB_KEYS[tab])}
       fullWidth={isMap}
       stretch={isMap}
     >
@@ -298,7 +328,7 @@ export default function OperationsPage() {
               <Skeleton className="h-[26rem] lg:h-full" />
               <Skeleton className="hidden h-full lg:block" />
             </div>
-            <span className="sr-only">Loading incident data</span>
+            <span className="sr-only">{t("dashboard.map.loading")}</span>
           </div>
         ) : (
           /* Console layout: one toolbar, then the map takes every remaining
@@ -315,11 +345,11 @@ export default function OperationsPage() {
                 value={filters.roadType}
                 onValueChange={(v) => setFilters((f) => ({ ...f, roadType: v }))}
               >
-                <SelectTrigger size="sm" className="w-[150px]" aria-label="Filter by road type">
+                <SelectTrigger size="sm" className="w-[150px]" aria-label={t("dashboard.filter.roadTypeLabel")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All road types</SelectItem>
+                  <SelectItem value="all">{t("dashboard.filter.allRoadTypes")}</SelectItem>
                   {ROAD_TYPES.map((r) => (
                     <SelectItem key={r} value={r} className="capitalize">
                       {r}
@@ -334,11 +364,11 @@ export default function OperationsPage() {
                   setFilters((f) => ({ ...f, day: v === "all" ? null : Number(v) }))
                 }
               >
-                <SelectTrigger size="sm" className="w-[140px]" aria-label="Filter by day of week">
+                <SelectTrigger size="sm" className="w-[140px]" aria-label={t("dashboard.filter.dayLabel")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All days</SelectItem>
+                  <SelectItem value="all">{t("dashboard.filter.allDays")}</SelectItem>
                   {DAY_NAMES.map((d, i) => (
                     <SelectItem key={d} value={String(i)}>
                       {d}
@@ -355,7 +385,7 @@ export default function OperationsPage() {
                   className="h-8 gap-1.5 px-2.5"
                 >
                   <RotateCcw className="size-3.5" aria-hidden />
-                  <span className="text-sm">Show all</span>
+                  <span className="text-sm">{t("dashboard.filter.showAll")}</span>
                 </Button>
               )}
 
@@ -366,10 +396,12 @@ export default function OperationsPage() {
                   onClick={() => downloadIncidentsCsv(shown, describeFilters(filters))}
                   disabled={shownCount === 0}
                   className="h-8 gap-1.5 px-2.5"
-                  title="Download the incidents currently on the map as a CSV"
+                  title={t("dashboard.action.exportTitle")}
                 >
                   <Download className="size-3.5" aria-hidden />
-                  <span className="text-sm">Export {shownCount.toLocaleString()}</span>
+                  <span className="text-sm">
+                    {t("dashboard.action.export", { n: shownCount.toLocaleString() })}
+                  </span>
                 </Button>
 
                 <Separator orientation="vertical" className="hidden h-6 lg:block" />
@@ -403,11 +435,11 @@ export default function OperationsPage() {
                   layout, not flex: as flex children the short cards were
                   shrunk to nothing by the tall stats panel below them. */}
               <aside
-                aria-label="Readouts"
+                aria-label={t("dashboard.rail.label")}
                 className="space-y-3 pb-1 lg:min-h-0 lg:overflow-y-auto lg:pr-0.5"
               >
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  {TAB_INTRO["Live map"].lead}
+                  {t(TAB_INTRO["Live map"].leadKey)}
                 </p>
 
                 <MetricCards

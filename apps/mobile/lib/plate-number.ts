@@ -62,9 +62,10 @@ export function isValidPlate(raw: string): boolean {
   return LETTER_SERIES.test(plate) || NUMERIC_SERIES.test(plate);
 }
 
-/** Message shown under the field. Null when the plate is acceptable. */
+/** Catalogue key for the message shown under the field, or null when the plate
+ *  is acceptable. Callers translate it — this module has no access to a hook. */
 export function plateError(raw: string): string | null {
-  if (!raw.trim()) return "Plate number is required.";
+  if (!raw.trim()) return "onboarding.plate.required";
   if (isValidPlate(raw)) return null;
-  return "That doesn't look like a Sri Lankan plate. Try CAB-1234, WP-CAB-1234, or 62-1234.";
+  return "onboarding.plate.invalid";
 }

@@ -19,15 +19,16 @@ import {
   type VehicleHealthResponse,
 } from "@lib/maintenanceApi";
 import { useVehicle } from "@lib/vehicleContext";
+import { useT, useI18n, type Translate } from "@lib/i18n";
 
 type FilterTab = "all" | "replacement" | "service" | "paint" | "system_fix";
 
-const FILTER_TABS: { key: FilterTab; label: string }[] = [
-  { key: "all",         label: "All types" },
-  { key: "replacement", label: "Replacements" },
-  { key: "service",     label: "Service" },
-  { key: "paint",       label: "Paint" },
-  { key: "system_fix",  label: "System fixes" },
+const FILTER_TABS: { key: FilterTab; labelKey: string }[] = [
+  { key: "all",         labelKey: "driver.serviceRecords.filterAll" },
+  { key: "replacement", labelKey: "driver.serviceRecords.filterReplacement" },
+  { key: "service",     labelKey: "driver.serviceRecords.filterService" },
+  { key: "paint",       labelKey: "driver.serviceRecords.filterPaint" },
+  { key: "system_fix",  labelKey: "driver.serviceRecords.filterSystemFix" },
 ];
 
 const SERVICE_TYPE_COLORS: Record<string, string> = {
@@ -43,17 +44,17 @@ const SERVICE_TYPE_COLORS: Record<string, string> = {
   new_implementation: "#8B5CF6",
 };
 
-const SERVICE_TYPE_LABELS: Record<string, string> = {
-  replacement:       "Replacement",
-  initial_reading:   "Initial Reading",
-  oil_change:        "Oil Change",
-  rotation:          "Rotation",
-  inspection:        "Inspection",
-  service:           "Service",
-  full_service:      "Full Service",
-  paint:             "Paint",
-  system_fix:        "System Fix",
-  new_implementation:"New Implementation",
+const SERVICE_TYPE_LABEL_KEYS: Record<string, string> = {
+  replacement:       "driver.serviceRecords.typeReplacement",
+  initial_reading:   "driver.serviceRecords.typeInitialReading",
+  oil_change:        "driver.serviceRecords.typeOilChange",
+  rotation:          "driver.serviceRecords.typeRotation",
+  inspection:        "driver.serviceRecords.typeInspection",
+  service:           "driver.serviceRecords.typeService",
+  full_service:      "driver.serviceRecords.typeFullService",
+  paint:             "driver.serviceRecords.typePaint",
+  system_fix:        "driver.serviceRecords.typeSystemFix",
+  new_implementation:"driver.serviceRecords.typeNewImplementation",
 };
 
 function matchesTab(record: ServiceRecord, tab: FilterTab): boolean {
@@ -70,25 +71,31 @@ function kmToNextService(health: VehicleHealthResponse | null): number | null {
   return Math.round(Math.min(...ruls));
 }
 
-function alertComponents(health: VehicleHealthResponse | null): string[] {
+function alertComponents(health: VehicleHealthResponse | null, t: Translate): string[] {
   if (!health) return [];
   return Object.entries(health.components)
     .filter(([, c]) => c.status !== "Good")
     .map(([key]) => {
-      const labels: Record<string, string> = { engine: "Engine", brake: "Brakes", tire: "Tyres", battery: "Battery" };
-      return labels[key] ?? key;
+      const labelKeys: Record<string, string> = {
+        engine: "driver.serviceRecords.alertEngine",
+        brake: "driver.serviceRecords.alertBrake",
+        tire: "driver.serviceRecords.alertTire",
+        battery: "driver.serviceRecords.alertBattery",
+      };
+      return t(labelKeys[key] ?? key);
     });
 }
 
 export default function ServiceRecordsScreen() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { selectedVehicle } = useVehicle();
   // No stand-in plate: reading — and, via the FAB, writing — another driver's
   // service history is worse than refusing until a vehicle is selected.
   const vehicleId = selectedVehicle?.plateNumber ?? "";
   const vehicleLabel = selectedVehicle
     ? selectedVehicle.nickname || `${selectedVehicle.make} ${selectedVehicle.model}`
-    : "No vehicle selected";
+    : t("driver.serviceRecords.noVehicleSelected");
 
   const [records, setRecords] = useState<ServiceRecord[]>([]);
   const [health, setHealth] = useState<VehicleHealthResponse | null>(null);
@@ -120,17 +127,17 @@ export default function ServiceRecordsScreen() {
         setError(
           message.includes("signed in")
             ? message
-            : "Could not reach the maintenance service. Check your connection and try again."
+            : t("driver.serviceRecords.loadErrorFallback")
         );
       })
       .finally(() => setLoading(false));
-  }, [vehicleId]);
+  }, [vehicleId, t]);
 
   useEffect(load, [load]);
 
   const filtered = records.filter((r) => matchesTab(r, activeTab));
   const nextKm = kmToNextService(health);
-  const alerts = alertComponents(health);
+  const alerts = alertComponents(health, t);
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
@@ -148,11 +155,11 @@ export default function ServiceRecordsScreen() {
           gap: spacing.sm,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel={t("driver.serviceRecords.back")}>
           <Icon name="ChevronLeft" size={24} color={palette.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={{ ...typography.bodyStrong, color: palette.text }}>Service Records</Text>
+          <Text style={{ ...typography.bodyStrong, color: palette.text }}>{t("driver.serviceRecords.title")}</Text>
           <Text style={{ ...typography.caption, color: palette.textMuted }}>{vehicleLabel}</Text>
         </View>
         {loading && <ActivityIndicator size="small" color={palette.brand} />}
@@ -176,12 +183,14 @@ export default function ServiceRecordsScreen() {
         >
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <View>
-              <Text style={{ ...typography.caption, color: "#FFFFFF", opacity: 0.85 }}>Next Service In</Text>
+              <Text style={{ ...typography.caption, color: "#FFFFFF", opacity: 0.85 }}>{t("driver.serviceRecords.nextServiceHeading")}</Text>
               {loading ? (
                 <View style={{ height: 28, width: 100, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.3)", marginTop: 4 }} />
               ) : (
                 <Text style={{ ...typography.h1, color: "#FFFFFF" }}>
-                  {nextKm != null ? `${nextKm.toLocaleString()} KM` : "— KM"}
+                  {nextKm != null
+                    ? t("driver.serviceRecords.nextServiceKm", { km: nextKm.toLocaleString() })
+                    : t("driver.serviceRecords.nextServiceUnknown")}
                 </Text>
               )}
             </View>
@@ -247,29 +256,29 @@ export default function ServiceRecordsScreen() {
                   fontWeight: "600",
                 }}
               >
-                {tab.label}
+                {t(tab.labelKey)}
               </Text>
             </Pressable>
           ))}
         </ScrollView>
 
         {/* Service logs section header */}
-        <Text style={{ ...typography.bodyStrong, color: palette.text }}>Service logs</Text>
+        <Text style={{ ...typography.bodyStrong, color: palette.text }}>{t("driver.serviceRecords.logsHeading")}</Text>
 
         {/* Records list */}
         {!vehicleId ? (
           <View style={{ alignItems: "center", paddingVertical: spacing.xxxl, gap: spacing.md }}>
             <Icon name="Car" size={40} color={palette.border} />
             <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
-              Select a vehicle first
+              {t("driver.serviceRecords.noVehicleTitle")}
             </Text>
             <Text style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}>
-              Service records are kept per vehicle.
+              {t("driver.serviceRecords.noVehicleBody")}
             </Text>
             <Pressable
               onPress={() => router.push("/(driver)/manage-vehicles")}
               accessibilityRole="button"
-              accessibilityLabel="Manage vehicles"
+              accessibilityLabel={t("driver.serviceRecords.manageVehiclesA11y")}
               style={({ pressed }) => ({
                 paddingHorizontal: spacing.lg,
                 paddingVertical: spacing.sm,
@@ -280,7 +289,7 @@ export default function ServiceRecordsScreen() {
               })}
             >
               <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "600" }}>
-                Manage Vehicles
+                {t("driver.serviceRecords.manageVehicles")}
               </Text>
             </Pressable>
           </View>
@@ -303,16 +312,16 @@ export default function ServiceRecordsScreen() {
           ))
         ) : error ? (
           <ErrorState
-            title="Couldn't load your service records"
+            title={t("driver.serviceRecords.loadFailedTitle")}
             message={error}
             onRetry={load}
           />
         ) : filtered.length === 0 ? (
           <View style={{ alignItems: "center", paddingVertical: spacing.xxxl, gap: spacing.md }}>
             <Icon name="ClipboardList" size={40} color={palette.border} />
-            <Text style={{ ...typography.body, color: palette.textMuted }}>No service records yet</Text>
+            <Text style={{ ...typography.body, color: palette.textMuted }}>{t("driver.serviceRecords.emptyTitle")}</Text>
             <Text style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}>
-              Tap the + button to log your first service
+              {t("driver.serviceRecords.emptyBody")}
             </Text>
           </View>
         ) : (
@@ -326,7 +335,7 @@ export default function ServiceRecordsScreen() {
       {vehicleId ? (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Add service record"
+        accessibilityLabel={t("driver.serviceRecords.addA11y")}
         onPress={() =>
           router.push({
             pathname: "/(driver)/add-service-record",
@@ -360,13 +369,10 @@ export default function ServiceRecordsScreen() {
 }
 
 function ServiceCard({ record }: { record: ServiceRecord }) {
+  const { t, formatDate } = useI18n();
   const color = SERVICE_TYPE_COLORS[record.service_type] ?? palette.textMuted;
-  const label = SERVICE_TYPE_LABELS[record.service_type] ?? record.service_type;
-  const dateStr = new Date(record.service_date).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  const label = t(SERVICE_TYPE_LABEL_KEYS[record.service_type] ?? record.service_type);
+  const dateStr = formatDate(record.service_date, { day: "2-digit", month: "short", year: "numeric" });
 
   return (
     <View
@@ -382,7 +388,7 @@ function ServiceCard({ record }: { record: ServiceRecord }) {
       <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-            {record.item_name ?? COMPONENT_LABELS[record.component] ?? record.component}
+            {record.item_name ?? t(COMPONENT_LABEL_KEYS[record.component] ?? record.component)}
           </Text>
           <Text style={{ ...typography.caption, color: palette.textMuted }}>{dateStr}</Text>
         </View>
@@ -409,7 +415,7 @@ function ServiceCard({ record }: { record: ServiceRecord }) {
           <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
             <Icon name="Banknote" size={12} color={palette.textMuted} />
             <Text style={{ ...typography.caption, color: palette.textMuted }}>
-              LKR {record.cost_lkr.toLocaleString()}
+              {t("driver.serviceRecords.cost", { amount: record.cost_lkr.toLocaleString() })}
             </Text>
           </View>
         ) : null}
@@ -441,10 +447,10 @@ function ServiceCard({ record }: { record: ServiceRecord }) {
   );
 }
 
-const COMPONENT_LABELS: Record<string, string> = {
-  engine:      "Engine",
-  brake:       "Brake Pads",
-  tire:        "Tyres",
-  battery:     "Battery",
-  full_service:"Full Service",
+const COMPONENT_LABEL_KEYS: Record<string, string> = {
+  engine:      "driver.serviceRecords.componentEngine",
+  brake:       "driver.serviceRecords.componentBrake",
+  tire:        "driver.serviceRecords.componentTire",
+  battery:     "driver.serviceRecords.componentBattery",
+  full_service:"driver.serviceRecords.componentFullService",
 };

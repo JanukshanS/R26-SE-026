@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { AccidentImage } from "@/lib/insurer/types";
 import { distanceMetres, formatDistance, distanceLevel } from "@/lib/insurer/geo";
+import { useT } from "@/lib/i18n";
 
 type ReferenceLocation = { gps_lat: number | null; gps_lng: number | null };
 
@@ -41,6 +42,7 @@ const BTN = {
 export function AccidentImagesPanel({
   nic, images, loading, visible, onClose, referenceLocation,
 }: AccidentImagesPanelProps) {
+  const t = useT();
   const [activeIndex, setActiveIndex] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -94,19 +96,19 @@ export function AccidentImagesPanel({
     <div
       className="absolute inset-0 z-20 rounded-xl border border-border bg-card flex flex-col"
       role="dialog"
-      aria-label="Accident images"
+      aria-label={t("insurer.images.dialogA11y")}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-        <h3 className="text-sm font-semibold">Accident Images — {nic}</h3>
-        <button type="button" onClick={onClose} aria-label="Close"
+        <h3 className="text-sm font-semibold">{t("insurer.images.title", { nic })}</h3>
+        <button type="button" onClick={onClose} aria-label={t("insurer.action.close")}
           className="text-muted-foreground hover:text-foreground text-xl leading-none">×</button>
       </div>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Sidebar */}
         <div className="w-1/3 shrink-0 border-r border-border px-4 py-5 flex flex-col gap-3 overflow-y-auto">
-          <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">Photo Location</p>
+          <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("insurer.media.photoLocation")}</p>
           {active && active.gps_lat != null && active.gps_lng != null ? (
             <a href={`https://www.google.com/maps?q=${active.gps_lat},${active.gps_lng}`}
               target="_blank" rel="noopener noreferrer"
@@ -129,13 +131,15 @@ export function AccidentImagesPanel({
               : level === "warn" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800";
             return (
               <span className={`inline-flex items-center gap-1 self-start px-2.5 py-1 rounded text-xs font-semibold ${tone}`}>
-                {level === "ok" ? "✓ Location Matched" : `⚠ ${formatDistance(dist)} from accident site`}
+                {level === "ok"
+                  ? t("insurer.media.locationMatched")
+                  : t("insurer.media.locationOff", { distance: formatDistance(dist) })}
               </span>
             );
           })()}
 
           <hr className="border-border" />
-          <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">Photo Timestamp</p>
+          <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("insurer.media.photoTimestamp")}</p>
           <p className="text-sm text-muted-foreground">{active ? formatCapturedAt(active.captured_at) : "—"}</p>
 
           {zoom > 1 && (
@@ -143,9 +147,9 @@ export function AccidentImagesPanel({
               <hr className="border-border" />
               <div className="flex items-center justify-between">
                 <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-                  Zoom {zoom.toFixed(1)}×
+                  {t("insurer.media.zoom", { level: zoom.toFixed(1) })}
                 </p>
-                <button type="button" onClick={reset} className="text-[0.68rem] text-primary hover:underline">Reset</button>
+                <button type="button" onClick={reset} className="text-[0.68rem] text-primary hover:underline">{t("insurer.media.reset")}</button>
               </div>
             </>
           )}
@@ -165,11 +169,11 @@ export function AccidentImagesPanel({
             onDoubleClick={reset}
           >
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading images…</p>
+              <p className="text-sm text-muted-foreground">{t("insurer.media.loading")}</p>
             ) : images.length > 0 ? (
               <img
                 src={active?.url}
-                alt={`Accident image ${activeIndex + 1}`}
+                alt={t("insurer.images.photoAlt", { number: activeIndex + 1 })}
                 draggable={false}
                 className="max-w-full max-h-full object-contain rounded border border-border select-none"
                 style={{
@@ -179,7 +183,7 @@ export function AccidentImagesPanel({
                 }}
               />
             ) : (
-              <p className="text-sm text-muted-foreground">No images available</p>
+              <p className="text-sm text-muted-foreground">{t("insurer.images.empty")}</p>
             )}
           </div>
 
@@ -190,10 +194,10 @@ export function AccidentImagesPanel({
               bottom: hasThumbs ? 86 : 10,
               display: "flex", flexDirection: "column", gap: 3, zIndex: 5,
             }}>
-              <button type="button" style={BTN} onClick={zoomIn} title="Zoom in">+</button>
-              <button type="button" style={BTN} onClick={zoomOut} title="Zoom out">−</button>
+              <button type="button" style={BTN} onClick={zoomIn} title={t("insurer.media.zoomIn")}>+</button>
+              <button type="button" style={BTN} onClick={zoomOut} title={t("insurer.media.zoomOut")}>−</button>
               {zoom > 1 && (
-                <button type="button" style={{ ...BTN, fontSize: 13 }} onClick={reset} title="Reset zoom">↺</button>
+                <button type="button" style={{ ...BTN, fontSize: 13 }} onClick={reset} title={t("insurer.media.resetZoom")}>↺</button>
               )}
             </div>
           )}
@@ -201,7 +205,7 @@ export function AccidentImagesPanel({
           {/* Hint */}
           {!loading && images.length > 0 && zoom === 1 && (
             <p className="text-center text-[0.65rem] text-muted-foreground py-1 shrink-0">
-              Scroll or use +/− to zoom · drag to pan · double-click to reset
+              {t("insurer.media.hint")}
             </p>
           )}
 
