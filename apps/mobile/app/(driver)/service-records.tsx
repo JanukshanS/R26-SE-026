@@ -19,7 +19,7 @@ import {
   type VehicleHealthResponse,
 } from "@lib/maintenanceApi";
 import { useVehicle } from "@lib/vehicleContext";
-import { useT, type Translate } from "@lib/i18n";
+import { useT, useI18n, type Translate } from "@lib/i18n";
 
 type FilterTab = "all" | "replacement" | "service" | "paint" | "system_fix";
 
@@ -369,14 +369,10 @@ export default function ServiceRecordsScreen() {
 }
 
 function ServiceCard({ record }: { record: ServiceRecord }) {
-  const t = useT();
+  const { t, formatDate } = useI18n();
   const color = SERVICE_TYPE_COLORS[record.service_type] ?? palette.textMuted;
   const label = t(SERVICE_TYPE_LABEL_KEYS[record.service_type] ?? record.service_type);
-  const dateStr = new Date(record.service_date).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  const dateStr = formatDate(record.service_date, { day: "2-digit", month: "short", year: "numeric" });
 
   return (
     <View

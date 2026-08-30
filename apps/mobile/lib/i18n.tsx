@@ -42,6 +42,8 @@ const STORAGE_KEY = "kaduna.locale";
 
 export type TranslateVars = Record<string, string | number>;
 export type Translate = (key: string, vars?: TranslateVars) => string;
+/** Signature of `useI18n().formatDate`, for helpers that take one as a parameter. */
+export type FormatDate = (d: Date | string | number, opts?: Intl.DateTimeFormatOptions) => string;
 
 /**
  * Resolve one key. Falls back through: requested locale → English → the key
@@ -98,7 +100,7 @@ type I18nValue = {
   setLocale: (l: Locale) => void;
   /** True until the stored choice has been read — splash screens can wait on it. */
   ready: boolean;
-  formatDate: (d: Date | string | number, opts?: Intl.DateTimeFormatOptions) => string;
+  formatDate: FormatDate;
   formatNumber: (n: number, opts?: Intl.NumberFormatOptions) => string;
   /** Rupees, the way they are written here: "LKR 28,500". */
   formatCurrency: (n: number) => string;

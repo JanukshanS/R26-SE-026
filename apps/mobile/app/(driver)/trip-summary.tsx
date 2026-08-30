@@ -12,7 +12,7 @@ import {
 } from "@lib/maintenanceApi";
 import { useVehicle } from "@lib/vehicleContext";
 import { SimulatedTripsModal } from "@components/ui/simulated-trips-modal";
-import { useT, type Translate } from "@lib/i18n";
+import { useT, useI18n, type Translate } from "@lib/i18n";
 
 export default function TripSummaryScreen() {
   const insets = useSafeAreaInsets();
@@ -336,15 +336,14 @@ function BehaviourBar({
 }
 
 function TripCard({ trip, index }: { trip: TripSummary; index: number }) {
-  const t = useT();
+  const { t, formatDate } = useI18n();
   const brakeColor =
     trip.braking_events >= 4 ? palette.danger : trip.braking_events >= 2 ? palette.warning : palette.success;
   const cornerColor =
     trip.cornering_events >= 4 ? palette.danger : trip.cornering_events >= 2 ? palette.warning : palette.success;
 
-  const date = new Date(trip.start_timestamp);
-  const dateStr = date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  const timeStr = date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const dateStr = formatDate(trip.start_timestamp, { day: "2-digit", month: "short", year: "numeric" });
+  const timeStr = formatDate(trip.start_timestamp, { hour: "2-digit", minute: "2-digit" });
 
   return (
     <View

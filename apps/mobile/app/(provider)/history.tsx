@@ -16,7 +16,7 @@ import {
   type ProviderFeedback,
   type ProviderFeedbackSummary,
 } from "@lib/dispatchApi";
-import { useT } from "@lib/i18n";
+import { useT, useI18n } from "@lib/i18n";
 
 export default function ProviderHistoryScreen() {
   const insets = useSafeAreaInsets();
@@ -158,11 +158,8 @@ function MetricTile({ icon, label, value }: { icon: Parameters<typeof Icon>[0]["
 }
 
 function FeedbackCard({ feedback }: { feedback: ProviderFeedback }) {
-  const t = useT();
-  const date = new Date(feedback.createdAt).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-  });
+  const { t, formatDate } = useI18n();
+  const date = formatDate(feedback.createdAt, { day: "numeric", month: "short" });
   return (
     <Card style={{ gap: spacing.xs }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>

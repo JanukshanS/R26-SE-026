@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import type { ComponentKey } from "@lib/maintenanceApi";
-import { useT } from "@lib/i18n";
+import { useI18n, type FormatDate } from "@lib/i18n";
 
 interface Suggestion {
   id: string;
@@ -115,21 +115,16 @@ const ASSISTANT_TEXT_KEY: Record<ComponentKey, string> = {
   battery: "driver.autoSchedule.assistantBattery",
 };
 
-/** Next upcoming Saturday, formatted "Sat, 4 Jul 2026". */
-function nextSaturdayLabel(): string {
+/** Next upcoming Saturday, formatted "Sat, 4 Jul 2026" in the chosen language. */
+function nextSaturdayLabel(formatDate: FormatDate): string {
   const d = new Date();
   d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7 || 7));
-  return d.toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return formatDate(d, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
 
 export default function AutoScheduleScreen() {
   const insets = useSafeAreaInsets();
-  const t = useT();
+  const { t, formatDate } = useI18n();
   const { component, partName, partSubtitle, partPrice } = useLocalSearchParams<{
     component: ComponentKey;
     partName?: string;
@@ -149,7 +144,7 @@ export default function AutoScheduleScreen() {
       : s
   );
   const assistantText = t(ASSISTANT_TEXT_KEY[key]);
-  const scheduleDate = nextSaturdayLabel();
+  const scheduleDate = nextSaturdayLabel(formatDate);
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
