@@ -34,12 +34,26 @@ function DashboardInner() {
   const [isAnimating, setIsAnimating] = useState(false);
   const animTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const handleCollapse = () => {
+    if (!expanded) return;
+    if (animTimer.current) clearTimeout(animTimer.current);
+    setIsAnimating(true);
+    setExpanded(false);
+    animTimer.current = setTimeout(() => setIsAnimating(false), 420);
+  };
+
   const handleToggleExpand = () => {
     if (animTimer.current) clearTimeout(animTimer.current);
     setIsAnimating(true);
     setExpanded((v) => !v);
     animTimer.current = setTimeout(() => setIsAnimating(false), 420);
   };
+
+  // Collapse to minimizedd whenever the user selects a different claim
+  useEffect(() => {
+    handleCollapse();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFolder]);
 
   useEffect(() => {
     fetchClaims()
@@ -85,6 +99,7 @@ function DashboardInner() {
               key={selectedClaim.folder}
               expanded={expanded}
               onToggleExpand={handleToggleExpand}
+              onCollapse={handleCollapse}
               isAnimating={isAnimating}
             />
           )}

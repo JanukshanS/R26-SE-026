@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import {
   ContactShadows, Environment, GizmoHelper, GizmoViewport,
@@ -82,9 +82,14 @@ function downloadFile(url: string, filename: string) {
 
 export function CompareViewCanvas({ glbUrl, splatUrl, isLoading, expanded, onToggleExpand, isTransitioning }: CompareViewCanvasProps) {
   const hasModel = !!(splatUrl || glbUrl);
+  const [splatLoading, setSplatLoading] = useState(!!splatUrl);
+
+  useEffect(() => {
+    if (splatUrl) setSplatLoading(true);
+  }, [splatUrl]);
 
   return (
-    <div className="compare-view">
+    <div className="compare-view" style={{ position: "relative" }}>
       <div className="compare-view__header">
         <h3 className="compare-view__title">
           {hasModel ? "Generated 3D Model" : "Compare view"}
@@ -100,16 +105,23 @@ export function CompareViewCanvas({ glbUrl, splatUrl, isLoading, expanded, onTog
               Download GLB
             </button>
           )}
-          {onToggleExpand && (
+          {onToggleExpand && !isLoading && !splatLoading && (
             <button type="button" className="compare-view__expand" onClick={onToggleExpand} title={expanded ? "Collapse view" : "Expand 3D model"} aria-label={expanded ? "Collapse view" : "Expand 3D model"}>
               {expanded ? "⤡" : "⤢"}
             </button>
           )}
         </div>
       </div>
+      {splatUrl && splatLoading && (
+        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, background: "#e8eaed", pointerEvents: "none", zIndex: 10 }}>
+          <div style={{ width: 36, height: 36, border: "3px solid #d1d5db", borderTopColor: "#f97316", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+          <span style={{ fontSize: "0.8rem", color: "#6b7280" }}>Loading 3D model…</span>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
       <div className="compare-view__canvas-wrap">
         {splatUrl ? (
-          <GaussianSplatViewer url={splatUrl} />
+          <GaussianSplatViewer url={splatUrl} onLoadingChange={setSplatLoading} />
         ) : isTransitioning ? (
           <div className="compare-view__empty">
             <div className="compare-view__spinner" aria-label="Loading" />
