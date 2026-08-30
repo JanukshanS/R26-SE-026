@@ -97,11 +97,13 @@ export function ClaimDetailPanel({
   claim,
   expanded = false,
   onToggleExpand,
+  onCollapse,
   isAnimating = false,
 }: {
   claim: Claim;
   expanded?: boolean;
   onToggleExpand?: () => void;
+  onCollapse?: () => void;
   isAnimating?: boolean;
 }) {
   const { user } = useInsurerUser();
@@ -536,6 +538,7 @@ export function ClaimDetailPanel({
                   onClick={() => {
                     setLocalSplatUrl(`${API_BASE}/pipeline/jobs/${m.job_id}/splat`);
                     setShowModelPicker(false);
+                    onCollapse?.();
                   }}
                   className={`flex items-center justify-between px-3 py-2.5 rounded-md border text-left gap-4 transition-colors ${
                     splatUrl?.includes(m.job_id)
