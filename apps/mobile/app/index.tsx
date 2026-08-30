@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@components/ui/button";
 import { Icon } from "@components/ui/icon";
+import { LanguagePicker } from "@components/ui/language-picker";
 import { Logo } from "@components/ui/logo";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
@@ -74,6 +75,19 @@ export default function WelcomeScreen() {
         </>
       }
     >
+      {/* Language first, before the app has asked for anything — someone who
+          cannot read the English buttons has to be able to fix that here. */}
+      <View
+        style={{
+          position: "absolute",
+          top: insets.top + spacing.md,
+          left: spacing.xl,
+          zIndex: 10,
+        }}
+      >
+        <LanguagePicker />
+      </View>
+
       {/*
         Service provider entry — top-right pill button. Routes to the provider
         onboarding flow (register or sign in); the provider record is created

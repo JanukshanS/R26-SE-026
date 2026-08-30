@@ -119,11 +119,14 @@ export default function SignIn() {
         onSubmit={onSubmit}
         className="w-full max-w-sm space-y-4 rounded-lg border border-border p-6"
       >
-        <div>
-          <h1 className="text-lg font-semibold">Sign in to Kaduna.lk</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Use your Kaduna.lk account.
-          </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-lg font-semibold">Sign in to Kaduna.lk</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Use your Kaduna.lk account.
+            </p>
+          </div>
+          <LanguagePicker />
         </div>
 
         <label className="block text-sm">
