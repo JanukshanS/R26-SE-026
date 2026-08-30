@@ -58,7 +58,9 @@ function catalogueOf(dir, locale) {
   for (const f of files) {
     if (f === "index.ts" || !f.endsWith(".ts")) continue;
     const src = readFileSync(join(dir, locale, f), "utf8");
-    for (const m of src.matchAll(/["']([A-Za-z0-9_.]+)["']\s*:\s*(["'`])/g)) out.set(m[1], f);
+    // Anchored to the start of a line: a long value wraps onto the next line,
+    // and an unanchored match would count those continuations as extra keys.
+    for (const m of src.matchAll(/^\s*["']([A-Za-z0-9_.]+)["']\s*:/gm)) out.set(m[1], f);
   }
   return out;
 }
