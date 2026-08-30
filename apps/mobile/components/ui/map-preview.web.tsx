@@ -12,6 +12,7 @@ import { Text, View } from "react-native";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import type { ProviderRecord } from "@lib/dispatchApi";
+import { useT } from "@lib/i18n";
 
 interface MapPreviewProps {
   driverLocation: { latitude: number; longitude: number };
@@ -21,6 +22,7 @@ interface MapPreviewProps {
 }
 
 export function MapPreview({ etaText, distanceText }: MapPreviewProps) {
+  const t = useT();
   return (
     <View
       style={{
@@ -42,7 +44,7 @@ export function MapPreview({ etaText, distanceText }: MapPreviewProps) {
           textAlign: "center",
         }}
       >
-        Map preview is available on iOS and Android
+        {t("components.map.webPlaceholder")}
       </Text>
       {(etaText || distanceText) && (
         <Text

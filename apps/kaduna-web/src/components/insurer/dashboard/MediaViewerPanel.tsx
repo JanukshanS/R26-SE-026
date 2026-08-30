@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { AccidentImage, Claim } from "@/lib/insurer/types";
 import { distanceMetres, formatDistance, distanceLevel } from "@/lib/insurer/geo";
+import { useT } from "@/lib/i18n";
 
 type ReferenceLocation = { gps_lat: number | null; gps_lng: number | null };
 
@@ -47,6 +48,7 @@ const BTN = {
 export function MediaViewerPanel({
   title, urls, loading, visible, onClose, referenceLocation,
 }: MediaViewerPanelProps) {
+  const t = useT();
   const [activeIndex, setActiveIndex] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -105,14 +107,14 @@ export function MediaViewerPanel({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <h3 className="text-sm font-semibold">{title}</h3>
-        <button type="button" onClick={onClose} aria-label="Close"
+        <button type="button" onClick={onClose} aria-label={t("insurer.action.close")}
           className="text-muted-foreground hover:text-foreground text-xl leading-none">×</button>
       </div>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Sidebar */}
         <div className="w-1/3 shrink-0 border-r border-border px-4 py-5 flex flex-col gap-3 overflow-y-auto">
-          <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">Photo Location</p>
+          <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("insurer.media.photoLocation")}</p>
           {active && active.gps_lat != null && active.gps_lng != null ? (
             <a href={`https://www.google.com/maps?q=${active.gps_lat},${active.gps_lng}`}
               target="_blank" rel="noopener noreferrer"
@@ -135,13 +137,15 @@ export function MediaViewerPanel({
               : level === "warn" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800";
             return (
               <span className={`inline-flex items-center gap-1 self-start px-2.5 py-1 rounded text-xs font-semibold ${tone}`}>
-                {level === "ok" ? "✓ Location Matched" : `⚠ ${formatDistance(dist)} from accident site`}
+                {level === "ok"
+                  ? t("insurer.media.locationMatched")
+                  : t("insurer.media.locationOff", { distance: formatDistance(dist) })}
               </span>
             );
           })()}
 
           <hr className="border-border" />
-          <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">Photo Timestamp</p>
+          <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("insurer.media.photoTimestamp")}</p>
           <p className="text-sm text-muted-foreground">{active ? formatCapturedAt(active.captured_at) : "—"}</p>
 
           {zoom > 1 && !activeIsVideo && (
@@ -149,9 +153,9 @@ export function MediaViewerPanel({
               <hr className="border-border" />
               <div className="flex items-center justify-between">
                 <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-                  Zoom {zoom.toFixed(1)}×
+                  {t("insurer.media.zoom", { level: zoom.toFixed(1) })}
                 </p>
-                <button type="button" onClick={reset} className="text-[0.68rem] text-primary hover:underline">Reset</button>
+                <button type="button" onClick={reset} className="text-[0.68rem] text-primary hover:underline">{t("insurer.media.reset")}</button>
               </div>
             </>
           )}
@@ -171,14 +175,14 @@ export function MediaViewerPanel({
             onDoubleClick={!activeIsVideo ? reset : undefined}
           >
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading images…</p>
+              <p className="text-sm text-muted-foreground">{t("insurer.media.loading")}</p>
             ) : urls.length > 0 ? (
               activeIsVideo ? (
                 <video key={activeUrl} src={activeUrl} controls className="max-w-full max-h-full" />
               ) : (
                 <img
                   src={activeUrl}
-                  alt={`${title} — item ${activeIndex + 1}`}
+                  alt={t("insurer.media.itemAlt", { title, number: activeIndex + 1 })}
                   draggable={false}
                   className="max-w-full max-h-full object-contain rounded border border-border select-none"
                   style={{
@@ -189,7 +193,7 @@ export function MediaViewerPanel({
                 />
               )
             ) : (
-              <p className="text-sm text-muted-foreground">No media available</p>
+              <p className="text-sm text-muted-foreground">{t("insurer.media.empty")}</p>
             )}
           </div>
 
@@ -200,10 +204,10 @@ export function MediaViewerPanel({
               bottom: hasThumbs ? 86 : 10,
               display: "flex", flexDirection: "column", gap: 3, zIndex: 5,
             }}>
-              <button type="button" style={BTN} onClick={zoomIn} title="Zoom in">+</button>
-              <button type="button" style={BTN} onClick={zoomOut} title="Zoom out">−</button>
+              <button type="button" style={BTN} onClick={zoomIn} title={t("insurer.media.zoomIn")}>+</button>
+              <button type="button" style={BTN} onClick={zoomOut} title={t("insurer.media.zoomOut")}>−</button>
               {zoom > 1 && (
-                <button type="button" style={{ ...BTN, fontSize: 13 }} onClick={reset} title="Reset zoom">↺</button>
+                <button type="button" style={{ ...BTN, fontSize: 13 }} onClick={reset} title={t("insurer.media.resetZoom")}>↺</button>
               )}
             </div>
           )}
@@ -211,7 +215,7 @@ export function MediaViewerPanel({
           {/* Hint */}
           {!loading && urls.length > 0 && !activeIsVideo && zoom === 1 && (
             <p className="text-center text-[0.65rem] text-muted-foreground py-1 shrink-0">
-              Scroll or use +/− to zoom · drag to pan · double-click to reset
+              {t("insurer.media.hint")}
             </p>
           )}
 

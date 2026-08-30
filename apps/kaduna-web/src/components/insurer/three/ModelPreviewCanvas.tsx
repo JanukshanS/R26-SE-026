@@ -4,6 +4,7 @@ import { Suspense, useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import { ContactShadows, Environment, OrbitControls, useGLTF } from "@react-three/drei";
 import { DamagedCar } from "./CarModels";
+import { useT } from "@/lib/i18n";
 
 function GlbModel({ url }: { url: string }) {
   const { scene } = useGLTF(url);
@@ -31,6 +32,7 @@ type ModelPreviewCanvasProps = {
 };
 
 export function ModelPreviewCanvas({ onFullscreen, glbUrl }: ModelPreviewCanvasProps) {
+  const t = useT();
   return (
     <div className="model-preview">
       <Canvas shadows camera={{ position: [4.5, 2.5, 5], fov: 40 }} gl={{ antialias: true }}>
@@ -39,7 +41,7 @@ export function ModelPreviewCanvas({ onFullscreen, glbUrl }: ModelPreviewCanvasP
         </Suspense>
       </Canvas>
       <button type="button" className="model-preview__link" onClick={onFullscreen}>
-        &lt;Full screen view&gt;
+        {t("insurer.preview.fullScreen")}
       </button>
     </div>
   );

@@ -15,6 +15,7 @@ import { Pressable, Text, View } from "react-native";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import type { VehicleFault } from "@lib/maintenanceApi";
+import { useT, type Translate } from "@lib/i18n";
 
 /** Severity drives colour everywhere, so it is resolved in exactly one place. */
 export function faultTone(severity: VehicleFault["severity"]) {
@@ -23,11 +24,11 @@ export function faultTone(severity: VehicleFault["severity"]) {
   return { fg: palette.textMuted, bg: palette.surfaceMuted };
 }
 
-function severityLabel(fault: VehicleFault): string {
-  if (fault.status === "pending") return "Warning sign";
-  if (fault.severity === "urgent") return "Fix now";
-  if (fault.severity === "soon") return "Fix soon";
-  return "Keep an eye on it";
+function severityLabel(fault: VehicleFault, t: Translate): string {
+  if (fault.status === "pending") return t("components.fault.severityPending");
+  if (fault.severity === "urgent") return t("components.fault.severityUrgent");
+  if (fault.severity === "soon") return t("components.fault.severitySoon");
+  return t("components.fault.severityWatch");
 }
 
 /**
@@ -37,9 +38,9 @@ function severityLabel(fault: VehicleFault): string {
  * usually means the light was reset without the cause being repaired, and a
  * driver who paid for that repair deserves to see it said plainly.
  */
-function seenSummary(fault: VehicleFault): string {
-  const trips = `Seen on ${fault.times_seen} ${fault.times_seen === 1 ? "trip" : "trips"}`;
-  if (fault.recurrences > 0) return `${trips} · came back after being cleared`;
+function seenSummary(fault: VehicleFault, t: Translate): string {
+  const trips = t("components.fault.seenOnTrips", { count: fault.times_seen });
+  if (fault.recurrences > 0) return `${trips} · ${t("components.fault.recurred")}`;
   return trips;
 }
 
@@ -52,6 +53,7 @@ export function FaultCard({
   variant?: "compact" | "full";
   onPress?: () => void;
 }) {
+  const t = useT();
   const tone = faultTone(fault.severity);
   const compact = variant === "compact";
 
@@ -69,7 +71,7 @@ export function FaultCard({
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
         <Icon name="TriangleAlert" size={15} color={tone.fg} />
         <Text style={{ ...typography.caption, color: tone.fg, fontWeight: "700", flex: 1 }}>
-          {severityLabel(fault)}
+          {severityLabel(fault, t)}
         </Text>
         <Text style={{ ...typography.micro, color: palette.textMuted }}>{fault.code}</Text>
       </View>
@@ -80,12 +82,14 @@ export function FaultCard({
           now rather than at the next service, so it stays in both variants. */}
       {fault.leads_to.length > 0 ? (
         <Text style={{ ...typography.caption, color: palette.text, lineHeight: 19 }}>
-          <Text style={{ fontWeight: "700" }}>If not fixed: </Text>
+          <Text style={{ fontWeight: "700" }}>{t("components.fault.ifNotFixed")}</Text>
           {fault.leads_to[0]}
           {fault.cost_multiplier ? (
             <Text style={{ fontWeight: "700" }}>
               {" "}
-              — around {Math.round(fault.cost_multiplier)}× the repair cost.
+              {t("components.fault.costMultiplier", {
+                multiplier: Math.round(fault.cost_multiplier),
+              })}
             </Text>
           ) : null}
         </Text>
@@ -94,7 +98,7 @@ export function FaultCard({
       {!compact && fault.likely_causes.length > 0 ? (
         <View style={{ gap: 4, paddingTop: spacing.xs }}>
           <Text style={{ ...typography.caption, color: palette.textMuted, fontWeight: "700" }}>
-            Usually one of these
+            {t("components.fault.likelyCauses")}
           </Text>
           {fault.likely_causes.map((cause, i) => (
             <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.sm }}>
@@ -120,7 +124,7 @@ export function FaultCard({
           worth showing rather than summarising away. */}
       {!compact && fault.freeze_frame && Object.keys(fault.freeze_frame).length > 0 ? (
         <Text style={{ ...typography.caption, color: palette.textMuted, lineHeight: 19 }}>
-          <Text style={{ fontWeight: "700" }}>Recorded at: </Text>
+          <Text style={{ fontWeight: "700" }}>{t("components.fault.recordedAt")}</Text>
           {Object.entries(fault.freeze_frame)
             .map(([key, value]) => `${key.replace(/_/g, " ")} ${value}`)
             .join(" · ")}
@@ -129,10 +133,10 @@ export function FaultCard({
 
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
         <Text style={{ ...typography.micro, color: palette.textMuted, flex: 1 }}>
-          {seenSummary(fault)}
+          {seenSummary(fault, t)}
           {/* A family match knows the area, not the defect. Saying so stops the
               screen asserting a specific fault it cannot actually identify. */}
-          {fault.is_generic ? " · general description" : ""}
+          {fault.is_generic ? ` · ${t("components.fault.generic")}` : ""}
         </Text>
         {onPress ? <Icon name="ChevronRight" size={15} color={tone.fg} /> : null}
       </View>
@@ -144,7 +148,10 @@ export function FaultCard({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${fault.title}, ${severityLabel(fault)}`}
+      accessibilityLabel={t("components.fault.a11y", {
+        title: fault.title,
+        severity: severityLabel(fault, t),
+      })}
       style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
     >
       {body}

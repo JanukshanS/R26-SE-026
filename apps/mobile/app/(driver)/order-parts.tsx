@@ -15,19 +15,20 @@ import {
 import { BottomNavBar } from "@components/ui/bottom-nav-bar";
 import { useTabBack } from "@lib/useTabBack";
 import { useVehicle } from "@lib/vehicleContext";
+import { useT } from "@lib/i18n";
 
-const TITLES: Record<ComponentKey, string> = {
-  brake: "Order Brake Pads",
-  engine: "Order Engine Oil",
-  tire: "Order Tyres",
-  battery: "Order Battery",
+const TITLE_KEYS: Record<ComponentKey, string> = {
+  brake: "driver.store.titleBrake",
+  engine: "driver.store.titleEngine",
+  tire: "driver.store.titleTire",
+  battery: "driver.store.titleBattery",
 };
 
-const STORE_CATEGORIES: { key: ComponentKey; label: string; icon: IconName; blurb: string }[] = [
-  { key: "brake", label: "Brakes", icon: "Disc", blurb: "Pads, discs & kits" },
-  { key: "engine", label: "Engine", icon: "Gauge", blurb: "Oil, filters & service kits" },
-  { key: "tire", label: "Tyres", icon: "Circle", blurb: "Singles & full sets" },
-  { key: "battery", label: "Battery", icon: "Battery", blurb: "12V & HV cells" },
+const STORE_CATEGORIES: { key: ComponentKey; labelKey: string; icon: IconName; blurbKey: string }[] = [
+  { key: "brake", labelKey: "driver.store.categoryBrake", icon: "Disc", blurbKey: "driver.store.categoryBrakeBlurb" },
+  { key: "engine", labelKey: "driver.store.categoryEngine", icon: "Gauge", blurbKey: "driver.store.categoryEngineBlurb" },
+  { key: "tire", labelKey: "driver.store.categoryTire", icon: "Circle", blurbKey: "driver.store.categoryTireBlurb" },
+  { key: "battery", labelKey: "driver.store.categoryBattery", icon: "Battery", blurbKey: "driver.store.categoryBatteryBlurb" },
 ];
 
 const VALID_KEYS = new Set<ComponentKey>(["brake", "engine", "tire", "battery"]);
@@ -59,6 +60,7 @@ function CategoryStore({
   goBack: () => void;
 }) {
   const { selectedVehicle } = useVehicle();
+  const t = useT();
   const [data, setData] = useState<ComponentMarketplace | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,9 +79,9 @@ function CategoryStore({
     setError(null);
     const result = await getComponentMarketplace(component, vehicleDescription);
     setData(result);
-    if (!result) setError("Could not load the parts store. Check your connection and try again.");
+    if (!result) setError(t("driver.store.loadError"));
     setLoading(false);
-  }, [component, vehicleDescription]);
+  }, [component, vehicleDescription, t]);
 
   useEffect(() => {
     load();
@@ -101,11 +103,11 @@ function CategoryStore({
         }}
       >
         {canGoBack ? (
-          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel={t("driver.store.back")}>
             <Icon name="ChevronLeft" size={24} color={palette.text} />
           </Pressable>
         ) : null}
-        <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>{TITLES[component]}</Text>
+        <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>{t(TITLE_KEYS[component])}</Text>
       </View>
 
       {loading ? (
@@ -126,7 +128,7 @@ function CategoryStore({
               paddingVertical: spacing.sm,
             }}
           >
-            <Text style={{ ...typography.bodyStrong, color: palette.brand }}>Try again</Text>
+            <Text style={{ ...typography.bodyStrong, color: palette.brand }}>{t("driver.store.retry")}</Text>
           </Pressable>
         </View>
       ) : (
@@ -155,7 +157,7 @@ function CategoryStore({
               }}
             >
               <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                What other drivers paid
+                {t("driver.store.observedHeading")}
               </Text>
               <Text style={{ ...typography.h3, color: palette.brand }}>
                 {formatLkr(data.observed_prices.low_lkr)} –{" "}
@@ -163,14 +165,16 @@ function CategoryStore({
               </Text>
               <Text style={{ ...typography.micro, color: palette.textMuted }}>
                 {data.observed_prices.median_lkr != null
-                  ? `Typically ${formatLkr(data.observed_prices.median_lkr)} · `
-                  : ""}
-                {data.observed_prices.note}
+                  ? t("driver.store.observedTypical", {
+                      price: formatLkr(data.observed_prices.median_lkr),
+                      note: data.observed_prices.note,
+                    })
+                  : data.observed_prices.note}
               </Text>
             </View>
           ) : null}
 
-          <Text style={{ ...typography.bodyStrong, color: palette.text }}>Suggested parts</Text>
+          <Text style={{ ...typography.bodyStrong, color: palette.text }}>{t("driver.store.partsHeading")}</Text>
           {data?.parts.length ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
               {data.parts.map((part) => (
@@ -194,13 +198,13 @@ function CategoryStore({
           ) : (
             <Text style={{ ...typography.body, color: palette.textMuted }}>
               {vehicleDescription
-                ? `No parts listed yet that fit your ${vehicleDescription}. A garage below can source the right part.`
-                : "No parts listed for this category yet."}
+                ? t("driver.store.noPartsForVehicle", { vehicle: vehicleDescription })
+                : t("driver.store.noPartsCategory")}
             </Text>
           )}
 
           <Text style={{ ...typography.bodyStrong, color: palette.text, marginTop: spacing.sm }}>
-            Nearby garages
+            {t("driver.store.garagesHeading")}
           </Text>
           {data?.garages.length ? (
             <View style={{ gap: spacing.md }}>
@@ -210,7 +214,7 @@ function CategoryStore({
             </View>
           ) : (
             <Text style={{ ...typography.body, color: palette.textMuted }}>
-              No garages listed for this service yet.
+              {t("driver.store.noGarages")}
             </Text>
           )}
         </ScrollView>
@@ -242,7 +246,7 @@ function CategoryStore({
             backgroundColor: pressed ? palette.brandSoft : "transparent",
           })}
         >
-          <Text style={{ ...typography.bodyStrong, color: palette.brand }}>Go Back</Text>
+          <Text style={{ ...typography.bodyStrong, color: palette.brand }}>{t("driver.store.goBack")}</Text>
         </Pressable>
       </View>
       <BottomNavBar activeTab="store" />
@@ -252,6 +256,7 @@ function CategoryStore({
 
 function StoreLanding({ topInset, bottomInset }: { topInset: number; bottomInset: number }) {
   const { canGoBack, goBack } = useTabBack();
+  const t = useT();
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
       <View
@@ -268,25 +273,25 @@ function StoreLanding({ topInset, bottomInset }: { topInset: number; bottomInset
         }}
       >
         {canGoBack ? (
-          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel={t("driver.store.back")}>
             <Icon name="ChevronLeft" size={24} color={palette.text} />
           </Pressable>
         ) : null}
-        <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>Parts Store</Text>
+        <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>{t("driver.store.landingTitle")}</Text>
       </View>
 
       <ScrollView
         contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: bottomInset + 100 }}
       >
         <Text style={{ ...typography.body, color: palette.textMuted }}>
-          Browse parts by category. Prices are indicative.
+          {t("driver.store.landingSubtitle")}
         </Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
           {STORE_CATEGORIES.map((cat) => (
             <Pressable
               key={cat.key}
               accessibilityRole="button"
-              accessibilityLabel={cat.label}
+              accessibilityLabel={t(cat.labelKey)}
               onPress={() =>
                 router.push({ pathname: "/(driver)/order-parts", params: { component: cat.key } })
               }
@@ -312,8 +317,8 @@ function StoreLanding({ topInset, bottomInset }: { topInset: number; bottomInset
               >
                 <Icon name={cat.icon} size={22} color={palette.brand} />
               </View>
-              <Text style={{ ...typography.bodyStrong, color: palette.text }}>{cat.label}</Text>
-              <Text style={{ ...typography.micro, color: palette.textMuted }}>{cat.blurb}</Text>
+              <Text style={{ ...typography.bodyStrong, color: palette.text }}>{t(cat.labelKey)}</Text>
+              <Text style={{ ...typography.micro, color: palette.textMuted }}>{t(cat.blurbKey)}</Text>
             </Pressable>
           ))}
         </View>
@@ -324,11 +329,12 @@ function StoreLanding({ topInset, bottomInset }: { topInset: number; bottomInset
 }
 
 function PartCard({ part, onPress }: { part: MarketplacePart; onPress: () => void }) {
+  const t = useT();
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${part.name}, ${formatLkr(part.price_lkr)}`}
+      accessibilityLabel={t("driver.store.partA11y", { name: part.name, price: formatLkr(part.price_lkr) })}
       style={({ pressed }) => ({
         width: "47%",
         backgroundColor: pressed ? palette.homeBackground : palette.surface,
@@ -383,7 +389,7 @@ function PartCard({ part, onPress }: { part: MarketplacePart; onPress: () => voi
           <Text style={{ ...typography.micro, color: palette.textMuted }}>{part.rating.toFixed(1)} ★</Text>
         ) : null}
         {!part.in_stock ? (
-          <Text style={{ ...typography.micro, color: palette.warning }}>Out of stock</Text>
+          <Text style={{ ...typography.micro, color: palette.warning }}>{t("driver.store.outOfStock")}</Text>
         ) : null}
       </View>
     </Pressable>
@@ -391,12 +397,13 @@ function PartCard({ part, onPress }: { part: MarketplacePart; onPress: () => voi
 }
 
 function GarageCard({ garage, component }: { garage: MarketplaceGarage; component: ComponentKey }) {
+  const t = useT();
   return (
     <Pressable
       onPress={() =>
         router.push({
           pathname: "/(driver)/auto-schedule",
-          params: { component, partName: garage.name, partSubtitle: garage.city ?? "", partPrice: garage.labour_lkr ? formatLkr(garage.labour_lkr) : "Ask garage" },
+          params: { component, partName: garage.name, partSubtitle: garage.city ?? "", partPrice: garage.labour_lkr ? formatLkr(garage.labour_lkr) : t("driver.store.askGarage") },
         })
       }
       style={({ pressed }) => ({
@@ -412,17 +419,17 @@ function GarageCard({ garage, component }: { garage: MarketplaceGarage; componen
         <Icon name="Wrench" size={18} color={palette.brand} />
         <Text style={{ ...typography.bodyStrong, color: palette.text, flex: 1 }}>{garage.name}</Text>
         {garage.verified ? (
-          <Text style={{ ...typography.micro, color: palette.brand }}>Verified</Text>
+          <Text style={{ ...typography.micro, color: palette.brand }}>{t("driver.store.verified")}</Text>
         ) : null}
       </View>
       <Text style={{ ...typography.micro, color: palette.textMuted }}>
-        {[garage.city, garage.address].filter(Boolean).join(" · ") || "Location not listed"}
+        {[garage.city, garage.address].filter(Boolean).join(" · ") || t("driver.store.locationUnknown")}
       </Text>
       {garage.rating != null ? (
         <Text style={{ ...typography.micro, color: palette.textMuted }}>{garage.rating.toFixed(1)} ★</Text>
       ) : null}
       {garage.distance_km != null ? (
-        <Text style={{ ...typography.micro, color: palette.textMuted }}>~{garage.distance_km} km away</Text>
+        <Text style={{ ...typography.micro, color: palette.textMuted }}>{t("driver.store.distanceAway", { km: garage.distance_km })}</Text>
       ) : null}
       {garage.opening_hours ? (
         <Text style={{ ...typography.micro, color: palette.textMuted }}>{garage.opening_hours}</Text>

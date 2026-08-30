@@ -138,7 +138,7 @@ export function toggle(list: string[], value: string): string[] {
 
 export interface IntentTile {
   value: string;
-  label: string;
+  labelKey: string;
   /** lucide-react icon name, same as the mobile tile. */
   icon: string;
   /** Life-safety problem — red treatment. */
@@ -150,65 +150,65 @@ export interface IntentTile {
 /** Fast path. Each maps to a service type in the backend's
  *  FAST_PATH_INTENT_TO_SERVICE and bypasses the ML tree. */
 export const FAST_TILES: IntentTile[] = [
-  { value: "FLAT_TIRE", label: "Flat tyre", icon: "Disc" },
-  { value: "FUEL_EMPTY", label: "Out of fuel", icon: "Fuel" },
-  { value: "LOCKOUT", label: "Locked out", icon: "LockKeyhole" },
-  { value: "KEY_LOST", label: "Lost my key", icon: "KeyRound" },
-  { value: "FUEL_WRONG", label: "Wrong fuel", icon: "Droplets" },
-  { value: "BLOWN_FUSE", label: "Blown fuse", icon: "Zap" },
-  { value: "LIGHT_BULB", label: "Light bulb", icon: "Lightbulb" },
-  { value: "STUCK_FLOOD", label: "Stuck in flood", icon: "WavesHorizontal" },
-  { value: "MAJOR_CRASH", label: "Accident", icon: "TriangleAlert", urgent: true, ambulance: true },
-  { value: "FUEL_LEAK_FIRE_RISK", label: "Fuel leak / fire", icon: "Flame", urgent: true },
+  { value: "FLAT_TIRE", labelKey: "triage.q1.intent.flatTire", icon: "Disc" },
+  { value: "FUEL_EMPTY", labelKey: "triage.q1.intent.fuelEmpty", icon: "Fuel" },
+  { value: "LOCKOUT", labelKey: "triage.q1.intent.lockout", icon: "LockKeyhole" },
+  { value: "KEY_LOST", labelKey: "triage.q1.intent.keyLost", icon: "KeyRound" },
+  { value: "FUEL_WRONG", labelKey: "triage.q1.intent.fuelWrong", icon: "Droplets" },
+  { value: "BLOWN_FUSE", labelKey: "triage.q1.intent.blownFuse", icon: "Zap" },
+  { value: "LIGHT_BULB", labelKey: "triage.q1.intent.lightBulb", icon: "Lightbulb" },
+  { value: "STUCK_FLOOD", labelKey: "triage.q1.intent.stuckFlood", icon: "WavesHorizontal" },
+  { value: "MAJOR_CRASH", labelKey: "triage.q1.intent.majorCrash", icon: "TriangleAlert", urgent: true, ambulance: true },
+  { value: "FUEL_LEAK_FIRE_RISK", labelKey: "triage.q1.intent.fuelLeakFireRisk", icon: "Flame", urgent: true },
 ];
 
 /** These five enter the adaptive questionnaire. */
 export const ML_TILES: IntentTile[] = [
-  { value: "WONT_START", label: "Won't start", icon: "CircleOff" },
-  { value: "ENGINE_PROBLEM", label: "Engine trouble", icon: "Cog" },
-  { value: "BRAKE_ISSUE", label: "Brakes", icon: "CircleStop" },
-  { value: "GEAR_ISSUE", label: "Gears / clutch", icon: "Settings2" },
-  { value: "WEIRD_BEHAVIOR", label: "Not sure", icon: "CircleQuestionMark" },
+  { value: "WONT_START", labelKey: "triage.q1.intent.wontStart", icon: "CircleOff" },
+  { value: "ENGINE_PROBLEM", labelKey: "triage.q1.intent.engineProblem", icon: "Cog" },
+  { value: "BRAKE_ISSUE", labelKey: "triage.q1.intent.brakeIssue", icon: "CircleStop" },
+  { value: "GEAR_ISSUE", labelKey: "triage.q1.intent.gearIssue", icon: "Settings2" },
+  { value: "WEIRD_BEHAVIOR", labelKey: "triage.q1.intent.weirdBehavior", icon: "CircleQuestionMark" },
 ];
 
 // ─── Warning-lamp tiles (Q5) ─────────────────────────────────────────────
 
 /** Mobile's nine lamp tiles and the backend lamp each stands for. "Fuel" and
  *  "Other" both map to SERVICE — the closest analog the enum offers. */
-export const LIGHT_TILES: { id: string; label: string; value: string; icon: string }[] = [
-  { id: "engine", label: "Engine", value: "CHECK_ENGINE", icon: "Cog" },
-  { id: "oil", label: "Oil", value: "OIL", icon: "Droplet" },
-  { id: "battery", label: "Battery", value: "BATTERY", icon: "BatteryWarning" },
-  { id: "brake", label: "Brake", value: "BRAKE", icon: "OctagonAlert" },
-  { id: "abs", label: "ABS", value: "ABS", icon: "CircleSlash2" },
-  { id: "fuel", label: "Fuel", value: "SERVICE", icon: "Fuel" },
-  { id: "tyre", label: "Tyre", value: "TIRE_PRESSURE", icon: "CircleDot" },
-  { id: "temp", label: "Temp", value: "TEMPERATURE", icon: "Thermometer" },
-  { id: "other", label: "Other", value: "SERVICE", icon: "TriangleAlert" },
+export const LIGHT_TILES: { id: string; labelKey: string; value: string; icon: string }[] = [
+  { id: "engine", labelKey: "triage.q5.lights.engine", value: "CHECK_ENGINE", icon: "Cog" },
+  { id: "oil", labelKey: "triage.q5.lights.oil", value: "OIL", icon: "Droplet" },
+  { id: "battery", labelKey: "triage.q5.lights.battery", value: "BATTERY", icon: "BatteryWarning" },
+  { id: "brake", labelKey: "triage.q5.lights.brake", value: "BRAKE", icon: "OctagonAlert" },
+  { id: "abs", labelKey: "triage.q5.lights.abs", value: "ABS", icon: "CircleSlash2" },
+  { id: "fuel", labelKey: "triage.q5.lights.fuel", value: "SERVICE", icon: "Fuel" },
+  { id: "tyre", labelKey: "triage.q5.lights.tyre", value: "TIRE_PRESSURE", icon: "CircleDot" },
+  { id: "temp", labelKey: "triage.q5.lights.temp", value: "TEMPERATURE", icon: "Thermometer" },
+  { id: "other", labelKey: "triage.q5.lights.other", value: "SERVICE", icon: "TriangleAlert" },
 ];
 
 // ─── Steps ───────────────────────────────────────────────────────────────
 
 export interface Option {
   value: string;
-  title: string;
-  description?: string;
+  titleKey: string;
+  descriptionKey?: string;
   tone?: "warning" | "danger";
 }
 
 export interface ContextGroup {
   key: keyof SLContext;
-  label: string;
-  options: { value: string; label: string }[];
+  labelKey: string;
+  options: { value: string; labelKey: string }[];
 }
 
 export interface Step {
   key: keyof Answers;
   kind: "intent" | "single" | "lights" | "multi" | "context";
   /** Short topic heading, so no two steps share a title. */
-  title: string;
-  prompt: string;
-  hint?: string;
+  titleKey: string;
+  promptKey: string;
+  hintKey?: string;
   options?: Option[];
   groups?: ContextGroup[];
   /** Active for these answers? Omitted = always asked. */
@@ -227,171 +227,171 @@ export const STEPS: Step[] = [
   {
     key: "Q1_intent",
     kind: "intent",
-    title: "What's wrong?",
-    prompt: "What's wrong?",
-    hint: "Pick the closest one. We'll sort out the details after help is on its way.",
+    titleKey: "triage.q1.intent.title",
+    promptKey: "triage.q1.intent.prompt",
+    hintKey: "triage.q1.intent.hint",
   },
   // Q2 — 14.9%
   {
     key: "Q2_engine_start",
     kind: "single",
-    title: "Engine",
-    prompt: "What's the engine doing right now?",
+    titleKey: "triage.q2.engineStart.title",
+    promptKey: "triage.q2.engineStart.prompt",
     when: (a) => !!a.Q1_intent && ENGINE_INTENTS.includes(a.Q1_intent),
     options: [
-      { value: "STARTS_NORMAL", title: "Starts and runs normally", description: "Engine fires up and idles" },
-      { value: "STARTS_BUT_ISSUE", title: "Starts but runs rough", description: "Stalls, shakes, or misfires" },
-      { value: "CRANKS_NO_START", title: "Cranks but won't fire", description: "Engine turns but doesn't catch" },
-      { value: "NO_CRANK", title: "Completely dead", description: "No response at all when key turned" },
+      { value: "STARTS_NORMAL", titleKey: "triage.q2.engineStart.startsNormal.title", descriptionKey: "triage.q2.engineStart.startsNormal.description" },
+      { value: "STARTS_BUT_ISSUE", titleKey: "triage.q2.engineStart.startsButIssue.title", descriptionKey: "triage.q2.engineStart.startsButIssue.description" },
+      { value: "CRANKS_NO_START", titleKey: "triage.q2.engineStart.cranksNoStart.title", descriptionKey: "triage.q2.engineStart.cranksNoStart.description" },
+      { value: "NO_CRANK", titleKey: "triage.q2.engineStart.noCrank.title", descriptionKey: "triage.q2.engineStart.noCrank.description" },
     ],
   },
   // Q5 — 22.0%, the single heaviest question. Always asked.
   {
     key: "Q5_lights",
     kind: "lights",
-    title: "Warning lights",
-    prompt: "Which dashboard lights are on?",
-    hint: "Select all the warning lights you can see. Leave it empty if there are none.",
+    titleKey: "triage.q5.lights.title",
+    promptKey: "triage.q5.lights.prompt",
+    hintKey: "triage.q5.lights.hint",
   },
   // Q9 — 15.1%. Always asked.
   {
     key: "Q9_recent",
     kind: "multi",
-    title: "Recent warning signs",
-    prompt: "Any warning signs in the past few days?",
-    hint: "Select all that apply.",
+    titleKey: "triage.q9.recent.title",
+    promptKey: "triage.q9.recent.prompt",
+    hintKey: "triage.q9.recent.hint",
     options: [
-      { value: "HARD_START", title: "Engine was harder to start", description: "Cranking has been getting slower" },
-      { value: "LIGHTS_FLICKER", title: "Dashboard lights flickering", description: "Lights dim or flicker while driving" },
-      { value: "LOSS_OF_POWER", title: "Lost power while driving", description: "Sudden drop in acceleration" },
-      { value: "OVERHEATING_BEFORE", title: "Temperature gauge went up", description: "Engine ran hot before" },
-      { value: "UNUSUAL_NOISE", title: "Unusual noise recently", description: "New rattle, squeal, or grind" },
-      { value: "SMELL_BEFORE", title: "Noticed a smell in past days", description: "Something didn't smell right" },
-      { value: "NO_SIGNS", title: "No warning signs", description: "Happened suddenly with no warning" },
+      { value: "HARD_START", titleKey: "triage.q9.recent.hardStart.title", descriptionKey: "triage.q9.recent.hardStart.description" },
+      { value: "LIGHTS_FLICKER", titleKey: "triage.q9.recent.lightsFlicker.title", descriptionKey: "triage.q9.recent.lightsFlicker.description" },
+      { value: "LOSS_OF_POWER", titleKey: "triage.q9.recent.lossOfPower.title", descriptionKey: "triage.q9.recent.lossOfPower.description" },
+      { value: "OVERHEATING_BEFORE", titleKey: "triage.q9.recent.overheatingBefore.title", descriptionKey: "triage.q9.recent.overheatingBefore.description" },
+      { value: "UNUSUAL_NOISE", titleKey: "triage.q9.recent.unusualNoise.title", descriptionKey: "triage.q9.recent.unusualNoise.description" },
+      { value: "SMELL_BEFORE", titleKey: "triage.q9.recent.smellBefore.title", descriptionKey: "triage.q9.recent.smellBefore.description" },
+      { value: "NO_SIGNS", titleKey: "triage.q9.recent.noSigns.title", descriptionKey: "triage.q9.recent.noSigns.description" },
     ],
   },
   // Q6 — 10.8%. Always asked.
   {
     key: "Q6_smells",
     kind: "single",
-    title: "Smell",
-    prompt: "Do you notice any unusual smells?",
+    titleKey: "triage.q6.smells.title",
+    promptKey: "triage.q6.smells.prompt",
     options: [
-      { value: "BURNING_ELECTRICAL", title: "Burning plastic / electrical", description: "Wiring or alternator overheating", tone: "danger" },
-      { value: "BURNING_OIL", title: "Burning oil / rubber", description: "Oil leak onto exhaust or belt slipping" },
-      { value: "FUEL_SMELL", title: "Strong petrol / diesel smell", description: "Possible fuel leak — do not start", tone: "danger" },
-      { value: "ROTTEN_EGGS", title: "Rotten eggs / sulfur", description: "Catalytic converter or battery overcharge" },
-      { value: "SWEET", title: "Sweet smell", description: "Coolant leak (antifreeze)" },
-      { value: "NO_SMELL", title: "No unusual smell", description: "Nothing different" },
+      { value: "BURNING_ELECTRICAL", titleKey: "triage.q6.smells.burningElectrical.title", descriptionKey: "triage.q6.smells.burningElectrical.description", tone: "danger" },
+      { value: "BURNING_OIL", titleKey: "triage.q6.smells.burningOil.title", descriptionKey: "triage.q6.smells.burningOil.description" },
+      { value: "FUEL_SMELL", titleKey: "triage.q6.smells.fuelSmell.title", descriptionKey: "triage.q6.smells.fuelSmell.description", tone: "danger" },
+      { value: "ROTTEN_EGGS", titleKey: "triage.q6.smells.rottenEggs.title", descriptionKey: "triage.q6.smells.rottenEggs.description" },
+      { value: "SWEET", titleKey: "triage.q6.smells.sweet.title", descriptionKey: "triage.q6.smells.sweet.description" },
+      { value: "NO_SMELL", titleKey: "triage.q6.smells.noSmell.title", descriptionKey: "triage.q6.smells.noSmell.description" },
     ],
   },
   // Q2b — 7.2%. Still ahead of every branch detail that reads it.
   {
     key: "Q2b_running_issue",
     kind: "single",
-    title: "Running problem",
-    prompt: "What's the main problem while the engine runs?",
+    titleKey: "triage.q2b.runningIssue.title",
+    promptKey: "triage.q2b.runningIssue.prompt",
     when: (a) =>
       a.Q2_engine_start === "STARTS_NORMAL" || a.Q2_engine_start === "STARTS_BUT_ISSUE",
     options: [
-      { value: "OVERHEATING", title: "Overheating", description: "Temperature gauge climbing into the red" },
-      { value: "NOISE", title: "Strange noise", description: "Squeal, knock, grind, whine, clunk" },
-      { value: "NO_POWER", title: "No power / won't accelerate", description: "Engine runs but loses power under load" },
-      { value: "SMOKE", title: "Smoke from engine", description: "Visible smoke from the engine bay or exhaust" },
-      { value: "STALLING", title: "Engine stalls / dies", description: "Cuts out while idling or driving" },
+      { value: "OVERHEATING", titleKey: "triage.q2b.runningIssue.overheating.title", descriptionKey: "triage.q2b.runningIssue.overheating.description" },
+      { value: "NOISE", titleKey: "triage.q2b.runningIssue.noise.title", descriptionKey: "triage.q2b.runningIssue.noise.description" },
+      { value: "NO_POWER", titleKey: "triage.q2b.runningIssue.noPower.title", descriptionKey: "triage.q2b.runningIssue.noPower.description" },
+      { value: "SMOKE", titleKey: "triage.q2b.runningIssue.smoke.title", descriptionKey: "triage.q2b.runningIssue.smoke.description" },
+      { value: "STALLING", titleKey: "triage.q2b.runningIssue.stalling.title", descriptionKey: "triage.q2b.runningIssue.stalling.description" },
     ],
   },
   // Branch detail — at most one of these is ever active.
   {
     key: "Q3_sound",
     kind: "single",
-    title: "Sound",
-    prompt: "What sound does your vehicle make?",
-    hint: "Pick the sound that best matches when you turn the key.",
+    titleKey: "triage.q3.sound.title",
+    promptKey: "triage.q3.sound.prompt",
+    hintKey: "triage.q3.sound.hint",
     when: (a) => a.Q2_engine_start === "CRANKS_NO_START",
     options: [
-      { value: "RAPID_CLICKING", title: "Rapid clicking" },
-      { value: "NORMAL_CRANKING", title: "Normal cranking" },
-      { value: "GRINDING", title: "Grinding noise" },
-      { value: "NOTHING", title: "Nothing at all" },
+      { value: "RAPID_CLICKING", titleKey: "triage.q3.sound.rapidClicking.title" },
+      { value: "NORMAL_CRANKING", titleKey: "triage.q3.sound.normalCranking.title" },
+      { value: "GRINDING", titleKey: "triage.q3.sound.grinding.title" },
+      { value: "NOTHING", titleKey: "triage.q3.sound.nothing.title" },
     ],
   },
   {
     key: "Q3b_electrical",
     kind: "single",
-    title: "Lights and power",
-    prompt: "What are the dashboard lights doing?",
+    titleKey: "triage.q3b.electrical.title",
+    promptKey: "triage.q3b.electrical.prompt",
     when: (a) => a.Q2_engine_start === "NO_CRANK",
     options: [
-      { value: "ALL_DEAD_NO_LIGHTS", title: "No lights at all", description: "Dashboard completely dark — battery flat or terminal off" },
-      { value: "DIM_LIGHTS", title: "Lights dim or flickering", description: "Battery has some charge but not enough to crank" },
-      { value: "SOME_LIGHTS_ON", title: "Some lights normal", description: "Power is there — starter or ignition fault" },
+      { value: "ALL_DEAD_NO_LIGHTS", titleKey: "triage.q3b.electrical.allDeadNoLights.title", descriptionKey: "triage.q3b.electrical.allDeadNoLights.description" },
+      { value: "DIM_LIGHTS", titleKey: "triage.q3b.electrical.dimLights.title", descriptionKey: "triage.q3b.electrical.dimLights.description" },
+      { value: "SOME_LIGHTS_ON", titleKey: "triage.q3b.electrical.someLightsOn.title", descriptionKey: "triage.q3b.electrical.someLightsOn.description" },
     ],
   },
   {
     key: "Q7_overheat_detail",
     kind: "single",
-    title: "Overheating",
-    prompt: "When does the overheating happen?",
+    titleKey: "triage.q7.overheatDetail.title",
+    promptKey: "triage.q7.overheatDetail.prompt",
     when: (a) => a.Q2b_running_issue === "OVERHEATING",
     options: [
-      { value: "TRAFFIC_ONLY", title: "Only in heavy traffic / when stopped", description: "Cools down when moving — typical radiator-fan failure" },
-      { value: "ALWAYS", title: "Even when driving normally", description: "Constant overheat — coolant loss or head gasket" },
-      { value: "HILL_CLIMB", title: "Only when climbing hills", description: "Engine load too high for the cooling system" },
-      { value: "WITH_AC", title: "Only when AC is running", description: "Extra heat load from the AC condenser" },
+      { value: "TRAFFIC_ONLY", titleKey: "triage.q7.overheatDetail.trafficOnly.title", descriptionKey: "triage.q7.overheatDetail.trafficOnly.description" },
+      { value: "ALWAYS", titleKey: "triage.q7.overheatDetail.always.title", descriptionKey: "triage.q7.overheatDetail.always.description" },
+      { value: "HILL_CLIMB", titleKey: "triage.q7.overheatDetail.hillClimb.title", descriptionKey: "triage.q7.overheatDetail.hillClimb.description" },
+      { value: "WITH_AC", titleKey: "triage.q7.overheatDetail.withAc.title", descriptionKey: "triage.q7.overheatDetail.withAc.description" },
     ],
   },
   {
     key: "Q4_noise_detail",
     kind: "single",
-    title: "Noise",
-    prompt: "What kind of noise are you hearing?",
+    titleKey: "triage.q4.noiseDetail.title",
+    promptKey: "triage.q4.noiseDetail.prompt",
     when: (a) => a.Q2b_running_issue === "NOISE",
     options: [
-      { value: "SQUEAL", title: "High-pitched squealing", description: "Belt slipping or worn" },
-      { value: "KNOCK", title: "Knocking (rhythmic)", description: "Engine timing or fuel-quality issue" },
-      { value: "GRIND", title: "Grinding", description: "Brakes, starter, or bearing" },
-      { value: "WHINE", title: "High-pitched whining", description: "Alternator or power-steering" },
-      { value: "CLUNK", title: "Clunking (intermittent)", description: "Drivetrain or suspension" },
+      { value: "SQUEAL", titleKey: "triage.q4.noiseDetail.squeal.title", descriptionKey: "triage.q4.noiseDetail.squeal.description" },
+      { value: "KNOCK", titleKey: "triage.q4.noiseDetail.knock.title", descriptionKey: "triage.q4.noiseDetail.knock.description" },
+      { value: "GRIND", titleKey: "triage.q4.noiseDetail.grind.title", descriptionKey: "triage.q4.noiseDetail.grind.description" },
+      { value: "WHINE", titleKey: "triage.q4.noiseDetail.whine.title", descriptionKey: "triage.q4.noiseDetail.whine.description" },
+      { value: "CLUNK", titleKey: "triage.q4.noiseDetail.clunk.title", descriptionKey: "triage.q4.noiseDetail.clunk.description" },
     ],
   },
   {
     key: "Q8_smoke_color",
     kind: "single",
-    title: "Smoke",
-    prompt: "What colour is the smoke?",
+    titleKey: "triage.q8.smokeColor.title",
+    promptKey: "triage.q8.smokeColor.prompt",
     when: (a) => a.Q2b_running_issue === "SMOKE",
     options: [
-      { value: "WHITE", title: "White smoke / steam", description: "Coolant — possible head gasket", tone: "warning" },
-      { value: "BLUE_GREY", title: "Blue / grey smoke", description: "Burning oil — worn rings or valve seals", tone: "warning" },
-      { value: "BLACK", title: "Black smoke", description: "Too much fuel — injector / filter issue" },
-      { value: "ELECTRICAL_BURNING", title: "Smoke from dashboard / bonnet", description: "STOP ENGINE — electrical fire risk", tone: "danger" },
+      { value: "WHITE", titleKey: "triage.q8.smokeColor.white.title", descriptionKey: "triage.q8.smokeColor.white.description", tone: "warning" },
+      { value: "BLUE_GREY", titleKey: "triage.q8.smokeColor.blueGrey.title", descriptionKey: "triage.q8.smokeColor.blueGrey.description", tone: "warning" },
+      { value: "BLACK", titleKey: "triage.q8.smokeColor.black.title", descriptionKey: "triage.q8.smokeColor.black.description" },
+      { value: "ELECTRICAL_BURNING", titleKey: "triage.q8.smokeColor.electricalBurning.title", descriptionKey: "triage.q8.smokeColor.electricalBurning.description", tone: "danger" },
     ],
   },
   {
     key: "Q_brake_detail",
     kind: "single",
-    title: "Brakes",
-    prompt: "What's the brake doing?",
+    titleKey: "triage.q.brakeDetail.title",
+    promptKey: "triage.q.brakeDetail.prompt",
     when: (a) => a.Q1_intent === "BRAKE_ISSUE",
     options: [
-      { value: "SQUEALING", title: "Squealing under braking", description: "Pad wear indicator — replace pads soon" },
-      { value: "GRINDING", title: "Grinding (metal-on-metal)", description: "Pads are gone — replace immediately", tone: "warning" },
-      { value: "PULL_ONE_SIDE", title: "Pulls to one side", description: "Caliper or hose issue" },
-      { value: "SOFT_PEDAL", title: "Pedal is soft / sinks", description: "Hydraulic failure — DO NOT DRIVE", tone: "danger" },
+      { value: "SQUEALING", titleKey: "triage.q.brakeDetail.squealing.title", descriptionKey: "triage.q.brakeDetail.squealing.description" },
+      { value: "GRINDING", titleKey: "triage.q.brakeDetail.grinding.title", descriptionKey: "triage.q.brakeDetail.grinding.description", tone: "warning" },
+      { value: "PULL_ONE_SIDE", titleKey: "triage.q.brakeDetail.pullOneSide.title", descriptionKey: "triage.q.brakeDetail.pullOneSide.description" },
+      { value: "SOFT_PEDAL", titleKey: "triage.q.brakeDetail.softPedal.title", descriptionKey: "triage.q.brakeDetail.softPedal.description", tone: "danger" },
     ],
   },
   {
     key: "Q_gear_detail",
     kind: "single",
-    title: "Gears",
-    prompt: "What's the gearbox doing?",
+    titleKey: "triage.q.gearDetail.title",
+    promptKey: "triage.q.gearDetail.prompt",
     when: (a) => a.Q1_intent === "GEAR_ISSUE",
     options: [
-      { value: "SLIPPING", title: "Revs rise but no speed gain", description: "Clutch slipping" },
-      { value: "WONT_ENGAGE", title: "Gear won't engage", description: "Transmission issue" },
-      { value: "GRINDING", title: "Grinding when shifting", description: "Synchros worn / clutch not disengaging" },
-      { value: "CLUTCH_SOFT", title: "Clutch pedal soft / sinks to the floor", description: "Clutch hydraulic failure" },
+      { value: "SLIPPING", titleKey: "triage.q.gearDetail.slipping.title", descriptionKey: "triage.q.gearDetail.slipping.description" },
+      { value: "WONT_ENGAGE", titleKey: "triage.q.gearDetail.wontEngage.title", descriptionKey: "triage.q.gearDetail.wontEngage.description" },
+      { value: "GRINDING", titleKey: "triage.q.gearDetail.grinding.title", descriptionKey: "triage.q.gearDetail.grinding.description" },
+      { value: "CLUTCH_SOFT", titleKey: "triage.q.gearDetail.clutchSoft.title", descriptionKey: "triage.q.gearDetail.clutchSoft.description" },
     ],
   },
   // 8.3% across last_fueled, recent_rain and parked_overnight. Its location
@@ -399,55 +399,55 @@ export const STEPS: Step[] = [
   {
     key: "context",
     kind: "context",
-    title: "One last thing",
-    prompt: "These help us narrow down the most likely fault for Sri Lankan conditions.",
+    titleKey: "triage.context.title",
+    promptKey: "triage.context.prompt",
     groups: [
       {
         key: "location_type",
-        label: "Where are you?",
+        labelKey: "triage.context.locationType.label",
         options: [
-          { value: "COASTAL", label: "Coastal" },
-          { value: "HILL", label: "Hill country" },
-          { value: "URBAN", label: "City / town" },
-          { value: "RURAL", label: "Rural" },
+          { value: "COASTAL", labelKey: "triage.context.locationType.coastal" },
+          { value: "HILL", labelKey: "triage.context.locationType.hill" },
+          { value: "URBAN", labelKey: "triage.context.locationType.urban" },
+          { value: "RURAL", labelKey: "triage.context.locationType.rural" },
         ],
       },
       {
         key: "recent_rain",
-        label: "Recent rain in your area?",
+        labelKey: "triage.context.recentRain.label",
         options: [
-          { value: "NONE", label: "No rain" },
-          { value: "YESTERDAY", label: "Yesterday" },
-          { value: "WITHIN_3_DAYS", label: "Past 3 days" },
-          { value: "MONSOON", label: "Monsoon — heavy" },
+          { value: "NONE", labelKey: "triage.context.recentRain.none" },
+          { value: "YESTERDAY", labelKey: "triage.context.recentRain.yesterday" },
+          { value: "WITHIN_3_DAYS", labelKey: "triage.context.recentRain.within3Days" },
+          { value: "MONSOON", labelKey: "triage.context.recentRain.monsoon" },
         ],
       },
       {
         key: "parked_overnight",
-        label: "Where was it parked overnight?",
+        labelKey: "triage.context.parkedOvernight.label",
         options: [
-          { value: "INDOOR", label: "Garage / covered" },
-          { value: "OUTDOOR", label: "Open / street" },
+          { value: "INDOOR", labelKey: "triage.context.parkedOvernight.indoor" },
+          { value: "OUTDOOR", labelKey: "triage.context.parkedOvernight.outdoor" },
         ],
       },
       {
         key: "vehicle_age_bucket",
-        label: "How old is the vehicle?",
+        labelKey: "triage.context.vehicleAgeBucket.label",
         options: [
-          { value: "UNDER_3", label: "< 3 yr" },
-          { value: "3_7", label: "3-7 yr" },
-          { value: "8_15", label: "8-15 yr" },
-          { value: "OVER_15", label: "> 15 yr" },
+          { value: "UNDER_3", labelKey: "triage.context.vehicleAgeBucket.under3" },
+          { value: "3_7", labelKey: "triage.context.vehicleAgeBucket.from3To7" },
+          { value: "8_15", labelKey: "triage.context.vehicleAgeBucket.from8To15" },
+          { value: "OVER_15", labelKey: "triage.context.vehicleAgeBucket.over15" },
         ],
       },
       {
         key: "last_fueled",
-        label: "When did you last fuel up?",
+        labelKey: "triage.context.lastFueled.label",
         options: [
-          { value: "TODAY_NEW_STATION", label: "Today — new station" },
-          { value: "TODAY_USUAL", label: "Today — usual station" },
-          { value: "WITHIN_WEEK", label: "Within past week" },
-          { value: "OVER_WEEK", label: "Over a week ago" },
+          { value: "TODAY_NEW_STATION", labelKey: "triage.context.lastFueled.todayNewStation" },
+          { value: "TODAY_USUAL", labelKey: "triage.context.lastFueled.todayUsual" },
+          { value: "WITHIN_WEEK", labelKey: "triage.context.lastFueled.withinWeek" },
+          { value: "OVER_WEEK", labelKey: "triage.context.lastFueled.overWeek" },
         ],
       },
     ],

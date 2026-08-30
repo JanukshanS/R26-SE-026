@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { matchesFilters } from "@/lib/filters";
 import { PRIORITY_COLORS, type MapProps } from "@/components/Map";
+import { useT } from "@/lib/i18n";
 
 export default function LeafletMap({ incidents, hotspots, blackspots, onSelectIncident, filters, layers }: MapProps) {
+  const t = useT();
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMap = useRef<any>(null);
   const layersRef = useRef<any>({});
@@ -112,9 +114,9 @@ export default function LeafletMap({ incidents, hotspots, blackspots, onSelectIn
 
         circle.bindPopup(
           `<div style="font-family:system-ui;font-size:12px;">
-            <strong>Hotspot #${h.id}</strong><br/>
-            Incidents: ${h.count} | Risk: ${h.risk}<br/>
-            Avg Score: ${h.avgScore} | Peak: ${h.peakHour}:00<br/>
+            <strong>${t("dashboard.map.hotspotTitle", { id: h.id })}</strong><br/>
+            ${t("dashboard.map.hotspotCounts", { n: h.count, risk: h.risk })}<br/>
+            ${t("dashboard.map.hotspotScores", { score: h.avgScore, hour: h.peakHour })}<br/>
             ${h.roadType} — ${h.incidentType.replace(/_/g, " ")}
           </div>`
         );
@@ -139,7 +141,7 @@ export default function LeafletMap({ incidents, hotspots, blackspots, onSelectIn
             <strong>${b.name}</strong><br/>
             <span style="color:#6B7280">${b.roadType}</span><br/>
             ${b.notes}<br/>
-            <span style="color:#b91c1c;font-weight:600">Real accident blackspot — NTC 2024 / data.gov.lk</span>
+            <span style="color:#b91c1c;font-weight:600">${t("dashboard.map.blackspotSource")}</span>
           </div>`,
           { className: "kaduna-popup" }
         );
@@ -166,7 +168,7 @@ export default function LeafletMap({ incidents, hotspots, blackspots, onSelectIn
     };
 
     renderLayers();
-  }, [ready, incidents, hotspots, blackspots, filters, layers, onSelectIncident]);
+  }, [ready, incidents, hotspots, blackspots, filters, layers, onSelectIncident, t]);
 
   return (
     <div ref={mapRef} className="w-full h-full rounded-xl" />

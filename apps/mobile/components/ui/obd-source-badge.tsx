@@ -2,6 +2,7 @@ import { Text, View } from "react-native";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { getPairing } from "@lib/elm327";
+import { useT } from "@lib/i18n";
 
 /**
  * Shows whether OBD-II data is coming from a real ELM327 over Bluetooth or
@@ -9,13 +10,16 @@ import { getPairing } from "@lib/elm327";
  * Renders nothing when unpaired.
  */
 export function ObdSourceBadge() {
+  const t = useT();
   const pairing = getPairing();
   if (!pairing) return null;
 
   const isReal = pairing.source === "ble" || pairing.source === "classic";
   const color = isReal ? palette.success : palette.warning;
   const bg = isReal ? palette.successSoft : palette.warningSoft;
-  const label = isReal ? (pairing.deviceName || "Live ELM327") : "Simulated OBD-II";
+  const label = isReal
+    ? pairing.deviceName || t("components.obd.live")
+    : t("components.obd.simulated");
 
   return (
     <View

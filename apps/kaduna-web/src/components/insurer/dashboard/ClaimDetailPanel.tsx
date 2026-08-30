@@ -6,26 +6,32 @@ import type { AccidentImage, Claim, ClaimLocationEntry } from "@/lib/insurer/typ
 import { useInsurerUser } from "@/lib/insurer/auth";
 import { authHeaders, API_BASE } from "@/lib/insurer/api";
 import { usePipelineJob } from "@/lib/insurer/PipelineJobContext";
+import { useT } from "@/lib/i18n";
 import { AccidentImagesPanel } from "./AccidentImagesPanel";
 import { MediaViewerPanel } from "./MediaViewerPanel";
+
+function CompareViewFallback() {
+  const t = useT();
+  return (
+    <div className="compare-view" style={{ border: "1px solid var(--border)", borderRadius: "0.75rem" }}>
+      <div className="compare-view__header">
+        <h3 className="compare-view__title">{t("insurer.compare.generatedTitle")}</h3>
+        <div className="compare-view__header-actions" />
+      </div>
+      <div className="compare-view__canvas-wrap">
+        <div className="compare-view__empty">
+          <div className="compare-view__spinner" aria-label={t("insurer.action.loading")} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const CompareViewCanvas = dynamic(
   () => import("@/components/insurer/three/CompareViewCanvas").then((m) => ({ default: m.CompareViewCanvas })),
   {
     ssr: false,
-    loading: () => (
-      <div className="compare-view" style={{ border: "1px solid var(--border)", borderRadius: "0.75rem" }}>
-        <div className="compare-view__header">
-          <h3 className="compare-view__title">Generated 3D Model</h3>
-          <div className="compare-view__header-actions" />
-        </div>
-        <div className="compare-view__canvas-wrap">
-          <div className="compare-view__empty">
-            <div className="compare-view__spinner" aria-label="Loading" />
-          </div>
-        </div>
-      </div>
-    ),
+    loading: () => <CompareViewFallback />,
   }
 );
 
@@ -33,6 +39,7 @@ type ModelState = "idle" | "generating" | "ready" | "error" | "low_light";
 type SavedModel = { job_id: string; created_at: string };
 
 function InfoRow({ label, value, passed }: { label: string; value?: string; passed?: boolean }) {
+  const t = useT();
   return (
     <div className="irow grid items-center gap-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
       <span className="text-xs text-muted-foreground whitespace-nowrap">{label}</span>
@@ -43,7 +50,7 @@ function InfoRow({ label, value, passed }: { label: string; value?: string; pass
             passed ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-400" : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
           }`}
         >
-          {passed ? "✓ Passed" : "✗ Failed"}
+          {passed ? t("insurer.claim.checkPassed") : t("insurer.claim.checkFailed")}
         </span>
       ) : (
         <span />
@@ -106,6 +113,7 @@ export function ClaimDetailPanel({
   onCollapse?: () => void;
   isAnimating?: boolean;
 }) {
+  const t = useT();
   const { user } = useInsurerUser();
   const { activeJob, startPolling } = usePipelineJob();
   const isStaff = user?.role === "staff";
@@ -178,7 +186,7 @@ export function ClaimDetailPanel({
       if (!res.ok) throw new Error("Failed to approve claim");
       setApproved(true);
     } catch {
-      alert("Could not approve this claim. Please try again.");
+      alert(t("insurer.claim.approveFailed"));
     } finally {
       setApproving(false);
     }
@@ -296,21 +304,21 @@ export function ClaimDetailPanel({
         <div className="claim-body flex items-stretch rounded-xl border border-border overflow-hidden">
           <div className="claim-rows flex-1 min-w-0">
             <div className="px-3 py-2 border-b border-border bg-muted/40">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Claim Details</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("insurer.claim.detailsHeading")}</span>
             </div>
-            <InfoRow label="NIC" value={claim.nic} passed={true} />
-            <InfoRow label="Customer" value={claim.customer} passed={true} />
-            <InfoRow label="Policy ID" value={claim.policyId} passed={true} />
+            <InfoRow label={t("insurer.claim.rowNic")} value={claim.nic} passed={true} />
+            <InfoRow label={t("insurer.claim.rowCustomer")} value={claim.customer} passed={true} />
+            <InfoRow label={t("insurer.claim.rowPolicyId")} value={claim.policyId} passed={true} />
             {(insuranceExpiry ?? claim.insuranceExpireMonth) && (
               <InfoRow
-                label="Insurance Expiry"
+                label={t("insurer.claim.rowInsuranceExpiry")}
                 value={insuranceExpiry ?? claim.insuranceExpireMonth!}
                 passed={true}
               />
             )}
-            <InfoRow label="Vehicle Model" value={claim.vehicleModel} passed={true} />
+            <InfoRow label={t("insurer.claim.rowVehicleModel")} value={claim.vehicleModel} passed={true} />
             <InfoRow
-              label="Vehicle Reg No"
+              label={t("insurer.claim.rowVehicleRegNo")}
               value={claim.vehicleRegNo ?? "CBQ - 6899"}
               passed={true}
             />
@@ -318,7 +326,7 @@ export function ClaimDetailPanel({
 
           <div className="claim-views flex flex-col shrink-0 w-[190px] border-l border-border">
             <div className="px-3 py-2 border-b border-border bg-muted/40 shrink-0">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Documents</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("insurer.claim.documentsHeading")}</span>
             </div>
             {claim.userVerificationAvailable ? (
               <button
@@ -329,15 +337,15 @@ export function ClaimDetailPanel({
                   setShowUserVerification(true);
                 }}
               >
-                <span>User Verification</span>
+                <span>{t("insurer.claim.docUserVerification")}</span>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="shrink-0 opacity-40">
                   <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
             ) : (
               <div className="flex items-center justify-between gap-2 w-full px-3 py-2.5 text-sm text-muted-foreground/40 border-b border-border select-none">
-                <span>User Verification</span>
-                <span className="text-xs">N/A</span>
+                <span>{t("insurer.claim.docUserVerification")}</span>
+                <span className="text-xs">{t("insurer.claim.docUnavailable")}</span>
               </div>
             )}
 
@@ -349,7 +357,7 @@ export function ClaimDetailPanel({
                 setShowImages(true);
               }}
             >
-              <span>Accident Images</span>
+              <span>{t("insurer.claim.docAccidentImages")}</span>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="shrink-0 opacity-40">
                 <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -364,15 +372,15 @@ export function ClaimDetailPanel({
                   setShowThirdParty(true);
                 }}
               >
-                <span>3rd Party Details</span>
+                <span>{t("insurer.claim.docThirdParty")}</span>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="shrink-0 opacity-40">
                   <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
             ) : (
               <div className="flex items-center justify-between gap-2 w-full px-3 py-2.5 text-sm text-muted-foreground/40 border-b border-border select-none">
-                <span>3rd Party Details</span>
-                <span className="text-xs">N/A</span>
+                <span>{t("insurer.claim.docThirdParty")}</span>
+                <span className="text-xs">{t("insurer.claim.docUnavailable")}</span>
               </div>
             )}
 
@@ -381,7 +389,7 @@ export function ClaimDetailPanel({
               className={`flex items-center justify-between gap-2 w-full px-3 py-2.5 text-sm font-medium text-foreground hover:bg-primary/5 hover:text-primary transition-all${enhancedJobId && modelState !== "generating" ? " border-b border-border" : ""}`}
               onClick={() => setShowLocation(true)}
             >
-              <span>Location Details</span>
+              <span>{t("insurer.claim.docLocation")}</span>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="shrink-0 opacity-40">
                 <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -399,7 +407,7 @@ export function ClaimDetailPanel({
                   setShowEnhanced(true);
                 }}
               >
-                <span>Enhanced Photos</span>
+                <span>{t("insurer.claim.docEnhancedPhotos")}</span>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="shrink-0 opacity-40">
                   <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -409,7 +417,7 @@ export function ClaimDetailPanel({
 
           <div className="claim-btns flex flex-col shrink-0 w-[150px] border-l border-border">
             <div className="px-3 py-2 border-b border-border bg-muted/40 shrink-0">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Actions</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("insurer.claim.actionsHeading")}</span>
             </div>
             <div className="flex flex-col gap-1.5 p-2 flex-1">
             {canApprove && (
@@ -419,7 +427,11 @@ export function ClaimDetailPanel({
                 onClick={() => setShowApproveConfirm(true)}
                 className="w-full rounded-lg px-3 py-2.5 text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 active:bg-emerald-700 transition-colors shadow-sm disabled:opacity-45 disabled:cursor-not-allowed"
               >
-                {approved ? "Approved ✓" : approving ? "Approving…" : "Approve"}
+                {approved
+                  ? t("insurer.claim.approved")
+                  : approving
+                    ? t("insurer.claim.approving")
+                    : t("insurer.claim.approve")}
               </button>
             )}
             {canApprove && (
@@ -427,14 +439,14 @@ export function ClaimDetailPanel({
                 type="button"
                 className="w-full rounded-lg border border-border px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
-                Require Inspection
+                {t("insurer.claim.requireInspection")}
               </button>
             )}
 
             {modelState !== "generating" &&
               (modelsLoading ? (
                 <button type="button" disabled className="w-full rounded-lg px-3 py-2.5 text-sm font-semibold bg-primary text-primary-foreground opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5">
-                  <span className="btn-spinner" />Checking…
+                  <span className="btn-spinner" />{t("insurer.claim.checkingModels")}
                 </button>
               ) : existingModels.length > 0 ? (
                 <button
@@ -442,7 +454,7 @@ export function ClaimDetailPanel({
                   onClick={() => setShowModelPicker(true)}
                   className="w-full rounded-lg px-3 py-2.5 text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80 transition-colors shadow-sm"
                 >
-                  View 3D Model
+                  {t("insurer.claim.viewModel")}
                 </button>
               ) : null)}
 
@@ -454,13 +466,13 @@ export function ClaimDetailPanel({
                 className="w-full rounded-lg border border-border px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-45 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
               >
                 {modelState === "generating" ? (
-                  <><span className="btn-spinner" />Generating…</>
+                  <><span className="btn-spinner" />{t("insurer.claim.generating")}</>
                 ) : starting ? (
-                  <><span className="btn-spinner" />Starting…</>
+                  <><span className="btn-spinner" />{t("insurer.claim.starting")}</>
                 ) : existingModels.length > 0 ? (
-                  "Generate New Model"
+                  t("insurer.claim.generateNewModel")
                 ) : (
-                  "Generate 3D Model"
+                  t("insurer.claim.generateModel")
                 )}
               </button>
             )}
@@ -471,7 +483,7 @@ export function ClaimDetailPanel({
                 onClick={handleGenerateModel}
                 className="w-full rounded-lg border border-border px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
-                Retry 3D Model
+                {t("insurer.claim.retryModel")}
               </button>
             )}
             </div>
@@ -498,7 +510,7 @@ export function ClaimDetailPanel({
         referenceLocation={claim.locations?.insurer_call ?? null}
       />
       <MediaViewerPanel
-        title="User Verification Test"
+        title={t("insurer.claim.userVerificationTitle")}
         urls={photoData?.user_verification ?? []}
         loading={photosLoading}
         visible={showUserVerification}
@@ -507,7 +519,7 @@ export function ClaimDetailPanel({
         referenceLocation={claim.locations?.insurer_call ?? null}
       />
       <MediaViewerPanel
-        title="3rd Party Details"
+        title={t("insurer.claim.docThirdParty")}
         urls={photoData?.third_party ?? []}
         loading={photosLoading}
         visible={showThirdParty}
@@ -520,11 +532,11 @@ export function ClaimDetailPanel({
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-background/60 backdrop-blur-sm">
           <div className="w-[min(360px,90%)] rounded-xl border border-border bg-card shadow-xl flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <h3 className="text-sm font-semibold">Select 3D Model</h3>
+              <h3 className="text-sm font-semibold">{t("insurer.model.pickerTitle")}</h3>
               <button
                 type="button"
                 onClick={() => setShowModelPicker(false)}
-                aria-label="Close"
+                aria-label={t("insurer.action.close")}
                 className="text-muted-foreground hover:text-foreground text-xl leading-none"
               >
                 ×
@@ -547,10 +559,10 @@ export function ClaimDetailPanel({
                   }`}
                 >
                   <span className="text-sm font-semibold">
-                    Model {existingModels.length - i}
+                    {t("insurer.model.pickerItem", { number: existingModels.length - i })}
                   </span>
                   <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {m.created_at ? new Date(m.created_at).toLocaleString() : "Unknown date"}
+                    {m.created_at ? new Date(m.created_at).toLocaleString() : t("insurer.model.unknownDate")}
                   </span>
                 </button>
               ))}
@@ -562,7 +574,7 @@ export function ClaimDetailPanel({
       {showLocation && (
         <div className="absolute inset-0 z-20 rounded-xl border border-border bg-card flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-            <h3 className="text-sm font-semibold">Location Details</h3>
+            <h3 className="text-sm font-semibold">{t("insurer.location.title")}</h3>
             <button
               type="button"
               onClick={() => setShowLocation(false)}
@@ -572,14 +584,14 @@ export function ClaimDetailPanel({
             </button>
           </div>
           <div className="flex flex-col justify-center gap-6 px-10 py-8 flex-1 overflow-y-auto">
-            <LocationBlock label="Reported" sublabel=" " entry={claim.locations?.insurer_call} />
+            <LocationBlock label={t("insurer.location.reported")} sublabel=" " entry={claim.locations?.insurer_call} />
             <LocationBlock
-              label="Captured"
+              label={t("insurer.location.captured")}
               sublabel=" "
               entry={claim.locations?.guided_capture_started}
             />
             <LocationBlock
-              label="Submitted"
+              label={t("insurer.location.submitted")}
               sublabel=" "
               entry={claim.locations?.report_submitted}
             />
@@ -591,7 +603,7 @@ export function ClaimDetailPanel({
         <div className="absolute inset-0 z-20 rounded-xl border border-border bg-card flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              Enhanced Photos
+              {t("insurer.enhanced.title")}
               <span className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-medium text-primary-foreground">
                 Zero-DCE
               </span>
@@ -605,11 +617,11 @@ export function ClaimDetailPanel({
             </button>
           </div>
           <div className="px-4 py-3 text-xs text-amber-800 bg-amber-50 border-b border-amber-200">
-            Photos were too dark for 3D reconstruction. Zero-DCE neural enhancement has been applied.
+            {t("insurer.enhanced.notice")}
           </div>
           {enhancedPhotos.length === 0 ? (
             <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-              Loading enhanced photos…
+              {t("insurer.enhanced.loading")}
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto p-4 grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
@@ -617,7 +629,7 @@ export function ClaimDetailPanel({
                 <img
                   key={i}
                   src={url}
-                  alt={`Enhanced photo ${i + 1}`}
+                  alt={t("insurer.enhanced.photoAlt", { number: i + 1 })}
                   className="w-full aspect-[4/3] object-cover rounded-md border border-border cursor-pointer hover:opacity-85 transition-opacity"
                   onClick={() => window.open(url, "_blank")}
                 />
@@ -637,7 +649,7 @@ export function ClaimDetailPanel({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h3 className="text-sm font-semibold">Confirm Approval</h3>
+              <h3 className="text-sm font-semibold">{t("insurer.claim.approveConfirmTitle")}</h3>
               <button
                 type="button"
                 onClick={() => setShowApproveConfirm(false)}
@@ -648,10 +660,11 @@ export function ClaimDetailPanel({
             </div>
             <div className="px-5 py-4 flex flex-col gap-1.5">
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Are you sure you want to approve the claim for{" "}
-                <strong className="text-foreground font-semibold">{claim.customer}</strong>?
+                {t("insurer.claim.approveConfirmBody", { customer: claim.customer })}
               </p>
-              <p className="text-xs text-muted-foreground">NIC: {claim.nic}</p>
+              <p className="text-xs text-muted-foreground">
+                {t("insurer.claim.approveConfirmNic", { nic: claim.nic })}
+              </p>
             </div>
             <div className="flex justify-end gap-2 px-5 py-4 border-t border-border">
               <button
@@ -659,7 +672,7 @@ export function ClaimDetailPanel({
                 onClick={() => setShowApproveConfirm(false)}
                 className="rounded-md border border-input px-4 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent transition-colors"
               >
-                Cancel
+                {t("insurer.action.cancel")}
               </button>
               <button
                 type="button"
@@ -670,7 +683,7 @@ export function ClaimDetailPanel({
                 }}
                 className="rounded-md px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {approving ? "Approving…" : "Yes, Approve"}
+                {approving ? t("insurer.claim.approving") : t("insurer.claim.approveConfirmSubmit")}
               </button>
             </div>
           </div>

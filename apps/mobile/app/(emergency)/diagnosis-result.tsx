@@ -19,8 +19,10 @@ import {
   providerTypeLabel,
   DispatchApiError,
 } from "@lib/dispatchApi";
+import { useT } from "@lib/i18n";
 
 export default function DiagnosisResultScreen() {
+  const t = useT();
   const {
     incidentId, triageResult, dispatchResult,
     setDispatchResult, setError, setLoading, loading, error,
@@ -53,7 +55,7 @@ export default function DiagnosisResultScreen() {
       setDispatchResult(res);
     } catch (err) {
       const msg = err instanceof DispatchApiError
-        ? `${err.message} (HTTP ${err.status})`
+        ? t("emergency.error.withStatus", { message: err.message, status: err.status })
         : (err as Error).message;
       haptics.error();
       setError(msg);
@@ -61,7 +63,7 @@ export default function DiagnosisResultScreen() {
       inFlightRef.current = false;
       setLoading(false);
     }
-  }, [incidentId, setDispatchResult, setError, setLoading]);
+  }, [incidentId, setDispatchResult, setError, setLoading, t]);
 
   useEffect(() => {
     if (dispatchResult) return;
@@ -75,17 +77,17 @@ export default function DiagnosisResultScreen() {
       <Screen
         footer={
           <Button
-            title="Back to Home screen"
+            title={t("emergency.action.backHome")}
             onPress={() => router.replace("/(driver)/home")}
           />
         }
       >
         <Stack.Screen options={{ gestureEnabled: false }} />
         <HeaderBar showBack={false} />
-        <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Result</Text>
+        <Text style={{ ...typography.h1, color: palette.text }}>{t("emergency.diagnosisResult.title")}</Text>
         <ErrorState
-          title="We lost this diagnosis"
-          message="Your answers are gone, so there is no result to show. Start the diagnosis again from the home screen."
+          title={t("emergency.diagnosisResult.lostTitle")}
+          message={t("emergency.diagnosisResult.lostBody")}
         />
       </Screen>
     );
@@ -94,10 +96,10 @@ export default function DiagnosisResultScreen() {
   const predicted = triageResult.predictedServiceType;
   const confidence = triageResult.confidence ?? 0;
   const tierLabel = triageResult?.tier === "OBD_ENHANCED"
-    ? "Tier-2 (OBD enhanced)"
+    ? t("emergency.diagnosisResult.tierObd")
     : triageResult?.tier === "BAYESIAN_LEARNED"
-      ? "Tier-3 (Bayesian)"
-      : "Tier-1";
+      ? t("emergency.diagnosisResult.tierBayesian")
+      : t("emergency.diagnosisResult.tierDefault");
 
   const providerName = dispatchResult?.selectedProvider?.name;
   const providerType = dispatchResult?.selectedProvider?.type;
@@ -108,15 +110,15 @@ export default function DiagnosisResultScreen() {
         <>
           <Button
             title={
-              dispatchResult ? "See Connected Mechanic"
-                : error ? "No provider yet"
-                  : "Waiting for provider..."
+              dispatchResult ? t("emergency.diagnosisResult.seeMechanic")
+                : error ? t("emergency.diagnosisResult.noProvider")
+                  : t("emergency.diagnosisResult.waitingProvider")
             }
             disabled={!dispatchResult || loading}
             onPress={() => router.push("/(emergency)/connected")}
           />
           <Button
-            title="Back to Home screen"
+            title={t("emergency.action.backHome")}
             variant="secondary"
             onPress={() => router.replace("/(driver)/home")}
           />
@@ -125,7 +127,7 @@ export default function DiagnosisResultScreen() {
     >
       <Stack.Screen options={{ gestureEnabled: false }} />
       <HeaderBar showBack={false} />
-      <Text style={{ ...typography.h1, color: palette.text }}>Diagnosis Result</Text>
+      <Text style={{ ...typography.h1, color: palette.text }}>{t("emergency.diagnosisResult.title")}</Text>
 
       <Card>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
@@ -139,7 +141,7 @@ export default function DiagnosisResultScreen() {
             <Icon name="Bot" size={16} color={palette.brand} />
           </View>
           <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-            Service Assistant says
+            {t("emergency.diagnosisResult.assistantSays")}
           </Text>
         </View>
         <View
@@ -151,24 +153,24 @@ export default function DiagnosisResultScreen() {
           }}
         >
           <Row
-            label="DIAGNOSIS"
-            value={serviceTypeLabel(predicted)}
+            label={t("emergency.diagnosisResult.rowDiagnosis")}
+            value={serviceTypeLabel(predicted, t)}
             valueColor={palette.danger}
           />
-          <Row label="SERVICE" value={serviceTypeAction(predicted)} />
+          <Row label={t("emergency.diagnosisResult.rowService")} value={serviceTypeAction(predicted, t)} />
           <Row
-            label="CONFIDENCE"
+            label={t("emergency.diagnosisResult.rowConfidence")}
             value={`${(confidence * 100).toFixed(0)}%`}
           />
-          <Row label="MODEL" value={tierLabel} />
+          <Row label={t("emergency.diagnosisResult.rowModel")} value={tierLabel} />
         </View>
       </Card>
 
       {/* Loading / connected card — matches the reference UI's "Fetching..." state */}
       {error ? (
         <ErrorState
-          title="Couldn't reach a provider"
-          message={`${error}\n\nYour diagnosis above is saved. Tap Try again to search for a provider, or head back to the home screen and retry from there.`}
+          title={t("emergency.diagnosisResult.dispatchFailedTitle")}
+          message={t("emergency.diagnosisResult.dispatchFailedBody", { message: error })}
           onRetry={runDispatchFlow}
         />
       ) : (
@@ -176,13 +178,13 @@ export default function DiagnosisResultScreen() {
           variant="muted"
           style={{ alignItems: "center", paddingVertical: spacing.xxl, gap: spacing.lg }}
         >
-          <DispatchProgress done={!!dispatchResult} doneLabel="Provider Selected" />
+          <DispatchProgress done={!!dispatchResult} doneLabel={t("emergency.diagnosisResult.providerSelected")} />
           {dispatchResult ? (
             <Text
               style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}
             >
               {providerName}
-              {providerType ? ` (${providerTypeLabel(providerType)})` : null}
+              {providerType ? ` (${providerTypeLabel(providerType, t)})` : null}
             </Text>
           ) : (
             <Text
@@ -190,7 +192,7 @@ export default function DiagnosisResultScreen() {
                 ...typography.caption, color: palette.textMuted, textAlign: "center",
               }}
             >
-              Finding the closest provider — {serviceTypeAction(predicted)}
+              {t("emergency.diagnosisResult.searching", { action: serviceTypeAction(predicted, t) })}
             </Text>
           )}
         </Card>

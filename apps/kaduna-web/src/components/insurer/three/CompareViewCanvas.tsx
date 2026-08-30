@@ -10,6 +10,7 @@ import * as THREE from "three";
 import { DamagedCar, ReferenceCar } from "./CarModels";
 import { ComparisonLines } from "./ComparisonLines";
 import { GaussianSplatViewer } from "./GaussianSplatViewer";
+import { useT } from "@/lib/i18n";
 
 function GeneratedModel({ url }: { url: string }) {
   const { scene } = useGLTF(url);
@@ -81,6 +82,7 @@ function downloadFile(url: string, filename: string) {
 }
 
 export function CompareViewCanvas({ glbUrl, splatUrl, isLoading, expanded, onToggleExpand, isTransitioning }: CompareViewCanvasProps) {
+  const t = useT();
   const hasModel = !!(splatUrl || glbUrl);
   const [splatLoading, setSplatLoading] = useState(!!splatUrl);
 
@@ -92,21 +94,21 @@ export function CompareViewCanvas({ glbUrl, splatUrl, isLoading, expanded, onTog
     <div className="compare-view" style={{ position: "relative" }}>
       <div className="compare-view__header">
         <h3 className="compare-view__title">
-          {hasModel ? "Generated 3D Model" : "Compare view"}
+          {hasModel ? t("insurer.compare.generatedTitle") : t("insurer.compare.compareTitle")}
         </h3>
         <div className="compare-view__header-actions">
           {splatUrl && (
             <button type="button" className="compare-view__download" onClick={() => downloadFile(splatUrl, "model.ply")}>
-              Download PLY
+              {t("insurer.compare.downloadPly")}
             </button>
           )}
           {!splatUrl && glbUrl && (
             <button type="button" className="compare-view__download" onClick={() => downloadFile(glbUrl, "model.glb")}>
-              Download GLB
+              {t("insurer.compare.downloadGlb")}
             </button>
           )}
           {onToggleExpand && !isLoading && !splatLoading && (
-            <button type="button" className="compare-view__expand" onClick={onToggleExpand} title={expanded ? "Collapse view" : "Expand 3D model"} aria-label={expanded ? "Collapse view" : "Expand 3D model"}>
+            <button type="button" className="compare-view__expand" onClick={onToggleExpand} title={expanded ? t("insurer.compare.collapse") : t("insurer.compare.expand")} aria-label={expanded ? t("insurer.compare.collapse") : t("insurer.compare.expand")}>
               {expanded ? "⤡" : "⤢"}
             </button>
           )}
@@ -115,7 +117,7 @@ export function CompareViewCanvas({ glbUrl, splatUrl, isLoading, expanded, onTog
       {splatUrl && splatLoading && (
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, background: "#e8eaed", pointerEvents: "none", zIndex: 10 }}>
           <div style={{ width: 36, height: 36, border: "3px solid #d1d5db", borderTopColor: "#f97316", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-          <span style={{ fontSize: "0.8rem", color: "#6b7280" }}>Loading 3D model…</span>
+          <span style={{ fontSize: "0.8rem", color: "#6b7280" }}>{t("insurer.compare.loadingModel")}</span>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
@@ -124,7 +126,7 @@ export function CompareViewCanvas({ glbUrl, splatUrl, isLoading, expanded, onTog
           <GaussianSplatViewer url={splatUrl} onLoadingChange={setSplatLoading} />
         ) : isTransitioning ? (
           <div className="compare-view__empty">
-            <div className="compare-view__spinner" aria-label="Loading" />
+            <div className="compare-view__spinner" aria-label={t("insurer.action.loading")} />
           </div>
         ) : glbUrl ? (
           <Canvas shadows camera={{ position: [0, 3.5, 10], fov: 42 }} gl={{ antialias: true }}>
@@ -134,13 +136,13 @@ export function CompareViewCanvas({ glbUrl, splatUrl, isLoading, expanded, onTog
           </Canvas>
         ) : isLoading ? (
           <div className="compare-view__empty">
-            <div className="compare-view__spinner" aria-label="Loading" />
-            <p>Checking for 3D models…</p>
+            <div className="compare-view__spinner" aria-label={t("insurer.action.loading")} />
+            <p>{t("insurer.compare.checking")}</p>
           </div>
         ) : (
           <div className="compare-view__empty">
-            <p>No 3D model generated yet.</p>
-            <p>Click <strong>Generate 3D Model</strong> to start.</p>
+            <p>{t("insurer.compare.emptyTitle")}</p>
+            <p>{t("insurer.compare.emptyHint")}</p>
           </div>
         )}
       </div>

@@ -16,6 +16,7 @@ import {
   captureModalBackdropStyles,
   useCaptureModalOverlaySize,
 } from '@/features/guided-capture/components/capture-modal-backdrop';
+import { useT } from '@/lib/i18n';
 
 type LocationRequiredDialogProps = {
   visible: boolean;
@@ -34,6 +35,7 @@ export function LocationRequiredDialog({
   onTryAgain,
   onNotNow,
 }: LocationRequiredDialogProps) {
+  const t = useT();
   const overlaySize = useCaptureModalOverlaySize();
 
   return (
@@ -59,32 +61,29 @@ export function LocationRequiredDialog({
               <View style={styles.iconCircle}>
                 <Icon name="MapPinOff" size={32} color={CAPTURE_ACTION_BLUE} />
               </View>
-              <Text style={styles.title}>Location required</Text>
-              <Text style={styles.message}>
-                Your claim needs the accident GPS location. Allow location access, or move
-                somewhere with a clearer signal, then try again.
-              </Text>
+              <Text style={styles.title}>{t('insurance.location.title')}</Text>
+              <Text style={styles.message}>{t('insurance.location.body')}</Text>
               <View style={styles.actions}>
                 <Pressable
                   style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
                   onPress={onOpenSettings}
                   accessibilityRole="button"
-                  accessibilityLabel="Open Settings">
-                  <Text style={styles.primaryLabel}>Open Settings</Text>
+                  accessibilityLabel={t('insurance.camera.openSettings')}>
+                  <Text style={styles.primaryLabel}>{t('insurance.camera.openSettings')}</Text>
                 </Pressable>
                 <Pressable
                   style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
                   onPress={onTryAgain}
                   accessibilityRole="button"
-                  accessibilityLabel="Try again">
-                  <Text style={styles.secondaryLabel}>Try again</Text>
+                  accessibilityLabel={t('insurance.action.tryAgain')}>
+                  <Text style={styles.secondaryLabel}>{t('insurance.action.tryAgain')}</Text>
                 </Pressable>
                 <Pressable
                   style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}
                   onPress={onNotNow}
                   accessibilityRole="button"
-                  accessibilityLabel="Not now">
-                  <Text style={styles.textLabel}>Not now</Text>
+                  accessibilityLabel={t('insurance.action.notNow')}>
+                  <Text style={styles.textLabel}>{t('insurance.action.notNow')}</Text>
                 </Pressable>
               </View>
             </Pressable>

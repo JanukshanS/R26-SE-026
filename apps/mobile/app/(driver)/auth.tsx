@@ -6,9 +6,11 @@ import { Icon } from "@components/ui/icon";
 import { ErrorState } from "@components/ui/error-state";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
+import { useT } from "@lib/i18n";
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { login, register, loginWithGoogle, authLoading } = useVehicle();
 
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -24,12 +26,12 @@ export default function AuthScreen() {
       if (mode === "login") {
         await login(email.trim(), password);
       } else {
-        if (!name.trim()) { setError("Name is required"); return; }
+        if (!name.trim()) { setError(t("driver.auth.nameRequired")); return; }
         await register(name.trim(), email.trim(), password, phone.trim() || undefined);
       }
       router.replace("/(driver)/home");
     } catch (err: any) {
-      setError(err.message ?? "Something went wrong");
+      setError(err.message ?? t("driver.auth.genericError"));
     }
   }
 
@@ -40,7 +42,7 @@ export default function AuthScreen() {
       // Web redirects to Google and back; native returns here signed in.
       if (Platform.OS !== "web") router.replace("/(driver)/home");
     } catch (err: any) {
-      setError(err.message ?? "Google sign-in failed");
+      setError(err.message ?? t("driver.auth.googleError"));
     }
   }
 
@@ -59,11 +61,11 @@ export default function AuthScreen() {
           gap: spacing.md,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel={t("driver.auth.back")}>
           <Icon name="ChevronLeft" size={24} color={palette.text} />
         </Pressable>
         <Text style={{ ...typography.h3, color: palette.text }}>
-          {mode === "login" ? "Sign In" : "Create Account"}
+          {mode === "login" ? t("driver.auth.headingLogin") : t("driver.auth.headingRegister")}
         </Text>
       </View>
 
@@ -90,12 +92,12 @@ export default function AuthScreen() {
             <Icon name="Car" size={36} color={palette.brand} />
           </View>
           <Text style={{ ...typography.h2, color: palette.text }}>
-            {mode === "login" ? "Welcome back" : "Get started"}
+            {mode === "login" ? t("driver.auth.welcomeLogin") : t("driver.auth.welcomeRegister")}
           </Text>
           <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
             {mode === "login"
-              ? "Sign in to manage your vehicles"
-              : "Create an account to track multiple vehicles"}
+              ? t("driver.auth.subtitleLogin")
+              : t("driver.auth.subtitleRegister")}
           </Text>
         </View>
 
@@ -108,17 +110,17 @@ export default function AuthScreen() {
           }}
         >
           {mode === "register" && (
-            <Field label="Full Name" value={name} onChangeText={setName} placeholder="Janukshan Perera" autoCapitalize="words" />
+            <Field label={t("driver.auth.fieldName")} value={name} onChangeText={setName} placeholder={t("driver.auth.fieldNamePlaceholder")} autoCapitalize="words" />
           )}
-          <Field label="Email" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" />
-          <Field label="Password" value={password} onChangeText={setPassword} placeholder="••••••••" secureTextEntry />
+          <Field label={t("driver.auth.fieldEmail")} value={email} onChangeText={setEmail} placeholder={t("driver.auth.fieldEmailPlaceholder")} keyboardType="email-address" autoCapitalize="none" />
+          <Field label={t("driver.auth.fieldPassword")} value={password} onChangeText={setPassword} placeholder="••••••••" secureTextEntry />
           {mode === "register" && (
-            <Field label="Phone (optional)" value={phone} onChangeText={setPhone} placeholder="+94 77 123 4567" keyboardType="phone-pad" />
+            <Field label={t("driver.auth.fieldPhone")} value={phone} onChangeText={setPhone} placeholder={t("driver.auth.fieldPhonePlaceholder")} keyboardType="phone-pad" />
           )}
 
           {error ? (
             <ErrorState
-              title={mode === "login" ? "Sign in failed" : "Registration failed"}
+              title={mode === "login" ? t("driver.auth.errorTitleLogin") : t("driver.auth.errorTitleRegister")}
               message={error}
             />
           ) : null}
@@ -139,7 +141,7 @@ export default function AuthScreen() {
           >
             {authLoading && <ActivityIndicator size="small" color={palette.textOnBrand} />}
             <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-              {mode === "login" ? "Sign In" : "Create Account"}
+              {mode === "login" ? t("driver.auth.headingLogin") : t("driver.auth.headingRegister")}
             </Text>
           </Pressable>
 
@@ -160,7 +162,7 @@ export default function AuthScreen() {
           >
             <Icon name="LogIn" size={18} color={palette.text} />
             <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-              Continue with Google
+              {t("driver.auth.google")}
             </Text>
           </Pressable>
         </View>
@@ -171,9 +173,9 @@ export default function AuthScreen() {
           style={{ alignItems: "center", paddingVertical: spacing.md }}
         >
           <Text style={{ ...typography.body, color: palette.textMuted }}>
-            {mode === "login" ? "Don't have an account? " : "Already have an account? "}
+            {mode === "login" ? t("driver.auth.togglePromptLogin") : t("driver.auth.togglePromptRegister")}
             <Text style={{ color: palette.brand, fontWeight: "700" }}>
-              {mode === "login" ? "Register" : "Sign In"}
+              {mode === "login" ? t("driver.auth.toggleActionLogin") : t("driver.auth.toggleActionRegister")}
             </Text>
           </Text>
         </Pressable>

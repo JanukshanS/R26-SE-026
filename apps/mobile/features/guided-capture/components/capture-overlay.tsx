@@ -6,6 +6,7 @@ import { ProgressRing } from '@/features/guided-capture/components/progress-ring
 import { StatusPill } from '@/features/guided-capture/components/status-pill';
 import { CAPTURE_TEXT_WHITE, CAPTURE_VALID_HEX } from '@/features/guided-capture/capture-ui-theme';
 import type { CaptureStatus } from '@/features/guided-capture/tilt-status';
+import { useT } from '@/lib/i18n';
 
 type CaptureOverlayProps = {
   capturedCount: number;
@@ -35,6 +36,7 @@ export function CaptureOverlay({
   onResetCapture,
   onShowInstructions,
 }: CaptureOverlayProps) {
+  const t = useT();
   const showBackInsteadOfReset = capturedCount === 0;
   const allCaptured = totalExpected > 0 && capturedCount >= totalExpected;
 
@@ -50,8 +52,8 @@ export function CaptureOverlay({
                 style={({ pressed }) => [styles.submitButton, pressed && styles.submitButtonPressed]}
                 onPress={onSubmitPhotos}
                 accessibilityRole="button"
-                accessibilityLabel="Submit photos">
-                <Text style={styles.submitButtonText}>View and Submit</Text>
+                accessibilityLabel={t('insurance.capture.submitA11y')}>
+                <Text style={styles.submitButtonText}>{t('insurance.capture.viewAndSubmit')}</Text>
               </Pressable>
             </View>
           ) : null}

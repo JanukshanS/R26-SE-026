@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { useT } from "@/lib/i18n";
 import type { Stats } from "@/lib/types";
 
 const PRIORITY_TOKEN: Record<string, string> = {
@@ -12,6 +13,13 @@ const PRIORITY_TOKEN: Record<string, string> = {
 };
 
 const ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
+
+const PRIORITY_LABEL: Record<string, string> = {
+  CRITICAL: "dashboard.priority.critical",
+  HIGH: "dashboard.priority.high",
+  MEDIUM: "dashboard.priority.medium",
+  LOW: "dashboard.priority.low",
+};
 
 /** A labelled proportion bar. The number is the value; the bar is the shape. */
 function Meter({ value, max, color }: { value: number; max: number; color: string }) {
@@ -26,6 +34,7 @@ function Meter({ value, max, color }: { value: number; max: number; color: strin
 }
 
 export default function StatsPanel({ stats }: { stats: Stats }) {
+  const t = useT();
   const total = Object.values(stats.priorityDist).reduce((a, b) => a + b, 0);
   const roads = Object.entries(stats.byRoadType).sort((a, b) => b[1] - a[1]);
   const types = Object.entries(stats.byIncidentType).sort((a, b) => b[1] - a[1]);
@@ -34,7 +43,7 @@ export default function StatsPanel({ stats }: { stats: Stats }) {
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Priority distribution</CardTitle>
+          <CardTitle className="text-sm font-medium">{t("dashboard.stats.priorityTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 pt-0">
           {ORDER.filter((p) => p in stats.priorityDist).map((p) => {
@@ -48,7 +57,7 @@ export default function StatsPanel({ stats }: { stats: Stats }) {
                       style={{ background: PRIORITY_TOKEN[p] }}
                       aria-hidden
                     />
-                    {p.charAt(0) + p.slice(1).toLowerCase()}
+                    {t(PRIORITY_LABEL[p])}
                   </span>
                   <span className="text-sm tabular-nums text-muted-foreground">
                     <span className="font-medium text-foreground">{count}</span>{" "}
@@ -62,18 +71,16 @@ export default function StatsPanel({ stats }: { stats: Stats }) {
         </CardContent>
       </Card>
 
-      <BreakdownCard title="Average impact by road type" rows={roads} />
-      <BreakdownCard title="Average impact by incident type" rows={types} />
+      <BreakdownCard title={t("dashboard.stats.byRoadType")} rows={roads} />
+      <BreakdownCard title={t("dashboard.stats.byIncidentType")} rows={types} />
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Real-data sources</CardTitle>
+          <CardTitle className="text-sm font-medium">{t("dashboard.stats.sourcesTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Synthetic incidents are anchored to real accident geography: 18 known Colombo
-            blackspots (NTC 2024) and regional severity stats from data.gov.lk 2012, where
-            the Colombo district accounted for ~26.9% of national road accidents.
+            {t("dashboard.stats.sourcesBody")}
           </p>
         </CardContent>
       </Card>

@@ -14,23 +14,25 @@ import { getAccessToken } from "@lib/capture-api";
 import { haptics } from "@lib/haptics";
 import { createIncident, submitTriage, runDispatch, DispatchApiError } from "@lib/dispatchApi";
 import { getCurrentDriverLocation } from "@lib/driverLocation";
+import { useT } from "@lib/i18n";
 
 type Choice = "CRASH" | "MINOR" | "NONE" | null;
 
 type DamageOption = {
   value: Exclude<Choice, null>;
-  badge: string;
+  badgeKey: string;
   badgeTone: "danger" | "warning" | "success";
-  title: string;
+  titleKey: string;
 };
 
 const DAMAGE_OPTIONS: DamageOption[] = [
-  { value: "CRASH", badge: "Yes", badgeTone: "danger", title: "Major (Accident/Crash)" },
-  { value: "MINOR", badge: "Yes", badgeTone: "warning", title: "Minor (Dent/Scratch)" },
-  { value: "NONE", badge: "No", badgeTone: "success", title: "No Visible Damage" },
+  { value: "CRASH", badgeKey: "emergency.safetyCheck.badgeYes", badgeTone: "danger", titleKey: "emergency.safetyCheck.majorTitle" },
+  { value: "MINOR", badgeKey: "emergency.safetyCheck.badgeYes", badgeTone: "warning", titleKey: "emergency.safetyCheck.minorTitle" },
+  { value: "NONE", badgeKey: "emergency.safetyCheck.badgeNo", badgeTone: "success", titleKey: "emergency.safetyCheck.noneTitle" },
 ];
 
 export default function SafetyCheckScreen() {
+  const t = useT();
   const [choice, setChoice] = useState<Choice>(null);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   // What this crash attempt already filed, so a retry resumes instead of
@@ -142,7 +144,7 @@ export default function SafetyCheckScreen() {
       router.replace("/(emergency)/connected");
     } catch (err) {
       const msg = err instanceof DispatchApiError
-        ? `${err.message} (${err.status})`
+        ? t("emergency.error.withCode", { message: err.message, status: err.status })
         : (err as Error).message;
       haptics.error();
       setError(msg);
@@ -150,7 +152,7 @@ export default function SafetyCheckScreen() {
       inFlightRef.current = false;
       setCtxLoading(false);
     }
-  }, [setCtxLoading, setError, setIncidentId, setTriageResult, setDispatchResult]);
+  }, [setCtxLoading, setError, setIncidentId, setTriageResult, setDispatchResult, t]);
 
   function handleNext() {
     if (!choice) return;
@@ -179,7 +181,7 @@ export default function SafetyCheckScreen() {
 
   function callAmbulance() {
     Linking.openURL("tel:1990").catch(() => {
-      Alert.alert("Unable to call", "Please dial 1990 manually.");
+      Alert.alert(t("emergency.safetyCheck.callFailedTitle"), t("emergency.safetyCheck.callFailedBody"));
     });
   }
 
@@ -187,29 +189,28 @@ export default function SafetyCheckScreen() {
     <Screen
       footer={
         <Button
-          title={ctxLoading ? "Dispatching..." : "Next"}
+          title={ctxLoading ? t("emergency.safetyCheck.dispatching") : t("emergency.question.next")}
           disabled={!choice || ctxLoading || signedIn === false}
           onPress={handleNext}
         />
       }
     >
       <HeaderBar />
-      <Text style={{ ...typography.h1, color: palette.text }}>Safety Check</Text>
+      <Text style={{ ...typography.h1, color: palette.text }}>{t("emergency.safetyCheck.title")}</Text>
       <Text style={{ ...typography.body, color: palette.textMuted }}>
-        Is there visible damage to your vehicle?
+        {t("emergency.safetyCheck.prompt")}
       </Text>
 
       {signedIn === false && (
         <Card style={{ borderLeftWidth: 4, borderLeftColor: palette.warning }}>
           <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-            Sign in to request assistance
+            {t("emergency.safetyCheck.signInTitle")}
           </Text>
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
-            We can only send a provider to a signed-in account. Sign in first — the
-            1990 ambulance line below works without an account.
+            {t("emergency.safetyCheck.signInBody")}
           </Text>
           <Button
-            title="Sign in"
+            title={t("emergency.action.signIn")}
             onPress={() => router.push("/(driver)/auth")}
           />
         </Card>
@@ -218,9 +219,9 @@ export default function SafetyCheckScreen() {
       {DAMAGE_OPTIONS.map((opt, i) => (
         <Animated.View key={opt.value} entering={FadeInDown.delay(i * 60).springify()}>
           <OptionCard
-            badge={opt.badge}
+            badge={t(opt.badgeKey)}
             badgeTone={opt.badgeTone}
-            title={opt.title}
+            title={t(opt.titleKey)}
             selected={choice === opt.value}
             onPress={() => setChoice(opt.value)}
           />
@@ -229,8 +230,8 @@ export default function SafetyCheckScreen() {
 
       {error && (
         <ErrorState
-          title="Dispatch failed"
-          message={`${error}\n\nTap Try again to resend. If you need an ambulance now, use the 1990 button below.`}
+          title={t("emergency.safetyCheck.dispatchFailedTitle")}
+          message={t("emergency.safetyCheck.dispatchFailedBody", { message: error })}
           onRetry={runDispatchFlow}
         />
       )}
@@ -251,10 +252,10 @@ export default function SafetyCheckScreen() {
         })}
       >
         <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-          1990 - Emergency Ambulance
+          {t("emergency.safetyCheck.ambulanceTitle")}
         </Text>
         <Text style={{ ...typography.caption, color: palette.textOnBrand, opacity: 0.9 }}>
-          Tap to Call Directly
+          {t("emergency.safetyCheck.ambulanceSubtitle")}
         </Text>
       </Pressable>
 
@@ -262,7 +263,7 @@ export default function SafetyCheckScreen() {
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md }}>
           <ActivityIndicator size="small" color={palette.brand} />
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
-            Dispatching emergency tow...
+            {t("emergency.safetyCheck.dispatchingTow")}
           </Text>
         </View>
       )}

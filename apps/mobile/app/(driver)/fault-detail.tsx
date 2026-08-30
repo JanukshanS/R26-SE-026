@@ -35,17 +35,19 @@ import { palette, radii, spacing, typography } from "@theme/index";
 import { getFaultPlan, type FaultPlan } from "@lib/maintenanceApi";
 import { useVehicle } from "@lib/vehicleContext";
 import { getCurrentDriverLocation } from "@lib/driverLocation";
+import { useT } from "@lib/i18n";
 
 /** Component key -> the label and route used by the wear screens. */
-const COMPONENT_LABEL: Record<string, string> = {
-  engine: "Engine",
-  brake: "Brake Pads",
-  tire: "Tyres",
-  battery: "Battery",
+const COMPONENT_LABEL_KEYS: Record<string, string> = {
+  engine: "driver.faultDetail.componentEngine",
+  brake: "driver.faultDetail.componentBrake",
+  tire: "driver.faultDetail.componentTire",
+  battery: "driver.faultDetail.componentBattery",
 };
 
 export default function FaultDetailScreen() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { selectedVehicle } = useVehicle();
   const { code } = useLocalSearchParams<{ code: string }>();
   const faultCode = (code ?? "").toUpperCase();
@@ -103,11 +105,11 @@ export default function FaultDetailScreen() {
             <PlanSkeleton />
           ) : (
             <ErrorState
-              title="Couldn't load this fault"
+              title={t("driver.faultDetail.loadFailedTitle")}
               message={
                 !vehicleId
-                  ? "Select a vehicle on Home to see its faults."
-                  : `We couldn't reach the maintenance service to read ${faultCode}. Check your connection and try again.`
+                  ? t("driver.faultDetail.noVehicleBody")
+                  : t("driver.faultDetail.loadFailedBody", { code: faultCode })
               }
               onRetry={vehicleId ? load : undefined}
             />
@@ -121,7 +123,7 @@ export default function FaultDetailScreen() {
   const recGarage = rec?.garage_id
     ? plan.garages.find((g) => g.id === rec.garage_id) ?? null
     : null;
-  const componentLabel = COMPONENT_LABEL[fault.component];
+  const componentLabelKey = COMPONENT_LABEL_KEYS[fault.component];
   const sourceDocs = Array.from(
     new Set((rec?.sources ?? []).map((s) => s.split(" - ")[0].trim()).filter(Boolean))
   );
@@ -144,7 +146,7 @@ export default function FaultDetailScreen() {
             we model, and stated as UNAFFECTED on purpose - a driver seeing a
             critical fault next to a 94% engine should be told plainly that the
             two measure different things, not left to assume one is wrong. */}
-        {componentLabel && plan.component_health ? (
+        {componentLabelKey && plan.component_health ? (
           <Pressable
             onPress={() =>
               router.push({
@@ -153,7 +155,7 @@ export default function FaultDetailScreen() {
               })
             }
             accessibilityRole="button"
-            accessibilityLabel={`${componentLabel} wear health`}
+            accessibilityLabel={t("driver.faultDetail.wearA11y", { component: t(componentLabelKey) })}
             style={({ pressed }) => ({
               backgroundColor: pressed ? palette.homeBackground : palette.surface,
               borderRadius: radii.lg,
@@ -166,7 +168,7 @@ export default function FaultDetailScreen() {
             <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
               <Icon name="Gauge" size={16} color={palette.brand} />
               <Text style={{ ...typography.bodyStrong, color: palette.text, flex: 1 }}>
-                {componentLabel} wear
+                {t("driver.faultDetail.wearLabel", { component: t(componentLabelKey) })}
               </Text>
               <Text style={{ ...typography.bodyStrong, color: palette.text }}>
                 {Math.round(plan.component_health.health_pct)}%
@@ -174,15 +176,14 @@ export default function FaultDetailScreen() {
               <Icon name="ChevronRight" size={16} color={palette.brand} />
             </View>
             <Text style={{ ...typography.caption, color: palette.textMuted, lineHeight: 19 }}>
-              Unchanged by this fault — wear is how much life the part has left, a
-              fault is a separate defect. Tap to see the wear detail.
+              {t("driver.faultDetail.wearNote")}
             </Text>
           </Pressable>
         ) : null}
 
         {/* Where to fix it. */}
         {rec && rec.garage_name ? (
-          <SectionCard icon="MapPin" title="Best garage" accent>
+          <SectionCard icon="MapPin" title={t("driver.faultDetail.garageHeading")} accent>
             <View style={{ gap: spacing.sm }}>
               <Text style={{ ...typography.h3, color: palette.text }}>{rec.garage_name}</Text>
 
@@ -195,7 +196,7 @@ export default function FaultDetailScreen() {
               {recGarage ? (
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                   {recGarage.distance_km != null ? (
-                    <Chip icon="Navigation" text={`${recGarage.distance_km} km away`} />
+                    <Chip icon="Navigation" text={t("driver.faultDetail.distanceAway", { km: recGarage.distance_km })} />
                   ) : null}
                   {recGarage.rating != null ? (
                     <Chip icon="Star" text={recGarage.rating.toFixed(1)} />
@@ -210,16 +211,18 @@ export default function FaultDetailScreen() {
                 <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
                   <Icon name="Package" size={14} color={palette.textMuted} />
                   <Text style={{ ...typography.caption, color: palette.textMuted, flex: 1 }}>
-                    Fitting {rec.part_name}
+                    {t("driver.faultDetail.fittingPart", { part: rec.part_name })}
                   </Text>
                 </View>
               ) : null}
 
               {rec.estimated_total_lkr != null ? (
                 <Text style={{ ...typography.bodyStrong, color: palette.brand }}>
-                  Around LKR {Math.round(rec.estimated_total_lkr).toLocaleString("en-LK")}{" "}
+                  {t("driver.faultDetail.estimateTotal", {
+                    amount: Math.round(rec.estimated_total_lkr).toLocaleString("en-LK"),
+                  })}{" "}
                   <Text style={{ ...typography.micro, color: palette.textMuted }}>
-                    part + fitting
+                    {t("driver.faultDetail.estimateNote")}
                   </Text>
                 </Text>
               ) : null}
@@ -237,14 +240,14 @@ export default function FaultDetailScreen() {
                     onPress={() => Linking.openURL(`tel:${recGarage.phone}`)}
                     hitSlop={8}
                     accessibilityRole="button"
-                    accessibilityLabel={`Call ${rec.garage_name}`}
+                    accessibilityLabel={t("driver.faultDetail.callA11y", { garage: rec.garage_name })}
                     style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
                   >
                     <Icon name="Phone" size={14} color={palette.brand} />
                     <Text
                       style={{ ...typography.caption, color: palette.brand, fontWeight: "700" }}
                     >
-                      Call
+                      {t("driver.faultDetail.call")}
                     </Text>
                   </Pressable>
                 ) : null}
@@ -253,12 +256,12 @@ export default function FaultDetailScreen() {
                   onPress={() => router.push("/(driver)/marketplace")}
                   hitSlop={8}
                   accessibilityRole="button"
-                  accessibilityLabel="See all garages"
+                  accessibilityLabel={t("driver.faultDetail.allGaragesA11y")}
                 >
                   <Text
                     style={{ ...typography.caption, color: palette.brand, fontWeight: "700" }}
                   >
-                    See all garages →
+                    {t("driver.faultDetail.allGarages")}
                   </Text>
                 </Pressable>
               </View>
@@ -268,22 +271,24 @@ export default function FaultDetailScreen() {
 
         {/* What the mechanic will actually do. */}
         {rec && rec.how_its_done ? (
-          <SectionCard icon="Wrench" title="How they will fix it">
+          <SectionCard icon="Wrench" title={t("driver.faultDetail.howHeading")}>
             <View style={{ gap: spacing.sm }}>
               <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "700" }}>
-                Expert says
+                {t("driver.faultDetail.expertSays")}
               </Text>
               <Text style={{ ...typography.body, color: palette.text, lineHeight: 22 }}>
                 {rec.how_its_done}
               </Text>
               {sourceDocs.length ? (
                 <Text style={{ ...typography.micro, color: palette.textMuted }}>
-                  Based on {sourceDocs.length === 1 ? "our guide" : "our guides"}:{" "}
-                  {sourceDocs.join(" · ")}
+                  {t("driver.faultDetail.basedOn", {
+                    count: sourceDocs.length,
+                    docs: sourceDocs.join(" · "),
+                  })}
                 </Text>
               ) : (
                 <Text style={{ ...typography.micro, color: palette.textMuted }}>
-                  General guidance — your mechanic may work differently
+                  {t("driver.faultDetail.generalGuidance")}
                 </Text>
               )}
             </View>
@@ -300,7 +305,7 @@ export default function FaultDetailScreen() {
               })
             }
             accessibilityRole="button"
-            accessibilityLabel="Order parts"
+            accessibilityLabel={t("driver.faultDetail.orderPartsA11y")}
             style={({ pressed }) => ({
               backgroundColor: pressed ? palette.homeBackground : palette.surface,
               borderRadius: radii.lg,
@@ -325,10 +330,9 @@ export default function FaultDetailScreen() {
               <Icon name="ShoppingBag" size={20} color={palette.brand} />
             </View>
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ ...typography.bodyStrong, color: palette.text }}>Order parts</Text>
+              <Text style={{ ...typography.bodyStrong, color: palette.text }}>{t("driver.faultDetail.orderParts")}</Text>
               <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                {plan.parts.length} {plan.parts.length === 1 ? "option" : "options"} that fit
-                your vehicle
+                {t("driver.faultDetail.partOptions", { count: plan.parts.length })}
               </Text>
             </View>
             <Icon name="ChevronRight" size={18} color={palette.brand} />
@@ -346,11 +350,10 @@ export default function FaultDetailScreen() {
             }}
           >
             <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-              No suggestion available
+              {t("driver.faultDetail.noSuggestionTitle")}
             </Text>
             <Text style={{ ...typography.caption, color: palette.textMuted, lineHeight: 19 }}>
-              We couldn't reach the assistant just now. The fault details above are
-              from your vehicle and are unaffected.
+              {t("driver.faultDetail.noSuggestionBody")}
             </Text>
           </View>
         ) : null}
@@ -361,6 +364,7 @@ export default function FaultDetailScreen() {
 
 function FaultHeader({ code }: { code: string }) {
   const insets = useSafeAreaInsets();
+  const t = useT();
   return (
     <View
       style={{
@@ -379,11 +383,11 @@ function FaultHeader({ code }: { code: string }) {
         onPress={() => router.back()}
         hitSlop={12}
         accessibilityRole="button"
-        accessibilityLabel="Go back"
+        accessibilityLabel={t("driver.faultDetail.back")}
       >
         <Icon name="ChevronLeft" size={24} color={palette.text} />
       </Pressable>
-      <Text style={{ ...typography.caption, color: palette.textMuted }}>Fault</Text>
+      <Text style={{ ...typography.caption, color: palette.textMuted }}>{t("driver.faultDetail.headerLabel")}</Text>
       <Icon name="ChevronRight" size={14} color={palette.textMuted} />
       <Text style={{ ...typography.bodyStrong, color: palette.text, flex: 1 }}>{code}</Text>
     </View>
@@ -446,6 +450,7 @@ function Chip({ icon, text }: { icon: IconName; text: string }) {
  * reads as work in progress.
  */
 function PlanSkeleton() {
+  const t = useT();
   const [opacity] = useState(() => new Animated.Value(0.4));
 
   useEffect(() => {
@@ -471,12 +476,16 @@ function PlanSkeleton() {
       >
         <ActivityIndicator size="small" color={palette.brand} />
         <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "700" }}>
-          Working out what to do…
+          {t("driver.faultDetail.working")}
         </Text>
       </View>
-      {["What is wrong", "Best garage", "How they will fix it"].map((title) => (
+      {[
+        "driver.faultDetail.skeletonFault",
+        "driver.faultDetail.garageHeading",
+        "driver.faultDetail.howHeading",
+      ].map((titleKey) => (
         <View
-          key={title}
+          key={titleKey}
           style={{
             backgroundColor: palette.surface,
             borderRadius: radii.lg,
@@ -484,7 +493,7 @@ function PlanSkeleton() {
             gap: spacing.md,
           }}
         >
-          <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>{title}</Text>
+          <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>{t(titleKey)}</Text>
           <View style={{ gap: spacing.sm }}>
             <View
               style={{ height: 12, borderRadius: radii.pill, backgroundColor: palette.border }}

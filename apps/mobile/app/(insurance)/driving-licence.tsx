@@ -18,6 +18,7 @@ import {
 } from '@/features/driving-licence/storage/driving-licence-store';
 import { snapAndSavePhotoGps } from '@/lib/snap-photo-gps';
 import { appendUniqueUri } from '@/lib/uri-utils';
+import { useT } from '@/lib/i18n';
 import {
   CAPTURE_ACTION_BLUE,
   CAPTURE_ACTION_BLUE_SOFT,
@@ -43,29 +44,45 @@ import {
 type LicenceSide = 'front' | 'back' | 'selfie';
 
 const SIDE_STOP_INDEX: Record<LicenceSide, number> = { front: 0, back: 1, selfie: 2 };
-const SIDE_LABELS: Record<LicenceSide, string> = { front: 'Front', back: 'Back', selfie: 'Selfie' };
+const SIDE_LABEL_KEYS: Record<LicenceSide, string> = {
+  front: 'insurance.licence.sideFront',
+  back: 'insurance.licence.sideBack',
+  selfie: 'insurance.licence.sideSelfie',
+};
+const SIDE_LABEL_LOWER_KEYS: Record<LicenceSide, string> = {
+  front: 'insurance.licence.sideFrontLower',
+  back: 'insurance.licence.sideBackLower',
+  selfie: 'insurance.licence.sideSelfieLower',
+};
 
 /** Small "Step N of M" pill, local to this screen only — deliberately not shared with the
  * Guided Capture flow's own progress component so this screen stays self-contained. Switches
  * to a distinct completed/review look once every photo is captured, instead of still reading
  * "Step 3 of 3" as if mid-step. */
 function StepProgressPill({ side, completed }: { side: LicenceSide; completed: boolean }) {
+  const t = useT();
   if (completed) {
     return (
       <View style={[styles.stepPill, styles.stepPillDone]}>
         <Icon name="Check" size={13} color={WHITE} />
-        <Text style={[styles.stepPillText, styles.stepPillDoneText]}>Done</Text>
+        <Text style={[styles.stepPillText, styles.stepPillDoneText]}>{t('insurance.status.done')}</Text>
       </View>
     );
   }
   return (
     <View style={styles.stepPill}>
-      <Text style={styles.stepPillText}>{`Step ${SIDE_STOP_INDEX[side] + 1} of 3 • ${SIDE_LABELS[side]}`}</Text>
+      <Text style={styles.stepPillText}>
+        {t('insurance.licence.stepProgress', {
+          step: SIDE_STOP_INDEX[side] + 1,
+          side: t(SIDE_LABEL_KEYS[side]),
+        })}
+      </Text>
     </View>
   );
 }
 
 export default function DrivingLicencePhotoScreen() {
+  const t = useT();
   const router = useRouter();
   const navigation = useNavigation();
   const { locked } = useLocalSearchParams<{ locked?: string }>();
@@ -101,20 +118,22 @@ export default function DrivingLicencePhotoScreen() {
 
   const instructionHeadline = useMemo(() => {
     if (allImagesCaptured) {
-      return 'All set — review your photos below.';
+      return t('insurance.licence.headlineDone');
     }
     if (side === 'front') {
-      return 'Take a photo of the front of your Driving Licence.';
+      return t('insurance.licence.headlineFront');
     }
     if (side === 'back') {
-      return 'Take a photo of the other side of your Driving Licence.';
+      return t('insurance.licence.headlineBack');
     }
-    return 'Take a selfie of yourself with holding the Driving Licence';
-  }, [allImagesCaptured, side]);
+    return t('insurance.licence.headlineSelfie');
+  }, [allImagesCaptured, side, t]);
 
   const showSelfieHint = side === 'selfie' && !selfiePreviewUri;
 
-  const primaryLabel = allImagesCaptured ? 'Continue' : 'Take Photo';
+  const primaryLabel = allImagesCaptured
+    ? t('insurance.action.continue')
+    : t('insurance.action.takePhoto');
 
   useEffect(() => {
     let cancelled = false;
@@ -179,7 +198,7 @@ export default function DrivingLicencePhotoScreen() {
       });
       const uri = photo?.uri;
       if (!uri) {
-        Alert.alert('Capture failed', 'No image was saved. Please try again.');
+        Alert.alert(t('insurance.capture.failedTitle'), t('insurance.capture.failedNoImage'));
         return;
       }
       let storedUri = uri;
@@ -203,7 +222,7 @@ export default function DrivingLicencePhotoScreen() {
         setLibraryUris((prev) => appendUniqueUri(prev, storedUri));
       }
     } catch {
-      Alert.alert('Capture failed', 'Please try again.');
+      Alert.alert(t('insurance.capture.failedTitle'), t('insurance.capture.failedRetry'));
     } finally {
       setIsTakingPhoto(false);
     }
@@ -212,9 +231,9 @@ export default function DrivingLicencePhotoScreen() {
   if (isLocked) {
     // Already submitted — no camera needed at all, just show whatever was captured.
     const lockedPhotos: { uri: string; label: string }[] = [
-      frontPreviewUri ? { uri: frontPreviewUri, label: 'Front' } : null,
-      backPreviewUri ? { uri: backPreviewUri, label: 'Back' } : null,
-      selfiePreviewUri ? { uri: selfiePreviewUri, label: 'Selfie' } : null,
+      frontPreviewUri ? { uri: frontPreviewUri, label: t('insurance.licence.sideFront') } : null,
+      backPreviewUri ? { uri: backPreviewUri, label: t('insurance.licence.sideBack') } : null,
+      selfiePreviewUri ? { uri: selfiePreviewUri, label: t('insurance.licence.sideSelfie') } : null,
     ].filter((p): p is { uri: string; label: string } => p != null);
 
     return (
@@ -230,19 +249,19 @@ export default function DrivingLicencePhotoScreen() {
                 style={({ pressed }) => [styles.headerBack, pressed && styles.pressed]}
                 hitSlop={12}
                 accessibilityRole="button"
-                accessibilityLabel="Go back">
+                accessibilityLabel={t('insurance.action.back')}>
                 <View style={styles.headerChevronWrap} collapsable={false}>
                   <Ionicons name="chevron-back" size={22} color={COLORS.text} />
                 </View>
-                <Text style={styles.headerTitle}>Driving Licence Photo</Text>
+                <Text style={styles.headerTitle}>{t('insurance.licence.title')}</Text>
               </Pressable>
             ) : (
-              <Text style={styles.headerTitle}>Driving Licence Photo</Text>
+              <Text style={styles.headerTitle}>{t('insurance.licence.title')}</Text>
             )}
           </View>
 
-          <Text style={styles.headline}>Already submitted with your claim</Text>
-          <Text style={styles.subtitle}>These photos were sent with your claim and can&apos;t be retaken.</Text>
+          <Text style={styles.headline}>{t('insurance.licence.lockedTitle')}</Text>
+          <Text style={styles.subtitle}>{t('insurance.licence.lockedBody')}</Text>
 
           <View style={styles.lockedPhotoRow}>
             {lockedPhotos.map(({ uri, label }) => (
@@ -255,7 +274,11 @@ export default function DrivingLicencePhotoScreen() {
 
           <View style={styles.buttonRow}>
             <View style={styles.primaryButtonWrap}>
-              <CaptureButton title="Close" variant="primary" onPress={() => router.back()} />
+              <CaptureButton
+                title={t('insurance.action.close')}
+                variant="primary"
+                onPress={() => router.back()}
+              />
             </View>
           </View>
         </ScrollView>
@@ -267,7 +290,7 @@ export default function DrivingLicencePhotoScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.center}>
-          <Text style={styles.centerText}>Checking camera permission...</Text>
+          <Text style={styles.centerText}>{t('insurance.camera.checkingPermission')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -277,18 +300,20 @@ export default function DrivingLicencePhotoScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.center}>
-          <Text style={styles.centerText}>Camera access is required to photograph your licence.</Text>
+          <Text style={styles.centerText}>{t('insurance.licence.permissionBody')}</Text>
           {/* Once the OS refuses to ask again, requestPermission() resolves without showing
               anything — the button has to send the driver to Settings instead of doing nothing. */}
           <Pressable
             style={styles.permissionButton}
             onPress={() => void (permission.canAskAgain ? requestPermission() : Linking.openSettings())}>
             <Text style={styles.permissionButtonText}>
-              {permission.canAskAgain ? 'Grant Camera Permission' : 'Open Settings'}
+              {permission.canAskAgain
+                ? t('insurance.camera.grantPermission')
+                : t('insurance.camera.openSettings')}
             </Text>
           </Pressable>
           <Pressable style={styles.textButton} onPress={() => router.back()}>
-            <Text style={styles.textButtonLabel}>Go back</Text>
+            <Text style={styles.textButtonLabel}>{t('insurance.action.back')}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -297,19 +322,23 @@ export default function DrivingLicencePhotoScreen() {
 
   const renderCornerThumb = (uri: string, target: LicenceSide) => (
     <View style={styles.cornerThumbWrap}>
-      <View style={styles.cornerPreviewTile} accessibilityLabel={`${SIDE_LABELS[target]} of licence preview`}>
+      <View
+        style={styles.cornerPreviewTile}
+        accessibilityLabel={t('insurance.licence.previewA11y', { side: t(SIDE_LABEL_KEYS[target]) })}>
         <Image source={{ uri }} style={styles.cornerPreviewImage} resizeMode="cover" />
         <Pressable
           style={({ pressed }) => [styles.retakeBadge, pressed && styles.retakeBadgePressed]}
           onPress={() => setRetakeConfirmTarget(target)}
           hitSlop={12}
           accessibilityRole="button"
-          accessibilityLabel={`Retake ${SIDE_LABELS[target].toLowerCase()} photo`}>
+          accessibilityLabel={t('insurance.licence.retakeA11y', {
+            side: t(SIDE_LABEL_LOWER_KEYS[target]),
+          })}>
           <Icon name="RotateCcw" size={12} color={CAPTURE_ACTION_BLUE} />
         </Pressable>
       </View>
       <View style={styles.cornerThumbLabelPill}>
-        <Text style={styles.cornerThumbLabelText}>{SIDE_LABELS[target]}</Text>
+        <Text style={styles.cornerThumbLabelText}>{t(SIDE_LABEL_KEYS[target])}</Text>
       </View>
     </View>
   );
@@ -318,13 +347,13 @@ export default function DrivingLicencePhotoScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
       <ResetCaptureDialog
         visible={retakeConfirmTarget != null}
-        title="Retake Photo"
+        title={t('insurance.licence.retakeTitle')}
         message={
           retakeConfirmTarget
-            ? `Clear the captured ${SIDE_LABELS[retakeConfirmTarget]} photo and take it again?`
+            ? t('insurance.licence.retakeBody', { side: t(SIDE_LABEL_KEYS[retakeConfirmTarget]) })
             : ''
         }
-        confirmLabel="Retake"
+        confirmLabel={t('insurance.licence.retakeConfirm')}
         onCancel={() => setRetakeConfirmTarget(null)}
         onConfirm={() => {
           const target = retakeConfirmTarget;
@@ -346,14 +375,14 @@ export default function DrivingLicencePhotoScreen() {
               style={({ pressed }) => [styles.headerBack, pressed && styles.pressed]}
               hitSlop={12}
               accessibilityRole="button"
-              accessibilityLabel="Go back">
+              accessibilityLabel={t('insurance.action.back')}>
               <View style={styles.headerChevronWrap} collapsable={false}>
                 <Ionicons name="chevron-back" size={22} color={COLORS.text} />
               </View>
-              <Text style={styles.headerTitle}>Driving Licence Photo</Text>
+              <Text style={styles.headerTitle}>{t('insurance.licence.title')}</Text>
             </Pressable>
           ) : (
-            <Text style={styles.headerTitle}>Driving Licence Photo</Text>
+            <Text style={styles.headerTitle}>{t('insurance.licence.title')}</Text>
           )}
         </View>
 
@@ -361,13 +390,9 @@ export default function DrivingLicencePhotoScreen() {
 
         <Animated.View key={side} entering={FadeIn.duration(220)} exiting={FadeOut.duration(150)}>
           <Text style={styles.headline}>{instructionHeadline}</Text>
-          <Text style={styles.subtitle}>
-            This step is required by the insurance company. This will help us to validate you and your vehicle.
-          </Text>
+          <Text style={styles.subtitle}>{t('insurance.licence.subtitle')}</Text>
           {showSelfieHint ? (
-            <Text style={styles.selfieHint}>
-              Hold your driving licence up next to your face, both clearly visible.
-            </Text>
+            <Text style={styles.selfieHint}>{t('insurance.licence.selfieHint')}</Text>
           ) : null}
         </Animated.View>
 

@@ -12,9 +12,11 @@ import {
 } from "@lib/maintenanceApi";
 import { useVehicle } from "@lib/vehicleContext";
 import { SimulatedTripsModal } from "@components/ui/simulated-trips-modal";
+import { useT, useI18n, type Translate } from "@lib/i18n";
 
 export default function TripSummaryScreen() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { selectedVehicle, user } = useVehicle();
   const { vehicleId: paramId } = useLocalSearchParams<{ vehicleId?: string }>();
   // No stand-in plate: with nothing selected we ask for a vehicle rather than
@@ -88,13 +90,13 @@ export default function TripSummaryScreen() {
           gap: spacing.md,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel={t("driver.trips.back")}>
           <Icon name="ChevronLeft" size={24} color={palette.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={{ ...typography.h3, color: palette.text }}>Trip Behaviour</Text>
+          <Text style={{ ...typography.h3, color: palette.text }}>{t("driver.trips.title")}</Text>
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
-            {vehicleId || "No vehicle selected"}
+            {vehicleId || t("driver.trips.noVehicleTitle")}
           </Text>
         </View>
         {loading && <ActivityIndicator size="small" color={palette.brand} />}
@@ -102,7 +104,7 @@ export default function TripSummaryScreen() {
           onPress={() => setShowSimulator(true)}
           hitSlop={10}
           accessibilityRole="button"
-          accessibilityLabel="Generate simulated trips"
+          accessibilityLabel={t("driver.trips.simulateA11y")}
           style={({ pressed }) => ({
             flexDirection: "row",
             alignItems: "center",
@@ -117,7 +119,7 @@ export default function TripSummaryScreen() {
         >
           <Icon name="FlaskConical" size={14} color={palette.brand} />
           <Text style={{ ...typography.micro, color: palette.brand, fontWeight: "700" }}>
-            Simulate
+            {t("driver.trips.simulate")}
           </Text>
         </Pressable>
       </View>
@@ -129,7 +131,7 @@ export default function TripSummaryScreen() {
       ) : loadFailed ? (
         <LoadFailedState onRetry={() => setAttempt((a) => a + 1)} />
       ) : empty ? (
-        <EmptyState message="No trip data recorded for this vehicle yet." />
+        <EmptyState message={t("driver.trips.emptyBody")} />
       ) : data ? (
         <ScrollView
           contentContainerStyle={{
@@ -140,25 +142,25 @@ export default function TripSummaryScreen() {
         >
           <OverviewCards data={data} />
           <BehaviourBar
-            label="Braking events"
+            label={t("driver.trips.brakingEvents")}
             icon="Disc"
             value={data.total_braking_events}
             max={60}
             dangerAbove={30}
             warnAbove={15}
-            unit="events"
+            unit={t("driver.trips.unitEvents")}
           />
           <BehaviourBar
-            label="Cornering events"
+            label={t("driver.trips.corneringEvents")}
             icon="Navigation"
             value={data.total_cornering_events}
             max={60}
             dangerAbove={25}
             warnAbove={12}
-            unit="events"
+            unit={t("driver.trips.unitEvents")}
           />
           <BehaviourBar
-            label="Average RPM"
+            label={t("driver.trips.averageRpm")}
             icon="Gauge"
             value={Math.round(data.avg_rpm)}
             max={4000}
@@ -168,7 +170,7 @@ export default function TripSummaryScreen() {
           />
 
           <Text style={{ ...typography.bodyStrong, color: palette.text, marginTop: spacing.xs }}>
-            Individual Trips ({data.trip_count})
+            {t("driver.trips.individualHeading", { count: data.trip_count })}
           </Text>
 
           {/* Already newest-first from the server. Reversing here would only
@@ -198,8 +200,8 @@ export default function TripSummaryScreen() {
               {loadingMore && <ActivityIndicator size="small" color={palette.brand} />}
               <Text style={{ ...typography.bodyStrong, color: palette.brand }}>
                 {loadingMore
-                  ? "Loading…"
-                  : `Show older trips (${data.trip_count - data.trips.length} more)`}
+                  ? t("driver.trips.loadingMore")
+                  : t("driver.trips.showOlder", { count: data.trip_count - data.trips.length })}
               </Text>
             </Pressable>
           ) : null}
@@ -220,11 +222,12 @@ export default function TripSummaryScreen() {
 }
 
 function OverviewCards({ data }: { data: VehicleTripSummary }) {
+  const t = useT();
   const stats = [
-    { label: "Trips", value: String(data.trip_count), icon: "MapPin" },
-    { label: "Distance", value: `${Math.round(data.total_distance_km).toLocaleString()} km`, icon: "Route" },
-    { label: "Avg Speed", value: `${data.avg_speed_kmh} km/h`, icon: "Gauge" },
-    { label: "Drive Time", value: formatMinutes(data.total_duration_minutes), icon: "Clock" },
+    { label: t("driver.trips.statTrips"), value: String(data.trip_count), icon: "MapPin" },
+    { label: t("driver.trips.statDistance"), value: t("driver.trips.valueKm", { value: Math.round(data.total_distance_km).toLocaleString() }), icon: "Route" },
+    { label: t("driver.trips.statAvgSpeed"), value: t("driver.trips.valueKmh", { value: data.avg_speed_kmh }), icon: "Gauge" },
+    { label: t("driver.trips.statDriveTime"), value: formatMinutes(data.total_duration_minutes, t), icon: "Clock" },
   ];
 
   return (
@@ -268,13 +271,18 @@ function BehaviourBar({
   warnAbove: number;
   unit: string;
 }) {
+  const t = useT();
   const pct = Math.min((value / max) * 100, 100);
   const color =
     value >= dangerAbove ? palette.danger : value >= warnAbove ? palette.warning : palette.success;
   const bg =
     value >= dangerAbove ? palette.dangerSoft : value >= warnAbove ? palette.warningSoft : palette.successSoft;
   const statusLabel =
-    value >= dangerAbove ? "High" : value >= warnAbove ? "Moderate" : "Good";
+    value >= dangerAbove
+      ? t("driver.trips.statusHigh")
+      : value >= warnAbove
+        ? t("driver.trips.statusModerate")
+        : t("driver.trips.statusGood");
 
   return (
     <View
@@ -328,14 +336,14 @@ function BehaviourBar({
 }
 
 function TripCard({ trip, index }: { trip: TripSummary; index: number }) {
+  const { t, formatDate } = useI18n();
   const brakeColor =
     trip.braking_events >= 4 ? palette.danger : trip.braking_events >= 2 ? palette.warning : palette.success;
   const cornerColor =
     trip.cornering_events >= 4 ? palette.danger : trip.cornering_events >= 2 ? palette.warning : palette.success;
 
-  const date = new Date(trip.start_timestamp);
-  const dateStr = date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  const timeStr = date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const dateStr = formatDate(trip.start_timestamp, { day: "2-digit", month: "short", year: "numeric" });
+  const timeStr = formatDate(trip.start_timestamp, { hour: "2-digit", minute: "2-digit" });
 
   return (
     <View
@@ -352,18 +360,18 @@ function TripCard({ trip, index }: { trip: TripSummary; index: number }) {
       {/* Trip header */}
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
         <Text style={{ ...typography.bodyStrong, color: palette.text, flex: 1 }}>
-          Trip #{index}
+          {t("driver.trips.tripNumber", { index })}
         </Text>
         <Text style={{ ...typography.caption, color: palette.textMuted }}>
-          {dateStr} · {timeStr}
+          {t("driver.trips.dateTime", { date: dateStr, time: timeStr })}
         </Text>
       </View>
 
       {/* Stats row */}
       <View style={{ flexDirection: "row", gap: spacing.lg }}>
-        <StatChip icon="Route" label={`${trip.distance_km.toFixed(1)} km`} />
-        <StatChip icon="Clock" label={`${Math.round(trip.duration_minutes)} min`} />
-        <StatChip icon="Gauge" label={`${Math.round(trip.avg_speed_kmh)} km/h`} />
+        <StatChip icon="Route" label={t("driver.trips.valueKm", { value: trip.distance_km.toFixed(1) })} />
+        <StatChip icon="Clock" label={t("driver.trips.valueMin", { value: Math.round(trip.duration_minutes) })} />
+        <StatChip icon="Gauge" label={t("driver.trips.valueKmh", { value: Math.round(trip.avg_speed_kmh) })} />
       </View>
 
       {/* Behaviour row */}
@@ -376,22 +384,22 @@ function TripCard({ trip, index }: { trip: TripSummary; index: number }) {
       >
         <EventPill
           icon="Disc"
-          label={`${trip.braking_events} brake${trip.braking_events !== 1 ? "s" : ""}`}
+          label={t("driver.trips.brakeCount", { count: trip.braking_events })}
           color={brakeColor}
         />
         <EventPill
           icon="Navigation"
-          label={`${trip.cornering_events} corner${trip.cornering_events !== 1 ? "s" : ""}`}
+          label={t("driver.trips.cornerCount", { count: trip.cornering_events })}
           color={cornerColor}
         />
         <EventPill
           icon="Thermometer"
-          label={`${Math.round(trip.max_coolant_temp_c)}°C peak`}
+          label={t("driver.trips.peakTemp", { value: Math.round(trip.max_coolant_temp_c) })}
           color={trip.max_coolant_temp_c > 105 ? palette.danger : trip.max_coolant_temp_c > 95 ? palette.warning : palette.textMuted}
         />
         <EventPill
           icon="Zap"
-          label={`${trip.avg_battery_voltage_v.toFixed(1)} V`}
+          label={t("driver.trips.voltage", { value: trip.avg_battery_voltage_v.toFixed(1) })}
           color={trip.avg_battery_voltage_v < 12.5 ? palette.danger : trip.avg_battery_voltage_v < 13.2 ? palette.warning : palette.textMuted}
         />
       </View>
@@ -449,6 +457,7 @@ function LoadingSkeleton() {
 }
 
 function EmptyState({ message }: { message: string }) {
+  const t = useT();
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xxl, gap: spacing.lg }}>
       <View
@@ -460,7 +469,7 @@ function EmptyState({ message }: { message: string }) {
       >
         <Icon name="Activity" size={28} color={palette.warning} />
       </View>
-      <Text style={{ ...typography.h3, color: palette.text, textAlign: "center" }}>No Data Yet</Text>
+      <Text style={{ ...typography.h3, color: palette.text, textAlign: "center" }}>{t("driver.trips.emptyTitle")}</Text>
       <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
         {message}
       </Text>
@@ -469,6 +478,7 @@ function EmptyState({ message }: { message: string }) {
 }
 
 function NoVehicleState() {
+  const t = useT();
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xxl, gap: spacing.lg }}>
       <View
@@ -480,14 +490,14 @@ function NoVehicleState() {
       >
         <Icon name="Car" size={28} color={palette.brand} />
       </View>
-      <Text style={{ ...typography.h3, color: palette.text, textAlign: "center" }}>No vehicle selected</Text>
+      <Text style={{ ...typography.h3, color: palette.text, textAlign: "center" }}>{t("driver.trips.noVehicleTitle")}</Text>
       <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
-        Trip behaviour is recorded per vehicle. Add or select one to see its trips.
+        {t("driver.trips.noVehicleBody")}
       </Text>
       <Pressable
         onPress={() => router.push("/(driver)/manage-vehicles")}
         accessibilityRole="button"
-        accessibilityLabel="Manage vehicles"
+        accessibilityLabel={t("driver.trips.manageVehiclesA11y")}
         style={({ pressed }) => ({
           backgroundColor: pressed ? palette.brandPressed : palette.brand,
           borderRadius: radii.lg,
@@ -495,13 +505,14 @@ function NoVehicleState() {
           paddingHorizontal: spacing.xl,
         })}
       >
-        <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Manage Vehicles</Text>
+        <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>{t("driver.trips.manageVehicles")}</Text>
       </Pressable>
     </View>
   );
 }
 
 function LoadFailedState({ onRetry }: { onRetry: () => void }) {
+  const t = useT();
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xxl, gap: spacing.lg }}>
       <View
@@ -513,14 +524,14 @@ function LoadFailedState({ onRetry }: { onRetry: () => void }) {
       >
         <Icon name="TriangleAlert" size={28} color={palette.danger} />
       </View>
-      <Text style={{ ...typography.h3, color: palette.text, textAlign: "center" }}>Couldn&apos;t load trips</Text>
+      <Text style={{ ...typography.h3, color: palette.text, textAlign: "center" }}>{t("driver.trips.loadFailedTitle")}</Text>
       <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
-        The maintenance server didn&apos;t respond. Check your connection and try again.
+        {t("driver.trips.loadFailedBody")}
       </Text>
       <Pressable
         onPress={onRetry}
         accessibilityRole="button"
-        accessibilityLabel="Try again"
+        accessibilityLabel={t("driver.trips.retry")}
         style={({ pressed }) => ({
           backgroundColor: pressed ? palette.brandPressed : palette.brand,
           borderRadius: radii.lg,
@@ -528,15 +539,17 @@ function LoadFailedState({ onRetry }: { onRetry: () => void }) {
           paddingHorizontal: spacing.xl,
         })}
       >
-        <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Try again</Text>
+        <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>{t("driver.trips.retry")}</Text>
       </Pressable>
     </View>
   );
 }
 
-function formatMinutes(mins: number): string {
-  if (mins < 60) return `${Math.round(mins)} min`;
+function formatMinutes(mins: number, t: Translate): string {
+  if (mins < 60) return t("driver.trips.valueMin", { value: Math.round(mins) });
   const h = Math.floor(mins / 60);
   const m = Math.round(mins % 60);
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  return m > 0
+    ? t("driver.trips.valueHoursMinutes", { hours: h, minutes: m })
+    : t("driver.trips.valueHours", { hours: h });
 }

@@ -10,6 +10,7 @@ import {
   CAPTURE_TEXT_WHITE,
   GRAY_900,
 } from '@/features/guided-capture/capture-ui-theme';
+import { useT } from '@/lib/i18n';
 
 type CaptureOverflowMenuProps = {
   showBackInsteadOfReset: boolean;
@@ -34,6 +35,7 @@ export function CaptureOverflowMenu({
   onSubmitPhotos,
   onShowInstructions,
 }: CaptureOverflowMenuProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
 
   const close = () => setOpen(false);
@@ -49,7 +51,7 @@ export function CaptureOverflowMenu({
         onPress={() => setOpen(true)}
         hitSlop={10}
         accessibilityRole="button"
-        accessibilityLabel="More options">
+        accessibilityLabel={t('insurance.capture.moreOptions')}>
         <Icon name="EllipsisVertical" size={20} color={CAPTURE_TEXT_WHITE} />
       </Pressable>
 
@@ -58,21 +60,33 @@ export function CaptureOverflowMenu({
           <Pressable style={styles.menu} onPress={(e) => e.stopPropagation()}>
             <MenuItem
               icon={showBackInsteadOfReset ? 'ArrowLeft' : 'RotateCcw'}
-              label={showBackInsteadOfReset ? 'Back' : 'Reset'}
+              label={
+                showBackInsteadOfReset
+                  ? t('insurance.capture.menuBack')
+                  : t('insurance.capture.menuReset')
+              }
               onPress={() => runAndClose(showBackInsteadOfReset ? onBackPress : onResetCapture)}
             />
             <MenuItem
               icon="RefreshCw"
-              label={autoCaptureEnabled ? 'Auto capture: On' : 'Auto capture: Off'}
+              label={
+                autoCaptureEnabled
+                  ? t('insurance.capture.menuAutoOn')
+                  : t('insurance.capture.menuAutoOff')
+              }
               onPress={() => runAndClose(onToggleAutoCapture)}
             />
             <MenuItem
               icon="Images"
-              label="View Images"
+              label={t('insurance.capture.menuViewImages')}
               disabled={!submitEnabled}
               onPress={() => runAndClose(onSubmitPhotos)}
             />
-            <MenuItem icon="CircleHelp" label="How to Capture" onPress={() => runAndClose(onShowInstructions)} />
+            <MenuItem
+              icon="CircleHelp"
+              label={t('insurance.capture.menuHowTo')}
+              onPress={() => runAndClose(onShowInstructions)}
+            />
           </Pressable>
         </Pressable>
       </Modal>

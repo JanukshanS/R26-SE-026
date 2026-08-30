@@ -14,6 +14,7 @@
  *   intent      — Q1FastIntent value (FLAT_TIRE, FUEL_EMPTY, LOCKOUT, ...).
  *                 Absent when the driver skipped out of the questionnaire.
  *   label       — Human-readable label for the loading screen ("Flat tire")
+ *   labelKey    — Translation key for that label, when the caller has one.
  */
 
 import { useCallback, useEffect, useRef } from "react";
@@ -32,6 +33,7 @@ import {
   createIncident, submitTriage, runDispatch, DispatchApiError,
 } from "@lib/dispatchApi";
 import { getCurrentDriverLocation } from "@lib/driverLocation";
+import { useT } from "@lib/i18n";
 
 function buildFastPathDefaults() {
   return {
@@ -56,7 +58,9 @@ function buildFastPathDefaults() {
 }
 
 export default function QuickDispatchScreen() {
-  const { intent, label } = useLocalSearchParams<{ intent: string; label: string }>();
+  const t = useT();
+  const { intent, label, labelKey } =
+    useLocalSearchParams<{ intent: string; label: string; labelKey: string }>();
   const {
     setIncidentId, setTriageResult, setDispatchResult, setError,
     dispatchResult, error, incidentId, buildTriageResponses,
@@ -128,14 +132,14 @@ export default function QuickDispatchScreen() {
     } catch (err) {
       if (!mounted.current) return;
       const msg = err instanceof DispatchApiError
-        ? `${err.message} (HTTP ${err.status})`
+        ? t("emergency.error.withStatus", { message: err.message, status: err.status })
         : (err as Error).message;
       haptics.error();
       setError(msg);
     } finally {
       inFlightRef.current = false;
     }
-  }, [intent, label, skipped, setIncidentId, setTriageResult, setDispatchResult, setError]);
+  }, [intent, label, skipped, setIncidentId, setTriageResult, setDispatchResult, setError, t]);
 
   useEffect(() => {
     mounted.current = true;
@@ -149,34 +153,37 @@ export default function QuickDispatchScreen() {
   // can only fail the same way — offer the sign-in screen instead.
   const signedOut = !!error && error.includes("You need to be signed in");
 
+  // whats-wrong sends a key; the home-screen shortcuts still send plain text.
+  const labelText = labelKey ? t(labelKey) : label;
+
   return (
     <Screen>
       <HeaderBar />
       {/* One headline for both entries. Interpolating the tile label into the
           title read badly for half the tiles ("Getting lost my key..."), so the
           label sits underneath as its own line instead. */}
-      <Text style={{ ...typography.h1, color: palette.text }}>Sending help...</Text>
+      <Text style={{ ...typography.h1, color: palette.text }}>{t("emergency.quickDispatch.title")}</Text>
       <Text style={{ ...typography.body, color: palette.textMuted }}>
         {skipped
-          ? "We're using the answers you gave. You can add the rest once someone is on the way."
-          : label
-            ? `${label} — finding the nearest provider.`
-            : "Finding the nearest provider."}
+          ? t("emergency.quickDispatch.skippedBody")
+          : labelText
+            ? t("emergency.quickDispatch.searchingWithLabel", { label: labelText })
+            : t("emergency.quickDispatch.searchingBody")}
       </Text>
 
       {error ? (
         <>
           <ErrorState
-            title="Couldn't dispatch"
+            title={t("emergency.quickDispatch.failedTitle")}
             message={
               signedOut
-                ? "You need to be signed in to send help to your location."
-                : `${error}\n\nTap Try again to resend the request, or use back to pick a different kind of help.`
+                ? t("emergency.quickDispatch.signedOutBody")
+                : t("emergency.quickDispatch.failedBody", { message: error })
             }
             onRetry={signedOut ? undefined : runDispatchFlow}
           />
           {signedOut ? (
-            <Button title="Sign in" onPress={() => router.push("/(driver)/auth")} />
+            <Button title={t("emergency.action.signIn")} onPress={() => router.push("/(driver)/auth")} />
           ) : null}
         </>
       ) : (

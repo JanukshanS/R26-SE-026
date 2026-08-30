@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { authHeaders, API_BASE } from "@/lib/insurer/api";
+import { useT } from "@/lib/i18n";
 
 type UserRow = {
   id: string;
@@ -26,6 +27,12 @@ type Company = { id: string; name: string };
 
 const ROLES = ["admin", "agent", "staff"] as const;
 
+const ROLE_KEYS: Record<string, string> = {
+  admin: "insurer.role.admin",
+  agent: "insurer.role.agent",
+  staff: "insurer.role.staff",
+};
+
 const ROLE_TONE: Record<string, string> = {
   admin: "bg-primary/15 text-primary border border-primary/30",
   agent: "bg-blue-100 text-blue-800 border border-blue-200",
@@ -33,6 +40,7 @@ const ROLE_TONE: Record<string, string> = {
 };
 
 export function UsersTab() {
+  const t = useT();
   const [users, setUsers] = useState<UserRow[] | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -61,7 +69,7 @@ export function UsersTab() {
       else throw new Error(`HTTP ${uRes.status}`);
       if (cRes.ok) setCompanies(await cRes.json());
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "Failed to load users");
+      setLoadError(e instanceof Error ? e.message : t("insurer.users.loadErrorFallback"));
     }
   }
 
@@ -81,13 +89,13 @@ export function UsersTab() {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.detail ?? "Failed to create user");
+        throw new Error(err.detail ?? t("insurer.users.createErrorFallback"));
       }
       await load();
       setShowModal(false);
       setForm({ email: "", name: "", password: "", role: "staff", company_id: "" });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error");
+      setError(e instanceof Error ? e.message : t("insurer.users.genericError"));
     } finally {
       setSaving(false);
     }
@@ -104,14 +112,14 @@ export function UsersTab() {
   if (loadError) {
     return (
       <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
-        <p className="font-medium">Couldn&apos;t load users</p>
+        <p className="font-medium">{t("insurer.users.loadErrorTitle")}</p>
         <p className="mt-1">{loadError}</p>
         <button
           type="button"
           onClick={() => void load()}
           className="mt-3 rounded border border-red-300 px-3 py-1 font-medium hover:bg-red-100"
         >
-          Try again
+          {t("insurer.action.retry")}
         </button>
       </div>
     );
@@ -131,13 +139,13 @@ export function UsersTab() {
     <>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold tracking-tight">User Accounts</h2>
+          <h2 className="font-display text-lg font-semibold tracking-tight">{t("insurer.users.heading")}</h2>
           <button
             type="button"
             onClick={() => setShowModal(true)}
             className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-sm font-medium hover:opacity-90 transition-opacity"
           >
-            + Add User
+            {t("insurer.users.add")}
           </button>
         </div>
 
@@ -145,12 +153,12 @@ export function UsersTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>{t("insurer.users.colName")}</TableHead>
+                <TableHead>{t("insurer.users.colEmail")}</TableHead>
+                <TableHead>{t("insurer.users.colRole")}</TableHead>
+                <TableHead>{t("insurer.users.colCompany")}</TableHead>
+                <TableHead>{t("insurer.users.colStatus")}</TableHead>
+                <TableHead>{t("insurer.users.colActions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -160,7 +168,7 @@ export function UsersTab() {
                     colSpan={6}
                     className="text-center text-muted-foreground py-8"
                   >
-                    No users yet
+                    {t("insurer.users.empty")}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -188,7 +196,7 @@ export function UsersTab() {
                             : "bg-red-100 text-red-700"
                         }`}
                       >
-                        {u.is_active ? "Active" : "Inactive"}
+                        {u.is_active ? t("insurer.status.active") : t("insurer.status.inactive")}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -197,7 +205,7 @@ export function UsersTab() {
                         onClick={() => void handleToggle(u.id)}
                         className="rounded-md border border-input px-3 py-1 text-xs font-medium hover:bg-accent transition-colors"
                       >
-                        {u.is_active ? "Deactivate" : "Activate"}
+                        {u.is_active ? t("insurer.action.deactivate") : t("insurer.action.activate")}
                       </button>
                     </TableCell>
                   </TableRow>
@@ -218,7 +226,7 @@ export function UsersTab() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h3 className="text-sm font-semibold">Add User Account</h3>
+              <h3 className="text-sm font-semibold">{t("insurer.users.modalTitle")}</h3>
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
@@ -230,7 +238,7 @@ export function UsersTab() {
 
             <div className="px-5 py-4 flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Full Name</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("insurer.users.fieldName")}</label>
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -239,7 +247,7 @@ export function UsersTab() {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Email</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("insurer.users.fieldEmail")}</label>
                 <input
                   type="email"
                   value={form.email}
@@ -249,7 +257,7 @@ export function UsersTab() {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Password</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("insurer.users.fieldPassword")}</label>
                 <input
                   type="password"
                   value={form.password}
@@ -259,7 +267,7 @@ export function UsersTab() {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Role</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("insurer.users.fieldRole")}</label>
                 <select
                   value={form.role}
                   onChange={(e) => setForm({ ...form, role: e.target.value })}
@@ -267,19 +275,19 @@ export function UsersTab() {
                 >
                   {ROLES.map((r) => (
                     <option key={r} value={r}>
-                      {r.charAt(0).toUpperCase() + r.slice(1)}
+                      {t(ROLE_KEYS[r])}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Company</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("insurer.users.fieldCompany")}</label>
                 <select
                   value={form.company_id}
                   onChange={(e) => setForm({ ...form, company_id: e.target.value })}
                   className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 >
-                  <option value="">— None (Admin) —</option>
+                  <option value="">{t("insurer.users.companyNone")}</option>
                   {companies.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -300,7 +308,7 @@ export function UsersTab() {
                 onClick={() => setShowModal(false)}
                 className="rounded-md border border-input px-4 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent transition-colors"
               >
-                Cancel
+                {t("insurer.action.cancel")}
               </button>
               <button
                 type="button"
@@ -308,7 +316,7 @@ export function UsersTab() {
                 disabled={saving || !form.email || !form.name || !form.password}
                 className="rounded-md px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {saving ? "Saving…" : "Create User"}
+                {saving ? t("insurer.action.saving") : t("insurer.users.create")}
               </button>
             </div>
           </div>

@@ -5,6 +5,7 @@ import { Icon } from "@components/ui/icon";
 import { QuestionScreen } from "@components/ui/question-screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useEmergency, MobileSoundId } from "@lib/emergencyContext";
+import { useT } from "@lib/i18n";
 
 /**
  * The 4 sound options shown in the UI. Each carries the backend's Q3_sound
@@ -19,14 +20,15 @@ import { useEmergency, MobileSoundId } from "@lib/emergencyContext";
  * pose illustrations use it), so adding sound here needs no new native module
  * and no rebuild.
  */
-const SOUNDS: { id: MobileSoundId; label: string; clip: number | null }[] = [
-  { id: "RAPID_CLICKING",  label: "Rapid Clicking",  clip: require("@assets/sounds/rapid-clicking.wav") },
-  { id: "NORMAL_CRANKING", label: "Normal Cranking", clip: require("@assets/sounds/normal-cranking.wav") },
-  { id: "GRINDING",        label: "Grinding Noise",  clip: require("@assets/sounds/grinding.wav") },
-  { id: "NOTHING",         label: "Nothing at All",  clip: null },
+const SOUNDS: { id: MobileSoundId; labelKey: string; clip: number | null }[] = [
+  { id: "RAPID_CLICKING",  labelKey: "emergency.sound.rapidClicking",  clip: require("@assets/sounds/rapid-clicking.wav") },
+  { id: "NORMAL_CRANKING", labelKey: "emergency.sound.normalCranking", clip: require("@assets/sounds/normal-cranking.wav") },
+  { id: "GRINDING",        labelKey: "emergency.sound.grinding",       clip: require("@assets/sounds/grinding.wav") },
+  { id: "NOTHING",         labelKey: "emergency.sound.nothing",        clip: null },
 ];
 
 export default function DiagnosisSoundScreen() {
+  const t = useT();
   const { sound, setSound } = useEmergency();
   const [playing, setPlaying] = useState<MobileSoundId | null>(null);
 
@@ -61,14 +63,14 @@ export default function DiagnosisSoundScreen() {
   return (
     <QuestionScreen
       route="diagnosis-sound"
-      prompt="What sound does your vehicle make?"
-      hint="Tap one to hear it, and pick the closest match to your car."
+      prompt={t("emergency.sound.prompt")}
+      hint={t("emergency.sound.hint")}
       canNext={!!sound}
     >
       {SOUNDS.map((s) => (
         <SoundOption
           key={s.id}
-          label={s.label}
+          label={t(s.labelKey)}
           audible={s.clip !== null}
           selected={sound === s.id}
           playing={playing === s.id}
@@ -92,12 +94,13 @@ function SoundOption({
   playing: boolean;
   onPress: () => void;
 }) {
+  const t = useT();
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ selected }}
-      accessibilityLabel={audible ? `${label}, tap to hear it` : label}
+      accessibilityLabel={audible ? t("emergency.sound.a11yPlay", { name: label }) : label}
       style={({ pressed }) => ({
         opacity: pressed ? 0.85 : 1,
         backgroundColor: palette.surface,

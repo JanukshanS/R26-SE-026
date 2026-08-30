@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import type { ComponentKey } from "@lib/maintenanceApi";
+import { useI18n, type FormatDate } from "@lib/i18n";
 
 interface Suggestion {
   id: string;
@@ -107,31 +108,23 @@ const SUGGESTIONS_BY_COMPONENT: Record<ComponentKey, Suggestion[]> = {
 // Generic guidance only. This screen is reachable from the parts store with no
 // health context at all, so it cannot state a remaining-life figure for the
 // driver's car — the component detail screen shows the measured one.
-const ASSISTANT_TEXT: Record<ComponentKey, string> = {
-  brake:
-    "Brake pads are a wear item — go by the health score on the component screen rather than a fixed interval. Fitting is around LKR 2,500 on top of the part price shown above.",
-  engine:
-    "An oil and filter change is the usual first service. The labour is around LKR 14,800 on top of the oil price shown above.",
-  tire:
-    "Rotating tyres evens out wear and extends their life. Rotation is around LKR 1,500.",
-  battery:
-    "A load test is the quickest way to confirm a battery's condition before replacing it. A test is around LKR 500.",
+const ASSISTANT_TEXT_KEY: Record<ComponentKey, string> = {
+  brake: "driver.autoSchedule.assistantBrake",
+  engine: "driver.autoSchedule.assistantEngine",
+  tire: "driver.autoSchedule.assistantTire",
+  battery: "driver.autoSchedule.assistantBattery",
 };
 
-/** Next upcoming Saturday, formatted "Sat, 4 Jul 2026". */
-function nextSaturdayLabel(): string {
+/** Next upcoming Saturday, formatted "Sat, 4 Jul 2026" in the chosen language. */
+function nextSaturdayLabel(formatDate: FormatDate): string {
   const d = new Date();
   d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7 || 7));
-  return d.toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return formatDate(d, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
 
 export default function AutoScheduleScreen() {
   const insets = useSafeAreaInsets();
+  const { t, formatDate } = useI18n();
   const { component, partName, partSubtitle, partPrice } = useLocalSearchParams<{
     component: ComponentKey;
     partName?: string;
@@ -150,8 +143,8 @@ export default function AutoScheduleScreen() {
         }
       : s
   );
-  const assistantText = ASSISTANT_TEXT[key];
-  const scheduleDate = nextSaturdayLabel();
+  const assistantText = t(ASSISTANT_TEXT_KEY[key]);
+  const scheduleDate = nextSaturdayLabel(formatDate);
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
@@ -169,10 +162,10 @@ export default function AutoScheduleScreen() {
           gap: spacing.md,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel={t("driver.autoSchedule.back")}>
           <Icon name="ChevronLeft" size={24} color={palette.text} />
         </Pressable>
-        <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>Auto Schedule</Text>
+        <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>{t("driver.autoSchedule.title")}</Text>
       </View>
 
       <ScrollView
@@ -183,7 +176,7 @@ export default function AutoScheduleScreen() {
         }}
       >
         {/* Best Suggestions */}
-        <Text style={{ ...typography.bodyStrong, color: palette.text }}>Best Suggestions</Text>
+        <Text style={{ ...typography.bodyStrong, color: palette.text }}>{t("driver.autoSchedule.suggestionsHeading")}</Text>
 
         <View style={{ gap: spacing.sm }}>
           {suggestions.map((s) => (
@@ -216,7 +209,7 @@ export default function AutoScheduleScreen() {
               <Icon name="Bot" size={18} color={palette.brand} />
             </View>
             <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-              Service Assistant says
+              {t("driver.autoSchedule.assistantHeading")}
             </Text>
           </View>
 
@@ -241,7 +234,7 @@ export default function AutoScheduleScreen() {
             {/* A suggestion, not an availability check — nothing here queries
                 the garage's calendar. */}
             <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "600" }}>
-              Suggested: {scheduleDate}
+              {t("driver.autoSchedule.suggestedDate", { date: scheduleDate })}
             </Text>
           </View>
         </View>
@@ -270,14 +263,13 @@ export default function AutoScheduleScreen() {
             textAlign: "center",
           }}
         >
-          Booking and online payment aren&apos;t available yet — nothing has been scheduled.
-          Contact the garage directly to arrange a date.
+          {t("driver.autoSchedule.disclaimer")}
         </Text>
 
         <Pressable
           onPress={() => router.back()}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t("driver.autoSchedule.back")}
           style={({ pressed }) => ({
             borderRadius: radii.lg,
             paddingVertical: spacing.md,
@@ -288,7 +280,7 @@ export default function AutoScheduleScreen() {
             backgroundColor: pressed ? palette.homeBackground : "transparent",
           })}
         >
-          <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Go Back</Text>
+          <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>{t("driver.autoSchedule.goBack")}</Text>
         </Pressable>
       </View>
     </View>

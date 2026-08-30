@@ -28,9 +28,16 @@ import { haptics } from "@lib/haptics";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useEmergency } from "@lib/emergencyContext";
 import { nextRoute, stepPath, type Q1MLIntent } from "@lib/emergencyFlow";
+import { useT, type Translate } from "@lib/i18n";
 
 type Tile = {
-  label: string;
+  labelKey: string;
+  /**
+   * English label passed to quick-dispatch, which puts it in the incident
+   * description dispatch stores. Data, not chrome — the driver reads
+   * `labelKey`.
+   */
+  label?: string;
   icon: IconName;
   /** Fast-path intent submitted straight to dispatch. */
   fast?: string;
@@ -49,28 +56,29 @@ type Tile = {
  * they sit together under their own red treatment.
  */
 const FAST: Tile[] = [
-  { label: "Flat tyre",    icon: "Disc",          fast: "FLAT_TIRE" },
-  { label: "Out of fuel",  icon: "Fuel",          fast: "FUEL_EMPTY" },
-  { label: "Locked out",   icon: "LockKeyhole",   fast: "LOCKOUT" },
-  { label: "Lost my key",  icon: "KeyRound",      fast: "KEY_LOST" },
-  { label: "Wrong fuel",   icon: "Droplets",      fast: "FUEL_WRONG" },
-  { label: "Blown fuse",   icon: "Zap",           fast: "BLOWN_FUSE" },
-  { label: "Light bulb",   icon: "Lightbulb",     fast: "LIGHT_BULB" },
-  { label: "Stuck in flood", icon: "Waves",       fast: "STUCK_FLOOD" },
-  { label: "Accident",     icon: "TriangleAlert", crash: true, urgent: true },
-  { label: "Fuel leak / fire", icon: "Flame",     fast: "FUEL_LEAK_FIRE_RISK", urgent: true },
+  { labelKey: "emergency.problem.flatTyre",     label: "Flat tyre",     icon: "Disc",          fast: "FLAT_TIRE" },
+  { labelKey: "emergency.problem.outOfFuel",    label: "Out of fuel",   icon: "Fuel",          fast: "FUEL_EMPTY" },
+  { labelKey: "emergency.problem.lockedOut",    label: "Locked out",    icon: "LockKeyhole",   fast: "LOCKOUT" },
+  { labelKey: "emergency.problem.lostKey",      label: "Lost my key",   icon: "KeyRound",      fast: "KEY_LOST" },
+  { labelKey: "emergency.problem.wrongFuel",    label: "Wrong fuel",    icon: "Droplets",      fast: "FUEL_WRONG" },
+  { labelKey: "emergency.problem.blownFuse",    label: "Blown fuse",    icon: "Zap",           fast: "BLOWN_FUSE" },
+  { labelKey: "emergency.problem.lightBulb",    label: "Light bulb",    icon: "Lightbulb",     fast: "LIGHT_BULB" },
+  { labelKey: "emergency.problem.stuckInFlood", label: "Stuck in flood", icon: "Waves",        fast: "STUCK_FLOOD" },
+  { labelKey: "emergency.problem.accident",     label: "Accident",      icon: "TriangleAlert", crash: true, urgent: true },
+  { labelKey: "emergency.problem.fuelLeakFire", label: "Fuel leak / fire", icon: "Flame",      fast: "FUEL_LEAK_FIRE_RISK", urgent: true },
 ];
 
 /** These five enter the adaptive questionnaire. */
 const DIAGNOSE: Tile[] = [
-  { label: "Won't start",     icon: "CircleOff",   ml: "WONT_START" },
-  { label: "Engine trouble",  icon: "Cog",         ml: "ENGINE_PROBLEM" },
-  { label: "Brakes",          icon: "CircleStop",  ml: "BRAKE_ISSUE" },
-  { label: "Gears / clutch",  icon: "Settings2",   ml: "GEAR_ISSUE" },
-  { label: "Not sure",        icon: "CircleHelp",  ml: "WEIRD_BEHAVIOR" },
+  { labelKey: "emergency.problem.wontStart",     icon: "CircleOff",   ml: "WONT_START" },
+  { labelKey: "emergency.problem.engineTrouble", icon: "Cog",         ml: "ENGINE_PROBLEM" },
+  { labelKey: "emergency.problem.brakes",        icon: "CircleStop",  ml: "BRAKE_ISSUE" },
+  { labelKey: "emergency.problem.gears",         icon: "Settings2",   ml: "GEAR_ISSUE" },
+  { labelKey: "emergency.problem.notSure",       icon: "CircleHelp",  ml: "WEIRD_BEHAVIOR" },
 ];
 
 export default function WhatsWrongScreen() {
+  const t = useT();
   const { setQ1Intent } = useEmergency();
 
   function choose(tile: Tile) {
@@ -87,7 +95,7 @@ export default function WhatsWrongScreen() {
     if (tile.fast) {
       router.push({
         pathname: "/(emergency)/quick-dispatch",
-        params: { intent: tile.fast, label: tile.label },
+        params: { intent: tile.fast, label: tile.label, labelKey: tile.labelKey },
       });
       return;
     }
@@ -109,56 +117,56 @@ export default function WhatsWrongScreen() {
       <HeaderBar />
 
       <View style={{ gap: spacing.xs }}>
-        <Text style={{ ...typography.display, color: palette.text }}>What&apos;s wrong?</Text>
+        <Text style={{ ...typography.display, color: palette.text }}>{t("emergency.whatsWrong.title")}</Text>
         <Text style={{ ...typography.body, color: palette.textMuted }}>
-          Pick the closest one. We&apos;ll sort out the details after help is on its way.
+          {t("emergency.whatsWrong.subtitle")}
         </Text>
       </View>
 
-      <TileGrid tiles={FAST} onPick={choose} delayFrom={0} />
+      <TileGrid tiles={FAST} onPick={choose} delayFrom={0} t={t} />
 
       <View style={{ gap: spacing.md }}>
-        <Text style={{ ...typography.h3, color: palette.text }}>Not sure what it is?</Text>
+        <Text style={{ ...typography.h3, color: palette.text }}>{t("emergency.whatsWrong.diagnoseHeading")}</Text>
         <Text style={{ ...typography.caption, color: palette.textMuted }}>
-          A few quick questions and we&apos;ll work out what you need. You can skip
-          them at any point and we&apos;ll send help with what we have.
+          {t("emergency.whatsWrong.diagnoseHint")}
         </Text>
-        <TileGrid tiles={DIAGNOSE} onPick={choose} delayFrom={FAST.length} />
+        <TileGrid tiles={DIAGNOSE} onPick={choose} delayFrom={FAST.length} t={t} />
       </View>
     </Screen>
   );
 }
 
 function TileGrid({
-  tiles, onPick, delayFrom,
+  tiles, onPick, delayFrom, t,
 }: {
   tiles: Tile[];
-  onPick: (t: Tile) => void;
+  onPick: (tile: Tile) => void;
   delayFrom: number;
+  t: Translate;
 }) {
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
       {tiles.map((tile, i) => (
         <Animated.View
-          key={tile.label}
+          key={tile.labelKey}
           entering={FadeInDown.delay((delayFrom + i) * 40).springify()}
           // Three per row, with the gap accounted for.
           style={{ flexBasis: "30%", flexGrow: 1 }}
         >
-          <ProblemTile tile={tile} onPress={() => onPick(tile)} />
+          <ProblemTile tile={tile} onPress={() => onPick(tile)} t={t} />
         </Animated.View>
       ))}
     </View>
   );
 }
 
-function ProblemTile({ tile, onPress }: { tile: Tile; onPress: () => void }) {
+function ProblemTile({ tile, onPress, t }: { tile: Tile; onPress: () => void; t: Translate }) {
   const fg = tile.urgent ? palette.danger : palette.brand;
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={tile.label}
+      accessibilityLabel={t(tile.labelKey)}
       style={({ pressed }) => ({
         opacity: pressed ? 0.85 : 1,
         // Comfortably past the 44pt minimum - this gets tapped in the rain.
@@ -184,7 +192,7 @@ function ProblemTile({ tile, onPress }: { tile: Tile; onPress: () => void }) {
         }}
         numberOfLines={2}
       >
-        {tile.label}
+        {t(tile.labelKey)}
       </Text>
     </Pressable>
   );

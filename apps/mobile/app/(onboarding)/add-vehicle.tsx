@@ -9,6 +9,7 @@ import { TextField } from "@components/ui/text-input";
 import { palette, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
 import { normalizePlate, plateError } from "@lib/plate-number";
+import { useT } from "@lib/i18n";
 
 /**
  * Optional vehicle step shown right after account creation (the user is already
@@ -20,6 +21,7 @@ export default function AddVehicleScreen() {
   // context refreshes its vehicle list after the insert, and Home renders from that
   // list. Going straight to the API left the row in the database but the list empty,
   // so Home showed "No vehicle added" until the app was restarted.
+  const t = useT();
   const { addVehicle } = useVehicle();
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
@@ -31,12 +33,12 @@ export default function AddVehicleScreen() {
   async function handleSave() {
     setError("");
     if (!brand.trim() || !model.trim()) {
-      setError("Brand and model are required.");
+      setError(t("onboarding.vehicle.brandModelRequired"));
       return;
     }
-    const plateProblem = plateError(registration);
-    if (plateProblem) {
-      setError(plateProblem);
+    const plateProblemKey = plateError(registration);
+    if (plateProblemKey) {
+      setError(t(plateProblemKey));
       return;
     }
     setSubmitting(true);
@@ -58,7 +60,7 @@ export default function AddVehicleScreen() {
         params: { vehicleId: vehicle._id },
       });
     } catch (err) {
-      setError((err as Error).message ?? "Couldn't save your vehicle.");
+      setError((err as Error).message ?? t("onboarding.vehicle.saveFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -69,12 +71,12 @@ export default function AddVehicleScreen() {
       footer={
         <>
           <Button
-            title={submitting ? "Saving…" : "Save Vehicle"}
+            title={submitting ? t("onboarding.vehicle.saving") : t("onboarding.vehicle.save")}
             disabled={submitting}
             onPress={handleSave}
           />
           <Button
-            title="Skip for now"
+            title={t("onboarding.vehicle.skip")}
             variant="secondary"
             onPress={() => router.replace("/(driver)/home")}
           />
@@ -84,27 +86,26 @@ export default function AddVehicleScreen() {
       {/* No back control: add-account replaced itself on the way here, so the only
           screen behind this one is the pre-signup welcome wall. */}
       <HeaderBar showBack={false} />
-      <Text style={{ ...typography.h1, color: palette.text }}>Add your vehicle</Text>
+      <Text style={{ ...typography.h1, color: palette.text }}>{t("onboarding.vehicle.title")}</Text>
       <Text style={{ ...typography.body, color: palette.textMuted }}>
-        Optional — we use this to dispatch the right help. You can add or change it
-        anytime from your profile.
+        {t("onboarding.vehicle.subtitle")}
       </Text>
       <TextField
-        label="Your vehicle Brand"
+        label={t("onboarding.vehicle.brandLabel")}
         value={brand}
         onChangeText={setBrand}
-        placeholder="e.g. Toyota"
+        placeholder={t("onboarding.vehicle.brandPlaceholder")}
         autoCapitalize="words"
       />
       <TextField
-        label="Your vehicle Model"
+        label={t("onboarding.vehicle.modelLabel")}
         value={model}
         onChangeText={setModel}
-        placeholder="e.g. Aqua"
+        placeholder={t("onboarding.vehicle.modelPlaceholder")}
         autoCapitalize="words"
       />
       <TextField
-        label="Year of manufacture"
+        label={t("onboarding.vehicle.yearLabel")}
         value={year}
         onChangeText={setYear}
         placeholder="2018"
@@ -112,14 +113,14 @@ export default function AddVehicleScreen() {
         maxLength={4}
       />
       <TextField
-        label="Vehicle registration number"
-        helperText="CAB-1234, WP-CAB-1234, or an older 62-1234"
+        label={t("onboarding.vehicle.plateLabel")}
+        helperText={t("onboarding.vehicle.plateHelper")}
         value={registration}
         onChangeText={setRegistration}
         placeholder="CAB-1234"
         autoCapitalize="characters"
       />
-      {error ? <ErrorState title="Couldn't save vehicle" message={error} /> : null}
+      {error ? <ErrorState title={t("onboarding.vehicle.saveFailedTitle")} message={error} /> : null}
     </Screen>
   );
 }

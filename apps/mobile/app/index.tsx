@@ -4,13 +4,16 @@ import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@components/ui/button";
 import { Icon } from "@components/ui/icon";
+import { LanguagePicker } from "@components/ui/language-picker";
 import { Logo } from "@components/ui/logo";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { getMyUser } from "@lib/vehicleApi";
 import { isPendingGoogleProviderFlow } from "@lib/pending-google-provider-flow";
+import { useT } from "@lib/i18n";
 
 export default function WelcomeScreen() {
+  const t = useT();
   const insets = useSafeAreaInsets();
   const [checkingSession, setCheckingSession] = useState(true);
 
@@ -63,17 +66,30 @@ export default function WelcomeScreen() {
       footer={
         <>
           <Button
-            title="Create an Account"
+            title={t("common.welcome.createAccount")}
             onPress={() => router.push("/(onboarding)/add-account?mode=register")}
           />
           <Button
-            title="Login"
+            title={t("common.welcome.login")}
             variant="secondary"
             onPress={() => router.push("/(onboarding)/add-account?mode=login")}
           />
         </>
       }
     >
+      {/* Language first, before the app has asked for anything — someone who
+          cannot read the English buttons has to be able to fix that here. */}
+      <View
+        style={{
+          position: "absolute",
+          top: insets.top + spacing.md,
+          left: spacing.xl,
+          zIndex: 10,
+        }}
+      >
+        <LanguagePicker />
+      </View>
+
       {/*
         Service provider entry — top-right pill button. Routes to the provider
         onboarding flow (register or sign in); the provider record is created
@@ -106,13 +122,15 @@ export default function WelcomeScreen() {
             fontWeight: "700",
           }}
         >
-          Service Provider
+          {t("common.welcome.serviceProvider")}
         </Text>
       </Pressable>
 
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: spacing.xxxl }}>
         <View style={{ alignItems: "center", gap: spacing.sm }}>
-          <Text style={{ ...typography.h1, color: palette.text }}>Welcome</Text>
+          <Text style={{ ...typography.h1, color: palette.text }}>
+            {t("common.welcome.title")}
+          </Text>
           <Text
             style={{
               ...typography.body,
@@ -121,7 +139,7 @@ export default function WelcomeScreen() {
               maxWidth: 260,
             }}
           >
-            On the Road Again, Anytime, Anywhere
+            {t("common.welcome.tagline")}
           </Text>
         </View>
         <Logo size="lg" />

@@ -12,6 +12,7 @@ import {
   ALERT_THRESHOLD_PCT,
   EMPTY_HEALTH,
   getVehicleHealth,
+  componentStatusLabel,
   rulToLabel,
   type ComponentHealth,
   type ComponentKey,
@@ -19,12 +20,13 @@ import {
 } from "@lib/maintenanceApi";
 import { useVehicle } from "@lib/vehicleContext";
 import { useTabBack } from "@lib/useTabBack";
+import { useT } from "@lib/i18n";
 
-const COMPONENT_META: Record<ComponentKey, { label: string; icon: string }> = {
-  engine: { label: "Engine", icon: "Gauge" },
-  brake: { label: "Brakes", icon: "Disc" },
-  tire: { label: "Tyres", icon: "Circle" },
-  battery: { label: "Battery", icon: "Battery" },
+const COMPONENT_META: Record<ComponentKey, { labelKey: string; icon: string }> = {
+  engine: { labelKey: "driver.health.componentEngine", icon: "Gauge" },
+  brake: { labelKey: "driver.health.componentBrake", icon: "Disc" },
+  tire: { labelKey: "driver.health.componentTire", icon: "Circle" },
+  battery: { labelKey: "driver.health.componentBattery", icon: "Battery" },
 };
 
 // Left column: engine, tire — Right column: brake, battery
@@ -105,11 +107,12 @@ function usePulse(active: boolean): Animated.Value {
 export default function HealthScreen() {
   const { canGoBack, goBack } = useTabBack();
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { selectedVehicle } = useVehicle();
   const vehicleId = selectedVehicle?.plateNumber ?? "";
   const vehicleLabel = selectedVehicle
     ? selectedVehicle.nickname || `${selectedVehicle.make} ${selectedVehicle.model}`
-    : "No vehicle added";
+    : t("driver.health.noVehicleAdded");
 
   const [data, setData] = useState<VehicleHealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -190,20 +193,20 @@ export default function HealthScreen() {
         }}
       >
         {canGoBack ? (
-          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel={t("driver.health.back")}>
             <Icon name="ChevronLeft" size={24} color={palette.text} />
           </Pressable>
         ) : null}
         <View style={{ flex: 1 }}>
-          <Text style={{ ...typography.h3, color: palette.text }}>Vehicle Health</Text>
+          <Text style={{ ...typography.h3, color: palette.text }}>{t("driver.health.title")}</Text>
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
-            {vehicleId || "No vehicle selected"}
+            {vehicleId || t("driver.health.noVehicleSelected")}
           </Text>
         </View>
         {loading ? (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <ActivityIndicator size="small" color={palette.brand} />
-            <Text style={{ ...typography.caption, color: palette.textMuted }}>Loading</Text>
+            <Text style={{ ...typography.caption, color: palette.textMuted }}>{t("driver.health.loading")}</Text>
           </View>
         ) : error ? (
           <OfflineBadge />
@@ -226,13 +229,13 @@ export default function HealthScreen() {
       {!vehicleId ? (
         <View style={{ padding: spacing.lg, gap: spacing.md }}>
           <ErrorState
-            title="No vehicle selected"
-            message="Health is scored per vehicle. Add one, or select it on Home, to see its condition."
+            title={t("driver.health.noVehicleTitle")}
+            message={t("driver.health.noVehicleBody")}
           />
           <Pressable
             onPress={() => router.push("/(driver)/manage-vehicles")}
             accessibilityRole="button"
-            accessibilityLabel="Manage vehicles"
+            accessibilityLabel={t("driver.health.manageVehiclesA11y")}
             style={({ pressed }) => ({
               borderRadius: radii.lg,
               paddingVertical: spacing.md,
@@ -243,7 +246,7 @@ export default function HealthScreen() {
               backgroundColor: pressed ? palette.brandSoft : "transparent",
             })}
           >
-            <Text style={{ ...typography.bodyStrong, color: palette.brand }}>Manage Vehicles</Text>
+            <Text style={{ ...typography.bodyStrong, color: palette.brand }}>{t("driver.health.manageVehicles")}</Text>
           </Pressable>
         </View>
       ) : error ? (
@@ -251,8 +254,8 @@ export default function HealthScreen() {
            decides on repairs from this screen. */
         <View style={{ padding: spacing.lg }}>
           <ErrorState
-            title="Couldn't load vehicle health"
-            message="We couldn't reach the maintenance service. Check your connection and try again."
+            title={t("driver.health.loadFailedTitle")}
+            message={t("driver.health.loadFailedBody")}
             onRetry={load}
           />
         </View>
@@ -319,7 +322,7 @@ export default function HealthScreen() {
                     {noData ? "—" : `${Math.round(health.overall_health_pct)}%`}
                   </Text>
                   <Text style={{ ...typography.caption, color: palette.textMuted, fontWeight: "600" }}>
-                    {health.overall_status}
+                    {componentStatusLabel(health.overall_status, t)}
                   </Text>
                 </View>
               </>
@@ -341,7 +344,7 @@ export default function HealthScreen() {
                 opacity: pulseOpacity,
               }}
             >
-              Checking your vehicle's latest readings…
+              {t("driver.health.checkingReadings")}
             </Animated.Text>
           ) : null}
 
@@ -363,8 +366,8 @@ export default function HealthScreen() {
               accessibilityRole="button"
               accessibilityLabel={
                 faults.length === 1
-                  ? `1 error noticed: ${faults[0].title}`
-                  : `${faults.length} errors noticed`
+                  ? t("driver.health.faultsA11ySingle", { title: faults[0].title })
+                  : t("driver.health.faultsA11yMany", { count: faults.length })
               }
               hitSlop={6}
               style={({ pressed }) => ({
@@ -376,7 +379,7 @@ export default function HealthScreen() {
             >
               <Icon name="TriangleAlert" size={12} color={overallFaultTone.fg} />
               <Text style={{ ...typography.caption, color: overallFaultTone.fg, fontWeight: "600" }}>
-                {faults.length === 1 ? "1 issue noticed" : `${faults.length} issues noticed`}
+                {t("driver.health.issuesNoticed", { count: faults.length })}
               </Text>
               <Icon name="ChevronRight" size={12} color={palette.textMuted} />
             </Pressable>
@@ -387,8 +390,10 @@ export default function HealthScreen() {
             <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
               <Icon name="Route" size={13} color={palette.textMuted} />
               <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                {health.trip_count} trip{health.trip_count !== 1 ? "s" : ""} ·{" "}
-                {Math.round(health.total_mileage_km).toLocaleString()} km total
+                {t("driver.health.tripStats", {
+                  count: health.trip_count,
+                  km: Math.round(health.total_mileage_km).toLocaleString(),
+                })}
               </Text>
             </View>
           )}
@@ -409,7 +414,7 @@ export default function HealthScreen() {
               >
                 <Icon name="Info" size={13} color={palette.textMuted} />
                 <Text style={{ ...typography.caption, color: palette.textMuted, fontWeight: "500" }}>
-                  No trips recorded yet — drive to assess
+                  {t("driver.health.noTrips")}
                 </Text>
               </View>
             ) : alertKeys.length > 0 ? (
@@ -421,7 +426,10 @@ export default function HealthScreen() {
                 {alertKeys.map((k) => (
                   <AlertPill
                     key={k}
-                    text={`${COMPONENT_META[k].label}: ${rulToLabel(health.components[k])}`}
+                    text={t("driver.health.alertPill", {
+                      component: t(COMPONENT_META[k].labelKey),
+                      status: rulToLabel(health.components[k], t),
+                    })}
                   />
                 ))}
               </ScrollView>
@@ -439,7 +447,7 @@ export default function HealthScreen() {
               >
                 <Icon name="CheckCircle" size={13} color={palette.success} />
                 <Text style={{ ...typography.caption, color: palette.success, fontWeight: "500" }}>
-                  All components healthy
+                  {t("driver.health.allHealthy")}
                 </Text>
               </View>
             ))}
@@ -454,7 +462,7 @@ export default function HealthScreen() {
         {!loading && faults.length > 0 ? (
           <View style={{ gap: spacing.sm }}>
             <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-              {faults.length === 1 ? "Fault detected" : `${faults.length} faults detected`}
+              {t("driver.health.faultsHeading", { count: faults.length })}
             </Text>
             {faults.map((fault) => (
               <FaultCard
@@ -476,7 +484,7 @@ export default function HealthScreen() {
         ) : null}
 
         {/* ── Component health 2×2 grid ── */}
-        <Text style={{ ...typography.bodyStrong, color: palette.text }}>Component Health</Text>
+        <Text style={{ ...typography.bodyStrong, color: palette.text }}>{t("driver.health.componentsHeading")}</Text>
 
         <Animated.View
           style={{ flexDirection: "row", gap: spacing.md, opacity: loading ? pulseOpacity : 1 }}
@@ -490,7 +498,7 @@ export default function HealthScreen() {
                   key={key}
                   componentKey={key}
                   component={health.components[key]}
-                  label={COMPONENT_META[key].label}
+                  label={t(COMPONENT_META[key].labelKey)}
                 />
               )
             )}
@@ -504,7 +512,7 @@ export default function HealthScreen() {
                   key={key}
                   componentKey={key}
                   component={health.components[key]}
-                  label={COMPONENT_META[key].label}
+                  label={t(COMPONENT_META[key].labelKey)}
                 />
               )
             )}
@@ -514,16 +522,16 @@ export default function HealthScreen() {
         {/* ── Navigation rows ── */}
         <NavRow
           icon="Activity"
-          title="Trip Behaviour"
-          subtitle="Braking, cornering & driving patterns"
+          title={t("driver.health.navTripsTitle")}
+          subtitle={t("driver.health.navTripsSubtitle")}
           onPress={() =>
             router.push({ pathname: "/(driver)/trip-summary", params: { vehicleId } })
           }
         />
         <NavRow
           icon="ClipboardList"
-          title="Service Records"
-          subtitle="View history & log new service events"
+          title={t("driver.health.navRecordsTitle")}
+          subtitle={t("driver.health.navRecordsSubtitle")}
           onPress={() =>
             router.push({ pathname: "/(driver)/service-records", params: { vehicleId } })
           }
@@ -545,8 +553,9 @@ function ComponentCard({
   component: ComponentHealth;
   label: string;
 }) {
+  const t = useT();
   const color = statusColor(component);
-  const rul = rulToLabel(component);
+  const rul = rulToLabel(component, t);
   const isAlert = component.status !== "Good" && component.status !== "No data";
   // Faults sit BESIDE the wear ring, never inside it. The ring and its
   // percentage are the wear model speaking; a fault is a separate defect, and
@@ -625,7 +634,7 @@ function ComponentCard({
           >
             <Icon name="TriangleAlert" size={10} color={faultColor} />
             <Text style={{ fontSize: 10, color: faultColor, fontWeight: "700" }}>
-              {faults.length > 1 ? `${faults.length} errors` : "Error noticed"}
+              {t("driver.health.faultBadge", { count: faults.length })}
             </Text>
           </View>
         ) : null}
@@ -710,6 +719,7 @@ function NavRow({
 }
 
 function OfflineBadge() {
+  const t = useT();
   return (
     <View
       style={{
@@ -723,7 +733,7 @@ function OfflineBadge() {
       }}
     >
       <Icon name="WifiOff" size={12} color={palette.warning} />
-      <Text style={{ ...typography.caption, color: palette.warning, fontWeight: "600" }}>Offline</Text>
+      <Text style={{ ...typography.caption, color: palette.warning, fontWeight: "600" }}>{t("driver.health.offline")}</Text>
     </View>
   );
 }

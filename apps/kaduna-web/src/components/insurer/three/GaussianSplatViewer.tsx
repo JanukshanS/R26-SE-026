@@ -2,6 +2,8 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { useT } from "@/lib/i18n";
+
 type GaussianSplatViewerProps = {
   url: string;
   onLoadingChange?: (loading: boolean) => void;
@@ -20,6 +22,7 @@ function stableKey(url: string): string {
 }
 
 export function GaussianSplatViewer({ url, onLoadingChange }: GaussianSplatViewerProps) {
+  const t = useT();
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const viewerRef = useRef<any>(null);
@@ -128,7 +131,7 @@ export function GaussianSplatViewer({ url, onLoadingChange }: GaussianSplatViewe
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
       {error && (
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, padding: 24 }}>
-          <span style={{ fontSize: "0.85rem", color: "#ef4444", fontWeight: 500 }}>Failed to render 3D model</span>
+          <span style={{ fontSize: "0.85rem", color: "#ef4444", fontWeight: 500 }}>{t("insurer.splat.renderFailed")}</span>
           <span style={{ fontSize: "0.72rem", color: "#9ca3af", textAlign: "center", maxWidth: 320 }}>{error}</span>
         </div>
       )}

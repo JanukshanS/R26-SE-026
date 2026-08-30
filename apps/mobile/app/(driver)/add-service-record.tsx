@@ -14,37 +14,39 @@ import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { logService, type ServiceType } from "@lib/maintenanceApi";
 import { useVehicle } from "@lib/vehicleContext";
+import { useT } from "@lib/i18n";
 
 type ComponentKey = "engine" | "brake" | "tire" | "battery" | "full_service";
 
-const COMPONENT_OPTIONS: { key: ComponentKey; label: string }[] = [
-  { key: "engine",      label: "Engine" },
-  { key: "brake",       label: "Brakes" },
-  { key: "tire",        label: "Tyres" },
-  { key: "battery",     label: "Battery" },
-  { key: "full_service",label: "General / Other" },
+const COMPONENT_OPTIONS: { key: ComponentKey; labelKey: string }[] = [
+  { key: "engine",      labelKey: "driver.addService.componentEngine" },
+  { key: "brake",       labelKey: "driver.addService.componentBrake" },
+  { key: "tire",        labelKey: "driver.addService.componentTire" },
+  { key: "battery",     labelKey: "driver.addService.componentBattery" },
+  { key: "full_service",labelKey: "driver.addService.componentGeneral" },
 ];
 
 interface ServiceTypeOption {
   value: ServiceType;
-  label: string;
+  labelKey: string;
   color: string;
   resetsWindow: boolean;
 }
 
 const SERVICE_TYPE_OPTIONS: ServiceTypeOption[] = [
-  { value: "replacement",       label: "Replacement",        color: palette.danger,   resetsWindow: true },
-  { value: "service",           label: "Service",            color: "#6366F1",         resetsWindow: false },
-  { value: "new_implementation",label: "New Implementation", color: "#8B5CF6",         resetsWindow: false },
-  { value: "paint",             label: "Paint",              color: "#EC4899",         resetsWindow: false },
-  { value: "system_fix",        label: "System Fix",         color: "#14B8A6",         resetsWindow: false },
-  { value: "initial_reading",   label: "Initial Reading",    color: palette.warning,  resetsWindow: true },
-  { value: "full_service",      label: "Full Service",       color: "#6366F1",         resetsWindow: false },
-  { value: "inspection",        label: "Inspection",         color: palette.textMuted, resetsWindow: false },
+  { value: "replacement",       labelKey: "driver.addService.typeReplacement",       color: palette.danger,   resetsWindow: true },
+  { value: "service",           labelKey: "driver.addService.typeService",           color: "#6366F1",         resetsWindow: false },
+  { value: "new_implementation",labelKey: "driver.addService.typeNewImplementation", color: "#8B5CF6",         resetsWindow: false },
+  { value: "paint",             labelKey: "driver.addService.typePaint",             color: "#EC4899",         resetsWindow: false },
+  { value: "system_fix",        labelKey: "driver.addService.typeSystemFix",         color: "#14B8A6",         resetsWindow: false },
+  { value: "initial_reading",   labelKey: "driver.addService.typeInitialReading",    color: palette.warning,  resetsWindow: true },
+  { value: "full_service",      labelKey: "driver.addService.typeFullService",       color: "#6366F1",         resetsWindow: false },
+  { value: "inspection",        labelKey: "driver.addService.typeInspection",        color: palette.textMuted, resetsWindow: false },
 ];
 
 export default function AddServiceRecordScreen() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { vehicleId: paramVehicleId } = useLocalSearchParams<{ vehicleId?: string }>();
   const { selectedVehicle, vehiclesLoading } = useVehicle();
   // No fallback plate — writing a record against a vehicle the driver doesn't
@@ -70,7 +72,7 @@ export default function AddServiceRecordScreen() {
   const handleSubmit = async () => {
     if (submitting || !vehicleId) return;
     if (!itemName.trim() && serviceType !== "full_service" && serviceType !== "inspection") {
-      Alert.alert("Item name required", "Please enter what was serviced or replaced.");
+      Alert.alert(t("driver.addService.itemRequiredTitle"), t("driver.addService.itemRequiredBody"));
       return;
     }
     // parseFloat("-") / parseFloat("..") is NaN, which serialises to null and
@@ -92,8 +94,10 @@ export default function AddServiceRecordScreen() {
       setSaved(true);
     } catch (err: any) {
       Alert.alert(
-        "Couldn't save service record",
-        `${err.message ?? "The maintenance service didn't respond."}\n\nYour details are still here — tap Save record to try again.`
+        t("driver.addService.saveFailedTitle"),
+        t("driver.addService.saveFailedBody", {
+          message: err.message ?? t("driver.addService.saveFailedFallback"),
+        })
       );
     } finally {
       setSubmitting(false);
@@ -130,11 +134,11 @@ export default function AddServiceRecordScreen() {
           onPress={() => (saved ? router.replace("/(driver)/service-records") : router.back())}
           hitSlop={12}
           accessibilityRole="button"
-          accessibilityLabel={saved ? "Close" : "Go back"}
+          accessibilityLabel={saved ? t("driver.addService.close") : t("driver.addService.back")}
         >
           <Icon name={saved ? "X" : "ChevronLeft"} size={24} color={palette.text} />
         </Pressable>
-        <Text style={{ ...typography.bodyStrong, color: palette.text, flex: 1 }}>Add Service Record</Text>
+        <Text style={{ ...typography.bodyStrong, color: palette.text, flex: 1 }}>{t("driver.addService.title")}</Text>
       </View>
 
       {!vehicleId ? (
@@ -178,6 +182,7 @@ export default function AddServiceRecordScreen() {
 // ─── No vehicle selected ──────────────────────────────────────────────────────
 
 function NoVehicle({ insets }: { insets: { bottom: number } }) {
+  const t = useT();
   return (
     <View
       style={{
@@ -191,7 +196,7 @@ function NoVehicle({ insets }: { insets: { bottom: number } }) {
     >
       <Icon name="Car" size={48} color={palette.border} />
       <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
-        Select a vehicle first. A service record has to be logged against one of your vehicles.
+        {t("driver.addService.noVehicleBody")}
       </Text>
       <Pressable
         onPress={() => router.replace("/(driver)/manage-vehicles")}
@@ -203,7 +208,7 @@ function NoVehicle({ insets }: { insets: { bottom: number } }) {
           backgroundColor: pressed ? palette.brandPressed : palette.brand,
         })}
       >
-        <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Choose a vehicle</Text>
+        <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>{t("driver.addService.chooseVehicle")}</Text>
       </Pressable>
     </View>
   );
@@ -235,6 +240,7 @@ function Step1({
   onSubmit: () => void; onClear: () => void;
   insets: { bottom: number };
 }) {
+  const t = useT();
   return (
     <ScrollView
       contentContainerStyle={{
@@ -256,13 +262,13 @@ function Step1({
       >
         <Icon name="Info" size={16} color={palette.warning} />
         <Text style={{ ...typography.caption, color: palette.warning, flex: 1, fontWeight: "600" }}>
-          Accurate details will ensure the vehicle life span prediction is correct.
+          {t("driver.addService.accuracyNotice")}
         </Text>
       </View>
 
       {/* Component selector */}
       <View style={{ gap: spacing.sm }}>
-        <Text style={{ ...typography.bodyStrong, color: palette.text }}>Component</Text>
+        <Text style={{ ...typography.bodyStrong, color: palette.text }}>{t("driver.addService.componentHeading")}</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {COMPONENT_OPTIONS.map((opt) => (
             <Pressable
@@ -284,7 +290,7 @@ function Step1({
                   color: component === opt.key ? palette.textOnBrand : palette.textMuted,
                 }}
               >
-                {opt.label}
+                {t(opt.labelKey)}
               </Text>
             </Pressable>
           ))}
@@ -293,7 +299,7 @@ function Step1({
 
       {/* Service type pills */}
       <View style={{ gap: spacing.sm }}>
-        <Text style={{ ...typography.bodyStrong, color: palette.text }}>Select Service Type</Text>
+        <Text style={{ ...typography.bodyStrong, color: palette.text }}>{t("driver.addService.serviceTypeHeading")}</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {SERVICE_TYPE_OPTIONS.map((opt) => {
             const active = serviceType === opt.value;
@@ -317,7 +323,7 @@ function Step1({
                     color: active ? "#FFFFFF" : palette.textMuted,
                   }}
                 >
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </Text>
               </Pressable>
             );
@@ -338,7 +344,7 @@ function Step1({
           >
             <Icon name="RefreshCw" size={12} color={palette.danger} />
             <Text style={{ ...typography.micro, color: palette.danger }}>
-              This will reset the health prediction window for the selected component.
+              {t("driver.addService.resetsWindowNotice")}
             </Text>
           </View>
         )}
@@ -347,13 +353,13 @@ function Step1({
       {/* Item name */}
       <View style={{ gap: spacing.sm }}>
         <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-          Replaced / Serviced Item{" "}
-          <Text style={{ color: palette.textMuted, fontWeight: "400" }}>(e.g. Brake Pads)</Text>
+          {t("driver.addService.itemLabel")}{" "}
+          <Text style={{ color: palette.textMuted, fontWeight: "400" }}>{t("driver.addService.itemLabelHint")}</Text>
         </Text>
         <TextInput
           value={itemName}
           onChangeText={setItemName}
-          placeholder="Enter item name"
+          placeholder={t("driver.addService.itemPlaceholder")}
           placeholderTextColor={palette.textMuted}
           style={{
             borderWidth: 1,
@@ -370,7 +376,7 @@ function Step1({
 
       {/* Original / Used toggle */}
       <View style={{ gap: spacing.sm }}>
-        <Text style={{ ...typography.bodyStrong, color: palette.text }}>Part Condition</Text>
+        <Text style={{ ...typography.bodyStrong, color: palette.text }}>{t("driver.addService.conditionHeading")}</Text>
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           {(["original", "used"] as const).map((val) => (
             <Pressable
@@ -393,7 +399,7 @@ function Step1({
                   textTransform: "capitalize",
                 }}
               >
-                {val === "original" ? "Original OEM" : "Used / Non-OEM"}
+                {val === "original" ? t("driver.addService.conditionOriginal") : t("driver.addService.conditionUsed")}
               </Text>
             </Pressable>
           ))}
@@ -403,13 +409,13 @@ function Step1({
       {/* Garage name */}
       <View style={{ gap: spacing.sm }}>
         <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-          Garage / Workshop{" "}
-          <Text style={{ color: palette.textMuted, fontWeight: "400" }}>(optional)</Text>
+          {t("driver.addService.garageLabel")}{" "}
+          <Text style={{ color: palette.textMuted, fontWeight: "400" }}>{t("driver.addService.optional")}</Text>
         </Text>
         <TextInput
           value={garageName}
           onChangeText={setGarageName}
-          placeholder="e.g. City Auto Garage"
+          placeholder={t("driver.addService.garagePlaceholder")}
           placeholderTextColor={palette.textMuted}
           style={{
             borderWidth: 1,
@@ -427,14 +433,14 @@ function Step1({
       {/* Cost */}
       <View style={{ gap: spacing.sm }}>
         <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-          Cost (LKR){" "}
-          <Text style={{ color: palette.textMuted, fontWeight: "400" }}>(optional)</Text>
+          {t("driver.addService.costLabel")}{" "}
+          <Text style={{ color: palette.textMuted, fontWeight: "400" }}>{t("driver.addService.optional")}</Text>
         </Text>
         <TextInput
           value={costLkr}
           onChangeText={setCostLkr}
           keyboardType="numeric"
-          placeholder="e.g. 8400"
+          placeholder={t("driver.addService.costPlaceholder")}
           placeholderTextColor={palette.textMuted}
           style={{
             borderWidth: 1,
@@ -452,13 +458,13 @@ function Step1({
       {/* Notes */}
       <View style={{ gap: spacing.sm }}>
         <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-          Note{" "}
-          <Text style={{ color: palette.textMuted, fontWeight: "400" }}>(optional)</Text>
+          {t("driver.addService.notesLabel")}{" "}
+          <Text style={{ color: palette.textMuted, fontWeight: "400" }}>{t("driver.addService.optional")}</Text>
         </Text>
         <TextInput
           value={notes}
           onChangeText={setNotes}
-          placeholder="Any additional notes"
+          placeholder={t("driver.addService.notesPlaceholder")}
           placeholderTextColor={palette.textMuted}
           multiline
           numberOfLines={3}
@@ -492,7 +498,7 @@ function Step1({
             backgroundColor: pressed ? palette.homeBackground : "transparent",
           })}
         >
-          <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Clear</Text>
+          <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>{t("driver.addService.clear")}</Text>
         </Pressable>
         <Pressable
           onPress={onSubmit}
@@ -514,7 +520,7 @@ function Step1({
             <Icon name="CheckCircle" size={18} color={palette.textOnBrand} />
           )}
           <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-            {submitting ? "Saving…" : "Save record"}
+            {submitting ? t("driver.addService.saving") : t("driver.addService.save")}
           </Text>
         </Pressable>
       </View>
@@ -525,6 +531,7 @@ function Step1({
 // ─── Step 3: Success ──────────────────────────────────────────────────────────
 
 function Step3({ onBack, insets }: { onBack: () => void; insets: { bottom: number } }) {
+  const t = useT();
   return (
     <View
       style={{
@@ -552,10 +559,10 @@ function Step3({ onBack, insets }: { onBack: () => void; insets: { bottom: numbe
 
       <View style={{ alignItems: "center", gap: spacing.sm }}>
         <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
-          Service Record added Successfully!
+          {t("driver.addService.successTitle")}
         </Text>
         <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
-          The vehicle health prediction has been updated based on this service record.
+          {t("driver.addService.successBody")}
         </Text>
       </View>
 
@@ -569,7 +576,7 @@ function Step3({ onBack, insets }: { onBack: () => void; insets: { bottom: numbe
           backgroundColor: pressed ? palette.brandPressed : palette.brand,
         })}
       >
-        <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Back to main page</Text>
+        <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>{t("driver.addService.backToMain")}</Text>
       </Pressable>
     </View>
   );

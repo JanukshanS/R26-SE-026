@@ -6,6 +6,7 @@ import { Download } from "lucide-react";
 import IncidentPanel from "@/components/IncidentPanel";
 import { Button } from "@/components/ui/button";
 import { downloadIncidentsCsv } from "@/lib/exportCsv";
+import { useT } from "@/lib/i18n";
 import { getScoreLog, subscribeScoreLog, type ScoreLogEntry } from "@/lib/scoreLog";
 
 const PRIORITY_TOKEN: Record<string, string> = {
@@ -20,12 +21,13 @@ const time = (d: Date) =>
 
 /** Where the road class came from, said plainly. */
 const ROAD_SOURCE: Record<string, string> = {
-  osm: "matched",
-  request: "supplied",
-  default: "not matched",
+  osm: "dashboard.scoringLog.roadMatched",
+  request: "dashboard.scoringLog.roadSupplied",
+  default: "dashboard.scoringLog.roadUnmatched",
 };
 
 export default function ScoringLogPanel() {
+  const t = useT();
   const [entries, setEntries] = useState<ScoreLogEntry[]>(getScoreLog());
   const [openKey, setOpenKey] = useState<string | null>(null);
 
@@ -37,12 +39,10 @@ export default function ScoringLogPanel() {
     return (
       <div className="py-10 text-center">
         <p className="font-display text-lg font-semibold tracking-tight">
-          No incidents scored yet
+          {t("dashboard.scoringLog.emptyTitle")}
         </p>
         <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
-          Every incident that reaches dispatch is scored here as it arrives, with the five factors
-          that produced the number. Leave this open, or report an incident from the app, and rows
-          will appear.
+          {t("dashboard.scoringLog.emptyBody")}
         </p>
       </div>
     );
@@ -53,7 +53,7 @@ export default function ScoringLogPanel() {
       <div className="min-w-0">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
-            {entries.length} scored this session. Select a row to see how the number was reached.
+            {t("dashboard.scoringLog.summary", { n: entries.length })}
           </p>
           <Button
             size="sm"
@@ -67,7 +67,7 @@ export default function ScoringLogPanel() {
             }
           >
             <Download className="size-3.5" aria-hidden />
-            <span className="text-sm">Export log</span>
+            <span className="text-sm">{t("dashboard.scoringLog.export")}</span>
           </Button>
         </div>
 
@@ -75,11 +75,11 @@ export default function ScoringLogPanel() {
           <table className="w-full min-w-[34rem] text-sm">
             <thead>
               <tr className="border-b border-border bg-card text-left">
-                <th scope="col" className="px-3 py-2 font-medium">Time</th>
-                <th scope="col" className="px-3 py-2 font-medium">Incident</th>
-                <th scope="col" className="px-3 py-2 font-medium">Road</th>
-                <th scope="col" className="px-3 py-2 text-right font-medium">Impact</th>
-                <th scope="col" className="px-3 py-2 font-medium">Priority</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("dashboard.scoringLog.colTime")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("dashboard.scoringLog.colIncident")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("dashboard.scoringLog.colRoad")}</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">{t("dashboard.scoringLog.colImpact")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("dashboard.scoringLog.colPriority")}</th>
               </tr>
             </thead>
             <tbody>
@@ -99,7 +99,7 @@ export default function ScoringLogPanel() {
                     <td className="px-3 py-2">
                       <span className="capitalize">{e.incident.roadType}</span>
                       <span className="ml-1.5 text-xs text-muted-foreground">
-                        {ROAD_SOURCE[e.roadSource] ?? e.roadSource}
+                        {ROAD_SOURCE[e.roadSource] ? t(ROAD_SOURCE[e.roadSource]) : e.roadSource}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-right font-semibold tabular-nums">

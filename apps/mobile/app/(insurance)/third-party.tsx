@@ -40,39 +40,52 @@ import {
   INSURANCE_THUMBNAIL_BG,
   WHITE,
 } from '@/features/guided-capture/capture-ui-theme';
+import { useT } from '@/lib/i18n';
 
 const STEP_INDEX: Record<ThirdPartyCaptureStep, number> = { driverFront: 0, driverBack: 1, revenue: 2 };
-const STEP_LABELS: Record<ThirdPartyCaptureStep, string> = {
-  driverFront: 'Driver Licence (Front)',
-  driverBack: 'Driver Licence (Back)',
-  revenue: 'Revenue Licence',
+const STEP_LABEL_KEYS: Record<ThirdPartyCaptureStep, string> = {
+  driverFront: 'insurance.thirdParty.stepDriverFront',
+  driverBack: 'insurance.thirdParty.stepDriverBack',
+  revenue: 'insurance.thirdParty.stepRevenue',
 };
-const STEP_SHORT_LABELS: Record<ThirdPartyCaptureStep, string> = {
-  driverFront: 'Front',
-  driverBack: 'Back',
-  revenue: 'Revenue',
+const STEP_LABEL_LOWER_KEYS: Record<ThirdPartyCaptureStep, string> = {
+  driverFront: 'insurance.thirdParty.stepDriverFrontLower',
+  driverBack: 'insurance.thirdParty.stepDriverBackLower',
+  revenue: 'insurance.thirdParty.stepRevenueLower',
+};
+const STEP_SHORT_LABEL_KEYS: Record<ThirdPartyCaptureStep, string> = {
+  driverFront: 'insurance.thirdParty.shortDriverFront',
+  driverBack: 'insurance.thirdParty.shortDriverBack',
+  revenue: 'insurance.thirdParty.shortRevenue',
 };
 
 /** Small "Step N of M" pill, local to this screen only — same visual system as the Driving
  * Licence flow's step pill, kept self-contained rather than shared to leave the Guided Capture
  * flow's own components untouched. */
 function StepProgressPill({ step, completed }: { step: ThirdPartyCaptureStep; completed: boolean }) {
+  const t = useT();
   if (completed) {
     return (
       <View style={[styles.stepPill, styles.stepPillDone]}>
         <Icon name="Check" size={13} color={WHITE} />
-        <Text style={[styles.stepPillText, styles.stepPillDoneText]}>Done</Text>
+        <Text style={[styles.stepPillText, styles.stepPillDoneText]}>{t('insurance.status.done')}</Text>
       </View>
     );
   }
   return (
     <View style={styles.stepPill}>
-      <Text style={styles.stepPillText}>{`Step ${STEP_INDEX[step] + 1} of 3 • ${STEP_LABELS[step]}`}</Text>
+      <Text style={styles.stepPillText}>
+        {t('insurance.thirdParty.stepProgress', {
+          step: STEP_INDEX[step] + 1,
+          label: t(STEP_LABEL_KEYS[step]),
+        })}
+      </Text>
     </View>
   );
 }
 
 export default function ThirdPartyDetailsScreen() {
+  const t = useT();
   const router = useRouter();
   const navigation = useNavigation();
   const { locked } = useLocalSearchParams<{ locked?: string }>();
@@ -134,16 +147,16 @@ export default function ThirdPartyDetailsScreen() {
 
   const headline = useMemo(() => {
     if (allImagesCaptured) {
-      return 'All set — review your photos below.';
+      return t('insurance.thirdParty.headlineDone');
     }
     if (step === 'driverFront') {
-      return "Take an image of the 3rd party vehicle's Driver Licence.";
+      return t('insurance.thirdParty.headlineDriverFront');
     }
     if (step === 'driverBack') {
-      return "Take an image of the other side of the 3rd party vehicle's Driver Licence.";
+      return t('insurance.thirdParty.headlineDriverBack');
     }
-    return "Take an image of the 3rd party vehicle's revenue licence.";
-  }, [allImagesCaptured, step]);
+    return t('insurance.thirdParty.headlineRevenue');
+  }, [allImagesCaptured, step, t]);
 
   const hasAnyPhoto =
     driverLicenceFrontUri != null || driverLicenceBackUri != null || revenueLicenceUri != null;
@@ -186,7 +199,7 @@ export default function ThirdPartyDetailsScreen() {
       });
       const uri = photo?.uri;
       if (!uri) {
-        Alert.alert('Capture failed', 'No image was saved. Please try again.');
+        Alert.alert(t('insurance.capture.failedTitle'), t('insurance.capture.failedNoImage'));
         return;
       }
       let storedUri = uri;
@@ -209,7 +222,7 @@ export default function ThirdPartyDetailsScreen() {
         setRevenueLicenceUri(storedUri);
       }
     } catch {
-      Alert.alert('Capture failed', 'Please try again.');
+      Alert.alert(t('insurance.capture.failedTitle'), t('insurance.capture.failedRetry'));
     } finally {
       setIsTakingPhoto(false);
     }
@@ -237,7 +250,9 @@ export default function ThirdPartyDetailsScreen() {
     })();
   };
 
-  const primaryLabel = allImagesCaptured ? 'Continue' : 'Take Photo';
+  const primaryLabel = allImagesCaptured
+    ? t('insurance.action.continue')
+    : t('insurance.action.takePhoto');
   // Hides the "Not Applicable" option once any document is captured, rather than leaving a
   // dead, greyed-out button on screen — the underlying guard (onNotApplicable's early return
   // when hasAnyPhoto) is unchanged; this only affects whether we render it at all.
@@ -245,9 +260,11 @@ export default function ThirdPartyDetailsScreen() {
 
   if (isLocked) {
     const lockedPhotos: { uri: string; label: string }[] = [];
-    if (driverLicenceFrontUri) lockedPhotos.push({ uri: driverLicenceFrontUri, label: 'Driver Licence (Front)' });
-    if (driverLicenceBackUri) lockedPhotos.push({ uri: driverLicenceBackUri, label: 'Driver Licence (Back)' });
-    if (revenueLicenceUri) lockedPhotos.push({ uri: revenueLicenceUri, label: 'Revenue Licence' });
+    if (driverLicenceFrontUri)
+      lockedPhotos.push({ uri: driverLicenceFrontUri, label: t(STEP_LABEL_KEYS.driverFront) });
+    if (driverLicenceBackUri)
+      lockedPhotos.push({ uri: driverLicenceBackUri, label: t(STEP_LABEL_KEYS.driverBack) });
+    if (revenueLicenceUri) lockedPhotos.push({ uri: revenueLicenceUri, label: t(STEP_LABEL_KEYS.revenue) });
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <ScrollView
@@ -261,22 +278,22 @@ export default function ThirdPartyDetailsScreen() {
                 style={({ pressed }) => [styles.headerBack, pressed && styles.pressed]}
                 hitSlop={12}
                 accessibilityRole="button"
-                accessibilityLabel="Go back">
+                accessibilityLabel={t('insurance.action.back')}>
                 <View style={styles.headerChevronWrap} collapsable={false}>
                   <Ionicons name="chevron-back" size={22} color={COLORS.text} />
                 </View>
-                <Text style={styles.headerTitle}>3rd Party Details</Text>
+                <Text style={styles.headerTitle}>{t('insurance.hub.taskThirdParty')}</Text>
               </Pressable>
             ) : (
-              <Text style={styles.headerTitle}>3rd Party Details</Text>
+              <Text style={styles.headerTitle}>{t('insurance.hub.taskThirdParty')}</Text>
             )}
           </View>
 
-          <Text style={styles.headline}>Already submitted with your claim</Text>
+          <Text style={styles.headline}>{t('insurance.licence.lockedTitle')}</Text>
           <Text style={styles.subtitle}>
             {notApplicable
-              ? 'This step was marked not applicable for this claim.'
-              : "These photos were sent with your claim and can't be retaken."}
+              ? t('insurance.thirdParty.lockedNotApplicable')
+              : t('insurance.licence.lockedBody')}
           </Text>
 
           {lockedPhotos.length > 0 ? (
@@ -292,7 +309,11 @@ export default function ThirdPartyDetailsScreen() {
 
           <View style={styles.buttonRow}>
             <View style={styles.primaryButtonWrap}>
-              <CaptureButton title="Close" variant="primary" onPress={() => router.back()} />
+              <CaptureButton
+                title={t('insurance.action.close')}
+                variant="primary"
+                onPress={() => router.back()}
+              />
             </View>
           </View>
         </ScrollView>
@@ -304,7 +325,7 @@ export default function ThirdPartyDetailsScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.center}>
-          <Text style={styles.centerText}>Checking camera permission...</Text>
+          <Text style={styles.centerText}>{t('insurance.camera.checkingPermission')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -314,20 +335,20 @@ export default function ThirdPartyDetailsScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.center}>
-          <Text style={styles.centerText}>
-            Camera access is required to photograph the third party&apos;s licence and revenue licence.
-          </Text>
+          <Text style={styles.centerText}>{t('insurance.thirdParty.permissionBody')}</Text>
           {/* Once the OS refuses to ask again, requestPermission() resolves without showing
               anything — the button has to send the driver to Settings instead of doing nothing. */}
           <Pressable
             style={styles.permissionButton}
             onPress={() => void (permission.canAskAgain ? requestPermission() : Linking.openSettings())}>
             <Text style={styles.permissionButtonText}>
-              {permission.canAskAgain ? 'Grant Camera Permission' : 'Open Settings'}
+              {permission.canAskAgain
+                ? t('insurance.camera.grantPermission')
+                : t('insurance.camera.openSettings')}
             </Text>
           </Pressable>
           <Pressable style={styles.textButton} onPress={() => router.back()}>
-            <Text style={styles.textButtonLabel}>Go back</Text>
+            <Text style={styles.textButtonLabel}>{t('insurance.action.back')}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -336,19 +357,25 @@ export default function ThirdPartyDetailsScreen() {
 
   const renderCornerThumb = (uri: string, target: ThirdPartyCaptureStep) => (
     <View style={styles.cornerThumbWrap}>
-      <View style={styles.cornerPreviewTile} accessibilityLabel={`${STEP_LABELS[target]} preview`}>
+      <View
+        style={styles.cornerPreviewTile}
+        accessibilityLabel={t('insurance.thirdParty.previewA11y', {
+          label: t(STEP_LABEL_KEYS[target]),
+        })}>
         <Image source={{ uri }} style={styles.cornerPreviewImage} resizeMode="cover" />
         <Pressable
           style={({ pressed }) => [styles.retakeBadge, pressed && styles.retakeBadgePressed]}
           onPress={() => setRetakeConfirmTarget(target)}
           hitSlop={12}
           accessibilityRole="button"
-          accessibilityLabel={`Retake ${STEP_LABELS[target].toLowerCase()}`}>
+          accessibilityLabel={t('insurance.thirdParty.retakeA11y', {
+            label: t(STEP_LABEL_LOWER_KEYS[target]),
+          })}>
           <Icon name="RotateCcw" size={12} color={CAPTURE_ACTION_BLUE} />
         </Pressable>
       </View>
       <View style={styles.cornerThumbLabelPill}>
-        <Text style={styles.cornerThumbLabelText}>{STEP_SHORT_LABELS[target]}</Text>
+        <Text style={styles.cornerThumbLabelText}>{t(STEP_SHORT_LABEL_KEYS[target])}</Text>
       </View>
     </View>
   );
@@ -357,13 +384,13 @@ export default function ThirdPartyDetailsScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
       <ResetCaptureDialog
         visible={retakeConfirmTarget != null}
-        title="Retake Photo"
+        title={t('insurance.licence.retakeTitle')}
         message={
           retakeConfirmTarget
-            ? `Clear the captured ${STEP_LABELS[retakeConfirmTarget]} photo and take it again?`
+            ? t('insurance.thirdParty.retakeBody', { label: t(STEP_LABEL_KEYS[retakeConfirmTarget]) })
             : ''
         }
-        confirmLabel="Retake"
+        confirmLabel={t('insurance.licence.retakeConfirm')}
         onCancel={() => setRetakeConfirmTarget(null)}
         onConfirm={() => {
           const target = retakeConfirmTarget;
@@ -375,9 +402,9 @@ export default function ThirdPartyDetailsScreen() {
       />
       <ResetCaptureDialog
         visible={notApplicableConfirmVisible}
-        title="Not Applicable?"
-        message="Use this only if there is no third-party vehicle or documents to photograph. You can complete these photos later from this step."
-        confirmLabel="Confirm"
+        title={t('insurance.thirdParty.notApplicableTitle')}
+        message={t('insurance.thirdParty.notApplicableBody')}
+        confirmLabel={t('insurance.thirdParty.notApplicableConfirm')}
         icon="Ban"
         onCancel={() => setNotApplicableConfirmVisible(false)}
         onConfirm={confirmNotApplicable}
@@ -394,21 +421,21 @@ export default function ThirdPartyDetailsScreen() {
               style={({ pressed }) => [styles.headerBack, pressed && styles.pressed]}
               hitSlop={12}
               accessibilityRole="button"
-              accessibilityLabel="Go back">
+              accessibilityLabel={t('insurance.action.back')}>
               <View style={styles.headerChevronWrap} collapsable={false}>
                 <Ionicons name="chevron-back" size={22} color={COLORS.text} />
               </View>
-              <Text style={styles.headerTitle}>3rd Party Details</Text>
+              <Text style={styles.headerTitle}>{t('insurance.hub.taskThirdParty')}</Text>
             </Pressable>
           ) : (
-            <Text style={styles.headerTitle}>3rd Party Details</Text>
+            <Text style={styles.headerTitle}>{t('insurance.hub.taskThirdParty')}</Text>
           )}
         </View>
 
         <StepProgressPill step={step} completed={allImagesCaptured} />
 
         <Text style={styles.headline}>{headline}</Text>
-        <Text style={styles.subtitle}>This step is required by the insurance company for all third-party cases.</Text>
+        <Text style={styles.subtitle}>{t('insurance.thirdParty.subtitle')}</Text>
 
         <View style={styles.cameraFrame}>
           <CameraView
@@ -457,8 +484,8 @@ export default function ThirdPartyDetailsScreen() {
             onPress={onNotApplicable}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel="Not applicable — no third-party vehicle or documents">
-            <Text style={styles.notApplicableText}>Not Applicable</Text>
+            accessibilityLabel={t('insurance.thirdParty.notApplicableA11y')}>
+            <Text style={styles.notApplicableText}>{t('insurance.thirdParty.notApplicable')}</Text>
           </Pressable>
         ) : null}
       </ScrollView>
