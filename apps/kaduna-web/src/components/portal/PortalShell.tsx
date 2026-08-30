@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import LanguagePicker from "@/components/LanguagePicker";
 import { areasFor, useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 
@@ -68,6 +69,7 @@ export default function PortalShell({
 
           <div className="ml-auto flex items-center gap-3 text-sm">
             <span className="hidden text-muted-foreground lg:inline">{session?.user.email}</span>
+            <LanguagePicker />
             <button
               type="button"
               onClick={async () => {

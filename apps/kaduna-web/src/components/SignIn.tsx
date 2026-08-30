@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import LanguagePicker from "@/components/LanguagePicker";
 import { supabase } from "@/lib/supabase";
 
 /**

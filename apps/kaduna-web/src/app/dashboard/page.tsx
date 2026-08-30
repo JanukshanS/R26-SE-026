@@ -7,6 +7,7 @@ import { Layers, MapPin, Flame, Target, Download, RotateCcw } from "lucide-react
 import PortalShell from "@/components/portal/PortalShell";
 import DataSourceBadge from "@/components/DataSourceBadge";
 import DayRibbon from "@/components/DayRibbon";
+import RecommendationsPanel from "@/components/RecommendationsPanel";
 import ScoringLogPanel from "@/components/ScoringLogPanel";
 import IncidentPanel from "@/components/IncidentPanel";
 import MapLegend from "@/components/MapLegend";
@@ -35,7 +36,7 @@ const PRIORITY_TOKEN: Record<string, string> = {
 };
 const ROAD_TYPES = ["motorway", "trunk", "primary", "secondary", "tertiary", "residential"];
 
-const TAB_LABELS = ["Live map", "What-if", "Scoring log", "Model accuracy"] as const;
+const TAB_LABELS = ["Live map", "Where to station", "What-if", "Scoring log", "Model accuracy"] as const;
 type Tab = (typeof TAB_LABELS)[number];
 const TABS = TAB_LABELS.map((label) => ({
   label,
@@ -52,6 +53,10 @@ const TAB_INTRO: Record<Tab, { lead: string; body: string }> = {
   "Live map": {
     lead: "Every incident scored for what it does to the city, not to the driver.",
     body: "Scored incidents across Colombo, with accident blackspots and anything currently open in dispatch. Select a marker to see the five factors behind its score.",
+  },
+  "Where to station": {
+    lead: "Where putting a unit would do the most good.",
+    body: "The mined clusters ranked by how much disruption they produce and how far the right kind of help is today. A busy cluster with a unit already on it ranks near the bottom, because there is nothing to recommend.",
   },
   "What-if": {
     lead: "Change one thing and watch the score move.",
@@ -449,6 +454,7 @@ export default function OperationsPage() {
             <div className="rounded-xl border border-border bg-card p-4 md:p-6">
               {tab === "What-if" && <WhatIfSimulator model={model} />}
               {tab === "Model accuracy" && <ValidationPanel />}
+              {tab === "Where to station" && <RecommendationsPanel />}
               {tab === "Scoring log" && <ScoringLogPanel />}
             </div>
           )}

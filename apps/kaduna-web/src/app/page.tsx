@@ -8,6 +8,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import LanguagePicker from "@/components/LanguagePicker";
 import SignInLink from "@/components/SignInLink";
 import hotspots from "../../public/data/hotspots.json";
 
@@ -152,6 +153,7 @@ export default function LandingPage() {
             >
               Technology
             </a>
+            <LanguagePicker className="ml-1" />
             <SignInLink className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground" />
             <Button asChild size="sm" className="ml-2">
               <a href="#download">Get the app</a>
