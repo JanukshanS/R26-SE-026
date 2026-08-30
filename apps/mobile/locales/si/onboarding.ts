@@ -57,6 +57,8 @@ const onboarding: Record<string, string> = {
   "onboarding.insurer.subtitle": "හදිසි අවස්ථාවේ ඔබ ඉන්ෂුවරන්ස් ඉල්ලීමක් ඉදිරිපත් කරන විට අපි මේ දත්ත භාවිතා කරමු.",
   "onboarding.insurer.title": "ඔබේ ඉන්ෂුවරන්ස් සපයන්නා එක් කරන්න",
   "onboarding.insurer.vehicleRequired": "පළමුව වාහනය එක් කරන්න — ඉන්ෂුවරන්ස් විස්තර වාහනයකට සම්බන්ධව සුරැකේ, ඔබගේ පැතිකඩට නොවේ.",
+  "onboarding.plate.invalid": "එය ශ්‍රී ලාංකික ප්‍ලේටයක් ලෙස දක්නට නොපෙනේ. CAB-1234, WP-CAB-1234, හෝ 62-1234 උත්සාහ කරන්න.",
+  "onboarding.plate.required": "ප්‍ලේට අංකය අවශ්‍යයි.",
   "onboarding.vehicle.brandLabel": "ඔබේ වාහනයේ වෙළඳ නාමය",
   "onboarding.vehicle.brandModelRequired": "වෙළඳ නාමය සහ මාදිලිය අවශ්‍යයි.",
   "onboarding.vehicle.brandPlaceholder": "උදා. Toyota",

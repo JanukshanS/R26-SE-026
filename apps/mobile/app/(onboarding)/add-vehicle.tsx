@@ -36,9 +36,9 @@ export default function AddVehicleScreen() {
       setError(t("onboarding.vehicle.brandModelRequired"));
       return;
     }
-    const plateProblem = plateError(registration);
-    if (plateProblem) {
-      setError(plateProblem);
+    const plateProblemKey = plateError(registration);
+    if (plateProblemKey) {
+      setError(t(plateProblemKey));
       return;
     }
     setSubmitting(true);

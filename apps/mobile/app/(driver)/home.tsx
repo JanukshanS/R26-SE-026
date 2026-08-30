@@ -15,6 +15,7 @@ import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import {
   getVehicleHealth,
+  componentStatusLabel,
   rulToLabel,
   type VehicleHealthResponse,
 } from "@lib/maintenanceApi";
@@ -333,7 +334,7 @@ export default function DriverHomeScreen() {
                 <ActivityIndicator size="small" color={palette.brand} />
               ) : health ? (
                 <Badge
-                  label={health.overall_status}
+                  label={componentStatusLabel(health.overall_status, t)}
                   tone={
                     health.overall_status === "Good"
                       ? "success"
@@ -394,7 +395,7 @@ export default function DriverHomeScreen() {
                               ? "driver.home.componentTire"
                               : "driver.home.componentBattery"
                       ),
-                      status: rulToLabel(health.components[k]),
+                      status: rulToLabel(health.components[k], t),
                     })}
                   />
                 ))

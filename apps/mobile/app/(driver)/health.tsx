@@ -12,6 +12,7 @@ import {
   ALERT_THRESHOLD_PCT,
   EMPTY_HEALTH,
   getVehicleHealth,
+  componentStatusLabel,
   rulToLabel,
   type ComponentHealth,
   type ComponentKey,
@@ -321,7 +322,7 @@ export default function HealthScreen() {
                     {noData ? "—" : `${Math.round(health.overall_health_pct)}%`}
                   </Text>
                   <Text style={{ ...typography.caption, color: palette.textMuted, fontWeight: "600" }}>
-                    {health.overall_status}
+                    {componentStatusLabel(health.overall_status, t)}
                   </Text>
                 </View>
               </>
@@ -427,7 +428,7 @@ export default function HealthScreen() {
                     key={k}
                     text={t("driver.health.alertPill", {
                       component: t(COMPONENT_META[k].labelKey),
-                      status: rulToLabel(health.components[k]),
+                      status: rulToLabel(health.components[k], t),
                     })}
                   />
                 ))}
@@ -554,7 +555,7 @@ function ComponentCard({
 }) {
   const t = useT();
   const color = statusColor(component);
-  const rul = rulToLabel(component);
+  const rul = rulToLabel(component, t);
   const isAlert = component.status !== "Good" && component.status !== "No data";
   // Faults sit BESIDE the wear ring, never inside it. The ring and its
   // percentage are the wear model speaking; a fault is a separate defect, and

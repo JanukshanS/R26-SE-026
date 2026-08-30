@@ -263,9 +263,9 @@ export default function ManageVehiclesScreen() {
       setError(t("driver.vehicles.errorRequiredFields"));
       return;
     }
-    const plateProblem = plateError(form.plateNumber ?? "");
-    if (plateProblem) {
-      setError(plateProblem);
+    const plateProblemKey = plateError(form.plateNumber ?? "");
+    if (plateProblemKey) {
+      setError(t(plateProblemKey));
       return;
     }
     // Policy Number/Expiry Month are disabled in the form until a provider is picked, so

@@ -73,6 +73,8 @@ const onboarding: Record<string, string> = {
     "Optional — we use this to dispatch the right help. You can add or change it anytime from your profile.",
   "onboarding.vehicle.title": "Add your vehicle",
   "onboarding.vehicle.yearLabel": "Year of manufacture",
+  "onboarding.plate.invalid": "That doesn't look like a Sri Lankan plate. Try CAB-1234, WP-CAB-1234, or 62-1234.",
+  "onboarding.plate.required": "Plate number is required.",
 };
 
 export default onboarding;

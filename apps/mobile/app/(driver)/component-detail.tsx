@@ -273,7 +273,7 @@ export default function ComponentDetailScreen() {
   }
 
   const health = componentHealth;
-  const banner = rulToBanner(health);
+  const banner = rulToBanner(health, t);
   // Faults for THIS component. Read from the health payload rather than the
   // plan, so they render with the figures instead of waiting on the language
   // model call that the plan carries.

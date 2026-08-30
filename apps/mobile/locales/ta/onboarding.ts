@@ -57,6 +57,8 @@ const onboarding: Record<string, string> = {
   "onboarding.insurer.subtitle": "அவசரத்தில் காப்பீட்டு கோரிக்கையை சமர்ப்பிக்கும் போது இந்தத் தகவலைப் பயன்படுத்துகிறோம்.",
   "onboarding.insurer.title": "உங்கள் காப்பீட்டைச் சேர்க்கவும்",
   "onboarding.insurer.vehicleRequired": "முதலில் வாகனத்தைச் சேர்க்கவும் — காப்பீட்டு விவரங்கள் உங்கள் சுயவிவரத்துக்கு பதிலாக வாகனத்துடன் சேமிக்கப்படும்.",
+  "onboarding.plate.invalid": "இது ஸ்ரீ லங்கா பதிவு எண்ணைப் போலவே தெரிவதில்லை. CAB-1234, WP-CAB-1234, அல்லது 62-1234 முயற்சிக்கவும்.",
+  "onboarding.plate.required": "பதிவு எண் அவசியம்.",
   "onboarding.vehicle.brandLabel": "உங்கள் வாகனத்தின் பிராண்ட்",
   "onboarding.vehicle.brandModelRequired": "பிராண்ட் மற்றும் மாடல் அவசியம்.",
   "onboarding.vehicle.brandPlaceholder": "எ.கா. Toyota",

@@ -654,6 +654,22 @@ const driver: Record<string, string> = {
   "driver.vehicles.switchBody": "Switch to {{vehicle}} ({{plate}})?",
   "driver.vehicles.switchTitle": "Switch Vehicle",
   "driver.vehicles.title": "My Vehicles",
+  "driver.health.bannerFourWeeks": "Action recommend in 4 weeks",
+  "driver.health.bannerImmediate": "Action required immediately",
+  "driver.health.bannerNoAction": "No action needed",
+  "driver.health.bannerNoData": "No trips recorded yet — drive to assess health",
+  "driver.health.bannerOneWeek": "Action recommend in 1 week",
+  "driver.health.rulFourWeeks": "~4 weeks",
+  "driver.health.rulHealthy": "Healthy",
+  "driver.health.rulNoData": "No data",
+  "driver.health.rulOneWeek": "~1 week",
+  "driver.health.rulThousandKm": "{{value}}k km",
+  "driver.health.rulUrgent": "Urgent",
+  "driver.health.statusCritical": "Critical",
+  "driver.health.statusFair": "Fair",
+  "driver.health.statusGood": "Good",
+  "driver.health.statusNoData": "No data",
+  "driver.health.statusPoor": "Poor",
 };
 
 export default driver;
