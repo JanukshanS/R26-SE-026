@@ -10,6 +10,7 @@ import {
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LanguagePicker } from "@components/ui/language-picker";
 import { BottomNavBar } from "@components/ui/bottom-nav-bar";
 import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
@@ -407,7 +408,8 @@ export default function ProfileScreen() {
               >
                 <AccountRow label="Email" value={user.email} />
                 <AccountRow label="Phone" value={user.phone} onAdd={handleEditToggle} />
-                <AccountRow label="Location" value={user.location} onAdd={handleEditToggle} divider={false} />
+                <AccountRow label="Location" value={user.location} onAdd={handleEditToggle} />
+                <LanguagePicker variant="row" />
               </View>
             </View>
 

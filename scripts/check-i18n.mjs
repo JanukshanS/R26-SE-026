@@ -68,8 +68,12 @@ for (const app of APPS) {
     }
   }
   const en = catalogueOf(join(ROOT, app.locales), "en");
-  const missing = [...used].filter(([k]) => !en.has(k));
+  // A key called with { count } resolves to key_one / key_other and never
+  // exists under its bare name, so satisfying either form counts.
+  const satisfied = (k) => en.has(k) || (en.has(`${k}_one`) && en.has(`${k}_other`));
+  const missing = [...used].filter(([k]) => !satisfied(k));
   const orphans = [...en.keys()].filter((k) => !used.has(k) && !/_(one|other)$/.test(k));
+
   const pluralBase = new Set([...en.keys()].filter((k) => /_(one|other)$/.test(k)).map((k) => k.replace(/_(one|other)$/, "")));
   const halfPlurals = [...pluralBase].filter((b) => !(en.has(`${b}_one`) && en.has(`${b}_other`)));
 

@@ -118,7 +118,7 @@ export default function AddAccountScreen() {
         </>
       }
     >
-      <HeaderBar />
+      <HeaderBar showLanguage showHome={false} />
       <Text style={{ ...typography.h1, color: palette.text }}>
         {mode === "register" ? "Add your account" : "Welcome back"}
       </Text>

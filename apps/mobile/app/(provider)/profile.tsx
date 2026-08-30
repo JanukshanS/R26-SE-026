@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from "reac
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LanguagePicker } from "@components/ui/language-picker";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
 import { Icon } from "@components/ui/icon";
@@ -17,9 +18,11 @@ import {
   updateProviderProfile,
   type ProviderRecord,
 } from "@lib/dispatchApi";
+import { useT } from "@lib/i18n";
 
 export default function ProviderProfileScreen() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { user, logout } = useVehicle();
   const providerId = user?.providerId ?? null;
 
@@ -70,7 +73,10 @@ export default function ProviderProfileScreen() {
   async function save() {
     if (!provider) return;
     if (!name.trim()) {
-      Alert.alert("Name required", "Your name or business name can't be empty.");
+      Alert.alert(
+        t("provider.profile.nameRequiredTitle"),
+        t("provider.profile.nameRequiredBody")
+      );
       return;
     }
     setSaving(true);
@@ -83,7 +89,7 @@ export default function ProviderProfileScreen() {
       setProvider(updated);
       setEditing(false);
     } catch (err) {
-      Alert.alert("Couldn't save", (err as Error).message);
+      Alert.alert(t("provider.action.saveFailedTitle"), (err as Error).message);
     } finally {
       setSaving(false);
     }
@@ -118,9 +124,9 @@ export default function ProviderProfileScreen() {
           justifyContent: "space-between",
         }}
       >
-        <Text style={{ ...typography.h2, color: palette.text }}>Profile</Text>
+        <Text style={{ ...typography.h2, color: palette.text }}>{t("provider.profile.title")}</Text>
         {provider && !editing && (
-          <Pressable onPress={() => setEditing(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit profile">
+          <Pressable onPress={() => setEditing(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("provider.profile.editA11y")}>
             <Icon name="Pencil" size={20} color={palette.brand} />
           </Pressable>
         )}
@@ -131,16 +137,16 @@ export default function ProviderProfileScreen() {
         contentContainerStyle={{ paddingBottom: PROVIDER_NAV_BAR_HEIGHT + spacing.xl }}
       >
         {!providerId ? (
-          <Card><Text style={{ ...typography.body, color: palette.textMuted }}>Set up your provider profile first.</Text></Card>
+          <Card><Text style={{ ...typography.body, color: palette.textMuted }}>{t("provider.setup.prompt")}</Text></Card>
         ) : loading ? (
           <Card style={{ alignItems: "center", paddingVertical: spacing.xl }}>
             <ActivityIndicator size="small" color={palette.brand} />
           </Card>
         ) : error ? (
           <Card style={{ borderLeftWidth: 4, borderLeftColor: palette.danger }}>
-            <Text style={{ ...typography.bodyStrong, color: palette.danger }}>Couldn&apos;t load your profile</Text>
+            <Text style={{ ...typography.bodyStrong, color: palette.danger }}>{t("provider.profile.loadErrorTitle")}</Text>
             <Text style={{ ...typography.caption, color: palette.textMuted }}>{error}</Text>
-            <Button title="Try again" variant="secondary" size="md" onPress={load} />
+            <Button title={t("provider.action.retry")} variant="secondary" size="md" onPress={load} />
           </Card>
         ) : provider ? (
           <>
@@ -161,24 +167,24 @@ export default function ProviderProfileScreen() {
             </View>
 
             <View style={{ flexDirection: "row", gap: spacing.sm }}>
-              <StatTile icon="ShieldCheck" label="Trust score" value={`${Math.round(provider.trustScore * 100)}%`} />
-              <StatTile icon="Briefcase" label="Total jobs" value={String(provider.totalJobs)} />
+              <StatTile icon="ShieldCheck" label={t("provider.metric.trustScore")} value={`${Math.round(provider.trustScore * 100)}%`} />
+              <StatTile icon="Briefcase" label={t("provider.metric.totalJobs")} value={String(provider.totalJobs)} />
               <StatTile
                 icon="Star"
-                label="Avg. rating"
+                label={t("provider.metric.avgRating")}
                 value={provider.averageRating !== null ? provider.averageRating.toFixed(1) : "—"}
               />
             </View>
 
             <Card style={{ gap: spacing.md }}>
               <Field
-                label="Name / Business name"
+                label={t("provider.field.nameLabel")}
                 value={name}
                 onChangeText={setName}
                 editable={editing}
               />
               <Field
-                label="Phone"
+                label={t("provider.profile.phoneLabel")}
                 value={phone}
                 onChangeText={setPhone}
                 editable={editing}
@@ -186,7 +192,7 @@ export default function ProviderProfileScreen() {
                 placeholder="+94 77 123 4567"
               />
               <Field
-                label="Vehicle plate"
+                label={t("provider.profile.plateLabel")}
                 value={vehiclePlate}
                 onChangeText={setVehiclePlate}
                 editable={editing}
@@ -199,7 +205,7 @@ export default function ProviderProfileScreen() {
               <View style={{ flexDirection: "row", gap: spacing.sm }}>
                 <View style={{ flex: 1 }}>
                   <Button
-                    title="Cancel"
+                    title={t("provider.action.cancel")}
                     variant="secondary"
                     onPress={() => {
                       setEditing(false);
@@ -211,15 +217,29 @@ export default function ProviderProfileScreen() {
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Button title={saving ? "Saving…" : "Save"} onPress={save} disabled={saving} />
+                  <Button
+                    title={saving ? t("provider.action.saving") : t("provider.profile.save")}
+                    onPress={save}
+                    disabled={saving}
+                  />
                 </View>
               </View>
             )}
 
+            <View
+              style={{
+                backgroundColor: palette.surface,
+                borderRadius: radii.lg,
+                overflow: "hidden",
+              }}
+            >
+              <LanguagePicker variant="row" />
+            </View>
+
             <Pressable
               onPress={handleLogout}
               accessibilityRole="button"
-              accessibilityLabel="Log out"
+              accessibilityLabel={t("provider.action.logout")}
               style={({ pressed }) => ({
                 alignItems: "center",
                 paddingVertical: spacing.md,
@@ -228,7 +248,7 @@ export default function ProviderProfileScreen() {
                 opacity: pressed ? 0.85 : 1,
               })}
             >
-              <Text style={{ ...typography.bodyStrong, color: palette.danger }}>Log Out</Text>
+              <Text style={{ ...typography.bodyStrong, color: palette.danger }}>{t("provider.profile.logoutButton")}</Text>
             </Pressable>
           </>
         ) : null}

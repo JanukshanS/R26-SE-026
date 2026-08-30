@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, type IconName } from "@components/ui/icon";
 import { palette, spacing, typography } from "@theme/index";
 import { haptics } from "@lib/haptics";
+import { useT } from "@lib/i18n";
 
 // Exported so screens can pad scrollable content correctly — same role as
 // bottom-nav-bar.tsx's NAV_BAR_HEIGHT, kept separate since the two bars
@@ -11,13 +12,13 @@ import { haptics } from "@lib/haptics";
 export const PROVIDER_NAV_BAR_HEIGHT = 56;
 
 type TabKey = "jobs" | "services" | "history" | "profile";
-type TabDef = { key: TabKey; label: string; icon: IconName };
+type TabDef = { key: TabKey; labelKey: string; icon: IconName };
 
 const TABS: TabDef[] = [
-  { key: "jobs", label: "Jobs", icon: "ClipboardList" },
-  { key: "services", label: "Services", icon: "Wrench" },
-  { key: "history", label: "History", icon: "History" },
-  { key: "profile", label: "Profile", icon: "User" },
+  { key: "jobs", labelKey: "provider.tabs.jobs", icon: "ClipboardList" },
+  { key: "services", labelKey: "provider.tabs.services", icon: "Wrench" },
+  { key: "history", labelKey: "provider.tabs.history", icon: "History" },
+  { key: "profile", labelKey: "provider.tabs.profile", icon: "User" },
 ];
 
 const TAB_PATHS: Record<TabKey, string> = {
@@ -37,6 +38,7 @@ const TAB_ROUTES: Record<TabKey, string> = {
 export function ProviderBottomNavBar({ activeTab }: { activeTab: TabKey }) {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
+  const t = useT();
 
   return (
     <View
@@ -98,7 +100,7 @@ export function ProviderBottomNavBar({ activeTab }: { activeTab: TabKey }) {
                 }}
                 numberOfLines={1}
               >
-                {tab.label}
+                {t(tab.labelKey)}
               </Text>
             </Pressable>
           );

@@ -22,6 +22,7 @@ import {
   serviceTypeLabel,
   type ServiceType,
 } from "@lib/dispatchApi";
+import { useT, type Translate } from "@lib/i18n";
 
 type Job = Awaited<ReturnType<typeof getIncident>> & { description?: string | null };
 
@@ -50,6 +51,7 @@ const LOW_CONFIDENCE_THRESHOLD = 0.45;
  */
 export default function ActiveJobScreen() {
   const { incidentId } = useLocalSearchParams<{ incidentId?: string }>();
+  const t = useT();
   const { user } = useVehicle();
   const providerId = user?.providerId ?? null;
 
@@ -81,13 +83,13 @@ export default function ActiveJobScreen() {
         err instanceof DispatchApiError && err.status >= 400 && err.status < 500;
       setError(
         rejected
-          ? `${describe(err)} Go back to your dashboard and open the job again.`
-          : `${describe(err)} Check your connection and try again.`
+          ? t("provider.activeJob.loadErrorClient", { message: describe(err) })
+          : t("provider.activeJob.loadErrorNetwork", { message: describe(err) })
       );
     } finally {
       setLoading(false);
     }
-  }, [incidentId]);
+  }, [incidentId, t]);
 
   useEffect(() => {
     load();
@@ -154,7 +156,7 @@ export default function ActiveJobScreen() {
     if (!job || !providerId || !actualType) return;
     const mins = Number(minutes.trim());
     if (!Number.isFinite(mins) || mins < 0 || mins > 480) {
-      setFormError("Enter how long the job took, in minutes (0–480).");
+      setFormError(t("provider.resolve.minutesInvalid"));
       return;
     }
     setBusy(true);
@@ -179,7 +181,7 @@ export default function ActiveJobScreen() {
 
   const toDashboard = (
     <Button
-      title="Back to dashboard"
+      title={t("provider.activeJob.backToDashboard")}
       variant="secondary"
       onPress={() => router.replace("/(provider)/available")}
     />
@@ -194,7 +196,7 @@ export default function ActiveJobScreen() {
           <Icon name="Inbox" size={44} color={palette.textMuted} />
           <View style={{ alignItems: "center", gap: spacing.sm }}>
             <Text style={{ ...typography.h2, color: palette.text, textAlign: "center" }}>
-              No job selected
+              {t("provider.activeJob.noJobTitle")}
             </Text>
             <Text
               style={{
@@ -204,7 +206,7 @@ export default function ActiveJobScreen() {
                 maxWidth: 280,
               }}
             >
-              Open a job from your dashboard to see the request and accept it.
+              {t("provider.activeJob.noJobBody")}
             </Text>
           </View>
         </View>
@@ -219,7 +221,7 @@ export default function ActiveJobScreen() {
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: spacing.md }}>
           <ActivityIndicator size="small" color={palette.brand} />
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
-            Loading the job…
+            {t("provider.activeJob.loading")}
           </Text>
         </View>
       </Screen>
@@ -231,8 +233,8 @@ export default function ActiveJobScreen() {
       <Screen footer={toDashboard}>
         <HeaderBar />
         <ErrorState
-          title="Could not load this job"
-          message={error ?? "The job could not be loaded. Check your connection and try again."}
+          title={t("provider.activeJob.loadFailedTitle")}
+          message={error ?? t("provider.activeJob.loadFailedBody")}
           onRetry={load}
         />
       </Screen>
@@ -244,15 +246,15 @@ export default function ActiveJobScreen() {
       <Screen
         footer={
           <Button
-            title="Set up your provider profile"
+            title={t("provider.setup.cta")}
             onPress={() => router.replace("/(provider)/onboarding")}
           />
         }
       >
         <HeaderBar />
         <ErrorState
-          title="No provider profile"
-          message="This account isn't linked to a provider record, so it can't accept or resolve jobs. Create your provider profile to start working."
+          title={t("provider.activeJob.noProfileTitle")}
+          message={t("provider.activeJob.noProfileBody")}
         />
       </Screen>
     );
@@ -262,7 +264,7 @@ export default function ActiveJobScreen() {
   const offered = mine && job.status === "PROVIDER_ASSIGNED";
   const working = mine && (job.status === "EN_ROUTE" || job.status === "ON_SCENE");
   const closed = job.status === "RESOLVED" || job.status === "ESCALATED";
-  const status = statusBadge(job.status);
+  const status = statusBadge(job.status, t);
   const distanceKm = job.assignedProvider
     ? haversineKm(job.assignedProvider, job)
     : null;
@@ -271,12 +273,12 @@ export default function ActiveJobScreen() {
     mode === "resolve" ? (
       <>
         <Button
-          title={busy ? "Submitting…" : "Submit resolution"}
+          title={busy ? t("provider.resolve.submitting") : t("provider.resolve.submit")}
           disabled={busy || !actualType}
           onPress={submitResolution}
         />
         <Button
-          title="Cancel"
+          title={t("provider.action.cancel")}
           variant="secondary"
           disabled={busy}
           onPress={() => setMode("job")}
@@ -285,13 +287,13 @@ export default function ActiveJobScreen() {
     ) : mode === "decline" ? (
       <>
         <Button
-          title={busy ? "Declining…" : "Confirm decline"}
+          title={busy ? t("provider.decline.submitting") : t("provider.decline.confirm")}
           variant="danger"
           disabled={busy}
           onPress={() => respond(false)}
         />
         <Button
-          title="Keep the job"
+          title={t("provider.decline.keep")}
           variant="secondary"
           disabled={busy}
           onPress={() => setMode("job")}
@@ -300,12 +302,12 @@ export default function ActiveJobScreen() {
     ) : offered ? (
       <>
         <Button
-          title={busy ? "Accepting…" : "ACCEPT JOB"}
+          title={busy ? t("provider.activeJob.accepting") : t("provider.activeJob.accept")}
           disabled={busy}
           onPress={() => respond(true)}
         />
         <Button
-          title="Decline"
+          title={t("provider.activeJob.decline")}
           variant="secondary"
           disabled={busy}
           onPress={() => {
@@ -316,7 +318,7 @@ export default function ActiveJobScreen() {
       </>
     ) : working ? (
       <>
-        <Button title="Report outcome" onPress={openResolution} />
+        <Button title={t("provider.activeJob.reportOutcome")} onPress={openResolution} />
         {toDashboard}
       </>
     ) : (
@@ -329,8 +331,12 @@ export default function ActiveJobScreen() {
 
       {actionError ? (
         <ErrorState
-          title={mode === "resolve" ? "Could not submit the resolution" : "Request failed"}
-          message={actionError + " Nothing was changed — you can try again."}
+          title={
+            mode === "resolve"
+              ? t("provider.activeJob.resolveFailedTitle")
+              : t("provider.activeJob.requestFailedTitle")
+          }
+          message={t("provider.activeJob.actionErrorBody", { message: actionError })}
         />
       ) : null}
 
@@ -338,12 +344,14 @@ export default function ActiveJobScreen() {
         <>
           <View style={{ gap: spacing.xs }}>
             <Text style={{ ...typography.h1, color: palette.text }}>
-              What did you actually do?
+              {t("provider.resolve.title")}
             </Text>
             <Text style={{ ...typography.body, color: palette.textMuted }}>
               {triage
-                ? `Triage predicted ${serviceTypeLabel(triage.predictedServiceType)}. Your report trains the prediction for the next driver, so pick what the job really was.`
-                : "Your report trains the prediction for the next driver, so pick what the job really was."}
+                ? t("provider.resolve.introPredicted", {
+                    service: serviceTypeLabel(triage.predictedServiceType),
+                  })
+                : t("provider.resolve.intro")}
             </Text>
           </View>
 
@@ -382,21 +390,20 @@ export default function ActiveJobScreen() {
                   >
                     {serviceTypeLabel(st)}
                   </Text>
-                  {predicted ? <Badge label="Predicted" tone="neutral" /> : null}
+                  {predicted ? <Badge label={t("provider.resolve.predictedBadge")} tone="neutral" /> : null}
                   {selected ? <Icon name="Check" size={18} color={palette.brand} /> : null}
                 </Pressable>
               );
             })}
             {serviceOptions.length === 0 ? (
               <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                Your provider profile has no service types configured, so there is
-                nothing to report. Add capabilities to your profile first.
+                {t("provider.resolve.noServices")}
               </Text>
             ) : null}
           </View>
 
           <TextField
-            label="Time on the job (minutes)"
+            label={t("provider.resolve.minutesLabel")}
             value={minutes}
             onChangeText={setMinutes}
             placeholder="25"
@@ -405,10 +412,10 @@ export default function ActiveJobScreen() {
           />
 
           <TextField
-            label="Notes (optional)"
+            label={t("provider.resolve.notesLabel")}
             value={notes}
             onChangeText={setNotes}
-            placeholder="Anything the next provider should know"
+            placeholder={t("provider.resolve.notesPlaceholder")}
             multiline
             maxLength={1000}
           />
@@ -429,8 +436,7 @@ export default function ActiveJobScreen() {
                 color={escalated ? palette.brand : palette.textMuted}
               />
               <Text style={{ ...typography.caption, color: palette.textMuted, flex: 1 }}>
-                I couldn&apos;t complete this — it needs escalation (tow, workshop
-                or a second provider).
+                {t("provider.resolve.escalationLabel")}
               </Text>
             </Card>
           </Pressable>
@@ -441,18 +447,17 @@ export default function ActiveJobScreen() {
             <>
               <View style={{ gap: spacing.xs }}>
                 <Text style={{ ...typography.h1, color: palette.text }}>
-                  Decline this job?
+                  {t("provider.decline.title")}
                 </Text>
                 <Text style={{ ...typography.body, color: palette.textMuted }}>
-                  It goes straight back to dispatch for another provider. A reason
-                  helps us route better next time.
+                  {t("provider.decline.body")}
                 </Text>
               </View>
               <TextField
-                label="Reason (optional)"
+                label={t("provider.decline.reasonLabel")}
                 value={declineReason}
                 onChangeText={setDeclineReason}
-                placeholder="Too far, already on a job…"
+                placeholder={t("provider.decline.reasonPlaceholder")}
                 maxLength={200}
               />
             </>
@@ -462,7 +467,7 @@ export default function ActiveJobScreen() {
             <Card variant="muted" style={{ flexDirection: "row", gap: spacing.sm }}>
               <Icon name="Info" size={18} color={palette.textMuted} />
               <Text style={{ ...typography.caption, color: palette.textMuted, flex: 1 }}>
-                This job is no longer assigned to you — it went back to dispatch.
+                {t("provider.activeJob.reassigned")}
               </Text>
             </Card>
           ) : null}
@@ -471,8 +476,9 @@ export default function ActiveJobScreen() {
             <Card variant="muted" style={{ flexDirection: "row", gap: spacing.sm }}>
               <Icon name="Check" size={18} color={palette.textMuted} />
               <Text style={{ ...typography.caption, color: palette.textMuted, flex: 1 }}>
-                This job is closed
-                {job.status === "ESCALATED" ? " and was escalated." : "."}
+                {job.status === "ESCALATED"
+                  ? t("provider.activeJob.closedEscalated")
+                  : t("provider.activeJob.closed")}
               </Text>
             </Card>
           ) : null}
@@ -481,7 +487,9 @@ export default function ActiveJobScreen() {
             <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
               <Icon name="TriangleAlert" size={22} color={palette.danger} />
               <Text style={{ ...typography.h3, color: palette.danger, flexShrink: 1 }}>
-                {triage ? serviceTypeLabel(triage.predictedServiceType) : "Roadside assistance"}
+                {triage
+                  ? serviceTypeLabel(triage.predictedServiceType)
+                  : t("provider.job.fallbackService")}
               </Text>
             </View>
             {triage ? (
@@ -493,18 +501,21 @@ export default function ActiveJobScreen() {
                   gap: spacing.sm,
                 }}
               >
-                <Row label="SERVICE" value={serviceTypeAction(triage.predictedServiceType)} />
                 <Row
-                  label="CONFIDENCE"
+                  label={t("provider.activeJob.rowService")}
+                  value={serviceTypeAction(triage.predictedServiceType)}
+                />
+                <Row
+                  label={t("provider.activeJob.rowConfidence")}
                   value={`${(triage.confidence * 100).toFixed(0)}%`}
                   valueColor={triage.confidence < LOW_CONFIDENCE_THRESHOLD ? palette.warning : undefined}
                 />
-                <Row label="MODEL" value={tierLabel(triage.tier)} />
+                <Row label={t("provider.activeJob.rowModel")} value={tierLabel(triage.tier, t)} />
 
                 {otherPossibilities.length > 0 ? (
                   <View style={{ gap: 4, paddingTop: spacing.xs }}>
                     <Text style={{ ...typography.micro, color: palette.textMuted }}>
-                      ALSO POSSIBLE
+                      {t("provider.activeJob.alsoPossible")}
                     </Text>
                     {otherPossibilities.map(({ type, prob }) => (
                       <View
@@ -540,14 +551,14 @@ export default function ActiveJobScreen() {
                   >
                     <Icon name="TriangleAlert" size={16} color={palette.warning} />
                     <Text style={{ ...typography.caption, color: palette.text, flex: 1 }}>
-                      Diagnosis is uncertain — consider bringing a broader toolkit.
+                      {t("provider.activeJob.lowConfidence")}
                     </Text>
                   </View>
                 ) : null}
               </View>
             ) : (
               <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                No triage was recorded for this incident — diagnose on arrival.
+                {t("provider.activeJob.noTriage")}
               </Text>
             )}
             {job.description ? (
@@ -560,25 +571,33 @@ export default function ActiveJobScreen() {
           <MapPreview
             driverLocation={{ latitude: job.latitude, longitude: job.longitude }}
             provider={job.assignedProvider ?? null}
-            distanceText={distanceKm !== null ? `${distanceKm.toFixed(1)} km` : null}
+            distanceText={
+              distanceKm !== null
+                ? t("provider.activeJob.km", { km: distanceKm.toFixed(1) })
+                : null
+            }
           />
 
           <Card>
             <Row
-              label="DISTANCE"
-              value={distanceKm !== null ? `${distanceKm.toFixed(1)} km away` : "—"}
+              label={t("provider.activeJob.rowDistance")}
+              value={
+                distanceKm !== null
+                  ? t("provider.activeJob.kmAway", { km: distanceKm.toFixed(1) })
+                  : "—"
+              }
             />
             <Row
-              label="LOCATION"
+              label={t("provider.activeJob.rowLocation")}
               value={`${job.latitude.toFixed(4)}, ${job.longitude.toFixed(4)}`}
             />
-            <Row label="REPORTED" value={timeAgo(job.createdAt)} />
+            <Row label={t("provider.activeJob.rowReported")} value={timeAgo(job.createdAt, t)} />
             <Row
-              label="VEHICLE"
+              label={t("provider.activeJob.rowVehicle")}
               value={
                 [job.vehicleMake, job.vehicleModel, job.vehicleYear]
                   .filter(Boolean)
-                  .join(" ") || "Not provided"
+                  .join(" ") || t("provider.activeJob.notProvided")
               }
             />
           </Card>
@@ -599,37 +618,39 @@ function elapsedMinutes(iso: string): number {
   return Math.min(480, Math.max(0, Number.isFinite(mins) ? mins : 0));
 }
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: Translate): string {
   const mins = elapsedMinutes(iso);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} min ago`;
+  if (mins < 1) return t("provider.activeJob.justNow");
+  if (mins < 60) return t("provider.activeJob.minutesAgo", { count: mins });
   const hours = Math.floor(mins / 60);
-  return hours < 24 ? `${hours} h ago` : `${Math.floor(hours / 24)} d ago`;
+  return hours < 24
+    ? t("provider.activeJob.hoursAgo", { count: hours })
+    : t("provider.activeJob.daysAgo", { count: Math.floor(hours / 24) });
 }
 
-function tierLabel(tier: string): string {
+function tierLabel(tier: string, t: Translate): string {
   return tier === "OBD_ENHANCED"
-    ? "Tier-2 (OBD enhanced)"
+    ? t("provider.activeJob.tierObd")
     : tier === "BAYESIAN_LEARNED"
-      ? "Tier-3 (Bayesian)"
-      : "Tier-1";
+      ? t("provider.activeJob.tierBayesian")
+      : t("provider.activeJob.tierDefault");
 }
 
-function statusBadge(status: string): {
+function statusBadge(status: string, t: Translate): {
   label: string;
   tone: "neutral" | "success" | "warning" | "danger" | "brand";
 } {
   switch (status) {
     case "PROVIDER_ASSIGNED":
-      return { label: "New job", tone: "warning" };
+      return { label: t("provider.activeJob.statusNew"), tone: "warning" };
     case "EN_ROUTE":
-      return { label: "En route", tone: "brand" };
+      return { label: t("provider.activeJob.statusEnRoute"), tone: "brand" };
     case "ON_SCENE":
-      return { label: "On scene", tone: "brand" };
+      return { label: t("provider.activeJob.statusOnScene"), tone: "brand" };
     case "RESOLVED":
-      return { label: "Resolved", tone: "success" };
+      return { label: t("provider.activeJob.statusResolved"), tone: "success" };
     case "ESCALATED":
-      return { label: "Escalated", tone: "danger" };
+      return { label: t("provider.activeJob.statusEscalated"), tone: "danger" };
     default:
       return { label: status.replace(/_/g, " "), tone: "neutral" };
   }
