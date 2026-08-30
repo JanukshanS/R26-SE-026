@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from "react-native";
+import { useAudioPlayer } from "expo-audio";
 import { Icon } from "@components/ui/icon";
 import { QuestionScreen } from "@components/ui/question-screen";
 import { palette, radii, spacing, typography } from "@theme/index";
@@ -7,11 +8,16 @@ import { useEmergency, MobileSoundId } from "@lib/emergencyContext";
 /**
  * The 4 sound options shown in the UI. Each carries the backend's Q3_sound
  * enum value as its `id` so we map straight through when submitting triage.
+ *
+ * `clip` is a short synthesized reference clip a driver can play to compare
+ * against what their own car is doing — a text label like "Grinding Noise"
+ * is hard to judge against an unfamiliar sound in the moment. "Nothing at
+ * All" has none; there's nothing to demonstrate.
  */
-const SOUNDS: { id: MobileSoundId; label: string }[] = [
-  { id: "RAPID_CLICKING",  label: "Rapid Clicking" },
-  { id: "NORMAL_CRANKING", label: "Normal Cranking" },
-  { id: "GRINDING",        label: "Grinding Noise" },
+const SOUNDS: { id: MobileSoundId; label: string; clip?: ReturnType<typeof require> }[] = [
+  { id: "RAPID_CLICKING",  label: "Rapid Clicking",  clip: require("@assets/sounds/rapid-clicking.wav") },
+  { id: "NORMAL_CRANKING", label: "Normal Cranking", clip: require("@assets/sounds/normal-cranking.wav") },
+  { id: "GRINDING",        label: "Grinding Noise",  clip: require("@assets/sounds/grinding.wav") },
   { id: "NOTHING",         label: "Nothing at All" },
 ];
 
@@ -22,7 +28,7 @@ export default function DiagnosisSoundScreen() {
     <QuestionScreen
       route="diagnosis-sound"
       prompt="What sound does your vehicle make?"
-      hint="Select the sound that best matches when you turn the key."
+      hint="Tap the speaker to hear each one, then select the closest match."
       canNext={!!sound}
     >
 
@@ -30,6 +36,7 @@ export default function DiagnosisSoundScreen() {
         <SoundOption
           key={s.id}
           label={s.label}
+          clip={s.clip}
           selected={sound === s.id}
           onPress={() => setSound(s.id)}
         />
@@ -40,13 +47,24 @@ export default function DiagnosisSoundScreen() {
 
 function SoundOption({
   label,
+  clip,
   selected,
   onPress,
 }: {
   label: string;
+  clip?: ReturnType<typeof require>;
   selected: boolean;
   onPress: () => void;
 }) {
+  // A player with no source is inert — safe to always call the hook (React
+  // requires hooks called unconditionally) even for "Nothing at All".
+  const player = useAudioPlayer(clip ?? null);
+
+  function playClip() {
+    player.seekTo(0);
+    player.play();
+  }
+
   return (
     <Pressable
       onPress={onPress}
@@ -64,9 +82,33 @@ function SoundOption({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
+        gap: spacing.md,
       })}
     >
-      <Text style={{ ...typography.body, color: palette.text }}>{label}</Text>
+      {clip ? (
+        <Pressable
+          onPress={playClip}
+          accessibilityRole="button"
+          accessibilityLabel={`Play the ${label} reference sound`}
+          hitSlop={8}
+          style={({ pressed }) => ({
+            opacity: pressed ? 0.7 : 1,
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: palette.brandSoft,
+            alignItems: "center",
+            justifyContent: "center",
+          })}
+        >
+          <Icon name="Volume2" size={18} color={palette.brand} />
+        </Pressable>
+      ) : (
+        <View style={{ width: 40, height: 40 }} />
+      )}
+
+      <Text style={{ ...typography.body, color: palette.text, flex: 1 }}>{label}</Text>
+
       <View
         style={{
           width: 36,

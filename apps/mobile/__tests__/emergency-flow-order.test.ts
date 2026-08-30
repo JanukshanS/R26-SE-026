@@ -51,14 +51,19 @@ const ROUTE_TO_QUESTION: Record<StepRoute, string> = {
   "brake-detail":     "Q_brake_detail",
   "gear-detail":      "Q_gear_detail",
   smells:             "Q6_smells",
-  context:            "location_type",
 };
 
-/** The most common full path: engine trouble, car runs but makes a noise. */
+/**
+ * A full path through the engine branch: engine trouble, car runs but smokes.
+ * SMOKE (not NOISE) deliberately, so this path still exercises Q8_smoke_color
+ * — the tree's one remaining never-split feature now that the context screen
+ * (whose location_type was the other one) is gone — for the "dead questions
+ * come last" test below.
+ */
 const COMMON_PATH: FlowState = {
   q1Intent: "ENGINE_PROBLEM",
   engineState: "STARTS_NORMAL",
-  runningIssue: "NOISE",
+  runningIssue: "SMOKE",
 };
 
 describe("emergency questionnaire order", () => {
@@ -114,6 +119,5 @@ describe("emergency questionnaire order", () => {
     expect(brake).toContain("diagnosis-lights");
     expect(brake).toContain("recent");
     expect(brake).toContain("smells");
-    expect(brake).toContain("context");
   });
 });

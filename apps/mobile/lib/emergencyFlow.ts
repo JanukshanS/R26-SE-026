@@ -27,9 +27,10 @@
  * best any ordering can do is Q1 plus the four heaviest questions.
  *
  * The v3 retrain also dropped location_type and vehicle_age_bucket from the
- * feature set entirely. `context` still earns its place — it collects
- * last_fueled, recent_rain and parked_overnight too, worth 8.3% between them —
- * but its location question is now a dead input.
+ * feature set entirely — the `context` screen (location, rain, parked-overnight,
+ * vehicle age, last-fueled) was removed accordingly (see git history), so
+ * every driver now gets the same SL-context defaults the fast-path already
+ * used (DEFAULT_SL_CONTEXT in emergencyContext.tsx), same as skipping ever did.
  *
  * Reordering is answer-preserving: Q5, Q9 and Q6 are asked unconditionally on
  * every path, so re-sequencing them cannot change WHICH questions a given
@@ -65,8 +66,7 @@ export type StepRoute =
   | "smoke-color"
   | "brake-detail"
   | "gear-detail"
-  | "smells"
-  | "context";
+  | "smells";
 
 /** Just the answers that decide which steps are active. */
 export interface FlowState {
@@ -121,10 +121,6 @@ const STEPS: StepDef[] = [
     when: (s) => s.q1Intent === "BRAKE_ISSUE" },
   { route: "gear-detail",      title: "Gears",
     when: (s) => s.q1Intent === "GEAR_ISSUE" },
-  // 8.3% across last_fueled, recent_rain and parked_overnight. Its fourth
-  // question, location_type, was dropped from the feature set by the v3 retrain
-  // and now feeds nothing.
-  { route: "context",          title: "One last thing" },
 ];
 
 /** The steps this driver will actually see, given what they've answered. */

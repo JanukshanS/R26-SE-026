@@ -9,9 +9,16 @@
  *
  * The step counter and the Next destination both come from lib/emergencyFlow,
  * so reordering the questionnaire is a one-array edit.
+ *
+ * Which screen is *last* varies by branch (engine vs brake vs gear, and which
+ * running-issue/engine-state answer was picked), so there's no single "final"
+ * screen to hang the triage submission off of. Instead, whichever screen
+ * `nextRoute` has nothing after becomes the final step for that driver's
+ * path, and this file submits from there — every question screen stays a
+ * plain "pick an answer, tap Next" component with no submit logic of its own.
  */
-import { useCallback } from "react";
-import { Pressable, Text, View } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import { Alert, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@components/ui/button";
 import { HeaderBar } from "@components/ui/header-bar";
@@ -19,6 +26,8 @@ import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useEmergency } from "@lib/emergencyContext";
 import { nextRoute, stepPath, stepPosition, stepTitle, type StepRoute } from "@lib/emergencyFlow";
+import { submitTriage, DispatchApiError } from "@lib/dispatchApi";
+import { readObdFromElm327 } from "@lib/elm327";
 
 type Props = {
   /** Which step this is. Drives the title, the counter and where Next goes. */
@@ -31,22 +40,95 @@ type Props = {
   canNext?: boolean;
   /** Overrides the default "advance to the next active step". */
   onNext?: () => void;
-  /** Label for the primary button. Defaults to "Next". */
+  /** Label for the primary button. Defaults to "Next", or "Get Diagnosis" on
+   *  the final step of a branch (overridden automatically while submitting). */
   nextLabel?: string;
   children: React.ReactNode;
 };
 
 /**
- * "Advance to whatever step comes next for these answers." Exposed separately
- * so screens with their own submit logic (diagnosis-lights files the incident,
- * context posts the triage) can run it without hardcoding a destination.
+ * "Advance to whatever step comes next for these answers, or — if this is
+ * the last active step on this branch — read OBD telemetry, submit the
+ * triage, and move to the result screen."
+ *
+ * Exposed separately so a screen with its own submit logic (diagnosis-lights
+ * files the incident before anything else can run) can still reach
+ * `isFinalStep`/`submitting` without adopting this default advance behavior.
  */
-export function useNextStep(route: StepRoute): () => void {
-  const { q1Intent, engineState, runningIssue } = useEmergency();
-  return useCallback(() => {
-    const next = nextRoute({ q1Intent, engineState, runningIssue }, route);
-    if (next) router.push(stepPath(next));
-  }, [q1Intent, engineState, runningIssue, route]);
+export function useNextStep(route: StepRoute): {
+  advance: () => void;
+  isFinalStep: boolean;
+  submitting: boolean;
+} {
+  const {
+    q1Intent, engineState, runningIssue,
+    incidentId, buildTriageResponses, setTriageResult, setError,
+  } = useEmergency();
+  const [submitting, setSubmitting] = useState(false);
+  // `submitting` only disables the button on the next render, which leaves a
+  // double-tap window open that would submit triage twice.
+  const inFlightRef = useRef(false);
+  const next = nextRoute({ q1Intent, engineState, runningIssue }, route);
+
+  const submitFinal = useCallback(async () => {
+    if (!incidentId) {
+      Alert.alert(
+        "We lost your request",
+        "Your answers were never filed with dispatch, so we can't run the diagnosis. Start the emergency flow again from the home screen.",
+        [
+          { text: "Not now", style: "cancel" },
+          { text: "Go home", onPress: () => router.replace("/(driver)/home") },
+        ]
+      );
+      return;
+    }
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    setSubmitting(true);
+    setError(null);
+    try {
+      // Read OBD directly from the (simulated) ELM327 dongle. Passing
+      // incidentId so the stub re-randomizes the vehicle's "current
+      // condition" per emergency (otherwise every dispatch would return the
+      // same diagnosis for the entire session).
+      const obd = await readObdFromElm327(incidentId);
+      const responses = buildTriageResponses();
+      const triage = await submitTriage({
+        incidentId,
+        responses,
+        obdData: obd ? { ...obd } : undefined,
+      });
+      setTriageResult(triage.result);
+      router.push("/(emergency)/diagnosis-result");
+    } catch (err) {
+      const reachable = err instanceof DispatchApiError;
+      const msg = reachable
+        ? `${err.message} (HTTP ${err.status})`
+        : (err as Error).message;
+      setError(msg);
+      Alert.alert(
+        "Couldn't run the diagnosis",
+        reachable
+          ? `${msg}\n\nYour answers are saved. Tap Get Diagnosis to try again.`
+          : `Couldn't reach the diagnosis service. Check your connection — your answers are saved, so tap Get Diagnosis to try again.${
+              __DEV__ ? `\n\n[dev] ${msg}` : ""
+            }`
+      );
+    } finally {
+      inFlightRef.current = false;
+      setSubmitting(false);
+    }
+  }, [incidentId, buildTriageResponses, setTriageResult, setError]);
+
+  const advance = useCallback(() => {
+    if (next) {
+      router.push(stepPath(next));
+      return;
+    }
+    submitFinal();
+  }, [next, submitFinal]);
+
+  return { advance, isFinalStep: next === null, submitting };
 }
 
 export function QuestionScreen({
@@ -55,19 +137,25 @@ export function QuestionScreen({
   hint,
   canNext = true,
   onNext,
-  nextLabel = "Next",
+  nextLabel,
   children,
 }: Props) {
   const { q1Intent, engineState, runningIssue } = useEmergency();
   const { index, total } = stepPosition({ q1Intent, engineState, runningIssue }, route);
-  const goNext = useNextStep(route);
-  const advance = onNext ?? goNext;
+  const { advance, isFinalStep, submitting } = useNextStep(route);
+
+  const label =
+    nextLabel ?? (isFinalStep ? (submitting ? "Diagnosing…" : "Get Diagnosis") : "Next");
 
   return (
     <Screen
       footer={
         <>
-          <Button title={nextLabel} disabled={!canNext} onPress={advance} />
+          <Button
+            title={label}
+            disabled={!canNext || submitting}
+            onPress={onNext ?? advance}
+          />
           <SkipToHelp />
         </>
       }

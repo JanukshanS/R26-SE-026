@@ -4,7 +4,7 @@
  * ============================================================================
  *
  * Public entry point for the rest of the app. Callers (`home.tsx`,
- * `(emergency)/context.tsx`, `tripRecorder.ts`) import everything from here
+ * `components/ui/question-screen.tsx`, `tripRecorder.ts`) import everything from here
  * and never need to know whether readings came from a physical ELM327 over
  * BLE, over classic Bluetooth, or from the on-device simulation.
  *
@@ -102,8 +102,8 @@ function notifyPairingChange(): void {
 /**
  * True if EITHER a real ELM327 is connected (either transport) OR the
  * simulation is paired. `home.tsx` uses this to decide whether to show the
- * "Connect OBD-II" modal, and `(emergency)/context.tsx` to label the
- * expected triage tier.
+ * "Connect OBD-II" modal; `use-auto-trip-controller.ts` uses it to gate
+ * auto-trip recording on a real backend actually being paired.
  */
 export function isElm327Paired(): boolean {
   if (backend === "ble") return ble.isConnected();

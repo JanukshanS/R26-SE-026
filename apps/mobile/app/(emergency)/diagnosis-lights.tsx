@@ -30,13 +30,14 @@ export default function DiagnosisLightsScreen() {
   // `loading` only disables the button on the next render, which leaves a
   // double-tap window open that would file two incidents.
   const inFlightRef = useRef(false);
-  const goNext = useNextStep("diagnosis-lights");
+  const { advance: goNext } = useNextStep("diagnosis-lights");
 
   /**
    * After Q5 lights we hand off to the always-asked tail (smells → recent →
-   * SL context). The full POST /triage/submit (with OBD) happens at the
-   * END of the form on the SL-context screen — the last questionnaire page
-   * before /diagnosis-result.
+   * whichever branch-detail screen is active). The full POST /triage/submit
+   * (with OBD) happens generically from question-screen.tsx once a screen
+   * finds it has no next step — this one is never that screen, so `goNext`
+   * here always just advances.
    *
    * We create the incident HERE (so we have an incident.id ready) — that
    * lets the dispatch backend track the in-progress request even before
