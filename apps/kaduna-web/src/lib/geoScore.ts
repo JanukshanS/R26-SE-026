@@ -1,7 +1,10 @@
 // Geo-intelligence scoring client, shared by every surface that shows an
 // incident: the ops dashboard's live layer, the provider's job card and the
 // driver's incident card. One call, one cache, one wording.
-import { mapServiceTypeToIncidentType } from "./geo-service-mapping";
+import {
+  mapServiceTypeToIncidentType,
+  mapServiceTypeToLanesBlocked,
+} from "./geo-service-mapping";
 import { authHeaders } from "./supabase";
 
 const GEO_URL = process.env.NEXT_PUBLIC_GEO_URL ?? "http://localhost:5001";
@@ -12,6 +15,8 @@ export interface GeoScore {
   score: number;
   priority: Priority;
   incidentType: string;
+  /** Lanes assumed blocked, derived from the triaged service type. */
+  lanesBlocked: number;
   hour: number;
   dayOfWeek: number;
   factors: {
@@ -25,6 +30,29 @@ export interface GeoScore {
     queue_km?: number;
     vehicle_hours_lost?: number;
     recovery_min?: number;
+  };
+  /** Nearby hospitals, schools, bridges and markets, plus the calendar, which
+   *  together lift the score above the five factors. */
+  sensitivity?: {
+    factor: number;
+    adjusted_score: number;
+    nearby: Array<{
+      type: string;
+      name?: string | null;
+      distance_m?: number | null;
+      boost: number;
+      active: boolean;
+    }>;
+    is_holiday: boolean;
+    is_getaway_eve: boolean;
+    data_available: boolean;
+  };
+  /** Which road geo matched at these coordinates, and how it established it. */
+  road?: {
+    road_type: string;
+    total_lanes: number;
+    source: string;
+    matched_road?: string | null;
   };
 }
 
@@ -55,9 +83,10 @@ const cache = new Map<string, Promise<GeoScore | null>>();
  * the score is decoration on every surface that shows it, and a card must
  * still render when the service is down.
  *
- * Road geometry is a fixed assumption (a two-lane primary road with one lane
- * blocked) because the dispatch incident record carries no road data. The
- * dashboard's what-if simulator is where those inputs are varied.
+ * Road class and lane count come back from geo, which resolves them from the
+ * coordinates; only lanes-blocked stays an assumption, because the dispatch
+ * incident record carries no lane data. The what-if simulator is where that
+ * input is varied.
  */
 export function scoreIncident(req: ScoreRequest): Promise<GeoScore | null> {
   const hour = req.at.getHours();
@@ -68,6 +97,7 @@ export function scoreIncident(req: ScoreRequest): Promise<GeoScore | null> {
   if (hit) return hit;
 
   const incidentType = mapServiceTypeToIncidentType(req.serviceType);
+  const lanesBlocked = mapServiceTypeToLanesBlocked(req.serviceType);
   const pending = (async (): Promise<GeoScore | null> => {
     try {
       const res = await fetch(`${GEO_URL}/v1/score`, {
@@ -76,12 +106,17 @@ export function scoreIncident(req: ScoreRequest): Promise<GeoScore | null> {
         body: JSON.stringify({
           latitude: req.latitude,
           longitude: req.longitude,
-          road_type: "primary",
-          total_lanes: 2,
-          lanes_blocked: 1,
+          // road_type and total_lanes are deliberately omitted: geo resolves
+          // both from the coordinates against its OpenStreetMap network and
+          // reports what it matched. Sending a guess pinned the Location
+          // Factor at a constant for every live incident.
+          lanes_blocked: lanesBlocked,
           incident_type: incidentType,
           hour,
           day_of_week: dayOfWeek,
+          // Without a date the overlay cannot know about holidays or the eve
+          // of a long weekend, so those components could never fire.
+          date: req.at.toISOString().slice(0, 10),
         }),
         signal: AbortSignal.timeout(8000),
       });
@@ -91,10 +126,13 @@ export function scoreIncident(req: ScoreRequest): Promise<GeoScore | null> {
         score: s.score,
         priority: s.priority as Priority,
         incidentType,
+        lanesBlocked,
         hour,
         dayOfWeek,
         factors: s.factors ?? {},
         prediction: s.prediction ?? {},
+        road: s.road ?? undefined,
+        sensitivity: s.sensitivity ?? undefined,
       };
     } catch {
       return null;
@@ -108,4 +146,66 @@ export function scoreIncident(req: ScoreRequest): Promise<GeoScore | null> {
     if (v === null) cache.delete(key);
   });
   return pending;
+}
+
+export interface AdHocScoreRequest {
+  latitude: number;
+  longitude: number;
+  incidentType: string;
+  totalLanes: number;
+  lanesBlocked: number;
+  hour: number;
+  dayOfWeek: number;
+  /** Calendar date, so the holiday and long-weekend components can apply. */
+  date: string;
+}
+
+export interface AdHocScore {
+  score: number;
+  priority: Priority;
+  factors: GeoScore["factors"];
+  prediction: GeoScore["prediction"];
+  road?: GeoScore["road"];
+  sensitivity?: GeoScore["sensitivity"];
+}
+
+/**
+ * Score an arbitrary point, for the what-if panel.
+ *
+ * Separate from `scoreIncident` because that one is keyed to a dispatch
+ * incident and caches per incident-hour; here every control move is a new
+ * question and the road class must be resolved from the pin rather than
+ * chosen from a list.
+ */
+export async function scoreAtLocation(req: AdHocScoreRequest): Promise<AdHocScore | null> {
+  try {
+    const res = await fetch(`${GEO_URL}/v1/score`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify({
+        latitude: req.latitude,
+        longitude: req.longitude,
+        // No road_type: resolving it from the pin is the point of the picker.
+        total_lanes: req.totalLanes,
+        lanes_blocked: Math.min(req.lanesBlocked, req.totalLanes),
+        incident_type: req.incidentType,
+        hour: req.hour,
+        day_of_week: req.dayOfWeek,
+        date: req.date,
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const s = await res.json();
+    return {
+      score: s.score,
+      priority: s.priority as Priority,
+      factors: s.factors ?? {},
+      prediction: s.prediction ?? {},
+      road: s.road ?? undefined,
+      sensitivity: s.sensitivity ?? undefined,
+    };
+  } catch {
+    return null;
+  }
 }

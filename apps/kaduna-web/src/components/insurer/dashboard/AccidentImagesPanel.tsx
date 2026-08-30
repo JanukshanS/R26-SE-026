@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AccidentImage } from "@/lib/insurer/types";
 import { distanceMetres, formatDistance, distanceLevel } from "@/lib/insurer/geo";
 
@@ -19,17 +19,10 @@ function formatCapturedAt(iso: string | null | undefined): string {
   if (!iso) return "—";
   try {
     return new Date(iso).toLocaleString(undefined, {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      timeZoneName: "short",
+      weekday: "short", month: "short", day: "numeric",
+      year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short",
     });
-  } catch {
-    return iso;
-  }
+  } catch { return iso; }
 }
 
 function formatCoords(img: AccidentImage): string {
@@ -39,23 +32,63 @@ function formatCoords(img: AccidentImage): string {
   return "—";
 }
 
+const BTN = {
+  width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
+  background: "rgba(0,0,0,0.55)", color: "#fff", border: "none", borderRadius: 4,
+  cursor: "pointer", fontSize: 16, fontWeight: 600, lineHeight: 1,
+} as const;
+
 export function AccidentImagesPanel({
-  nic,
-  images,
-  loading,
-  visible,
-  onClose,
-  referenceLocation,
+  nic, images, loading, visible, onClose, referenceLocation,
 }: AccidentImagesPanelProps) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const imgContainerRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => { setActiveIndex(0); }, [images]);
+
+  useEffect(() => { setZoom(1); setPan({ x: 0, y: 0 }); }, [activeIndex]);
+
+  useEffect(() => { if (zoom <= 1) setPan({ x: 0, y: 0 }); }, [zoom]);
+
+  // imgContainerRef div is always rendered (loading state is inside it),
+  // so [] deps work — the ref is set on mount.
   useEffect(() => {
-    setActiveIndex(0);
-  }, [images]);
+    const el = imgContainerRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      setZoom(prev => Math.max(1, Math.min(8, prev * (e.deltaY < 0 ? 1.15 : 1 / 1.15))));
+    };
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
+  }, []);
+
+  const zoomIn  = () => setZoom(prev => Math.min(8, prev * 1.5));
+  const zoomOut = () => { const next = Math.max(1, zoom / 1.5); setZoom(next); if (next <= 1) setPan({ x: 0, y: 0 }); };
+  const reset   = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom <= 1) return;
+    setIsDragging(true);
+    dragStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+  };
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !dragStart.current) return;
+    setPan({
+      x: dragStart.current.panX + (e.clientX - dragStart.current.x),
+      y: dragStart.current.panY + (e.clientY - dragStart.current.y),
+    });
+  };
+  const handleMouseUp = () => { setIsDragging(false); dragStart.current = null; };
 
   if (!visible) return null;
 
   const active = images[activeIndex];
+  const hasThumbs = images.length > 1;
 
   return (
     <div
@@ -63,121 +96,127 @@ export function AccidentImagesPanel({
       role="dialog"
       aria-label="Accident images"
     >
+      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <h3 className="text-sm font-semibold">Accident Images — {nic}</h3>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="text-muted-foreground hover:text-foreground text-xl leading-none"
-        >
-          ×
-        </button>
+        <button type="button" onClick={onClose} aria-label="Close"
+          className="text-muted-foreground hover:text-foreground text-xl leading-none">×</button>
       </div>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {loading ? (
-          <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-            Loading images…
-          </div>
-        ) : (
-          <>
-            <div className="w-1/3 shrink-0 border-r border-border px-4 py-5 flex flex-col gap-3 overflow-y-auto">
-              <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-                Photo Location
-              </p>
-              {active && active.gps_lat != null && active.gps_lng != null ? (
-                <a
-                  href={`https://www.google.com/maps?q=${active.gps_lat},${active.gps_lng}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 self-start px-2 py-0.5 border-2 border-primary rounded text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-                >
-                  {formatCoords(active)}
-                  <span aria-hidden>↗</span>
-                </a>
-              ) : (
-                <p className="text-sm font-semibold text-foreground leading-relaxed">
-                  {active ? formatCoords(active) : "—"}
-                </p>
-              )}
+        {/* Sidebar */}
+        <div className="w-1/3 shrink-0 border-r border-border px-4 py-5 flex flex-col gap-3 overflow-y-auto">
+          <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">Photo Location</p>
+          {active && active.gps_lat != null && active.gps_lng != null ? (
+            <a href={`https://www.google.com/maps?q=${active.gps_lat},${active.gps_lng}`}
+              target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 self-start px-2 py-0.5 border-2 border-primary rounded text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors">
+              {formatCoords(active)}<span aria-hidden>↗</span>
+            </a>
+          ) : (
+            <p className="text-sm font-semibold text-foreground leading-relaxed">
+              {active ? formatCoords(active) : "—"}
+            </p>
+          )}
 
-              {(() => {
-                if (!active || active.gps_lat == null || active.gps_lng == null) return null;
-                const ref = referenceLocation;
-                if (!ref || ref.gps_lat == null || ref.gps_lng == null) return null;
-                const dist = distanceMetres(
-                  ref.gps_lat,
-                  ref.gps_lng,
-                  active.gps_lat,
-                  active.gps_lng
-                );
-                const level = distanceLevel(dist);
-                const icon = level === "ok" ? "✓" : "⚠";
-                const label =
-                  level === "ok"
-                    ? "Location Matched"
-                    : `${formatDistance(dist)} from accident site`;
-                const tone =
-                  level === "ok"
-                    ? "bg-emerald-100 text-emerald-800"
-                    : level === "warn"
-                      ? "bg-amber-100 text-amber-800"
-                      : "bg-red-100 text-red-800";
-                return (
-                  <span
-                    className={`inline-flex items-center gap-1 self-start px-2.5 py-1 rounded text-xs font-semibold ${tone}`}
-                  >
-                    {icon} {label}
-                  </span>
-                );
-              })()}
+          {(() => {
+            if (!active || active.gps_lat == null || active.gps_lng == null) return null;
+            const ref = referenceLocation;
+            if (!ref || ref.gps_lat == null || ref.gps_lng == null) return null;
+            const dist = distanceMetres(ref.gps_lat, ref.gps_lng, active.gps_lat, active.gps_lng);
+            const level = distanceLevel(dist);
+            const tone = level === "ok" ? "bg-emerald-100 text-emerald-800"
+              : level === "warn" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800";
+            return (
+              <span className={`inline-flex items-center gap-1 self-start px-2.5 py-1 rounded text-xs font-semibold ${tone}`}>
+                {level === "ok" ? "✓ Location Matched" : `⚠ ${formatDistance(dist)} from accident site`}
+              </span>
+            );
+          })()}
 
+          <hr className="border-border" />
+          <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">Photo Timestamp</p>
+          <p className="text-sm text-muted-foreground">{active ? formatCapturedAt(active.captured_at) : "—"}</p>
+
+          {zoom > 1 && (
+            <>
               <hr className="border-border" />
-
-              <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-                Photo Timestamp
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {active ? formatCapturedAt(active.captured_at) : "—"}
-              </p>
-            </div>
-
-            <div className="flex flex-1 flex-col min-w-0">
-              <div className="flex-1 min-h-0 p-3 flex items-center justify-center bg-muted">
-                {images.length > 0 ? (
-                  <img
-                    src={active?.url}
-                    alt={`Accident image ${activeIndex + 1}`}
-                    className="max-w-full max-h-full object-contain rounded border border-border"
-                  />
-                ) : (
-                  <p className="text-sm text-muted-foreground">No images available</p>
-                )}
+              <div className="flex items-center justify-between">
+                <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                  Zoom {zoom.toFixed(1)}×
+                </p>
+                <button type="button" onClick={reset} className="text-[0.68rem] text-primary hover:underline">Reset</button>
               </div>
-              {images.length > 1 && (
-                <div className="flex gap-2 px-4 py-3 border-t border-border overflow-x-auto shrink-0">
-                  {images.map((img, i) => (
-                    <button
-                      key={img.url}
-                      type="button"
-                      onClick={() => setActiveIndex(i)}
-                      className={`shrink-0 p-0.5 rounded border-2 transition-colors ${
-                        i === activeIndex ? "border-primary" : "border-transparent"
-                      }`}
-                    >
-                      <img
-                        src={img.url}
-                        alt=""
-                        className="w-[72px] h-[54px] object-cover rounded block"
-                      />
-                    </button>
-                  ))}
-                </div>
+            </>
+          )}
+        </div>
+
+        {/* Image area */}
+        <div className="flex flex-1 flex-col min-w-0 relative">
+          {/* Image container — always rendered so wheel listener attaches on mount */}
+          <div
+            ref={imgContainerRef}
+            className="flex-1 min-h-0 flex items-center justify-center bg-muted overflow-hidden"
+            style={{ cursor: zoom > 1 ? (isDragging ? "grabbing" : "grab") : "default" }}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onDoubleClick={reset}
+          >
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Loading images…</p>
+            ) : images.length > 0 ? (
+              <img
+                src={active?.url}
+                alt={`Accident image ${activeIndex + 1}`}
+                draggable={false}
+                className="max-w-full max-h-full object-contain rounded border border-border select-none"
+                style={{
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                  transformOrigin: "center",
+                  transition: isDragging ? "none" : "transform 0.15s ease",
+                }}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">No images available</p>
+            )}
+          </div>
+
+          {/* Zoom controls */}
+          {!loading && images.length > 0 && (
+            <div style={{
+              position: "absolute", right: 10,
+              bottom: hasThumbs ? 86 : 10,
+              display: "flex", flexDirection: "column", gap: 3, zIndex: 5,
+            }}>
+              <button type="button" style={BTN} onClick={zoomIn} title="Zoom in">+</button>
+              <button type="button" style={BTN} onClick={zoomOut} title="Zoom out">−</button>
+              {zoom > 1 && (
+                <button type="button" style={{ ...BTN, fontSize: 13 }} onClick={reset} title="Reset zoom">↺</button>
               )}
             </div>
-          </>
-        )}
+          )}
+
+          {/* Hint */}
+          {!loading && images.length > 0 && zoom === 1 && (
+            <p className="text-center text-[0.65rem] text-muted-foreground py-1 shrink-0">
+              Scroll or use +/− to zoom · drag to pan · double-click to reset
+            </p>
+          )}
+
+          {/* Thumbnails */}
+          {hasThumbs && (
+            <div className="flex gap-2 px-4 py-3 border-t border-border overflow-x-auto shrink-0">
+              {images.map((img, i) => (
+                <button key={img.url} type="button" onClick={() => setActiveIndex(i)}
+                  className={`shrink-0 p-0.5 rounded border-2 transition-colors ${i === activeIndex ? "border-primary" : "border-transparent"}`}>
+                  <img src={img.url} alt="" className="w-[72px] h-[54px] object-cover rounded block" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

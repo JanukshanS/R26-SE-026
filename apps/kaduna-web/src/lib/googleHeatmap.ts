@@ -65,6 +65,9 @@ export function createHeatmapOverlay(maps: any, points: HeatPoint[], options: He
     private canvas: HTMLCanvasElement | null = null;
     private ramp = gradientRamp();
     private stamp = blobStamp(radius);
+    /** True between the start of a gesture and the map settling. */
+    private moving = false;
+    private listeners: Array<{ remove: () => void }> = [];
 
     onAdd() {
       const canvas = document.createElement("canvas");
@@ -74,14 +77,39 @@ export function createHeatmapOverlay(maps: any, points: HeatPoint[], options: He
       canvas.style.opacity = String(opacity);
       this.canvas = canvas;
       this.getPanes().overlayLayer.appendChild(canvas);
+
+      // draw() is called on every frame of a pan or zoom, and its second pass
+      // walks every pixel of the viewport in JavaScript — on a phone that is
+      // roughly a million array writes per frame, which is what made the map
+      // feel stuck. The overlay pane already translates with the map during a
+      // drag, so the previous canvas stays aligned; repaint once the gesture
+      // settles instead of fighting for every frame.
+      const map = this.getMap();
+      if (map) {
+        this.listeners = [
+          map.addListener("dragstart", () => {
+            this.moving = true;
+          }),
+          map.addListener("zoom_changed", () => {
+            this.moving = true;
+          }),
+          map.addListener("idle", () => {
+            this.moving = false;
+            this.draw();
+          }),
+        ];
+      }
     }
 
     onRemove() {
+      this.listeners.forEach((l) => l.remove());
+      this.listeners = [];
       this.canvas?.remove();
       this.canvas = null;
     }
 
     draw() {
+      if (this.moving) return;
       const canvas = this.canvas;
       const projection = this.getProjection();
       const map = this.getMap();

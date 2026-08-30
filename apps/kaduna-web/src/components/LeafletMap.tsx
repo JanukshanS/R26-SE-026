@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { matchesFilters } from "@/lib/filters";
 import { PRIORITY_COLORS, type MapProps } from "@/components/Map";
 
 export default function LeafletMap({ incidents, hotspots, blackspots, onSelectIncident, filters, layers }: MapProps) {
@@ -21,6 +22,10 @@ export default function LeafletMap({ incidents, hotspots, blackspots, onSelectIn
       if (node._leaflet_id || leafletMap.current) return;
 
       const map = L.map(node, {
+        // Canvas renderer: 500 circle markers as SVG elements is 500 DOM nodes
+        // to composite on every pan. The Google engine draws its incidents on
+        // a canvas for the same reason.
+        preferCanvas: true,
         center: [6.9271, 79.8612],
         zoom: 12,
         zoomControl: false,
@@ -75,10 +80,7 @@ export default function LeafletMap({ incidents, hotspots, blackspots, onSelectIn
       layersRef.current.heatmap.clearLayers();
 
       const filtered = incidents.filter((inc) => {
-        if (filters.priority.length > 0 && !filters.priority.includes(inc.priority)) return false;
-        if (filters.roadType && filters.roadType !== "all" && inc.roadType !== filters.roadType) return false;
-        if (filters.hour !== null && inc.hour !== filters.hour) return false;
-        return true;
+        return matchesFilters(inc, filters);
       });
 
       if (layers.incidents) filtered.forEach((inc) => {
@@ -90,19 +92,9 @@ export default function LeafletMap({ incidents, hotspots, blackspots, onSelectIn
           fillOpacity: inc.live ? 0.95 : 0.8,
         });
 
-        marker.bindPopup(
-          `<div style="font-family:system-ui;font-size:12px;">
-            ${inc.live ? '<strong style="color:#F97316">● LIVE REPORT</strong><br/>' : ""}
-            <strong>${inc.id}</strong> — <span style="color:${PRIORITY_COLORS[inc.priority]}">${inc.priority}</span><br/>
-            Score: <strong>${inc.impactScore}/10</strong><br/>
-            ${inc.incidentType.replace(/_/g, " ")} on ${inc.roadType}<br/>
-            ${inc.live && inc.providerName
-              ? `Dispatched: <strong>${inc.providerName}</strong>`
-              : `Queue: ${inc.queueKm}km | VHL: ${inc.vhl}`}
-          </div>`,
-          { className: "kaduna-popup" }
-        );
-
+        // No popup: clicking selects the incident and the rail beside the map
+        // shows the full factor breakdown. A popup here repeated it and covered
+        // the markers the operator is comparing against.
         marker.on("click", () => onSelectIncident(inc));
         marker.addTo(layersRef.current.incidents);
       });

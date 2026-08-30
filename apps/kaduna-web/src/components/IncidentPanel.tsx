@@ -1,29 +1,64 @@
 "use client";
 
+import { X } from "lucide-react";
 import type { Incident } from "@/lib/types";
 
-const PRIORITY_BG: Record<string, string> = {
-  CRITICAL: "bg-red-500/20 border-red-500/40 text-red-400",
-  HIGH: "bg-orange-500/20 border-orange-500/40 text-orange-400",
-  MEDIUM: "bg-yellow-500/20 border-yellow-500/40 text-yellow-400",
-  LOW: "bg-green-500/20 border-green-500/40 text-green-400",
+const PRIORITY_TOKEN: Record<string, string> = {
+  CRITICAL: "var(--priority-critical)",
+  HIGH: "var(--priority-high)",
+  MEDIUM: "var(--priority-medium)",
+  LOW: "var(--priority-low)",
 };
+
+/** Plain names for what the sensitive-location overlay reacts to. */
+const NEARBY_LABEL: Record<string, string> = {
+  hospital: "Hospital nearby",
+  school: "School nearby",
+  bridge: "On a bridge",
+  market: "Market nearby",
+  getaway_eve: "Eve of a long weekend",
+};
+
+/**
+ * The five factors, named the way an operator would say them rather than by
+ * their initials. CLF/TVF/TF/LF/ISF are the model's internal names and mean
+ * nothing to the road authority staff this view is for.
+ */
+const FACTORS = [
+  { key: "clf", label: "Capacity lost" },
+  { key: "tvf", label: "Traffic volume" },
+  { key: "tf", label: "Time of day" },
+  { key: "lf", label: "Road importance" },
+  { key: "isf", label: "Incident severity" },
+] as const;
 
 function FactorBar({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs  text-muted-foreground w-8">{label}</span>
-      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+      <span className="w-28 shrink-0 text-xs text-muted-foreground">{label}</span>
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full rounded-full bg-indigo-500 transition-all"
-          style={{ width: `${value * 100}%` }}
+          className="h-full rounded-full bg-primary"
+          style={{ width: `${Math.min(Math.max(value, 0), 1) * 100}%` }}
         />
       </div>
-      <span className="text-xs text-muted-foreground w-8 text-right">{value.toFixed(2)}</span>
+      <span className="w-8 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+        {value.toFixed(2)}
+      </span>
     </div>
   );
 }
 
+/**
+ * The selected incident, broken down into the five factors that produced its
+ * score, and the nearby hospitals, schools and bridges that lift it further.
+ * The overlay has been running in geo since August but nothing in the product
+ * showed it, so an incident could be scored 18% higher for being beside a
+ * hospital with no way to see that was why.
+ *
+ * It lives in the rail beside the map, not floating over it: as an overlay it
+ * covered the very markers the operator was comparing it against.
+ */
 export default function IncidentPanel({
   incident,
   onClose,
@@ -31,68 +66,127 @@ export default function IncidentPanel({
   incident: Incident | null;
   onClose: () => void;
 }) {
-  if (!incident) return null;
+  if (!incident) {
+    return (
+      <div className="rounded-xl border border-dashed border-border p-4">
+        <p className="text-sm font-medium">No incident selected</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          Pick a marker on the map to see the five factors behind its score.
+        </p>
+      </div>
+    );
+  }
+
+  const colour = PRIORITY_TOKEN[incident.priority];
 
   return (
-    <div className="absolute top-4 right-4 w-80 bg-card border border-border rounded-xl shadow-2xl z-[1000] overflow-hidden">
-      <div className="flex items-center justify-between p-3 border-b border-border">
-        <div className="flex items-center gap-2">
-          <span className={`text-xs font-bold px-2 py-0.5 rounded border ${PRIORITY_BG[incident.priority]}`}>
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold"
+            style={{ borderColor: colour, color: colour }}
+          >
+            <span className="size-1.5 rounded-full" style={{ background: colour }} aria-hidden />
             {incident.priority}
           </span>
-          <span className="text-sm font-mono text-muted-foreground">{incident.id}</span>
+          <span className="truncate font-mono text-xs text-muted-foreground">{incident.id}</span>
         </div>
         <button
+          type="button"
           onClick={onClose}
-          className="text-muted-foreground hover:text-foreground transition-colors text-lg leading-none"
+          aria-label="Clear selection"
+          className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
         >
-          &times;
+          <X className="size-4" aria-hidden />
         </button>
       </div>
 
-      <div className="p-3 space-y-3">
-        <div className="text-center">
-          <p className="text-4xl font-black">
+      <div className="space-y-3 p-3">
+        <div className="flex items-baseline gap-2">
+          <span className="font-display text-3xl font-bold tabular-nums tracking-tight">
             {incident.impactScore}
-            <span className="text-lg font-normal text-muted-foreground">/10</span>
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">Impact Score</p>
+          </span>
+          <span className="text-sm text-muted-foreground">of 10 impact</span>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="bg-muted rounded-lg p-2">
-            <p className="text-lg font-bold">{incident.queueKm}</p>
-            <p className="text-xs text-muted-foreground">Queue km</p>
-          </div>
-          <div className="bg-muted rounded-lg p-2">
-            <p className="text-lg font-bold">{incident.vhl}</p>
-            <p className="text-xs text-muted-foreground">VHL</p>
-          </div>
-          <div className="bg-muted rounded-lg p-2">
-            <p className="text-lg font-bold">{incident.recoveryMin}</p>
-            <p className="text-xs text-muted-foreground">Recovery min</p>
-          </div>
+        <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-border bg-border text-center">
+          {[
+            [incident.queueKm, "queue km"],
+            [incident.vhl, "veh-hrs"],
+            [incident.recoveryMin, "recovery min"],
+          ].map(([value, label]) => (
+            <div key={String(label)} className="bg-card px-1 py-2">
+              <dt className="sr-only">{label}</dt>
+              <dd>
+                <span className="block text-base font-semibold tabular-nums">{value}</span>
+                <span className="block text-xs text-muted-foreground">{label}</span>
+              </dd>
+            </div>
+          ))}
+        </dl>
+
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground">What drove the score</p>
+          {FACTORS.map((f) => (
+            <FactorBar key={f.key} label={f.label} value={incident[f.key]} />
+          ))}
         </div>
 
-        <div className="space-y-1">
-          <p className="text-xs  text-muted-foreground">Factor Breakdown</p>
-          <FactorBar label="CLF" value={incident.clf} />
-          <FactorBar label="TVF" value={incident.tvf} />
-          <FactorBar label="TF" value={incident.tf} />
-          <FactorBar label="LF" value={incident.lf} />
-          <FactorBar label="ISF" value={incident.isf} />
-        </div>
+        {incident.sensitivity && incident.sensitivity.factor > 1 && (
+          <div className="rounded-lg border border-border bg-muted/40 p-2.5">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+              <p className="text-xs font-medium">Where it is makes it worse</p>
+              <p className="text-xs tabular-nums text-muted-foreground">
+                {incident.impactScore.toFixed(1)} &rarr;{" "}
+                <span className="font-semibold text-foreground">
+                  {incident.sensitivity.adjusted_score.toFixed(1)}
+                </span>
+              </p>
+            </div>
+            <ul className="mt-1.5 space-y-1">
+              {incident.sensitivity.nearby
+                .filter((n) => n.active)
+                .map((n, i) => (
+                  <li key={`${n.type}-${i}`} className="flex items-baseline gap-2 text-xs">
+                    <span className="text-muted-foreground">
+                      {NEARBY_LABEL[n.type] ?? n.type}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {n.name ?? ""}
+                      {n.distance_m != null && (
+                        <span className="text-muted-foreground">
+                          {n.name ? " · " : ""}
+                          {Math.round(n.distance_m)} m
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                      +{Math.round(n.boost * 100)}%
+                    </span>
+                  </li>
+                ))}
+              {incident.sensitivity.is_holiday && (
+                <li className="text-xs text-muted-foreground">Public holiday</li>
+              )}
+            </ul>
+          </div>
+        )}
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          <div className="text-muted-foreground">Road</div>
-          <div>{incident.roadType}</div>
-          <div className="text-muted-foreground">Lanes</div>
-          <div>{incident.lanesBlocked}/{incident.totalLanes} blocked</div>
-          <div className="text-muted-foreground">Type</div>
-          <div>{incident.incidentType.replace(/_/g, " ")}</div>
-          <div className="text-muted-foreground">Time</div>
-          <div>{String(incident.hour).padStart(2, "0")}:00 {incident.dayName}</div>
-        </div>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+          <dt className="text-muted-foreground">Road</dt>
+          <dd className="capitalize">{incident.roadType}</dd>
+          <dt className="text-muted-foreground">Lanes</dt>
+          <dd>
+            {incident.lanesBlocked} of {incident.totalLanes} blocked
+          </dd>
+          <dt className="text-muted-foreground">Type</dt>
+          <dd className="capitalize">{incident.incidentType.replace(/_/g, " ")}</dd>
+          <dt className="text-muted-foreground">Time</dt>
+          <dd>
+            {String(incident.hour).padStart(2, "0")}:00 {incident.dayName}
+          </dd>
+        </dl>
       </div>
     </div>
   );

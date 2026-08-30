@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import LanguagePicker from "@/components/LanguagePicker";
 import { areasFor, useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 
@@ -39,9 +40,9 @@ export default function PortalShell({
   const areas = areasFor(profile);
 
   return (
-    <div className={`bg-background text-foreground [--radius:0.9rem] ${stretch ? "h-screen overflow-hidden flex flex-col" : "min-h-screen"}`}>
+    <div className={`bg-background text-foreground [--radius:0.9rem] ${stretch ? "min-h-screen lg:flex lg:h-screen lg:flex-col lg:overflow-hidden" : "min-h-screen"}`}>
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
-        <div className={`mx-auto flex flex-wrap items-center gap-x-5 gap-y-3 px-6 py-3.5 ${fullWidth ? "max-w-full" : "max-w-6xl"}`}>
+        <div className={`mx-auto flex flex-wrap items-center gap-x-5 gap-y-3 px-4 py-3.5 sm:px-6 ${fullWidth ? "max-w-full" : "max-w-6xl"}`}>
           <Link href="/" className="font-display text-xl font-bold tracking-tight">
             Kaduna<span className="text-primary">.lk</span>
           </Link>
@@ -68,6 +69,7 @@ export default function PortalShell({
 
           <div className="ml-auto flex items-center gap-3 text-sm">
             <span className="hidden text-muted-foreground lg:inline">{session?.user.email}</span>
+            <LanguagePicker />
             <button
               type="button"
               onClick={async () => {
@@ -82,7 +84,7 @@ export default function PortalShell({
         </div>
       </header>
 
-      <main className={`mx-auto px-6 ${fullWidth ? "max-w-full" : "max-w-6xl"} ${stretch ? "flex-1 overflow-hidden flex flex-col pt-4 pb-2" : "pb-16 pt-8"}`}>
+      <main className={`mx-auto px-4 sm:px-6 ${fullWidth ? "max-w-full" : "max-w-6xl"} ${stretch ? "pt-4 pb-10 lg:flex lg:flex-1 lg:flex-col lg:overflow-hidden lg:pb-2" : "pb-16 pt-8"}`}>
         {title && <h1 className="font-display text-2xl font-bold tracking-tight shrink-0">{title}</h1>}
 
         {tabs.length > 0 && (
@@ -106,7 +108,7 @@ export default function PortalShell({
           </nav>
         )}
 
-        <div className={stretch ? "flex-1 overflow-hidden mt-4" : "mt-8"}>{children}</div>
+        <div className={stretch ? "mt-4 lg:flex-1 lg:overflow-hidden" : "mt-8"}>{children}</div>
       </main>
     </div>
   );

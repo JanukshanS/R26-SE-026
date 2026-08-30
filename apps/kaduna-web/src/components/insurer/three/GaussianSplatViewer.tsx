@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 type GaussianSplatViewerProps = {
   url: string;
+  onLoadingChange?: (loading: boolean) => void;
 };
 
 // Session-level cache: stable file path → ArrayBuffer
@@ -18,26 +19,40 @@ function stableKey(url: string): string {
   }
 }
 
-export function GaussianSplatViewer({ url }: GaussianSplatViewerProps) {
+export function GaussianSplatViewer({ url, onLoadingChange }: GaussianSplatViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const viewerRef = useRef<any>(null);
   const blobUrlRef = useRef<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // useLayoutEffectt cleanup runs BEFORE React removes DOM nodes.
+  // stop() cancels the rAF loop synchronously so it never fires on a detached
+  // container. dispose() is deferred — calling it while addSplatScene() is still
+  // running internally causes the "removeChild" crash; deferring lets the library
+  // finish its current microtask before we tear down its DOM elements.
+  useLayoutEffect(() => {
+    return () => {
+      const v = viewerRef.current;
+      viewerRef.current = null;
+      if (v) {
+        try { v.stop?.(); } catch {}
+        setTimeout(() => { try { v.dispose?.(); } catch {} }, 0);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!containerRef.current || !url) return;
+    onLoadingChange?.(true);
+    setError(null);
 
     let cancelled = false;
-    setLoading(true);
-    setError(null);
 
     async function init() {
       const GS3D = await import("@mkkellogg/gaussian-splats-3d");
       if (cancelled || !containerRef.current) return;
 
-      // Use cached buffer or fetch and cache it
       const key = stableKey(url);
       let buffer = splatCache.get(key);
       if (!buffer) {
@@ -49,7 +64,12 @@ export function GaussianSplatViewer({ url }: GaussianSplatViewerProps) {
 
       if (cancelled) return;
 
-      // Create a short-lived blob URL from the cached buffer
+      // Stop any previous viewer before creating a new one (url change)
+      if (viewerRef.current) {
+        try { viewerRef.current.stop?.(); viewerRef.current.dispose?.(); } catch {}
+        viewerRef.current = null;
+      }
+
       const blob = new Blob([buffer], { type: "application/octet-stream" });
       const blobUrl = URL.createObjectURL(blob);
       blobUrlRef.current = blobUrl;
@@ -75,7 +95,7 @@ export function GaussianSplatViewer({ url }: GaussianSplatViewerProps) {
       });
 
       if (!cancelled) {
-        setLoading(false);
+        onLoadingChange?.(false);
         viewer.start();
       }
     }
@@ -84,15 +104,16 @@ export function GaussianSplatViewer({ url }: GaussianSplatViewerProps) {
       if (!cancelled) {
         console.error("GaussianSplatViewer:", err);
         setError(String(err));
-        setLoading(false);
+        onLoadingChange?.(false);
       }
     });
 
     return () => {
       cancelled = true;
+      // Stop viewer on url change (container still in DOM — safe to call here).
+      // On unmount the useLayoutEffect above handles this before DOM detach.
       if (viewerRef.current) {
-        viewerRef.current.stop?.();
-        viewerRef.current.dispose?.();
+        try { viewerRef.current.stop?.(); viewerRef.current.dispose?.(); } catch {}
         viewerRef.current = null;
       }
       if (blobUrlRef.current) {
@@ -105,19 +126,12 @@ export function GaussianSplatViewer({ url }: GaussianSplatViewerProps) {
   return (
     <div style={{ width: "100%", height: "100%", position: "relative", background: "#e8eaed" }}>
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
-      {loading && (
-        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, pointerEvents: "none" }}>
-          <div style={{ width: 36, height: 36, border: "3px solid #d1d5db", borderTopColor: "#f97316", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-          <span style={{ fontSize: "0.8rem", color: "#6b7280" }}>Loading 3D model…</span>
-        </div>
-      )}
       {error && (
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, padding: 24 }}>
           <span style={{ fontSize: "0.85rem", color: "#ef4444", fontWeight: 500 }}>Failed to render 3D model</span>
           <span style={{ fontSize: "0.72rem", color: "#9ca3af", textAlign: "center", maxWidth: 320 }}>{error}</span>
         </div>
       )}
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

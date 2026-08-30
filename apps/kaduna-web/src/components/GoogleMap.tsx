@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { matchesFilters } from "@/lib/filters";
 import { PRIORITY_COLORS, type MapProps } from "@/components/Map";
 import { loadGoogleMaps } from "@/lib/googleMaps";
 import { createHeatmapOverlay } from "@/lib/googleHeatmap";
+import { createIncidentOverlay } from "@/lib/googleIncidentLayer";
 
 /**
  * Ops map on the Google Maps JavaScript API — the preferred engine.
@@ -117,10 +119,7 @@ export default function GoogleMap({
     };
 
     const filtered = incidents.filter((inc) => {
-      if (filters.priority.length > 0 && !filters.priority.includes(inc.priority)) return false;
-      if (filters.roadType && filters.roadType !== "all" && inc.roadType !== filters.roadType) return false;
-      if (filters.hour !== null && inc.hour !== filters.hour) return false;
-      return true;
+      return matchesFilters(inc, filters);
     });
 
     // Heatmap first so it sits under everything; z-index rather than add-order
@@ -214,41 +213,22 @@ export default function GoogleMap({
       });
     }
 
-    // Incidents last and highest so one inside a hotspot ring stays clickable.
-    if (layers.incidents) {
-      filtered.forEach((inc) => {
-        const marker = keep(
-          new maps.Marker({
-            position: { lat: inc.lat, lng: inc.lng },
-            zIndex: 30,
-            icon: {
-              path: maps.SymbolPath.CIRCLE,
-              // Pixel radius, same formula as the Leaflet circleMarker.
-              scale: (inc.live ? 7 : 4) + inc.impactScore * 0.5,
-              fillColor: PRIORITY_COLORS[inc.priority] || "#888",
-              fillOpacity: inc.live ? 0.95 : 0.8,
-              strokeColor: inc.live ? "#111827" : "rgba(0,0,0,0.28)",
-              strokeWeight: inc.live ? 3 : 1,
-            },
-            map,
-          })
-        );
-        marker.addListener("click", () => {
-          openInfo(
-            marker,
-            `${inc.live ? '<strong style="color:#F97316">● LIVE REPORT</strong><br/>' : ""}
-             <strong>${inc.id}</strong> — <span style="color:${PRIORITY_COLORS[inc.priority]}">${inc.priority}</span><br/>
-             Score: <strong>${inc.impactScore}/10</strong><br/>
-             ${inc.incidentType.replace(/_/g, " ")} on ${inc.roadType}<br/>
-             ${
-               inc.live && inc.providerName
-                 ? `Dispatched: <strong>${inc.providerName}</strong>`
-                 : `Queue: ${inc.queueKm}km | VHL: ${inc.vhl}`
-             }`
-          );
-          onSelectIncident(inc);
-        });
+    if (layers.incidents && filtered.length > 0) {
+      // One canvas, not one map object per incident. The canvas cannot take
+      // pointer events without swallowing drags, so the map owns the click and
+      // the overlay resolves which incident it landed on.
+      const layer = createIncidentOverlay(maps, filtered, PRIORITY_COLORS);
+      layer.setMap(map);
+      keep(layer);
+
+      // A hotspot ring drawn under the canvas still wins its own clicks; those
+      // layers are off by default, so an incident hidden beneath one is an
+      // accepted edge rather than something to arbitrate here.
+      const click = map.addListener("click", (e: any) => {
+        const hit = e?.latLng ? layer.hitTest(e.latLng) : null;
+        if (hit) onSelectIncident(hit);
       });
+      keep({ setMap: () => click.remove() } as any);
     }
   }, [ready, incidents, hotspots, blackspots, filters, layers, onSelectIncident]);
 

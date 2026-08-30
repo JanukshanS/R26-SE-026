@@ -236,9 +236,15 @@ const PinMap = usingGoogleMaps ? GooglePinMap : LeafletPinMap;
 export default function LocationPicker({
   value,
   onChange,
+  hint,
+  confirmLabel,
 }: {
   value: Coords | null;
   onChange: (c: Coords) => void;
+  /** Overrides the driver-facing prompt for surfaces that are not a call for help. */
+  hint?: React.ReactNode;
+  /** Overrides the label above the chosen place, for the same reason. */
+  confirmLabel?: string;
 }) {
   const [place, setPlace] = useState<string | null>(null);
   const [looking, setLooking] = useState(false);
@@ -272,20 +278,26 @@ export default function LocationPicker({
         {value ? (
           <>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Sending help to
+              {confirmLabel ?? "Sending help to"}
             </p>
             <p className="mt-0.5 font-medium">
               {place ?? (looking ? "Looking up the address…" : "Pin placed on the map")}
             </p>
             <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
-              {value.latitude.toFixed(5)}, {value.longitude.toFixed(5)} — drag the pin if this
-              isn&apos;t exactly where you are.
+              {value.latitude.toFixed(5)}, {value.longitude.toFixed(5)} —{" "}
+              {confirmLabel
+                ? "drag the pin to move it."
+                : "drag the pin if this isn't exactly where you are."}
             </p>
           </>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Tap <span className="font-medium text-foreground">Use my location</span>, or click
-            the map where you&apos;ve broken down. Nobody can be sent without a pin.
+            {hint ?? (
+              <>
+                Tap <span className="font-medium text-foreground">Use my location</span>, or click
+                the map where you&apos;ve broken down. Nobody can be sent without a pin.
+              </>
+            )}
           </p>
         )}
       </div>

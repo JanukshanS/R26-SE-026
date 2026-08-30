@@ -24,6 +24,21 @@ export interface Incident {
   live?: boolean;
   /** Assigned provider name, for live incidents that have been dispatched. */
   providerName?: string;
+  /** Sensitive-location and calendar overlay from geo. Present on live
+   *  incidents; the precomputed research dataset predates it. */
+  sensitivity?: {
+    factor: number;
+    adjusted_score: number;
+    nearby: Array<{
+      type: string;
+      name?: string | null;
+      distance_m?: number | null;
+      boost: number;
+      active: boolean;
+    }>;
+    is_holiday: boolean;
+    is_getaway_eve: boolean;
+  };
 }
 
 export interface Blackspot {
