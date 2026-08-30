@@ -77,7 +77,6 @@
         }
       ],
       "expo-notifications",
-      "expo-audio",
       "./plugins/withBackgroundActionsForegroundServiceType.js"
     ],
     "experiments": {

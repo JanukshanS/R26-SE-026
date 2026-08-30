@@ -132,11 +132,17 @@ export function flowSteps(s: FlowState): StepDef[] {
  * "Step 3 of 7" for the header. `total` is recomputed from current answers, so
  * it can tick up by one when a branch question opens a detail screen — that's
  * honest, and only ever moves by one.
+ *
+ * `whats-wrong` is excluded from the count. It is step one in the flow's
+ * ORDERING — everything else is sequenced after it — but it is the entry grid,
+ * rendered by its own screen rather than QuestionScreen, so it never displays a
+ * counter. Counting it anyway made the first question a driver actually saw
+ * announce itself as "Step 2 of 8", which reads as a step having been skipped.
  */
 export function stepPosition(s: FlowState, route: StepRoute): { index: number; total: number } {
-  const active = flowSteps(s);
-  const i = active.findIndex((step) => step.route === route);
-  return { index: i < 0 ? 1 : i + 1, total: active.length };
+  const counted = flowSteps(s).filter((step) => step.route !== "whats-wrong");
+  const i = counted.findIndex((step) => step.route === route);
+  return { index: i < 0 ? 1 : i + 1, total: counted.length };
 }
 
 /** Where "Next" goes from here. `null` means this was the last question. */

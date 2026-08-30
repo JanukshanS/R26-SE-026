@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { useAudioPlayer } from "expo-audio";
+import { useVideoPlayer } from "expo-video";
 import { Icon } from "@components/ui/icon";
 import { QuestionScreen } from "@components/ui/question-screen";
 import { palette, radii, spacing, typography } from "@theme/index";
@@ -9,36 +10,69 @@ import { useEmergency, MobileSoundId } from "@lib/emergencyContext";
  * The 4 sound options shown in the UI. Each carries the backend's Q3_sound
  * enum value as its `id` so we map straight through when submitting triage.
  *
- * `clip` is a short synthesized reference clip a driver can play to compare
- * against what their own car is doing — a text label like "Grinding Noise"
- * is hard to judge against an unfamiliar sound in the moment. "Nothing at
- * All" has none; there's nothing to demonstrate.
+ * `clip` is a short reference sound the driver can compare against what
+ * their own car is doing — "Grinding Noise" is hard to judge from the words
+ * alone in the moment. "Nothing at All" has none; there is nothing to play.
+ *
+ * Played through expo-video rather than expo-audio: it handles an audio-only
+ * source fine, and it is already in the app's native build (the guided-capture
+ * pose illustrations use it), so adding sound here needs no new native module
+ * and no rebuild.
  */
-const SOUNDS: { id: MobileSoundId; label: string; clip?: ReturnType<typeof require> }[] = [
+const SOUNDS: { id: MobileSoundId; label: string; clip: number | null }[] = [
   { id: "RAPID_CLICKING",  label: "Rapid Clicking",  clip: require("@assets/sounds/rapid-clicking.wav") },
   { id: "NORMAL_CRANKING", label: "Normal Cranking", clip: require("@assets/sounds/normal-cranking.wav") },
   { id: "GRINDING",        label: "Grinding Noise",  clip: require("@assets/sounds/grinding.wav") },
-  { id: "NOTHING",         label: "Nothing at All" },
+  { id: "NOTHING",         label: "Nothing at All",  clip: null },
 ];
 
 export default function DiagnosisSoundScreen() {
   const { sound, setSound } = useEmergency();
+  const [playing, setPlaying] = useState<MobileSoundId | null>(null);
+
+  // One player, re-pointed at whichever clip was tapped. Four players (one
+  // per option) would each hold a decoder open for a sound most drivers
+  // never play.
+  const player = useVideoPlayer(null);
+
+  /**
+   * Tapping an option both selects it and plays its sound — the driver is
+   * picking by ear, so hearing it IS the selection gesture. Tapping the
+   * already-selected one replays it.
+   */
+  async function pick(option: (typeof SOUNDS)[number]) {
+    setSound(option.id);
+    if (!option.clip) {
+      setPlaying(null);
+      return;
+    }
+    try {
+      await player.replaceAsync(option.clip);
+      player.currentTime = 0;
+      player.play();
+      setPlaying(option.id);
+    } catch {
+      // Playback is a convenience, never a blocker — the answer is already
+      // recorded above, so a device that cannot play audio still works.
+      setPlaying(null);
+    }
+  }
 
   return (
     <QuestionScreen
       route="diagnosis-sound"
       prompt="What sound does your vehicle make?"
-      hint="Tap the speaker to hear each one, then select the closest match."
+      hint="Tap one to hear it, and pick the closest match to your car."
       canNext={!!sound}
     >
-
       {SOUNDS.map((s) => (
         <SoundOption
           key={s.id}
           label={s.label}
-          clip={s.clip}
+          audible={s.clip !== null}
           selected={sound === s.id}
-          onPress={() => setSound(s.id)}
+          playing={playing === s.id}
+          onPress={() => pick(s)}
         />
       ))}
     </QuestionScreen>
@@ -47,30 +81,23 @@ export default function DiagnosisSoundScreen() {
 
 function SoundOption({
   label,
-  clip,
+  audible,
   selected,
+  playing,
   onPress,
 }: {
   label: string;
-  clip?: ReturnType<typeof require>;
+  audible: boolean;
   selected: boolean;
+  playing: boolean;
   onPress: () => void;
 }) {
-  // A player with no source is inert — safe to always call the hook (React
-  // requires hooks called unconditionally) even for "Nothing at All".
-  const player = useAudioPlayer(clip ?? null);
-
-  function playClip() {
-    player.seekTo(0);
-    player.play();
-  }
-
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ selected }}
-      accessibilityLabel={label}
+      accessibilityLabel={audible ? `${label}, tap to hear it` : label}
       style={({ pressed }) => ({
         opacity: pressed ? 0.85 : 1,
         backgroundColor: palette.surface,
@@ -81,39 +108,26 @@ function SoundOption({
         padding: spacing.lg,
         flexDirection: "row",
         alignItems: "center",
-        justifyContent: "space-between",
         gap: spacing.md,
       })}
     >
-      {clip ? (
-        <Pressable
-          onPress={playClip}
-          accessibilityRole="button"
-          accessibilityLabel={`Play the ${label} reference sound`}
-          hitSlop={8}
-          style={({ pressed }) => ({
-            opacity: pressed ? 0.7 : 1,
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: palette.brandSoft,
-            alignItems: "center",
-            justifyContent: "center",
-          })}
-        >
-          <Icon name="Volume2" size={18} color={palette.brand} />
-        </Pressable>
+      {audible ? (
+        <Icon
+          name={playing ? "Volume2" : "Play"}
+          size={18}
+          color={playing ? palette.brand : palette.textMuted}
+        />
       ) : (
-        <View style={{ width: 40, height: 40 }} />
+        <Icon name="VolumeX" size={18} color={palette.textMuted} />
       )}
 
       <Text style={{ ...typography.body, color: palette.text, flex: 1 }}>{label}</Text>
 
       <View
         style={{
-          width: 36,
-          height: 36,
-          borderRadius: 18,
+          width: 32,
+          height: 32,
+          borderRadius: 16,
           backgroundColor: selected ? palette.brand : palette.brandSoft,
           alignItems: "center",
           justifyContent: "center",
