@@ -27,21 +27,24 @@ import {
   type PartInput,
   type PartRecord,
 } from "@/lib/marketplaceApi";
+import { useT } from "@/lib/i18n";
 
 const COMPONENTS: ComponentKey[] = ["engine", "brake", "tire", "battery"];
 
 function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const t = useT();
   return (
     <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
       <p>{message}</p>
       <button type="button" onClick={onRetry} className="mt-3 rounded border border-red-300 px-3 py-1 font-medium">
-        Try again
+        {t("admin.action.retry")}
       </button>
     </div>
   );
 }
 
 export function PartsTab() {
+  const t = useT();
   const [rows, setRows] = useState<PartRecord[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<ComponentKey | "">("");
@@ -85,7 +88,7 @@ export function PartsTab() {
   }
 
   async function onDelete(id: string) {
-    if (!confirm("Delete this part?")) return;
+    if (!confirm(t("admin.parts.deleteConfirm"))) return;
     try {
       await deletePart(id);
       reload();
@@ -99,13 +102,13 @@ export function PartsTab() {
       {error ? <ErrorCard message={error} onRetry={reload} /> : null}
 
       <form onSubmit={onCreate} className="grid gap-4 rounded-xl border border-border bg-card p-5 md:grid-cols-2">
-        <h3 className="font-display text-lg font-semibold md:col-span-2">Add part</h3>
+        <h3 className="font-display text-lg font-semibold md:col-span-2">{t("admin.parts.formTitle")}</h3>
         <div className="space-y-2">
-          <Label htmlFor="part-name">Name</Label>
+          <Label htmlFor="part-name">{t("admin.parts.fieldName")}</Label>
           <Input id="part-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="part-component">Component</Label>
+          <Label htmlFor="part-component">{t("admin.parts.fieldComponent")}</Label>
           <select
             id="part-component"
             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -118,7 +121,7 @@ export function PartsTab() {
           </select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="part-price">Price (LKR)</Label>
+          <Label htmlFor="part-price">{t("admin.parts.fieldPrice")}</Label>
           <Input
             id="part-price"
             type="number"
@@ -129,27 +132,27 @@ export function PartsTab() {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="part-brand">Brand</Label>
+          <Label htmlFor="part-brand">{t("admin.parts.fieldBrand")}</Label>
           <Input id="part-brand" value={form.brand ?? ""} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
         </div>
         <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="part-compat">Vehicle compatibility (comma-separated)</Label>
+          <Label htmlFor="part-compat">{t("admin.parts.fieldCompatibility")}</Label>
           <Input id="part-compat" value={compatText} onChange={(e) => setCompatText(e.target.value)} placeholder="Toyota Aqua, Honda City" />
         </div>
         <div className="md:col-span-2">
-          <Button type="submit">Create part</Button>
+          <Button type="submit">{t("admin.parts.submit")}</Button>
         </div>
       </form>
 
       <div className="flex items-center gap-3">
-        <Label htmlFor="part-filter">Filter</Label>
+        <Label htmlFor="part-filter">{t("admin.parts.filterLabel")}</Label>
         <select
           id="part-filter"
           className="h-9 rounded-md border border-input bg-background px-3 text-sm"
           value={filter}
           onChange={(e) => setFilter(e.target.value as ComponentKey | "")}
         >
-          <option value="">All components</option>
+          <option value="">{t("admin.parts.filterAll")}</option>
           {COMPONENTS.map((c) => (
             <option key={c} value={c}>{c}</option>
           ))}
@@ -157,18 +160,18 @@ export function PartsTab() {
       </div>
 
       {!rows ? (
-        <p className="text-sm text-muted-foreground">Loading parts…</p>
+        <p className="text-sm text-muted-foreground">{t("admin.parts.loading")}</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No parts in the catalogue yet.</p>
+        <p className="text-sm text-muted-foreground">{t("admin.parts.empty")}</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Component</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Stock</TableHead>
+                <TableHead>{t("admin.parts.colName")}</TableHead>
+                <TableHead>{t("admin.parts.colComponent")}</TableHead>
+                <TableHead>{t("admin.parts.colPrice")}</TableHead>
+                <TableHead>{t("admin.parts.colStock")}</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
@@ -181,10 +184,10 @@ export function PartsTab() {
                   </TableCell>
                   <TableCell>{row.component}</TableCell>
                   <TableCell>{formatLkr(row.price_lkr)}</TableCell>
-                  <TableCell>{row.in_stock ? "In stock" : "Out"}</TableCell>
+                  <TableCell>{row.in_stock ? t("admin.parts.inStock") : t("admin.parts.outOfStock")}</TableCell>
                   <TableCell>
                     <Button type="button" variant="outline" size="sm" onClick={() => onDelete(row.id)}>
-                      Delete
+                      {t("admin.action.delete")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -198,6 +201,7 @@ export function PartsTab() {
 }
 
 export function GaragesTab() {
+  const t = useT();
   const [rows, setRows] = useState<GarageRecord[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<GarageInput>({ name: "", city: "", services: [], verified: false });
@@ -231,7 +235,7 @@ export function GaragesTab() {
   }
 
   async function onDelete(id: string) {
-    if (!confirm("Delete this garage?")) return;
+    if (!confirm(t("admin.garages.deleteConfirm"))) return;
     try {
       await deleteGarage(id);
       reload();
@@ -245,41 +249,41 @@ export function GaragesTab() {
       {error ? <ErrorCard message={error} onRetry={reload} /> : null}
 
       <form onSubmit={onCreate} className="grid gap-4 rounded-xl border border-border bg-card p-5 md:grid-cols-2">
-        <h3 className="font-display text-lg font-semibold md:col-span-2">Add garage</h3>
+        <h3 className="font-display text-lg font-semibold md:col-span-2">{t("admin.garages.formTitle")}</h3>
         <div className="space-y-2">
-          <Label htmlFor="garage-name">Name</Label>
+          <Label htmlFor="garage-name">{t("admin.garages.fieldName")}</Label>
           <Input id="garage-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="garage-city">City</Label>
+          <Label htmlFor="garage-city">{t("admin.garages.fieldCity")}</Label>
           <Input id="garage-city" value={form.city ?? ""} onChange={(e) => setForm({ ...form, city: e.target.value })} />
         </div>
         <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="garage-address">Address</Label>
+          <Label htmlFor="garage-address">{t("admin.garages.fieldAddress")}</Label>
           <Input id="garage-address" value={form.address ?? ""} onChange={(e) => setForm({ ...form, address: e.target.value })} />
         </div>
         <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="garage-services">Services (comma-separated)</Label>
+          <Label htmlFor="garage-services">{t("admin.garages.fieldServices")}</Label>
           <Input id="garage-services" value={servicesText} onChange={(e) => setServicesText(e.target.value)} />
         </div>
         <div className="md:col-span-2">
-          <Button type="submit">Create garage</Button>
+          <Button type="submit">{t("admin.garages.submit")}</Button>
         </div>
       </form>
 
       {!rows ? (
-        <p className="text-sm text-muted-foreground">Loading garages…</p>
+        <p className="text-sm text-muted-foreground">{t("admin.garages.loading")}</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No garages in the directory yet.</p>
+        <p className="text-sm text-muted-foreground">{t("admin.garages.empty")}</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>City</TableHead>
-                <TableHead>Services</TableHead>
-                <TableHead>Rating</TableHead>
+                <TableHead>{t("admin.garages.colName")}</TableHead>
+                <TableHead>{t("admin.garages.colCity")}</TableHead>
+                <TableHead>{t("admin.garages.colServices")}</TableHead>
+                <TableHead>{t("admin.garages.colRating")}</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
@@ -298,14 +302,14 @@ export function GaragesTab() {
                         warning for the same reason. */}
                     {row.services.length === 0 ? (
                       <div className="text-xs text-amber-600 mt-1">
-                        Not shown to drivers — no service matches engine, brake, tyre or battery
+                        {t("admin.garages.unmatchedServices")}
                       </div>
                     ) : null}
                   </TableCell>
                   <TableCell>{row.rating != null ? row.rating.toFixed(1) : "—"}</TableCell>
                   <TableCell>
                     <Button type="button" variant="outline" size="sm" onClick={() => onDelete(row.id)}>
-                      Delete
+                      {t("admin.action.delete")}
                     </Button>
                   </TableCell>
                 </TableRow>

@@ -8,29 +8,31 @@
  */
 import { OptionCard } from "@components/ui/option-card";
 import { QuestionScreen } from "@components/ui/question-screen";
+import { useT } from "@lib/i18n";
 import { useEmergency, type GearDetailChoice } from "@lib/emergencyContext";
 
-const OPTIONS: { value: NonNullable<GearDetailChoice>; title: string; description: string }[] = [
-  { value: "SLIPPING",    title: "Revs rise but no speed gain",          description: "Clutch slipping" },
-  { value: "WONT_ENGAGE", title: "Gear won't engage",                    description: "Transmission issue" },
-  { value: "GRINDING",    title: "Grinding when shifting",                description: "Synchros worn / clutch not disengaging" },
-  { value: "CLUTCH_SOFT", title: "Clutch pedal soft / sinks to the floor", description: "Clutch hydraulic failure" },
+const OPTIONS: { value: NonNullable<GearDetailChoice>; titleKey: string; descriptionKey: string }[] = [
+  { value: "SLIPPING",    titleKey: "emergency.gearDetail.slippingTitle",   descriptionKey: "emergency.gearDetail.slippingDesc" },
+  { value: "WONT_ENGAGE", titleKey: "emergency.gearDetail.wontEngageTitle", descriptionKey: "emergency.gearDetail.wontEngageDesc" },
+  { value: "GRINDING",    titleKey: "emergency.gearDetail.grindingTitle",   descriptionKey: "emergency.gearDetail.grindingDesc" },
+  { value: "CLUTCH_SOFT", titleKey: "emergency.gearDetail.clutchSoftTitle", descriptionKey: "emergency.gearDetail.clutchSoftDesc" },
 ];
 
 export default function GearDetailScreen() {
+  const t = useT();
   const { gearDetail, setGearDetail } = useEmergency();
 
   return (
     <QuestionScreen
       route="gear-detail"
-      prompt={"What's the gearbox doing?"}
+      prompt={t("emergency.gearDetail.prompt")}
       canNext={!!gearDetail}
     >
       {OPTIONS.map((o) => (
         <OptionCard
           key={o.value}
-          title={o.title}
-          description={o.description}
+          title={t(o.titleKey)}
+          description={t(o.descriptionKey)}
           selected={gearDetail === o.value}
           onPress={() => setGearDetail(o.value)}
         />

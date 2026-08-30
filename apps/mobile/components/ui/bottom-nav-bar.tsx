@@ -5,6 +5,7 @@ import { Icon, type IconName } from "@components/ui/icon";
 import { palette, spacing, typography } from "@theme/index";
 import { haptics } from "@lib/haptics";
 import { useVehicleOptional } from "@lib/vehicleContext";
+import { useT } from "@lib/i18n";
 
 // Exported so screens can calculate scroll content padding correctly
 export const NAV_BAR_HEIGHT = 56;
@@ -16,15 +17,15 @@ export const NAV_BAR_HEIGHT = 56;
 const EMERGENCY_OVERHANG = 28;
 
 type TabKey = "home" | "maintenance" | "store" | "profile";
-type TabDef = { key: TabKey; label: string; icon: IconName };
+type TabDef = { key: TabKey; labelKey: string; icon: IconName };
 
 const TABS_LEFT: TabDef[] = [
-  { key: "home", label: "Home", icon: "House" },
-  { key: "maintenance", label: "Maintenance", icon: "Wrench" },
+  { key: "home", labelKey: "components.nav.home", icon: "House" },
+  { key: "maintenance", labelKey: "components.nav.maintenance", icon: "Wrench" },
 ];
 const TABS_RIGHT: TabDef[] = [
-  { key: "store", label: "Store", icon: "Store" },
-  { key: "profile", label: "Profile", icon: "User" },
+  { key: "store", labelKey: "components.nav.store", icon: "Store" },
+  { key: "profile", labelKey: "components.nav.profile", icon: "User" },
 ];
 
 // Resolved pathnames of each tab's destination (route groups don't appear in
@@ -86,6 +87,7 @@ export function BottomNavBar({ activeTab }: { activeTab: TabKey }) {
 }
 
 function EmergencyCenterButton() {
+  const t = useT();
   return (
     <Pressable
       onPress={() => {
@@ -93,7 +95,7 @@ function EmergencyCenterButton() {
         router.push("/(emergency)/whats-wrong");
       }}
       accessibilityRole="button"
-      accessibilityLabel="Emergency assistance"
+      accessibilityLabel={t("components.nav.emergency")}
       style={({ pressed }) => ({
         opacity: pressed ? 0.88 : 1,
         width: 56,
@@ -122,6 +124,7 @@ function EmergencyCenterButton() {
 function TabItem({ tab, active }: { tab: TabDef; active: boolean }) {
   // Optional: this bar now also renders inside route groups (e.g. (insurance))
   // that don't mount VehicleProvider — falls back to the plain profile icon there.
+  const t = useT();
   const user = useVehicleOptional()?.user ?? null;
   const pathname = usePathname();
   const initials = user?.name
@@ -186,7 +189,7 @@ function TabItem({ tab, active }: { tab: TabDef; active: boolean }) {
         adjustsFontSizeToFit
         minimumFontScale={0.85}
       >
-        {tab.label}
+        {t(tab.labelKey)}
       </Text>
     </Pressable>
   );

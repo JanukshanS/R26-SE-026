@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useT } from "@/lib/i18n";
 import type { Incident } from "@/lib/types";
 
 /**
@@ -39,6 +40,7 @@ export default function DayRibbon({
   selectedHour: number | null;
   onSelectHour: (h: number | null) => void;
 }) {
+  const t = useT();
   const scores = HOURS.map((h) => byHour[String(h)] ?? 0);
   const max = Math.max(...scores, 1);
   const counts = HOURS.map((h) => incidents.filter((i) => i.hour === h).length);
@@ -53,21 +55,24 @@ export default function DayRibbon({
       <CardContent className="p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <div>
-            <h2 className="text-sm font-medium">Impact by hour</h2>
+            <h2 className="text-sm font-medium">{t("dashboard.dayRibbon.title")}</h2>
             <p className="text-sm text-muted-foreground">
-              Peaks at {label(peak)} · {scores[peak].toFixed(1)} of 10. Outlined bars are hours
-              with fewer than {SPARSE_N} incidents. Select an hour to filter the map.
+              {t("dashboard.dayRibbon.subtitle", {
+                hour: label(peak),
+                score: scores[peak].toFixed(1),
+                sparse: SPARSE_N,
+              })}
             </p>
           </div>
           {selectedHour !== null && (
             <Button size="sm" variant="secondary" onClick={() => onSelectHour(null)} className="gap-1.5">
               <X className="size-3.5" aria-hidden />
-              {label(selectedHour)} · clear
+              {t("dashboard.dayRibbon.clear", { hour: label(selectedHour) })}
             </Button>
           )}
         </div>
 
-        <div className="relative flex h-24 items-end gap-1" role="group" aria-label="Filter by hour of day">
+        <div className="relative flex h-24 items-end gap-1" role="group" aria-label={t("dashboard.dayRibbon.groupLabel")}>
           <div
             aria-hidden
             className="pointer-events-none absolute inset-x-0 border-t border-dashed border-border"
@@ -84,9 +89,10 @@ export default function DayRibbon({
                   <button
                     onClick={() => onSelectHour(selected ? null : h)}
                     aria-pressed={selected}
-                    aria-label={`${label(h)}, impact ${score.toFixed(1)} of 10, ${counts[h]} incidents${
-                      sparse ? ", too few to be a pattern" : ""
-                    }`}
+                    aria-label={t(
+                      sparse ? "dashboard.dayRibbon.barA11ySparse" : "dashboard.dayRibbon.barA11y",
+                      { hour: label(h), score: score.toFixed(1), n: counts[h] }
+                    )}
                     className="group flex h-full flex-1 flex-col justify-end rounded-sm outline-offset-2 transition-opacity"
                     style={{ opacity: dimmed ? 0.35 : 1 }}
                   >
@@ -109,10 +115,15 @@ export default function DayRibbon({
                 <TooltipContent>
                   <p className="font-medium">{label(h)}</p>
                   <p className="text-muted-foreground">
-                    {score > 0 ? `${score.toFixed(1)} of 10` : "No data"} · {counts[h]} incidents
+                    {score > 0
+                      ? t("dashboard.dayRibbon.tooltipBody", {
+                          score: score.toFixed(1),
+                          n: counts[h],
+                        })
+                      : t("dashboard.dayRibbon.tooltipBodyNoData", { n: counts[h] })}
                   </p>
                   {sparse && (
-                    <p className="text-muted-foreground">Too few to be a pattern</p>
+                    <p className="text-muted-foreground">{t("dashboard.dayRibbon.sparse")}</p>
                   )}
                 </TooltipContent>
               </Tooltip>

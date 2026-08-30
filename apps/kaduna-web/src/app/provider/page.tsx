@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import ImpactChip from "@/components/ImpactChip";
 import PortalShell, { EmptyCard } from "@/components/portal/PortalShell";
 import RequireAuth, { useAuth } from "@/lib/auth";
+import { useT, type Translate } from "@/lib/i18n";
 import {
   DispatchApiError,
   enumLabel,
@@ -24,34 +25,37 @@ const ACTIVE_JOB_STATUSES = ["PROVIDER_ASSIGNED", "EN_ROUTE", "ON_SCENE"];
 const CLOSED_JOB_STATUSES = ["RESOLVED", "ESCALATED"];
 const POLL_INTERVAL_MS = 5000;
 
-function describe(err: unknown): string {
+function describe(err: unknown, t: Translate): string {
   return err instanceof DispatchApiError && err.status === 403
-    ? "Your account isn't linked to this provider profile. Sign out and set it up again."
+    ? t("provider.error.notLinked")
     : (err as Error).message;
 }
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: Translate): string {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} min ago`;
+  if (mins < 1) return t("provider.timeAgo.justNow");
+  if (mins < 60) return t("provider.timeAgo.minutes", { count: mins });
   const hours = Math.floor(mins / 60);
-  return hours < 24 ? `${hours} h ago` : `${Math.floor(hours / 24)} d ago`;
+  return hours < 24
+    ? t("provider.timeAgo.hours", { count: hours })
+    : t("provider.timeAgo.days", { count: Math.floor(hours / 24) });
 }
 
 /** Label + tone per incident status, matching the mobile provider screens. */
 const STATUS_BADGE: Record<string, [string, string]> = {
-  PROVIDER_ASSIGNED: ["New job", "bg-amber-100 text-amber-900"],
-  EN_ROUTE: ["En route", "bg-primary/15 text-primary"],
-  ON_SCENE: ["On scene", "bg-primary/15 text-primary"],
-  RESOLVED: ["Resolved", "bg-emerald-100 text-emerald-900"],
-  ESCALATED: ["Escalated", "bg-red-100 text-red-900"],
+  PROVIDER_ASSIGNED: ["provider.jobStatus.new", "bg-amber-100 text-amber-900"],
+  EN_ROUTE: ["provider.jobStatus.enRoute", "bg-primary/15 text-primary"],
+  ON_SCENE: ["provider.jobStatus.onScene", "bg-primary/15 text-primary"],
+  RESOLVED: ["provider.jobStatus.resolved", "bg-emerald-100 text-emerald-900"],
+  ESCALATED: ["provider.jobStatus.escalated", "bg-red-100 text-red-900"],
 };
 
 function Badge({ status }: { status: string }) {
-  const [label, tone] = STATUS_BADGE[status] ?? [
-    enumLabel(status),
-    "bg-muted text-muted-foreground",
-  ];
+  const t = useT();
+  const badge = STATUS_BADGE[status];
+  const [label, tone] = badge
+    ? [t(badge[0]), badge[1]]
+    : [enumLabel(status), "bg-muted text-muted-foreground"];
   return (
     <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${tone}`}>{label}</span>
   );
@@ -75,6 +79,7 @@ function JobCard({
   error?: string;
   children?: React.ReactNode;
 }) {
+  const t = useT();
   const service = job.triageResponse?.predictedServiceType;
   const km = provider ? haversineKm(provider, job) : null;
   const vehicle = [job.vehicleMake, job.vehicleModel, job.vehicleYear]
@@ -85,7 +90,7 @@ function JobCard({
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="font-display text-lg font-semibold tracking-tight">
-          {service ? enumLabel(service) : "Roadside assistance"}
+          {service ? enumLabel(service) : t("provider.job.defaultService")}
         </h3>
         <Badge status={job.status} />
         <ImpactChip
@@ -97,7 +102,9 @@ function JobCard({
         />
         {job.triageResponse?.confidence != null && (
           <span className="text-xs text-muted-foreground">
-            {(job.triageResponse.confidence * 100).toFixed(0)}% confidence
+            {t("provider.job.confidence", {
+              percent: (job.triageResponse.confidence * 100).toFixed(0),
+            })}
             {job.triageResponse.tier ? ` · ${enumLabel(job.triageResponse.tier)}` : ""}
           </span>
         )}
@@ -105,22 +112,30 @@ function JobCard({
 
       <dl className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <dt className="text-xs uppercase tracking-wide text-muted-foreground">Distance</dt>
-          <dd>{km !== null ? `${km.toFixed(1)} km away` : "—"}</dd>
+          <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t("provider.job.rowDistance")}
+          </dt>
+          <dd>{km !== null ? t("provider.job.kmAway", { km: km.toFixed(1) }) : "—"}</dd>
         </div>
         <div>
-          <dt className="text-xs uppercase tracking-wide text-muted-foreground">Location</dt>
+          <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t("provider.job.rowLocation")}
+          </dt>
           <dd>
             {job.latitude.toFixed(4)}, {job.longitude.toFixed(4)}
           </dd>
         </div>
         <div>
-          <dt className="text-xs uppercase tracking-wide text-muted-foreground">Reported</dt>
-          <dd>{timeAgo(job.createdAt)}</dd>
+          <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t("provider.job.rowReported")}
+          </dt>
+          <dd>{timeAgo(job.createdAt, t)}</dd>
         </div>
         <div>
-          <dt className="text-xs uppercase tracking-wide text-muted-foreground">Vehicle</dt>
-          <dd>{vehicle || "Not provided"}</dd>
+          <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t("provider.job.rowVehicle")}
+          </dt>
+          <dd>{vehicle || t("provider.job.vehicleUnknown")}</dd>
         </div>
       </dl>
 
@@ -140,6 +155,7 @@ function JobCard({
 }
 
 function ProviderConsole({ providerId }: { providerId: string }) {
+  const t = useT();
   const [provider, setProvider] = useState<ProviderRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -160,11 +176,11 @@ function ProviderConsole({ providerId }: { providerId: string }) {
     try {
       setProvider(await getProvider(providerId));
     } catch (err) {
-      setError(describe(err));
+      setError(describe(err, t));
     } finally {
       setLoading(false);
     }
-  }, [providerId]);
+  }, [providerId, t]);
 
   useEffect(() => {
     loadProvider();
@@ -211,7 +227,7 @@ function ProviderConsole({ providerId }: { providerId: string }) {
         setJobs(next);
         setJobsError(null);
       } catch (err) {
-        if (!cancelled) setJobsError(describe(err));
+        if (!cancelled) setJobsError(describe(err, t));
       } finally {
         inFlight = false;
       }
@@ -228,7 +244,7 @@ function ProviderConsole({ providerId }: { providerId: string }) {
       clearInterval(handle);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [provider, offline, loadJobs, loadHistory]);
+  }, [provider, offline, loadJobs, loadHistory, t]);
 
   async function toggleStatus() {
     if (!provider) return;
@@ -240,7 +256,7 @@ function ProviderConsole({ providerId }: { providerId: string }) {
       setProvider(await updateProviderStatus(provider.id, next));
     } catch (err) {
       setProvider(previous);
-      setError(describe(err));
+      setError(describe(err, t));
     } finally {
       setStatusBusy(false);
     }
@@ -259,13 +275,13 @@ function ProviderConsole({ providerId }: { providerId: string }) {
             })
           );
         } catch (err) {
-          setError(describe(err));
+          setError(describe(err, t));
         } finally {
           setLocationBusy(false);
         }
       },
       () => {
-        setError("Couldn't read your location. Allow location access and try again.");
+        setError(t("provider.error.location"));
         setLocationBusy(false);
       }
     );
@@ -282,7 +298,7 @@ function ProviderConsole({ providerId }: { providerId: string }) {
           : (prev ?? []).filter((j) => j.id !== job.id)
       );
     } catch (err) {
-      setJobError((prev) => ({ ...prev, [job.id]: describe(err) }));
+      setJobError((prev) => ({ ...prev, [job.id]: describe(err, t) }));
       if (err instanceof DispatchApiError && err.status === 409) {
         loadJobs().then(setJobs, () => {});
       }
@@ -296,7 +312,7 @@ function ProviderConsole({ providerId }: { providerId: string }) {
     if (!Number.isFinite(minutes) || minutes < 0 || minutes > 480) {
       setJobError((prev) => ({
         ...prev,
-        [job.id]: "Enter how long the job took, in minutes (0–480).",
+        [job.id]: t("provider.resolve.minutesError"),
       }));
       return;
     }
@@ -315,7 +331,7 @@ function ProviderConsole({ providerId }: { providerId: string }) {
       setJobs((prev) => (prev ?? []).filter((j) => j.id !== job.id));
       void loadHistory().catch(() => {});
     } catch (err) {
-      setJobError((prev) => ({ ...prev, [job.id]: describe(err) }));
+      setJobError((prev) => ({ ...prev, [job.id]: describe(err, t) }));
     } finally {
       setBusyJobId(null);
     }
@@ -340,7 +356,7 @@ function ProviderConsole({ providerId }: { providerId: string }) {
           <div>
             <div className="flex items-center gap-3">
               <h2 className="font-display text-2xl font-bold tracking-tight">
-                {loading ? "Loading…" : (provider?.name ?? "Provider")}
+                {loading ? t("provider.console.loading") : (provider?.name ?? t("provider.console.fallbackName"))}
               </h2>
               <span
                 className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -349,12 +365,17 @@ function ProviderConsole({ providerId }: { providerId: string }) {
                     : "bg-muted text-muted-foreground"
                 }`}
               >
-                {provider ? (online ? "Available" : enumLabel(provider.status)) : "—"}
+                {provider ? (online ? t("provider.console.statusAvailable") : enumLabel(provider.status)) : "—"}
               </span>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              {provider ? enumLabel(provider.type) : "Provider"} · {providerId}
-              {provider ? ` · trust ${(provider.trustScore * 100).toFixed(0)}%` : ""}
+              {provider
+                ? t("provider.console.meta", {
+                    type: enumLabel(provider.type),
+                    id: providerId,
+                    percent: (provider.trustScore * 100).toFixed(0),
+                  })
+                : t("provider.console.metaLoading", { id: providerId })}
             </p>
           </div>
 
@@ -365,7 +386,7 @@ function ProviderConsole({ providerId }: { providerId: string }) {
               disabled={!provider || locationBusy}
               className="rounded-md border border-input px-3 py-2 text-sm font-medium hover:bg-accent disabled:opacity-60"
             >
-              {locationBusy ? <Spinner /> : "Update location"}
+              {locationBusy ? <Spinner /> : t("provider.action.updateLocation")}
             </button>
             <button
               type="button"
@@ -378,7 +399,7 @@ function ProviderConsole({ providerId }: { providerId: string }) {
                   : "bg-primary text-primary-foreground hover:opacity-90"
               }`}
             >
-              {statusBusy && <Spinner />} {online ? "Go offline" : "Go online"}
+              {statusBusy && <Spinner />} {online ? t("provider.action.goOffline") : t("provider.action.goOnline")}
             </button>
           </div>
         </div>
@@ -391,7 +412,7 @@ function ProviderConsole({ providerId }: { providerId: string }) {
               onClick={loadProvider}
               className="mt-2 rounded border border-red-300 px-3 py-1 font-medium hover:bg-red-100"
             >
-              Try again
+              {t("provider.action.tryAgain")}
             </button>
           </div>
         )}
@@ -400,39 +421,41 @@ function ProviderConsole({ providerId }: { providerId: string }) {
       {/* No provider record means the poll never starts — don't spin forever. */}
       {!provider ? null : offline ? (
         <EmptyCard
-          title="You're offline"
-          body="Go online to start receiving dispatch offers. While you're offline, dispatch routes jobs to other providers."
+          title={t("provider.offline.title")}
+          body={t("provider.offline.body")}
         />
       ) : (
         <>
           <section className="space-y-4">
             <h2 className="font-display text-lg font-semibold tracking-tight">
-              Job offers{offered.length ? ` (${offered.length})` : ""}
+              {offered.length
+                ? t("provider.jobs.offersCount", { n: offered.length })
+                : t("provider.jobs.offers")}
             </h2>
 
             {jobsError ? (
               <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
-                <p className="font-medium">Couldn&apos;t load your jobs</p>
+                <p className="font-medium">{t("provider.jobs.errorTitle")}</p>
                 <p className="mt-1">{jobsError}</p>
                 <button
                   type="button"
                   onClick={() => loadJobs().then(
                     (next) => { setJobs(next); setJobsError(null); },
-                    (err) => setJobsError(describe(err))
+                    (err) => setJobsError(describe(err, t))
                   )}
                   className="mt-3 rounded border border-red-300 px-3 py-1 font-medium hover:bg-red-100"
                 >
-                  Retry
+                  {t("provider.action.retry")}
                 </button>
               </div>
             ) : jobs === null ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-                <Spinner /> Loading your queue…
+                <Spinner /> {t("provider.jobs.loading")}
               </div>
             ) : offered.length === 0 ? (
               <EmptyCard
-                title="No jobs waiting"
-                body="Dispatch offers appear here within a few seconds of a nearby driver needing the service you provide."
+                title={t("provider.jobs.emptyTitle")}
+                body={t("provider.jobs.emptyBody")}
               />
             ) : (
               offered.map((job) =>
@@ -445,7 +468,7 @@ function ProviderConsole({ providerId }: { providerId: string }) {
                       disabled={busyJobId === job.id}
                       className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60"
                     >
-                      {busyJobId === job.id && <Spinner />} Accept job
+                      {busyJobId === job.id && <Spinner />} {t("provider.action.accept")}
                     </button>
                     <button
                       type="button"
@@ -453,7 +476,7 @@ function ProviderConsole({ providerId }: { providerId: string }) {
                       disabled={busyJobId === job.id}
                       className="rounded-md border border-input px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-60"
                     >
-                      Decline
+                      {t("provider.action.decline")}
                     </button>
                   </div>
                 )
@@ -463,7 +486,9 @@ function ProviderConsole({ providerId }: { providerId: string }) {
 
           {active.length > 0 && (
             <section className="space-y-4">
-              <h2 className="font-display text-lg font-semibold tracking-tight">Active job</h2>
+              <h2 className="font-display text-lg font-semibold tracking-tight">
+                {t("provider.section.activeJob")}
+              </h2>
               {active.map((job) =>
                 card(
                   job,
@@ -476,13 +501,12 @@ function ProviderConsole({ providerId }: { providerId: string }) {
                       }}
                     >
                       <p className="text-sm text-muted-foreground">
-                        Report what you actually did — it trains the prediction for the next
-                        driver.
+                        {t("provider.resolve.intro")}
                       </p>
                       <div className="flex flex-wrap gap-3">
                         <label className="text-sm">
                           <span className="block text-xs uppercase tracking-wide text-muted-foreground">
-                            Service performed
+                            {t("provider.resolve.serviceLabel")}
                           </span>
                           <select
                             name="actualServiceType"
@@ -491,17 +515,16 @@ function ProviderConsole({ providerId }: { providerId: string }) {
                           >
                             {serviceOptions(job, provider).map((st) => (
                               <option key={st} value={st}>
-                                {enumLabel(st)}
                                 {st === job.triageResponse?.predictedServiceType
-                                  ? " (predicted)"
-                                  : ""}
+                                  ? t("provider.resolve.optionPredicted", { service: enumLabel(st) })
+                                  : enumLabel(st)}
                               </option>
                             ))}
                           </select>
                         </label>
                         <label className="text-sm">
                           <span className="block text-xs uppercase tracking-wide text-muted-foreground">
-                            Minutes on the job
+                            {t("provider.resolve.minutesLabel")}
                           </span>
                           <input
                             name="minutes"
@@ -524,18 +547,18 @@ function ProviderConsole({ providerId }: { providerId: string }) {
                       </div>
                       <label className="block text-sm">
                         <span className="block text-xs uppercase tracking-wide text-muted-foreground">
-                          Notes (optional)
+                          {t("provider.resolve.notesLabel")}
                         </span>
                         <input
                           name="notes"
                           maxLength={1000}
-                          placeholder="Anything the next provider should know"
+                          placeholder={t("provider.resolve.notesPlaceholder")}
                           className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                         />
                       </label>
                       <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <input name="escalationNeeded" type="checkbox" />I couldn&apos;t
-                        complete this — it needs escalation.
+                        <input name="escalationNeeded" type="checkbox" />
+                        {t("provider.resolve.escalation")}
                       </label>
                       <div className="flex gap-2">
                         <button
@@ -543,14 +566,14 @@ function ProviderConsole({ providerId }: { providerId: string }) {
                           disabled={busyJobId === job.id}
                           className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60"
                         >
-                          {busyJobId === job.id && <Spinner />} Submit resolution
+                          {busyJobId === job.id && <Spinner />} {t("provider.action.submitResolution")}
                         </button>
                         <button
                           type="button"
                           onClick={() => setResolving(null)}
                           className="rounded-md border border-input px-4 py-2 text-sm font-medium hover:bg-accent"
                         >
-                          Cancel
+                          {t("provider.action.cancel")}
                         </button>
                       </div>
                     </form>
@@ -561,7 +584,7 @@ function ProviderConsole({ providerId }: { providerId: string }) {
                         onClick={() => setResolving(job.id)}
                         className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
                       >
-                        Report outcome
+                        {t("provider.action.reportOutcome")}
                       </button>
                     </div>
                   )
@@ -573,7 +596,7 @@ function ProviderConsole({ providerId }: { providerId: string }) {
           {history.length > 0 && (
             <section className="space-y-3">
               <h2 className="font-display text-lg font-semibold tracking-tight">
-                Recent history
+                {t("provider.section.history")}
               </h2>
               <ul className="divide-y divide-border rounded-xl border border-border bg-card">
                 {history.map((job) => (
@@ -581,11 +604,11 @@ function ProviderConsole({ providerId }: { providerId: string }) {
                     <span className="font-medium">
                       {job.triageResponse?.predictedServiceType
                         ? enumLabel(job.triageResponse.predictedServiceType)
-                        : "Roadside assistance"}
+                        : t("provider.job.defaultService")}
                     </span>
                     <Badge status={job.status} />
                     <span className="ml-auto text-muted-foreground">
-                      {timeAgo(job.resolvedAt ?? job.updatedAt)}
+                      {timeAgo(job.resolvedAt ?? job.updatedAt, t)}
                     </span>
                   </li>
                 ))}
@@ -608,13 +631,14 @@ function serviceOptions(job: AssignedIncident, provider: ProviderRecord | null):
 /* Client because the body branches on profile.provider_id, which only exists
    once the session's profile has loaded. */
 function ProviderBody() {
+  const t = useT();
   const { profile } = useAuth();
 
   if (!profile?.provider_id) {
     return (
       <EmptyCard
-        title="You're not registered as a provider yet"
-        body="Registration happens in the mobile app for now — download Kaduna.lk, switch to provider mode and complete your details. This console unlocks once your provider account is linked."
+        title={t("provider.notRegistered.title")}
+        body={t("provider.notRegistered.body")}
       />
     );
   }
@@ -625,10 +649,11 @@ function ProviderBody() {
 /** Mobile parity: flip the provider OFFLINE before the session dies, so a
  *  signed-out operator stops receiving dispatches. */
 function ProviderPortal() {
+  const t = useT();
   const providerId = useAuth().profile?.provider_id;
   return (
     <PortalShell
-      title="Provider Console"
+      title={t("provider.title")}
       onBeforeSignOut={
         providerId
           ? async () => {

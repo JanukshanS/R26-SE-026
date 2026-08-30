@@ -3,25 +3,27 @@ import { Icon } from "@components/ui/icon";
 import { QuestionScreen } from "@components/ui/question-screen";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useEmergency, type RecentSign } from "@lib/emergencyContext";
+import { useT } from "@lib/i18n";
 
-const OPTIONS: { value: RecentSign; title: string; subtitle: string }[] = [
-  { value: "HARD_START",         title: "Engine was harder to start",  subtitle: "Cranking has been getting slower" },
-  { value: "LIGHTS_FLICKER",     title: "Dashboard lights flickering", subtitle: "Lights dim or flicker while driving" },
-  { value: "LOSS_OF_POWER",      title: "Lost power while driving",    subtitle: "Sudden drop in acceleration" },
-  { value: "OVERHEATING_BEFORE", title: "Temperature gauge went up",   subtitle: "Engine ran hot before" },
-  { value: "UNUSUAL_NOISE",      title: "Unusual noise recently",      subtitle: "New rattle, squeal, or grind" },
-  { value: "SMELL_BEFORE",       title: "Noticed a smell in past days", subtitle: "Something didn't smell right" },
-  { value: "NO_SIGNS",           title: "No warning signs",            subtitle: "Happened suddenly with no warning" },
+const OPTIONS: { value: RecentSign; titleKey: string; subtitleKey: string }[] = [
+  { value: "HARD_START",         titleKey: "emergency.recent.hardStartTitle",   subtitleKey: "emergency.recent.hardStartSubtitle" },
+  { value: "LIGHTS_FLICKER",     titleKey: "emergency.recent.flickerTitle",     subtitleKey: "emergency.recent.flickerSubtitle" },
+  { value: "LOSS_OF_POWER",      titleKey: "emergency.recent.lossOfPowerTitle", subtitleKey: "emergency.recent.lossOfPowerSubtitle" },
+  { value: "OVERHEATING_BEFORE", titleKey: "emergency.recent.overheatTitle",    subtitleKey: "emergency.recent.overheatSubtitle" },
+  { value: "UNUSUAL_NOISE",      titleKey: "emergency.recent.noiseTitle",       subtitleKey: "emergency.recent.noiseSubtitle" },
+  { value: "SMELL_BEFORE",       titleKey: "emergency.recent.smellTitle",       subtitleKey: "emergency.recent.smellSubtitle" },
+  { value: "NO_SIGNS",           titleKey: "emergency.recent.noSignsTitle",     subtitleKey: "emergency.recent.noSignsSubtitle" },
 ];
 
 export default function RecentScreen() {
+  const t = useT();
   const { recentSigns, toggleRecentSign } = useEmergency();
 
   return (
     <QuestionScreen
       route="recent"
-      prompt="Any warning signs in the past few days?"
-      hint="Tap all that apply."
+      prompt={t("emergency.recent.prompt")}
+      hint={t("emergency.recent.hint")}
       canNext={recentSigns.size > 0}
     >
 
@@ -56,8 +58,8 @@ export default function RecentScreen() {
               {active && <Icon name="Check" size={14} color={palette.textOnBrand} />}
             </View>
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ ...typography.bodyStrong, color: palette.text }}>{o.title}</Text>
-              <Text style={{ ...typography.caption, color: palette.textMuted }}>{o.subtitle}</Text>
+              <Text style={{ ...typography.bodyStrong, color: palette.text }}>{t(o.titleKey)}</Text>
+              <Text style={{ ...typography.caption, color: palette.textMuted }}>{t(o.subtitleKey)}</Text>
             </View>
           </Pressable>
         );

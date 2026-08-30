@@ -13,11 +13,13 @@ import {
 } from '@/features/guided-capture/storage/guided-capture-intro-seen-store';
 import { loadGuidedCaptureStoreState } from '@/features/guided-capture/storage/guided-capture-store';
 import { HEIGHT_STEPS } from '@/features/guided-capture/types';
+import { useT } from '@/lib/i18n';
 
 const ORANGE = '#f97316';
 const TEXT = '#111111';
 
 export default function GuidedCaptureIntroScreen() {
+  const t = useT();
   const router = useRouter();
   const navigation = useNavigation();
   const { requiredDone, locked } = useLocalSearchParams<{ requiredDone?: string; locked?: string }>();
@@ -97,21 +99,21 @@ export default function GuidedCaptureIntroScreen() {
               style={({ pressed }) => [styles.headerBack, pressed && styles.pressed]}
               hitSlop={12}
               accessibilityRole="button"
-              accessibilityLabel="Go back">
+              accessibilityLabel={t('insurance.action.back')}>
               <View style={styles.headerChevronWrap} collapsable={false}>
                 <Ionicons name="chevron-back" size={22} color={TEXT} />
               </View>
-              <Text style={styles.headerTitle}>Guided capture camera angles</Text>
+              <Text style={styles.headerTitle}>{t('insurance.captureIntro.title')}</Text>
             </Pressable>
           ) : (
-            <Text style={styles.headerTitle}>Guided Capture</Text>
+            <Text style={styles.headerTitle}>{t('insurance.captureIntro.titleShort')}</Text>
           )}
         </View>
 
         {hasRequiredPhotos ? (
           <View style={styles.doneBanner}>
             <Ionicons name="checkmark-circle" size={20} color={ORANGE} style={styles.doneBannerIcon} />
-            <Text style={styles.doneBannerText}>The required images are captured.</Text>
+            <Text style={styles.doneBannerText}>{t('insurance.captureIntro.requiredDone')}</Text>
           </View>
         ) : null}
 
@@ -122,8 +124,8 @@ export default function GuidedCaptureIntroScreen() {
             style={({ pressed }) => [styles.nextBtn, pressed && styles.nextPressed]}
             onPress={onNextPress}
             accessibilityRole="button"
-            accessibilityLabel="Continue to camera">
-            <Text style={styles.nextBtnText}>Next</Text>
+            accessibilityLabel={t('insurance.captureIntro.nextA11y')}>
+            <Text style={styles.nextBtnText}>{t('insurance.captureIntro.next')}</Text>
           </Pressable>
         </View>
       </ScrollView>

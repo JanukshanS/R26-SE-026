@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 
+import { useT, type Translate } from "@/lib/i18n";
+
 type StepStatus = "pending" | "running" | "done" | "failed" | "skipped";
 
 type Step = {
@@ -19,11 +21,13 @@ type PipelineStepsProps = {
   onDismiss?: () => void;
 };
 
-function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)}s`;
+function formatDuration(seconds: number, t: Translate): string {
+  if (seconds < 60) return t("insurer.duration.seconds", { seconds: Math.round(seconds) });
   const m = Math.floor(seconds / 60);
   const s = Math.round(seconds % 60);
-  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  return s > 0
+    ? t("insurer.duration.minutesSeconds", { minutes: m, seconds: s })
+    : t("insurer.duration.minutes", { minutes: m });
 }
 
 const STEP_ICON: Record<StepStatus, string> = {
@@ -43,24 +47,25 @@ const STEP_COLOR: Record<StepStatus, string> = {
 };
 
 function StepTimer({ step, now }: { step: Step; now: number }) {
+  const t = useT();
   if (step.status === "done" && step.started_at && step.completed_at) {
     return (
       <span className="text-[0.65rem] tabular-nums opacity-75 whitespace-nowrap text-emerald-400">
-        {formatDuration(step.completed_at - step.started_at)}
+        {formatDuration(step.completed_at - step.started_at, t)}
       </span>
     );
   }
   if (step.status === "running" && step.started_at) {
     return (
       <span className="text-[0.65rem] tabular-nums opacity-75 whitespace-nowrap text-blue-400">
-        {formatDuration(now / 1000 - step.started_at)}
+        {formatDuration(now / 1000 - step.started_at, t)}
       </span>
     );
   }
   if (step.status === "failed" && step.started_at && step.completed_at) {
     return (
       <span className="text-[0.65rem] tabular-nums opacity-75 whitespace-nowrap text-red-400">
-        {formatDuration(step.completed_at - step.started_at)}
+        {formatDuration(step.completed_at - step.started_at, t)}
       </span>
     );
   }
@@ -73,6 +78,7 @@ export function PipelineSteps({
   claimLabel,
   onDismiss,
 }: PipelineStepsProps) {
+  const t = useT();
   const [minimized, setMinimized] = useState(false);
   const [now, setNow] = useState(Date.now());
 
@@ -92,14 +98,14 @@ export function PipelineSteps({
 
   const headerLabel =
     modelState === "ready"
-      ? "3D model ready"
+      ? t("insurer.pipeline.ready")
       : modelState === "error"
-        ? "Pipeline failed"
+        ? t("insurer.pipeline.failed")
         : modelState === "low_light"
-          ? "Low light — enhanced photos ready"
+          ? t("insurer.pipeline.lowLight")
           : running
             ? running.label
-            : "Preparing…";
+            : t("insurer.pipeline.preparing");
 
   const panelBg = failed
     ? "bg-red-950 border-red-800"
@@ -128,7 +134,7 @@ export function PipelineSteps({
         </span>
         <button
           type="button"
-          aria-label={minimized ? "Expand" : "Minimise"}
+          aria-label={minimized ? t("insurer.pipeline.expand") : t("insurer.pipeline.minimise")}
           className="text-slate-400 text-[0.6rem] shrink-0 bg-transparent border-none cursor-pointer p-0"
         >
           {minimized ? "▲" : "▼"}
@@ -136,7 +142,7 @@ export function PipelineSteps({
         {onDismiss && (
           <button
             type="button"
-            aria-label="Dismiss"
+            aria-label={t("insurer.pipeline.dismiss")}
             onClick={(e) => {
               e.stopPropagation();
               onDismiss();
@@ -152,7 +158,7 @@ export function PipelineSteps({
         <>
           {claimLabel && (
             <div className="px-3 py-1 text-[0.72rem] text-slate-400 border-t border-white/10">
-              Generating for <strong className="text-slate-300">{claimLabel}</strong>
+              {t("insurer.pipeline.generatingFor", { claim: claimLabel })}
             </div>
           )}
           {steps.length > 0 && (

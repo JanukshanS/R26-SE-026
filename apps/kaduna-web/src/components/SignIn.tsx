@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import LanguagePicker from "@/components/LanguagePicker";
+import { useT } from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
 
 /**
@@ -40,6 +41,7 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const t = useT();
 
   useEffect(() => {
     async function startOneTap() {
@@ -121,16 +123,16 @@ export default function SignIn() {
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-lg font-semibold">Sign in to Kaduna.lk</h1>
+            <h1 className="text-lg font-semibold">{t("signin.title")}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Use your Kaduna.lk account.
+              {t("signin.subtitle")}
             </p>
           </div>
           <LanguagePicker />
         </div>
 
         <label className="block text-sm">
-          <span className="text-muted-foreground">Email</span>
+          <span className="text-muted-foreground">{t("signin.emailLabel")}</span>
           <input
             type="email"
             required
@@ -142,7 +144,7 @@ export default function SignIn() {
         </label>
 
         <label className="block text-sm">
-          <span className="text-muted-foreground">Password</span>
+          <span className="text-muted-foreground">{t("signin.passwordLabel")}</span>
           <input
             type="password"
             required
@@ -164,12 +166,12 @@ export default function SignIn() {
           disabled={busy}
           className="w-full rounded bg-primary px-3 py-2 font-medium text-primary-foreground disabled:opacity-50"
         >
-          {busy ? "Signing in…" : "Sign in"}
+          {busy ? t("signin.submitting") : t("signin.submit")}
         </button>
 
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span className="h-px flex-1 bg-border" />
-          or
+          {t("signin.or")}
           <span className="h-px flex-1 bg-border" />
         </div>
 
@@ -197,7 +199,7 @@ export default function SignIn() {
               d="M12 4.77c1.76 0 3.34.6 4.58 1.79l3.44-3.44A11.97 11.97 0 0 0 12 0 12 12 0 0 0 1.29 6.62l4 3.09C6.23 6.88 8.88 4.77 12 4.77Z"
             />
           </svg>
-          Continue with Google
+          {t("signin.google")}
         </button>
       </form>
     </main>

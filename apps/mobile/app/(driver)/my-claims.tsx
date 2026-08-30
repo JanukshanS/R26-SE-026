@@ -10,13 +10,14 @@ import { Icon } from "@components/ui/icon";
 import { palette, radii, spacing, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
 import { listMyClaims, type ClaimSummary } from "@lib/claims-api";
+import { useT, type Translate } from "@lib/i18n";
 
 /** `captures.status` values, in driver-facing terms. */
-function statusLabel(status: string): string {
-  if (status === "uploading") return "In Progress";
-  if (status === "processing") return "Submitted";
-  if (status === "pending_review") return "Pending Review";
-  if (status === "approved") return "Approved";
+function statusLabel(status: string, t: Translate): string {
+  if (status === "uploading") return t("driver.claims.statusUploading");
+  if (status === "processing") return t("driver.claims.statusProcessing");
+  if (status === "pending_review") return t("driver.claims.statusPendingReview");
+  if (status === "approved") return t("driver.claims.statusApproved");
   return status;
 }
 
@@ -48,6 +49,7 @@ function iconColorsForTone(tone: "neutral" | "brand" | "warning" | "success") {
 
 export default function MyClaimsScreen() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { user } = useVehicle();
   const [claims, setClaims] = useState<ClaimSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,13 +83,13 @@ export default function MyClaimsScreen() {
         setError(
           err instanceof Error && err.message
             ? err.message
-            : "Could not reach the claims service."
+            : t("driver.claims.loadErrorFallback")
         );
       })
       .finally(() => {
         if (isCurrent()) setLoading(false);
       });
-  }, [user]);
+  }, [user, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -115,12 +117,12 @@ export default function MyClaimsScreen() {
         <HeaderBar />
 
         <View style={{ gap: spacing.xs }}>
-          <Text style={{ ...typography.display, color: palette.text, fontSize: 28 }}>My Claims</Text>
+          <Text style={{ ...typography.display, color: palette.text, fontSize: 28 }}>{t("driver.claims.title")}</Text>
           {user && (
             <Text style={{ ...typography.body, color: palette.textMuted }}>
               {loading
                 ? user.name
-                : `${claims.length} claim${claims.length === 1 ? "" : "s"} submitted`}
+                : t("driver.claims.submittedCount", { count: claims.length })}
             </Text>
           )}
         </View>
@@ -129,12 +131,12 @@ export default function MyClaimsScreen() {
           <View style={{ alignItems: "center", paddingTop: 60, gap: spacing.md }}>
             <Icon name="User" size={48} color={palette.border} />
             <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
-              Sign in to see the claims filed on your account.
+              {t("driver.claims.signedOutBody")}
             </Text>
             <Pressable
               onPress={() => router.push("/(driver)/auth")}
               accessibilityRole="button"
-              accessibilityLabel="Sign in"
+              accessibilityLabel={t("driver.claims.signInA11y")}
               style={({ pressed }) => ({
                 backgroundColor: pressed ? palette.brandPressed : palette.brand,
                 borderRadius: radii.lg,
@@ -143,7 +145,7 @@ export default function MyClaimsScreen() {
               })}
             >
               <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-                Sign In / Register
+                {t("driver.claims.signIn")}
               </Text>
             </Pressable>
           </View>
@@ -153,18 +155,18 @@ export default function MyClaimsScreen() {
           <View style={{ alignItems: "center", paddingTop: 60, gap: spacing.md }}>
             <Icon name="TriangleAlert" size={40} color={palette.danger} />
             <Text style={{ ...typography.body, color: palette.text, textAlign: "center" }}>
-              Couldn&apos;t load your claims
+              {t("driver.claims.loadFailedTitle")}
             </Text>
             <Text style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}>
               {error}
             </Text>
             <Text style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}>
-              Check your connection and try again — no claim has been lost.
+              {t("driver.claims.loadFailedHint")}
             </Text>
             <Pressable
               onPress={load}
               accessibilityRole="button"
-              accessibilityLabel="Try again"
+              accessibilityLabel={t("driver.claims.retry")}
               style={({ pressed }) => ({
                 backgroundColor: pressed ? palette.brandPressed : palette.brand,
                 borderRadius: radii.lg,
@@ -172,14 +174,14 @@ export default function MyClaimsScreen() {
                 paddingHorizontal: spacing.xl,
               })}
             >
-              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Try again</Text>
+              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>{t("driver.claims.retry")}</Text>
             </Pressable>
           </View>
         ) : claims.length === 0 ? (
           <View style={{ alignItems: "center", paddingTop: 60, gap: spacing.md }}>
             <Icon name="FileText" size={48} color={palette.border} />
             <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
-              No claims yet.
+              {t("driver.claims.emptyTitle")}
             </Text>
           </View>
         ) : (
@@ -191,6 +193,7 @@ export default function MyClaimsScreen() {
 }
 
 function ClaimCard({ claim }: { claim: ClaimSummary }) {
+  const t = useT();
   const dateLine = claim.capturedAtDisplayLocal ?? new Date(claim.createdAt).toLocaleString();
   const chips = [claim.policyNumber, claim.vehicleRegNo].filter(Boolean) as string[];
   const iconColors = iconColorsForTone(statusTone(claim.status));
@@ -222,9 +225,9 @@ function ClaimCard({ claim }: { claim: ClaimSummary }) {
         <View style={{ flex: 1, gap: 4 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
             <Text style={{ fontSize: 18, fontWeight: "700", color: palette.text, flex: 1 }}>
-              {claim.vehicleModel || "Vehicle claim"}
+              {claim.vehicleModel || t("driver.claims.vehicleFallback")}
             </Text>
-            <Badge label={statusLabel(claim.status)} tone={statusTone(claim.status)} uppercase={false} />
+            <Badge label={statusLabel(claim.status, t)} tone={statusTone(claim.status)} uppercase={false} />
           </View>
           <Text style={{ ...typography.body, color: palette.textMuted }}>{dateLine}</Text>
         </View>

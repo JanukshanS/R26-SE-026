@@ -40,14 +40,15 @@ import {
   type MarketplacePart,
 } from "@lib/maintenanceApi";
 import { useVehicle } from "@lib/vehicleContext";
+import { useT } from "@lib/i18n";
 
 type Panel = "parts" | "garages";
 
-const COMPONENT_LABEL: Record<string, string> = {
-  brake: "Brakes",
-  engine: "Engine",
-  tire: "Tyres",
-  battery: "Battery",
+const COMPONENT_LABEL_KEYS: Record<string, string> = {
+  brake: "driver.marketplace.componentBrake",
+  engine: "driver.marketplace.componentEngine",
+  tire: "driver.marketplace.componentTire",
+  battery: "driver.marketplace.componentBattery",
 };
 
 const COMPONENT_ICON: Record<string, IconName> = {
@@ -59,6 +60,7 @@ const COMPONENT_ICON: Record<string, IconName> = {
 
 export default function MarketplaceScreen() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { selectedVehicle } = useVehicle();
 
   const [panel, setPanel] = useState<Panel>("parts");
@@ -108,9 +110,9 @@ export default function MarketplaceScreen() {
   const countLabel = useMemo(() => {
     if (loading) return "";
     return panel === "parts"
-      ? `${parts.length} ${parts.length === 1 ? "part" : "parts"}`
-      : `${garages.length} ${garages.length === 1 ? "garage" : "garages"}`;
-  }, [loading, panel, parts.length, garages.length]);
+      ? t("driver.marketplace.partsCount", { count: parts.length })
+      : t("driver.marketplace.garagesCount", { count: garages.length });
+  }, [loading, panel, parts.length, garages.length, t]);
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
@@ -126,7 +128,7 @@ export default function MarketplaceScreen() {
           gap: spacing.md,
         }}
       >
-        <Text style={{ ...typography.h1, color: palette.text }}>Marketplace</Text>
+        <Text style={{ ...typography.h1, color: palette.text }}>{t("driver.marketplace.title")}</Text>
 
         <View
           style={{
@@ -143,7 +145,7 @@ export default function MarketplaceScreen() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder={panel === "parts" ? "Search parts or part numbers" : "Search garages"}
+            placeholder={panel === "parts" ? t("driver.marketplace.searchParts") : t("driver.marketplace.searchGarages")}
             placeholderTextColor={palette.textMuted}
             style={{ flex: 1, ...typography.body, color: palette.text, paddingVertical: 2 }}
           />
@@ -183,7 +185,7 @@ export default function MarketplaceScreen() {
                     color: active ? palette.brand : palette.textMuted,
                   }}
                 >
-                  {key === "parts" ? "Parts" : "Garages"}
+                  {key === "parts" ? t("driver.marketplace.panelParts") : t("driver.marketplace.panelGarages")}
                 </Text>
               </Pressable>
             );
@@ -199,11 +201,11 @@ export default function MarketplaceScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.sm }}
           >
-            <Chip label="All" active={component === null} onPress={() => setComponent(null)} />
+            <Chip label={t("driver.marketplace.chipAll")} active={component === null} onPress={() => setComponent(null)} />
             {chips.map((key) => (
               <Chip
                 key={key}
-                label={COMPONENT_LABEL[key] ?? key}
+                label={t(COMPONENT_LABEL_KEYS[key] ?? key)}
                 icon={COMPONENT_ICON[key]}
                 active={component === key}
                 onPress={() => setComponent(component === key ? null : key)}
@@ -221,10 +223,10 @@ export default function MarketplaceScreen() {
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: spacing.md }}>
           <Icon name="CloudOff" size={32} color={palette.textMuted} />
           <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
-            Could not reach the store. Check your connection.
+            {t("driver.marketplace.loadError")}
           </Text>
           <Pressable onPress={load}>
-            <Text style={{ ...typography.bodyStrong, color: palette.brand }}>Try again</Text>
+            <Text style={{ ...typography.bodyStrong, color: palette.brand }}>{t("driver.marketplace.retry")}</Text>
           </Pressable>
         </View>
       ) : (
@@ -272,15 +274,15 @@ export default function MarketplaceScreen() {
                 }}
               >
                 {fitOnly
-                  ? `Only parts that fit your ${vehicleDescription}`
-                  : "Showing every part — check fitment before you buy"}
+                  ? t("driver.marketplace.fitOnlyOn", { vehicle: vehicleDescription })
+                  : t("driver.marketplace.fitOnlyOff")}
               </Text>
               <Switch
                 value={fitOnly}
                 onValueChange={setFitOnly}
                 trackColor={{ false: palette.border, true: palette.brand }}
                 thumbColor={palette.surface}
-                accessibilityLabel={`Only show parts that fit my ${vehicleDescription}`}
+                accessibilityLabel={t("driver.marketplace.fitSwitchA11y", { vehicle: vehicleDescription })}
               />
             </View>
           ) : null}
@@ -297,13 +299,13 @@ export default function MarketplaceScreen() {
                 icon="PackageSearch"
                 message={
                   search
-                    ? `Nothing matches “${search}”.`
+                    ? t("driver.marketplace.noPartsSearch", { query: search })
                     : fitOnly && vehicleDescription
-                      ? `No parts listed yet that fit your ${vehicleDescription}.`
-                      : "No parts listed yet."
+                      ? t("driver.marketplace.noPartsForVehicle", { vehicle: vehicleDescription })
+                      : t("driver.marketplace.noParts")
                 }
                 actionLabel={
-                  !search && fitOnly && vehicleDescription ? "Show all parts" : undefined
+                  !search && fitOnly && vehicleDescription ? t("driver.marketplace.showAllParts") : undefined
                 }
                 onAction={
                   !search && fitOnly && vehicleDescription ? () => setFitOnly(false) : undefined
@@ -315,7 +317,7 @@ export default function MarketplaceScreen() {
           ) : (
             <EmptyState
               icon="MapPinOff"
-              message={search ? `No garages match “${search}”.` : "No garages listed yet."}
+              message={search ? t("driver.marketplace.noGaragesSearch", { query: search }) : t("driver.marketplace.noGarages")}
             />
           )}
         </ScrollView>
@@ -369,6 +371,7 @@ function Chip({
 }
 
 function PartRow({ part }: { part: MarketplacePart }) {
+  const t = useT();
   return (
     <Pressable
       onPress={() =>
@@ -419,7 +422,7 @@ function PartRow({ part }: { part: MarketplacePart }) {
 
       {part.fits_note ? (
         <Text style={{ ...typography.micro, color: palette.textMuted }} numberOfLines={1}>
-          Fits {part.fits_note}
+          {t("driver.marketplace.fitsNote", { note: part.fits_note })}
         </Text>
       ) : null}
 
@@ -431,7 +434,7 @@ function PartRow({ part }: { part: MarketplacePart }) {
             fontWeight: "700",
           }}
         >
-          {part.in_stock ? "In stock" : "Out of stock"}
+          {part.in_stock ? t("driver.marketplace.inStock") : t("driver.marketplace.outOfStock")}
         </Text>
         {part.supplier ? (
           <Text style={{ ...typography.micro, color: palette.textMuted }} numberOfLines={1}>
@@ -444,6 +447,7 @@ function PartRow({ part }: { part: MarketplacePart }) {
 }
 
 function GarageRow({ garage }: { garage: MarketplaceGarage }) {
+  const t = useT();
   return (
     <View
       style={{
@@ -468,7 +472,7 @@ function GarageRow({ garage }: { garage: MarketplaceGarage }) {
         ) : null}
         {garage.distance_km != null ? (
           <Text style={{ ...typography.micro, color: palette.textMuted }}>
-            · {garage.distance_km} km away
+            {t("driver.marketplace.distanceAway", { km: garage.distance_km })}
           </Text>
         ) : null}
         {garage.rating != null ? (
@@ -480,7 +484,7 @@ function GarageRow({ garage }: { garage: MarketplaceGarage }) {
 
       {garage.opening_hours ? (
         <Text style={{ ...typography.micro, color: palette.textMuted }}>
-          Open {garage.opening_hours}
+          {t("driver.marketplace.openingHours", { hours: garage.opening_hours })}
         </Text>
       ) : null}
     </View>

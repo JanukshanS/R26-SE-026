@@ -24,6 +24,7 @@ import {
   captureModalBackdropStyles,
   useCaptureModalOverlaySize,
 } from '@/features/guided-capture/components/capture-modal-backdrop';
+import { useT } from '@/lib/i18n';
 
 type ResetCaptureDialogProps = {
   visible: boolean;
@@ -40,12 +41,13 @@ export function ResetCaptureDialog({
   visible,
   onCancel,
   onConfirm,
-  title = 'Start Over?',
-  message = 'Clear all captured photos and start over?',
-  cancelLabel = 'Cancel',
-  confirmLabel = 'Yes',
+  title,
+  message,
+  cancelLabel,
+  confirmLabel,
   icon = 'RotateCcw',
 }: ResetCaptureDialogProps) {
+  const t = useT();
   const overlaySize = useCaptureModalOverlaySize();
 
   return (
@@ -71,18 +73,18 @@ export function ResetCaptureDialog({
               <View style={styles.iconCircle}>
                 <Icon name={icon} size={32} color={CAPTURE_ACTION_BLUE} />
               </View>
-              <Text style={styles.title}>{title}</Text>
-              <Text style={styles.message}>{message}</Text>
+              <Text style={styles.title}>{title ?? t('insurance.reset.title')}</Text>
+              <Text style={styles.message}>{message ?? t('insurance.reset.body')}</Text>
               <View style={styles.actions}>
                 <Pressable
                   style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}
                   onPress={onCancel}>
-                  <Text style={styles.cancelLabel}>{cancelLabel}</Text>
+                  <Text style={styles.cancelLabel}>{cancelLabel ?? t('insurance.action.cancel')}</Text>
                 </Pressable>
                 <Pressable
                   style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]}
                   onPress={onConfirm}>
-                  <Text style={styles.confirmLabel}>{confirmLabel}</Text>
+                  <Text style={styles.confirmLabel}>{confirmLabel ?? t('insurance.action.yes')}</Text>
                 </Pressable>
               </View>
             </Pressable>

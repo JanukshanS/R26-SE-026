@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { roleHome, useAuth } from "@/lib/auth";
+import { useT } from "@/lib/i18n";
 
 /**
  * The landing page's one door into the system. Signed out it points at
@@ -11,11 +12,12 @@ import { roleHome, useAuth } from "@/lib/auth";
  */
 export default function SignInLink({ className = "" }: { className?: string }) {
   const { session, profile, loading } = useAuth();
+  const t = useT();
   const signedIn = !loading && !!session;
 
   return (
     <Link href={signedIn ? roleHome(profile) : "/signin"} className={className}>
-      {signedIn ? "Open Kaduna" : "Sign in"}
+      {signedIn ? t("signin.link.open") : t("signin.link.signIn")}
     </Link>
   );
 }

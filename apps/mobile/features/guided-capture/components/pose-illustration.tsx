@@ -13,6 +13,7 @@ import {
   WHITE,
 } from '@/features/guided-capture/capture-ui-theme';
 import type { HeightStep } from '@/features/guided-capture/types';
+import { useT } from '@/lib/i18n';
 
 const POSE_IMAGES: Record<HeightStep, number> = {
   overhead: require('../../../assets/images/overhead.png'),
@@ -20,20 +21,20 @@ const POSE_IMAGES: Record<HeightStep, number> = {
   waist: require('../../../assets/images/waist.png'),
 };
 
-const POSE_TITLES: Record<HeightStep, string> = {
-  overhead: 'Overhead photo',
-  chest: 'Chest-height photo',
-  waist: 'Waist-height photo',
+const POSE_TITLE_KEYS: Record<HeightStep, string> = {
+  overhead: 'insurance.pose.titleOverhead',
+  chest: 'insurance.pose.titleChest',
+  waist: 'insurance.pose.titleWaist',
 };
 
-const POSE_INSTRUCTIONS: Record<HeightStep, string> = {
-  overhead: 'Hold the phone above your head, tilted down over the vehicle.',
-  chest: 'Hold the phone upright at chest height.',
-  waist: 'Hold the phone upright at waist height.',
+const POSE_INSTRUCTION_KEYS: Record<HeightStep, string> = {
+  overhead: 'insurance.pose.instructionOverhead',
+  chest: 'insurance.pose.instructionChest',
+  waist: 'insurance.pose.instructionWaist',
 };
 
 /** Distance the reference photos show — kept as real text so it isn't only baked into the image pixels. */
-const POSE_DISTANCE_LABEL = 'Stand about 1.5m from the vehicle';
+const POSE_DISTANCE_KEY = 'insurance.pose.distance';
 
 type PoseMedia = { type: 'image'; source: number } | { type: 'video'; source: number };
 
@@ -57,6 +58,7 @@ export function PoseIllustration({
   onReady,
   media,
 }: PoseIllustrationProps) {
+  const t = useT();
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.92)).current;
   const resolvedMedia: PoseMedia = media ?? { type: 'image', source: POSE_IMAGES[heightStep] };
@@ -80,12 +82,12 @@ export function PoseIllustration({
     <View style={styles.root}>
       {isRetake ? (
         <View style={styles.retakePill}>
-          <Text style={styles.retakeText}>Retake photo</Text>
+          <Text style={styles.retakeText}>{t('insurance.pose.retake')}</Text>
         </View>
       ) : (
         <StopProgressLabel stopIndex={stopIndex} stopCount={stopCount} heightStep={heightStep} />
       )}
-      <Text style={styles.title}>{POSE_TITLES[heightStep]}</Text>
+      <Text style={styles.title}>{t(POSE_TITLE_KEYS[heightStep])}</Text>
       <Animated.View style={[styles.mediaWrap, { opacity, transform: [{ scale }] }]}>
         {resolvedMedia.type === 'video' ? (
           <VideoView player={player} style={styles.image} contentFit="contain" nativeControls={false} />
@@ -93,9 +95,13 @@ export function PoseIllustration({
           <Image source={resolvedMedia.source} style={styles.image} resizeMode="contain" />
         )}
       </Animated.View>
-      <Text style={styles.distanceLabel}>{POSE_DISTANCE_LABEL}</Text>
-      <Text style={styles.instruction}>{POSE_INSTRUCTIONS[heightStep]}</Text>
-      <CaptureButton title="Ready" onPress={onReady} accessibilityLabel="Ready to aim" />
+      <Text style={styles.distanceLabel}>{t(POSE_DISTANCE_KEY)}</Text>
+      <Text style={styles.instruction}>{t(POSE_INSTRUCTION_KEYS[heightStep])}</Text>
+      <CaptureButton
+        title={t('insurance.pose.ready')}
+        onPress={onReady}
+        accessibilityLabel={t('insurance.pose.readyA11y')}
+      />
     </View>
   );
 }

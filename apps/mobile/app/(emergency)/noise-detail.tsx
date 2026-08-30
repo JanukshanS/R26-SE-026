@@ -9,30 +9,32 @@
  */
 import { OptionCard } from "@components/ui/option-card";
 import { QuestionScreen } from "@components/ui/question-screen";
+import { useT } from "@lib/i18n";
 import { useEmergency, type NoiseChoice } from "@lib/emergencyContext";
 
-const OPTIONS: { value: NonNullable<NoiseChoice>; title: string; description: string }[] = [
-  { value: "SQUEAL", title: "High-pitched squealing", description: "Belt slipping or worn" },
-  { value: "KNOCK",  title: "Knocking (rhythmic)",    description: "Engine timing or fuel-quality issue" },
-  { value: "GRIND",  title: "Grinding",                description: "Brakes, starter, or bearing" },
-  { value: "WHINE",  title: "High-pitched whining",    description: "Alternator or power-steering" },
-  { value: "CLUNK",  title: "Clunking (intermittent)", description: "Drivetrain or suspension" },
+const OPTIONS: { value: NonNullable<NoiseChoice>; titleKey: string; descriptionKey: string }[] = [
+  { value: "SQUEAL", titleKey: "emergency.noiseDetail.squealTitle", descriptionKey: "emergency.noiseDetail.squealDesc" },
+  { value: "KNOCK",  titleKey: "emergency.noiseDetail.knockTitle",  descriptionKey: "emergency.noiseDetail.knockDesc" },
+  { value: "GRIND",  titleKey: "emergency.noiseDetail.grindTitle",  descriptionKey: "emergency.noiseDetail.grindDesc" },
+  { value: "WHINE",  titleKey: "emergency.noiseDetail.whineTitle",  descriptionKey: "emergency.noiseDetail.whineDesc" },
+  { value: "CLUNK",  titleKey: "emergency.noiseDetail.clunkTitle",  descriptionKey: "emergency.noiseDetail.clunkDesc" },
 ];
 
 export default function NoiseDetailScreen() {
+  const t = useT();
   const { noiseDetail, setNoiseDetail } = useEmergency();
 
   return (
     <QuestionScreen
       route="noise-detail"
-      prompt={"What kind of noise are you hearing?"}
+      prompt={t("emergency.noiseDetail.prompt")}
       canNext={!!noiseDetail}
     >
       {OPTIONS.map((o) => (
         <OptionCard
           key={o.value}
-          title={o.title}
-          description={o.description}
+          title={t(o.titleKey)}
+          description={t(o.descriptionKey)}
           selected={noiseDetail === o.value}
           onPress={() => setNoiseDetail(o.value)}
         />

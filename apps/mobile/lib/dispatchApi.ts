@@ -19,6 +19,7 @@
 import { Platform } from "react-native";
 
 import { authHeaders } from "@lib/capture-api";
+import type { Translate } from "@lib/i18n";
 
 const DEFAULT_BASE_URL =
   process.env.EXPO_PUBLIC_DISPATCH_URL ??
@@ -494,75 +495,76 @@ export async function resolveIncident(input: ResolveIncidentInput) {
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Human-readable label for a ServiceType (driver-facing). */
-export function serviceTypeLabel(st: ServiceType): string {
+export function serviceTypeLabel(st: ServiceType, t: Translate): string {
   const labels: Record<ServiceType, string> = {
-    BATTERY_JUMP:           "Battery Dead — Jump Start",
-    BATTERY_TERMINAL_CLEAN: "Battery Terminal Cleaning",
-    BATTERY_REPLACE:        "Battery Replacement",
-    ALTERNATOR_ISSUE:       "Alternator Issue",
-    STARTER_MOTOR:          "Starter Motor Failure",
-    COOLANT_LOW:            "Low Coolant — Top-up",
-    RADIATOR_FAN_ISSUE:     "Radiator Fan Issue",
-    RADIATOR_HOSE_LEAK:     "Radiator Hose Leak",
-    ENGINE_OVERHEAT_SEVERE: "Severe Engine Overheating",
-    BELT_BROKEN:            "Broken Drive Belt",
-    FUEL_FILTER_CLOGGED:    "Clogged Fuel Filter",
-    FUEL_PUMP:              "Fuel Pump Failure",
-    IGNITION_SYSTEM:        "Ignition System Issue",
-    ELECTRICAL_FAULT_RAIN:  "Rain-Related Electrical Fault",
-    BRAKE_PAD_WORN:         "Worn Brake Pads",
-    BRAKE_FAILURE:          "Brake Failure",
-    CLUTCH_WORN:            "Worn Clutch",
-    TRANSMISSION_ISSUE:     "Transmission Issue",
-    SEVERE_MECHANICAL_TOW:  "Severe Mechanical — Tow Needed",
-    LOCKOUT:                "Locked Out",
-    KEY_LOST:               "Lost Keys",
-    FLAT_TIRE_CHANGE:       "Flat Tire — Change Needed",
-    FUEL_EMPTY:             "Out of Fuel",
-    FUEL_WRONG:             "Wrong Fuel Filled",
-    LIGHT_BULB:             "Light Bulb Replacement",
-    BLOWN_FUSE:             "Blown Fuse",
-    MAJOR_ACCIDENT:         "Major Accident — Tow",
-    URGENT_TOW:             "Urgent Tow",
-    FLOOD_RECOVERY:         "Flood / Mud Recovery",
+    BATTERY_JUMP:           "common.serviceType.batteryJump",
+    BATTERY_TERMINAL_CLEAN: "common.serviceType.batteryTerminalClean",
+    BATTERY_REPLACE:        "common.serviceType.batteryReplace",
+    ALTERNATOR_ISSUE:       "common.serviceType.alternatorIssue",
+    STARTER_MOTOR:          "common.serviceType.starterMotor",
+    COOLANT_LOW:            "common.serviceType.coolantLow",
+    RADIATOR_FAN_ISSUE:     "common.serviceType.radiatorFanIssue",
+    RADIATOR_HOSE_LEAK:     "common.serviceType.radiatorHoseLeak",
+    ENGINE_OVERHEAT_SEVERE: "common.serviceType.engineOverheatSevere",
+    BELT_BROKEN:            "common.serviceType.beltBroken",
+    FUEL_FILTER_CLOGGED:    "common.serviceType.fuelFilterClogged",
+    FUEL_PUMP:              "common.serviceType.fuelPump",
+    IGNITION_SYSTEM:        "common.serviceType.ignitionSystem",
+    ELECTRICAL_FAULT_RAIN:  "common.serviceType.electricalFaultRain",
+    BRAKE_PAD_WORN:         "common.serviceType.brakePadWorn",
+    BRAKE_FAILURE:          "common.serviceType.brakeFailure",
+    CLUTCH_WORN:            "common.serviceType.clutchWorn",
+    TRANSMISSION_ISSUE:     "common.serviceType.transmissionIssue",
+    SEVERE_MECHANICAL_TOW:  "common.serviceType.severeMechanicalTow",
+    LOCKOUT:                "common.serviceType.lockout",
+    KEY_LOST:               "common.serviceType.keyLost",
+    FLAT_TIRE_CHANGE:       "common.serviceType.flatTireChange",
+    FUEL_EMPTY:             "common.serviceType.fuelEmpty",
+    FUEL_WRONG:             "common.serviceType.fuelWrong",
+    LIGHT_BULB:             "common.serviceType.lightBulb",
+    BLOWN_FUSE:             "common.serviceType.blownFuse",
+    MAJOR_ACCIDENT:         "common.serviceType.majorAccident",
+    URGENT_TOW:             "common.serviceType.urgentTow",
+    FLOOD_RECOVERY:         "common.serviceType.floodRecovery",
   };
-  return labels[st] ?? st;
+  const key = labels[st];
+  return key ? t(key) : st;
 }
 
 /** What the driver should expect (short version, e.g. "Jump Start needed"). */
-export function serviceTypeAction(st: ServiceType): string {
+export function serviceTypeAction(st: ServiceType, t: Translate): string {
   const actions: Partial<Record<ServiceType, string>> = {
-    BATTERY_JUMP:           "Jump Start needed",
-    BATTERY_TERMINAL_CLEAN: "Terminal cleaning",
-    BATTERY_REPLACE:        "Battery replacement",
-    ALTERNATOR_ISSUE:       "Alternator service",
-    STARTER_MOTOR:          "Starter repair",
-    COOLANT_LOW:            "Top-up coolant",
-    RADIATOR_FAN_ISSUE:     "Radiator service",
-    RADIATOR_HOSE_LEAK:     "Hose repair",
-    ENGINE_OVERHEAT_SEVERE: "Tow to workshop",
-    BELT_BROKEN:            "Belt replacement",
-    FUEL_FILTER_CLOGGED:    "Filter replacement",
-    FUEL_PUMP:              "Fuel pump service",
-    IGNITION_SYSTEM:        "Ignition repair",
-    ELECTRICAL_FAULT_RAIN:  "Electrical diagnosis",
-    BRAKE_PAD_WORN:         "Brake pad replacement",
-    BRAKE_FAILURE:          "Tow to workshop",
-    CLUTCH_WORN:            "Tow to workshop",
-    TRANSMISSION_ISSUE:     "Tow to workshop",
-    SEVERE_MECHANICAL_TOW:  "Heavy tow",
-    LOCKOUT:                "Locksmith dispatch",
-    KEY_LOST:               "Locksmith dispatch",
-    FLAT_TIRE_CHANGE:       "Tire change",
-    FUEL_EMPTY:             "Fuel delivery",
-    FUEL_WRONG:             "Fuel correction",
-    LIGHT_BULB:             "Bulb replacement",
-    BLOWN_FUSE:             "Fuse replacement",
-    MAJOR_ACCIDENT:         "Recovery + tow",
-    URGENT_TOW:             "Urgent tow",
-    FLOOD_RECOVERY:         "Vehicle recovery",
+    BATTERY_JUMP:           "common.serviceAction.batteryJump",
+    BATTERY_TERMINAL_CLEAN: "common.serviceAction.batteryTerminalClean",
+    BATTERY_REPLACE:        "common.serviceAction.batteryReplace",
+    ALTERNATOR_ISSUE:       "common.serviceAction.alternatorIssue",
+    STARTER_MOTOR:          "common.serviceAction.starterMotor",
+    COOLANT_LOW:            "common.serviceAction.coolantLow",
+    RADIATOR_FAN_ISSUE:     "common.serviceAction.radiatorFanIssue",
+    RADIATOR_HOSE_LEAK:     "common.serviceAction.radiatorHoseLeak",
+    ENGINE_OVERHEAT_SEVERE: "common.serviceAction.engineOverheatSevere",
+    BELT_BROKEN:            "common.serviceAction.beltBroken",
+    FUEL_FILTER_CLOGGED:    "common.serviceAction.fuelFilterClogged",
+    FUEL_PUMP:              "common.serviceAction.fuelPump",
+    IGNITION_SYSTEM:        "common.serviceAction.ignitionSystem",
+    ELECTRICAL_FAULT_RAIN:  "common.serviceAction.electricalFaultRain",
+    BRAKE_PAD_WORN:         "common.serviceAction.brakePadWorn",
+    BRAKE_FAILURE:          "common.serviceAction.brakeFailure",
+    CLUTCH_WORN:            "common.serviceAction.clutchWorn",
+    TRANSMISSION_ISSUE:     "common.serviceAction.transmissionIssue",
+    SEVERE_MECHANICAL_TOW:  "common.serviceAction.severeMechanicalTow",
+    LOCKOUT:                "common.serviceAction.lockout",
+    KEY_LOST:               "common.serviceAction.keyLost",
+    FLAT_TIRE_CHANGE:       "common.serviceAction.flatTireChange",
+    FUEL_EMPTY:             "common.serviceAction.fuelEmpty",
+    FUEL_WRONG:             "common.serviceAction.fuelWrong",
+    LIGHT_BULB:             "common.serviceAction.lightBulb",
+    BLOWN_FUSE:             "common.serviceAction.blownFuse",
+    MAJOR_ACCIDENT:         "common.serviceAction.majorAccident",
+    URGENT_TOW:             "common.serviceAction.urgentTow",
+    FLOOD_RECOVERY:         "common.serviceAction.floodRecovery",
   };
-  return actions[st] ?? "Service dispatch";
+  return t(actions[st] ?? "common.serviceAction.fallback");
 }
 
 /** All provider types, in the order shown in the onboarding picker. */
@@ -574,15 +576,16 @@ export const PROVIDER_TYPES: ProviderType[] = [
   "TOW_HEAVY",
 ];
 
-export function providerTypeLabel(pt: ProviderType): string {
+export function providerTypeLabel(pt: ProviderType, t: Translate): string {
   const labels: Record<ProviderType, string> = {
-    MOBILE_MECHANIC: "Mobile Mechanic",
-    FUEL_DELIVERY:   "Fuel Delivery",
-    LOCKSMITH:       "Locksmith",
-    TOW_LIGHT:       "Tow Truck (Light)",
-    TOW_HEAVY:       "Tow Truck (Heavy)",
+    MOBILE_MECHANIC: "common.providerType.mobileMechanic",
+    FUEL_DELIVERY:   "common.providerType.fuelDelivery",
+    LOCKSMITH:       "common.providerType.locksmith",
+    TOW_LIGHT:       "common.providerType.towLight",
+    TOW_HEAVY:       "common.providerType.towHeavy",
   };
-  return labels[pt] ?? pt;
+  const key = labels[pt];
+  return key ? t(key) : pt;
 }
 
 // ─────────────────────────────────────────────────────────────────────────

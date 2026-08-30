@@ -1,30 +1,32 @@
 import { OptionCard } from "@components/ui/option-card";
 import { QuestionScreen } from "@components/ui/question-screen";
+import { useT } from "@lib/i18n";
 import { useEmergency, type SmellChoice } from "@lib/emergencyContext";
 
-const OPTIONS: { value: NonNullable<SmellChoice>; title: string; description: string; tone?: "danger" | "warning" }[] = [
-  { value: "BURNING_ELECTRICAL", title: "Burning plastic / electrical", description: "Wiring or alternator overheating", tone: "danger" },
-  { value: "BURNING_OIL",        title: "Burning oil / rubber",         description: "Oil leak onto exhaust or belt slipping" },
-  { value: "FUEL_SMELL",         title: "Strong petrol / diesel smell", description: "Possible fuel leak — do not start", tone: "danger" },
-  { value: "ROTTEN_EGGS",        title: "Rotten eggs / sulfur",         description: "Catalytic converter or battery overcharge" },
-  { value: "SWEET",              title: "Sweet smell",                  description: "Coolant leak (antifreeze)" },
-  { value: "NO_SMELL",           title: "No unusual smell",             description: "Nothing different" },
+const OPTIONS: { value: NonNullable<SmellChoice>; titleKey: string; descriptionKey: string; tone?: "danger" | "warning" }[] = [
+  { value: "BURNING_ELECTRICAL", titleKey: "emergency.smells.electricalTitle", descriptionKey: "emergency.smells.electricalDesc", tone: "danger" },
+  { value: "BURNING_OIL",        titleKey: "emergency.smells.oilTitle",        descriptionKey: "emergency.smells.oilDesc" },
+  { value: "FUEL_SMELL",         titleKey: "emergency.smells.fuelTitle",       descriptionKey: "emergency.smells.fuelDesc",       tone: "danger" },
+  { value: "ROTTEN_EGGS",        titleKey: "emergency.smells.sulfurTitle",     descriptionKey: "emergency.smells.sulfurDesc" },
+  { value: "SWEET",              titleKey: "emergency.smells.sweetTitle",      descriptionKey: "emergency.smells.sweetDesc" },
+  { value: "NO_SMELL",           titleKey: "emergency.smells.noneTitle",       descriptionKey: "emergency.smells.noneDesc" },
 ];
 
 export default function SmellsScreen() {
+  const t = useT();
   const { smells, setSmells } = useEmergency();
 
   return (
     <QuestionScreen
       route="smells"
-      prompt={"Do you notice any unusual smells?"}
+      prompt={t("emergency.smells.prompt")}
       canNext={!!smells}
     >
       {OPTIONS.map((o) => (
         <OptionCard
           key={o.value}
-          title={o.title}
-          description={o.description}
+          title={t(o.titleKey)}
+          description={t(o.descriptionKey)}
           accent={o.tone}
           badgeTone={o.tone}
           selected={smells === o.value}

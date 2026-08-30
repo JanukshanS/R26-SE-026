@@ -7,37 +7,39 @@ import { palette, radii, spacing, typography } from "@theme/index";
 import { useEmergency, type SLContext } from "@lib/emergencyContext";
 import { submitTriage, DispatchApiError } from "@lib/dispatchApi";
 import { readObdFromElm327, isElm327Paired } from "@lib/elm327";
+import { useT } from "@lib/i18n";
 
-const LOCATION_OPTIONS: { value: SLContext["location_type"]; label: string }[] = [
-  { value: "COASTAL", label: "Coastal" },
-  { value: "HILL",    label: "Hill country" },
-  { value: "URBAN",   label: "City / town" },
-  { value: "RURAL",   label: "Rural" },
+const LOCATION_OPTIONS: { value: SLContext["location_type"]; labelKey: string }[] = [
+  { value: "COASTAL", labelKey: "emergency.context.locationCoastal" },
+  { value: "HILL",    labelKey: "emergency.context.locationHill" },
+  { value: "URBAN",   labelKey: "emergency.context.locationUrban" },
+  { value: "RURAL",   labelKey: "emergency.context.locationRural" },
 ];
-const RAIN_OPTIONS: { value: SLContext["recent_rain"]; label: string }[] = [
-  { value: "NONE",          label: "No rain" },
-  { value: "YESTERDAY",     label: "Yesterday" },
-  { value: "WITHIN_3_DAYS", label: "Past 3 days" },
-  { value: "MONSOON",       label: "Monsoon — heavy" },
+const RAIN_OPTIONS: { value: SLContext["recent_rain"]; labelKey: string }[] = [
+  { value: "NONE",          labelKey: "emergency.context.rainNone" },
+  { value: "YESTERDAY",     labelKey: "emergency.context.rainYesterday" },
+  { value: "WITHIN_3_DAYS", labelKey: "emergency.context.rainThreeDays" },
+  { value: "MONSOON",       labelKey: "emergency.context.rainMonsoon" },
 ];
-const PARK_OPTIONS: { value: SLContext["parked_overnight"]; label: string }[] = [
-  { value: "INDOOR",  label: "Garage / covered" },
-  { value: "OUTDOOR", label: "Open / street" },
+const PARK_OPTIONS: { value: SLContext["parked_overnight"]; labelKey: string }[] = [
+  { value: "INDOOR",  labelKey: "emergency.context.parkIndoor" },
+  { value: "OUTDOOR", labelKey: "emergency.context.parkOutdoor" },
 ];
-const AGE_OPTIONS: { value: SLContext["vehicle_age_bucket"]; label: string }[] = [
-  { value: "UNDER_3", label: "< 3 yr" },
-  { value: "3_7",     label: "3-7 yr" },
-  { value: "8_15",    label: "8-15 yr" },
-  { value: "OVER_15", label: "> 15 yr" },
+const AGE_OPTIONS: { value: SLContext["vehicle_age_bucket"]; labelKey: string }[] = [
+  { value: "UNDER_3", labelKey: "emergency.context.ageUnder3" },
+  { value: "3_7",     labelKey: "emergency.context.age3to7" },
+  { value: "8_15",    labelKey: "emergency.context.age8to15" },
+  { value: "OVER_15", labelKey: "emergency.context.ageOver15" },
 ];
-const FUEL_OPTIONS: { value: SLContext["last_fueled"]; label: string }[] = [
-  { value: "TODAY_NEW_STATION", label: "Today — new station" },
-  { value: "TODAY_USUAL",       label: "Today — usual station" },
-  { value: "WITHIN_WEEK",       label: "Within past week" },
-  { value: "OVER_WEEK",         label: "Over a week ago" },
+const FUEL_OPTIONS: { value: SLContext["last_fueled"]; labelKey: string }[] = [
+  { value: "TODAY_NEW_STATION", labelKey: "emergency.context.fuelTodayNew" },
+  { value: "TODAY_USUAL",       labelKey: "emergency.context.fuelTodayUsual" },
+  { value: "WITHIN_WEEK",       labelKey: "emergency.context.fuelWithinWeek" },
+  { value: "OVER_WEEK",         labelKey: "emergency.context.fuelOverWeek" },
 ];
 
 export default function ContextScreen() {
+  const t = useT();
   const {
     slContext, setSLContext,
     incidentId, buildTriageResponses,
@@ -61,11 +63,11 @@ export default function ContextScreen() {
   async function handleSubmit() {
     if (!incidentId) {
       Alert.alert(
-        "We lost your request",
-        "Your answers were never filed with dispatch, so we can't run the diagnosis. Start the emergency flow again from the home screen.",
+        t("emergency.context.lostRequestTitle"),
+        t("emergency.context.lostRequestBody"),
         [
-          { text: "Not now", style: "cancel" },
-          { text: "Go home", onPress: () => router.replace("/(driver)/home") },
+          { text: t("emergency.action.notNow"), style: "cancel" },
+          { text: t("emergency.action.goHome"), onPress: () => router.replace("/(driver)/home") },
         ]
       );
       return;
@@ -94,16 +96,16 @@ export default function ContextScreen() {
     } catch (err) {
       const reachable = err instanceof DispatchApiError;
       const msg = reachable
-        ? `${err.message} (HTTP ${err.status})`
+        ? t("emergency.error.withStatus", { message: err.message, status: err.status })
         : (err as Error).message;
       setError(msg);
       Alert.alert(
-        "Couldn't run the diagnosis",
+        t("emergency.context.diagnosisFailedTitle"),
         reachable
-          ? `${msg}\n\nYour answers are saved. Tap Get Diagnosis to try again.`
-          : `Couldn't reach the diagnosis service. Check your connection — your answers are saved, so tap Get Diagnosis to try again.${
+          ? t("emergency.context.diagnosisFailedBody", { message: msg })
+          : t("emergency.context.diagnosisUnreachableBody") + (
               __DEV__ ? `\n\n[dev] ${msg}` : ""
-            }`
+            )
       );
     } finally {
       inFlightRef.current = false;
@@ -114,16 +116,16 @@ export default function ContextScreen() {
   return (
     <QuestionScreen
       route="context"
-      prompt="These help us narrow down the most likely fault for Sri Lankan conditions."
-      nextLabel={submitting ? "Diagnosing..." : "Get Diagnosis"}
+      prompt={t("emergency.context.prompt")}
+      nextLabel={submitting ? t("emergency.context.diagnosing") : t("emergency.context.getDiagnosis")}
       canNext={!submitting}
       onNext={handleSubmit}
     >
 
       <Card>
-        <Field label="Where are you?">
+        <Field label={t("emergency.context.fieldLocation")}>
           <Chips
-            options={LOCATION_OPTIONS}
+            options={LOCATION_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
             value={slContext.location_type}
             onChange={(v) => setSLContext({ location_type: v })}
           />
@@ -131,9 +133,9 @@ export default function ContextScreen() {
       </Card>
 
       <Card>
-        <Field label="Recent rain in your area?">
+        <Field label={t("emergency.context.fieldRain")}>
           <Chips
-            options={RAIN_OPTIONS}
+            options={RAIN_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
             value={slContext.recent_rain}
             onChange={(v) => setSLContext({ recent_rain: v })}
           />
@@ -141,9 +143,9 @@ export default function ContextScreen() {
       </Card>
 
       <Card>
-        <Field label="Where was it parked overnight?">
+        <Field label={t("emergency.context.fieldParked")}>
           <Chips
-            options={PARK_OPTIONS}
+            options={PARK_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
             value={slContext.parked_overnight}
             onChange={(v) => setSLContext({ parked_overnight: v })}
           />
@@ -151,9 +153,9 @@ export default function ContextScreen() {
       </Card>
 
       <Card>
-        <Field label="How old is the vehicle?">
+        <Field label={t("emergency.context.fieldAge")}>
           <Chips
-            options={AGE_OPTIONS}
+            options={AGE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
             value={slContext.vehicle_age_bucket}
             onChange={(v) => setSLContext({ vehicle_age_bucket: v })}
           />
@@ -161,9 +163,9 @@ export default function ContextScreen() {
       </Card>
 
       <Card>
-        <Field label="When did you last fuel up?">
+        <Field label={t("emergency.context.fieldFuel")}>
           <Chips
-            options={FUEL_OPTIONS}
+            options={FUEL_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
             value={slContext.last_fueled}
             onChange={(v) => setSLContext({ last_fueled: v })}
           />
@@ -175,23 +177,23 @@ export default function ContextScreen() {
       {!submitting && obdState === "unknown" && (
         <Text style={{ ...typography.micro, color: palette.textMuted, textAlign: "center" }}>
           {obdPaired
-            ? "ELM327 dongle paired — diagnosis will run at Tier-2 (OBD-enhanced)."
-            : "No OBD sensor paired — diagnosis will run at Tier-1 (questionnaire only)."}
+            ? t("emergency.context.obdPaired")
+            : t("emergency.context.obdNotPaired")}
         </Text>
       )}
       {submitting && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
           <ActivityIndicator size="small" color={palette.brand} />
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
-            {obdPaired ? "Reading OBD-II telemetry + running ML..." : "Running ML decision tree..."}
+            {obdPaired ? t("emergency.context.runningObd") : t("emergency.context.runningMl")}
           </Text>
         </View>
       )}
       {obdState !== "unknown" && !submitting && (
         <Text style={{ ...typography.micro, color: palette.textMuted, textAlign: "center" }}>
           {obdState === "yes"
-            ? "OBD telemetry attached — Tier-2 diagnosis."
-            : "No OBD device paired — Tier-1 (questionnaire only)."}
+            ? t("emergency.context.obdAttached")
+            : t("emergency.context.obdAbsent")}
         </Text>
       )}
     </QuestionScreen>

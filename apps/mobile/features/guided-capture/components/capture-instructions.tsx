@@ -4,6 +4,8 @@ import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from 
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 
+import { useT } from '@/lib/i18n';
+
 const ORANGE = '#f97316';
 const TEXT = '#111111';
 
@@ -146,6 +148,7 @@ function CarIcon() {
 }
 
 function ArcDiagram({ variant }: { variant: ArcVariant }) {
+  const t = useT();
   let dots: { x: number; y: number }[];
   let connectingPathD: string;
   let nearestDot: { x: number; y: number };
@@ -191,7 +194,7 @@ function ArcDiagram({ variant }: { variant: ArcVariant }) {
         )
       )}
       <SvgText x={dots[0]!.x} y={dots[0]!.y - 16} fontSize={12} fontWeight="700" fill={ORANGE} textAnchor="middle">
-        Start
+        {t('insurance.captureIntro.diagramStart')}
       </SvgText>
 
       <Line x1={twoMStart.x} y1={twoMStart.y} x2={twoMEnd.x} y2={twoMEnd.y} stroke={ORANGE} strokeWidth={1.5} />
@@ -214,7 +217,7 @@ function ArcDiagram({ variant }: { variant: ArcVariant }) {
         fontWeight="700"
         fill={ORANGE}
         textAnchor="middle">
-        2m
+        {t('insurance.captureIntro.diagramDistance')}
       </SvgText>
     </Svg>
   );
@@ -427,11 +430,12 @@ function HeightStepIcon({ armPose, number, label }: { armPose: ArmPose; number: 
 }
 
 function StepSequenceRow() {
+  const t = useT();
   return (
     <View style={styles.stepRow}>
-      <HeightStepIcon armPose="overhead" number={1} label="Overhead" />
-      <HeightStepIcon armPose="chest" number={2} label="Chest height" />
-      <HeightStepIcon armPose="waist" number={3} label="Waist height" />
+      <HeightStepIcon armPose="overhead" number={1} label={t('insurance.captureIntro.poseOverhead')} />
+      <HeightStepIcon armPose="chest" number={2} label={t('insurance.captureIntro.poseChest')} />
+      <HeightStepIcon armPose="waist" number={3} label={t('insurance.captureIntro.poseWaist')} />
     </View>
   );
 }
@@ -441,6 +445,7 @@ function StepSequenceRow() {
  * same arc diagram + pose icons + captions in both places, so a user mid-shoot
  * can re-check the exact reference they saw before starting, not a summary of it. */
 export function CaptureInstructions() {
+  const t = useT();
   return (
     <>
       <View style={styles.imageCard}>
@@ -449,20 +454,14 @@ export function CaptureInstructions() {
 
       <View style={[styles.calloutCard, styles.topCaptionSpacing]}>
         <Ionicons name="information-circle" size={20} color={ORANGE} style={styles.calloutIcon} />
-        <Text style={styles.calloutText}>
-          Capture along the path of the accident — start where the damage begins and continue around that
-          side of the vehicle.
-        </Text>
+        <Text style={styles.calloutText}>{t('insurance.captureIntro.calloutPath')}</Text>
       </View>
 
       <StepSequenceRow />
 
       <View style={styles.calloutCard}>
         <Ionicons name="information-circle" size={20} color={ORANGE} style={styles.calloutIcon} />
-        <Text style={styles.calloutText}>
-          At each stop, take 3 photos in order — overhead, chest height, then waist height. Then move to
-          the next stop and repeat.
-        </Text>
+        <Text style={styles.calloutText}>{t('insurance.captureIntro.calloutOrder')}</Text>
       </View>
     </>
   );

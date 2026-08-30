@@ -349,7 +349,7 @@ export default function ActiveJobScreen() {
             <Text style={{ ...typography.body, color: palette.textMuted }}>
               {triage
                 ? t("provider.resolve.introPredicted", {
-                    service: serviceTypeLabel(triage.predictedServiceType),
+                    service: serviceTypeLabel(triage.predictedServiceType, t),
                   })
                 : t("provider.resolve.intro")}
             </Text>
@@ -388,7 +388,7 @@ export default function ActiveJobScreen() {
                       flexShrink: 1,
                     }}
                   >
-                    {serviceTypeLabel(st)}
+                    {serviceTypeLabel(st, t)}
                   </Text>
                   {predicted ? <Badge label={t("provider.resolve.predictedBadge")} tone="neutral" /> : null}
                   {selected ? <Icon name="Check" size={18} color={palette.brand} /> : null}
@@ -488,7 +488,7 @@ export default function ActiveJobScreen() {
               <Icon name="TriangleAlert" size={22} color={palette.danger} />
               <Text style={{ ...typography.h3, color: palette.danger, flexShrink: 1 }}>
                 {triage
-                  ? serviceTypeLabel(triage.predictedServiceType)
+                  ? serviceTypeLabel(triage.predictedServiceType, t)
                   : t("provider.job.fallbackService")}
               </Text>
             </View>
@@ -503,7 +503,7 @@ export default function ActiveJobScreen() {
               >
                 <Row
                   label={t("provider.activeJob.rowService")}
-                  value={serviceTypeAction(triage.predictedServiceType)}
+                  value={serviceTypeAction(triage.predictedServiceType, t)}
                 />
                 <Row
                   label={t("provider.activeJob.rowConfidence")}
@@ -527,7 +527,7 @@ export default function ActiveJobScreen() {
                         }}
                       >
                         <Text style={{ ...typography.caption, color: palette.text }}>
-                          {serviceTypeLabel(type)}
+                          {serviceTypeLabel(type, t)}
                         </Text>
                         <Text style={{ ...typography.caption, color: palette.textMuted }}>
                           {Math.round(prob * 100)}%

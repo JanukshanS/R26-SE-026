@@ -347,7 +347,7 @@ export default function ProviderOnboardingScreen() {
                         fontWeight: selected ? "700" : "400",
                       }}
                     >
-                      {providerTypeLabel(pt)}
+                      {providerTypeLabel(pt, t)}
                     </Text>
                     {selected ? (
                       <Icon name="Check" size={18} color={palette.brand} />

@@ -44,6 +44,7 @@ import {
   INSURANCE_TEXT_MUTED_SOFT,
   WHITE,
 } from '@/features/guided-capture/capture-ui-theme';
+import { useT } from '@/lib/i18n';
 
 const COLORS = {
   screen: WHITE,
@@ -63,8 +64,7 @@ const COLORS = {
 /** Shown once every file is on the server — both while the server reports "processing" and
  * right after a local upload finishes, since telling the driver not to close the app after
  * the last file has landed is no longer true. */
-const SUBMITTED_MESSAGE =
-  "Your claim has been submitted. We're validating your photos — you'll be notified once it's ready for review.";
+const SUBMITTED_MESSAGE_KEY = 'insurance.upload.submittedMessage';
 
 function ProgressRow({
   label,
@@ -136,6 +136,7 @@ function resolveInsurerFromCacheSync(
 }
 
 export default function UploadAccidentDetailsScreen() {
+  const t = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { uploadKey, reportedAtIso, vehicleId, existingClaimId } = useLocalSearchParams<{
@@ -395,7 +396,7 @@ export default function UploadAccidentDetailsScreen() {
     try {
       await Linking.openURL(insuranceCompany.phoneTel);
     } catch {
-      Alert.alert('Call your insurer', 'Use the phone number on your insurance card or policy document.');
+      Alert.alert(t('insurance.hub.callFallbackTitle'), t('insurance.hub.callFallbackBody'));
     } finally {
       setCallingInsurer(false);
     }
@@ -446,31 +447,31 @@ export default function UploadAccidentDetailsScreen() {
             style={({ pressed }) => [styles.headerBack, pressed && styles.pressed]}
             hitSlop={12}
             accessibilityRole="button"
-            accessibilityLabel="Go back">
+            accessibilityLabel={t('insurance.action.back')}>
             <Ionicons name="chevron-back" size={24} color={COLORS.text} />
-            <Text style={styles.headerBackText}>Report Accident</Text>
+            <Text style={styles.headerBackText}>{t('insurance.hub.reportAccident')}</Text>
           </Pressable>
 
-          <Text style={styles.pageTitle}>Upload Accident Details</Text>
+          <Text style={styles.pageTitle}>{t('insurance.upload.title')}</Text>
 
           <View style={styles.progressBlock}>
             <ProgressRow
-              label="Photos Uploaded"
+              label={t('insurance.upload.rowPhotos')}
               percent={displayPhotosUploadPercent}
               complete={displayPhotosUploadComplete}
             />
             <ProgressRow
-              label="Fraud Validation"
+              label={t('insurance.upload.rowFraud')}
               percent={displayFraudValidationPercent}
               complete={displayFraudValidationComplete}
             />
             <ProgressRow
-              label="Low light enhancement"
+              label={t('insurance.upload.rowLowLight')}
               percent={displayLowLightPercent}
               complete={displayLowLightComplete}
             />
             <ProgressRow
-              label="3D Reconstruction"
+              label={t('insurance.upload.rowReconstruction')}
               percent={display3DReconstructionPercent}
               complete={display3DReconstructionComplete}
             />
@@ -490,7 +491,9 @@ export default function UploadAccidentDetailsScreen() {
                   },
                 ]}>
                 <Text style={styles.detailCardHeaderLeft}>
-                  {existingClaim?.status === 'approved' ? 'Approved' : 'Captured and Submitted'}
+                  {existingClaim?.status === 'approved'
+                    ? t('insurance.upload.statusApproved')
+                    : t('insurance.upload.statusSubmitted')}
                 </Text>
               </View>
             </View>
@@ -505,12 +508,12 @@ export default function UploadAccidentDetailsScreen() {
             </Text>
             <Text style={styles.detailFooter}>
               {existingClaim?.status === 'approved'
-                ? 'Your claim has been Approved'
+                ? t('insurance.upload.footerApproved')
                 : existingClaim?.status === 'pending_review'
-                ? 'The review process will take 1 - 2 working days'
+                ? t('insurance.upload.footerPendingReview')
                 : existingClaim?.status === 'processing' || claimComplete
-                ? SUBMITTED_MESSAGE
-                : "GPS + Timestamp signed. Do not close the app and Do not disconnect from Internet. We'll notify you."}
+                ? t(SUBMITTED_MESSAGE_KEY)
+                : t('insurance.upload.footerUploading')}
             </Text>
           </View>
 
@@ -537,17 +540,16 @@ export default function UploadAccidentDetailsScreen() {
                     <View style={styles.callBtnIconWrap}>
                       <Ionicons name="call-outline" size={20} color={INSURANCE_PRIMARY} />
                     </View>
-                    <Text style={styles.callInsurerText}>{`Call ${insuranceCompany.appName}`}</Text>
+                    <Text style={styles.callInsurerText}>
+                      {t('insurance.hub.callInsurer', { name: insuranceCompany.appName })}
+                    </Text>
                   </>
                 )}
               </Pressable>
             </View>
           ) : vehicleMissingInsurer ? (
             <View style={styles.noInsurerHint}>
-              <Text style={styles.noInsurerHintText}>
-                No insurance company saved for this vehicle. Add it in My Vehicles → Edit → Add
-                insurance company → Save changes.
-              </Text>
+              <Text style={styles.noInsurerHintText}>{t('insurance.hub.noInsurerHint')}</Text>
             </View>
           ) : null}
 
@@ -557,11 +559,11 @@ export default function UploadAccidentDetailsScreen() {
                 style={({ pressed }) => [styles.callInsurerBtn, pressed && styles.callInsurerPressed]}
                 onPress={onStartNewClaim}
                 accessibilityRole="button"
-                accessibilityLabel="Start a new claim">
+                accessibilityLabel={t('insurance.upload.newClaimA11y')}>
                 <View style={styles.callBtnIconWrap}>
                   <Ionicons name="add-outline" size={20} color={INSURANCE_PRIMARY} />
                 </View>
-                <Text style={styles.callInsurerText}>Start New Claim</Text>
+                <Text style={styles.callInsurerText}>{t('insurance.upload.newClaim')}</Text>
               </Pressable>
             </View>
           )}
@@ -577,24 +579,21 @@ export default function UploadAccidentDetailsScreen() {
           setConfirmingNewClaim(false);
           void performStartNewClaim();
         }}
-        title="Start New Claim?"
-        message="This clears your current claim progress — photos, videos and answers — so you can begin a fresh one."
+        title={t('insurance.upload.newClaimConfirmTitle')}
+        message={t('insurance.upload.newClaimConfirmBody')}
         icon="RotateCcw"
-        confirmLabel="Start New Claim"
+        confirmLabel={t('insurance.upload.newClaim')}
       />
 
       <ResetCaptureDialog
         visible={uploadFailedVisible}
         onCancel={dismissUploadFailed}
         onConfirm={retryUpload}
-        title="Upload Failed"
-        message={
-          uploadError ??
-          'Upload stopped before it finished. Your photos are safe on this device — tap Try again to resume.'
-        }
+        title={t('insurance.upload.failedTitle')}
+        message={uploadError ?? t('insurance.upload.failedBody')}
         icon="CloudOff"
-        cancelLabel="Not now"
-        confirmLabel="Try again"
+        cancelLabel={t('insurance.action.notNow')}
+        confirmLabel={t('insurance.action.tryAgain')}
       />
 
       <LocationRequiredDialog

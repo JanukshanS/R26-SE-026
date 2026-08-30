@@ -11,9 +11,14 @@ import Animated, {
 } from "react-native-reanimated";
 import { Icon } from "@components/ui/icon";
 import { haptics } from "@lib/haptics";
+import { useT } from "@lib/i18n";
 import { palette, radii, spacing, typography } from "@theme/index";
 
-const STAGES = ["Locating you", "Scoring traffic impact", "Ranking nearby providers"] as const;
+const STAGE_KEYS = [
+  "emergency.dispatchProgress.stageLocating",
+  "emergency.dispatchProgress.stageScoring",
+  "emergency.dispatchProgress.stageRanking",
+] as const;
 const STAGE_INTERVAL_MS = 1400;
 
 type Props = {
@@ -27,7 +32,8 @@ type Props = {
  * success check and fires a success haptic. Replaces the bare ActivityIndicator
  * on the dispatch loading screens.
  */
-export function DispatchProgress({ done, doneLabel = "Provider Found" }: Props) {
+export function DispatchProgress({ done, doneLabel }: Props) {
+  const t = useT();
   const [stage, setStage] = useState(0);
   const pulse = useSharedValue(1);
 
@@ -45,7 +51,7 @@ export function DispatchProgress({ done, doneLabel = "Provider Found" }: Props) 
   useEffect(() => {
     if (done) return;
     const id = setInterval(() => {
-      setStage((s) => (s + 1) % STAGES.length);
+      setStage((s) => (s + 1) % STAGE_KEYS.length);
     }, STAGE_INTERVAL_MS);
     return () => clearInterval(id);
   }, [done]);
@@ -81,7 +87,7 @@ export function DispatchProgress({ done, doneLabel = "Provider Found" }: Props) 
       </View>
 
       <Text style={{ ...typography.h3, color: palette.text, textAlign: "center" }}>
-        {done ? doneLabel : "Finding the nearest provider"}
+        {done ? doneLabel ?? t("emergency.dispatchProgress.done") : t("emergency.dispatchProgress.searching")}
       </Text>
 
       {!done && (
@@ -90,7 +96,7 @@ export function DispatchProgress({ done, doneLabel = "Provider Found" }: Props) 
           entering={FadeIn.duration(300)}
           style={{ ...typography.caption, color: palette.textMuted, textAlign: "center" }}
         >
-          {STAGES[stage]}
+          {t(STAGE_KEYS[stage])}
         </Animated.Text>
       )}
     </View>

@@ -1,4 +1,73 @@
 /** app — en. Flat map of fully-qualified key → string. */
-const app: Record<string, string> = {};
+const app: Record<string, string> = {
+  "app.action.report": "Report a breakdown",
+  "app.action.retry": "Try again",
+  "app.activity.emptyBody":
+    "Breakdowns you report from the mobile app show up here with their live status and the provider on the way.",
+  "app.activity.emptyTitle": "Nothing has happened yet — which is good news",
+  "app.claim.defaultTitle": "Vehicle claim",
+  "app.claim.noPhotos": "No photos uploaded yet",
+  "app.claim.photos_one": "{{count}} photo filed — view them in the mobile app",
+  "app.claim.photos_other": "{{count}} photos filed — view them in the mobile app",
+  "app.claims.emptyBody":
+    "Claims start with a guided photo walkaround in the mobile app. Once you file one, its status and paperwork show up here.",
+  "app.claims.emptyTitle": "No claims yet",
+  "app.error.claimsBody": "{{message}} No claim has been lost.",
+  "app.error.claimsTitle": "Couldn't load your claims",
+  "app.error.incidentsTitle": "Couldn't load your incidents",
+  "app.error.sessionExpired": "Your session expired. Sign out and back in.",
+  "app.error.vehiclesTitle": "Couldn't load your vehicles",
+  "app.health.noTelemetry":
+    "No telemetry yet — health predictions need at least one recorded trip.",
+  "app.health.noTelemetryPrimary":
+    "No telemetry recorded yet. Connect the OBD dongle in the mobile app and drive — health predictions appear after the first trip.",
+  "app.health.trips_one": "{{count}} trip · {{km}} km recorded",
+  "app.health.trips_other": "{{count}} trips · {{km}} km recorded",
+  "app.incident.defaultService": "Roadside assistance",
+  "app.incident.providerUnassigned": "Not assigned yet",
+  "app.incident.rowContact": "Contact",
+  "app.incident.rowLocation": "Location",
+  "app.incident.rowProvider": "Provider",
+  "app.incident.rowVehicle": "Vehicle",
+  "app.incidentStatus.cancelled": "Cancelled",
+  "app.incidentStatus.created": "Reported",
+  "app.incidentStatus.enRoute": "En route",
+  "app.incidentStatus.escalated": "Escalated",
+  "app.incidentStatus.onScene": "On scene",
+  "app.incidentStatus.providerAssigned": "Provider assigned",
+  "app.incidentStatus.resolved": "Resolved",
+  "app.incidents.emptyBody":
+    "Report a breakdown — here or in the mobile app — and you'll follow it here: status, assigned provider and their phone number, refreshed every few seconds.",
+  "app.incidents.emptyNoVehiclesBody":
+    "Incidents are matched to you by your vehicle's plate number. Add a vehicle in the mobile app first.",
+  "app.incidents.emptyNoVehiclesTitle": "No vehicles, no incidents",
+  "app.incidents.emptyTitle": "No breakdowns on record",
+  "app.overview.heading": "Overview",
+  "app.section.recentActivity": "Recent activity",
+  "app.section.vehicleHealth": "Vehicle health",
+  "app.stat.claimsInProgress": "Claims in progress",
+  "app.stat.openIncidents": "Open incidents",
+  "app.stat.vehicles": "Vehicles",
+  "app.tab.claims": "Claims",
+  "app.tab.incidents": "Incidents",
+  "app.tab.overview": "Overview",
+  "app.tab.vehicles": "Vehicles",
+  "app.timeAgo.days_one": "{{count}} d ago",
+  "app.timeAgo.days_other": "{{count}} d ago",
+  "app.timeAgo.hours_one": "{{count}} h ago",
+  "app.timeAgo.hours_other": "{{count}} h ago",
+  "app.timeAgo.justNow": "just now",
+  "app.timeAgo.minutes_one": "{{count}} min ago",
+  "app.timeAgo.minutes_other": "{{count}} min ago",
+  "app.title": "My Kaduna",
+  "app.vehicles.defaultBadge": "Default",
+  "app.vehicles.emptyBody":
+    "Vehicles are added in the Kaduna.lk mobile app — open it, tap Vehicles, and add your make, model and plate. They'll show up here straight away.",
+  "app.vehicles.emptyTitle": "No vehicles yet",
+  "app.vehicles.mileage": "{{km}} km",
+  "app.vehicles.noPrimaryBody":
+    "Add your car in the Kaduna.lk mobile app and its health summary will appear here.",
+  "app.vehicles.noPrimaryTitle": "No vehicle yet",
+};
 
 export default app;

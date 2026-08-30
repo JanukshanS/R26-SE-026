@@ -42,6 +42,15 @@ const CALL = /\bt\(\s*["'`]([A-Za-z0-9_.]+)["'`]/g;
 /** Keys parked in data for a later t(): `labelKey: "emergency.steps.engine"`. */
 const DATA_KEY = /\b\w*[Kk]ey\s*:\s*["']([a-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+)["']/g;
 
+/**
+ * Any dot-path string literal at all. Several maps are keyed BY an enum and
+ * hold a catalogue key as the value — `engine: "driver.health.componentEngine"`
+ * — so the property name carries no hint that the value is a key. Anything
+ * matching a real catalogue entry counts as used; a literal colliding with a
+ * key by accident is not a thing that happens.
+ */
+const ANY_PATH = /["']([a-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+){1,5})["']/g;
+
 function catalogueOf(dir, locale) {
   const out = new Map();
   let files;
@@ -67,12 +76,26 @@ for (const app of APPS) {
       }
     }
   }
+  // A literal that merely LOOKS like a key only counts as a reference when the
+  // catalogue actually has it — otherwise every "expo-router" style string
+  // would read as a broken key. This is what stops enum-keyed maps from
+  // reporting their values as orphans.
+  const seenLiterals = new Set();
+  for (const d of app.src) {
+    for (const file of walk(join(ROOT, d))) {
+      const src = readFileSync(file, "utf8");
+      for (const m of src.matchAll(ANY_PATH)) seenLiterals.add(m[1]);
+    }
+  }
+
   const en = catalogueOf(join(ROOT, app.locales), "en");
   // A key called with { count } resolves to key_one / key_other and never
   // exists under its bare name, so satisfying either form counts.
   const satisfied = (k) => en.has(k) || (en.has(`${k}_one`) && en.has(`${k}_other`));
   const missing = [...used].filter(([k]) => !satisfied(k));
-  const orphans = [...en.keys()].filter((k) => !used.has(k) && !/_(one|other)$/.test(k));
+  const orphans = [...en.keys()].filter(
+    (k) => !used.has(k) && !seenLiterals.has(k) && !/_(one|other)$/.test(k)
+  );
 
   const pluralBase = new Set([...en.keys()].filter((k) => /_(one|other)$/.test(k)).map((k) => k.replace(/_(one|other)$/, "")));
   const halfPlurals = [...pluralBase].filter((b) => !(en.has(`${b}_one`) && en.has(`${b}_other`)));

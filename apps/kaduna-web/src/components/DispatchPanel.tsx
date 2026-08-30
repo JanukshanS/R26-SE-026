@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/lib/i18n";
 import type { DispatchData, DispatchVariant } from "@/lib/types";
 
-const POLICY_META: { key: keyof DispatchVariant["meanVHL"]; label: string; color: string }[] = [
-  { key: "nearest", label: "Nearest-first", color: "#6366f1" },
-  { key: "priority", label: "Impact-priority", color: "#f97316" },
-  { key: "fifo", label: "FIFO", color: "#64748b" },
+const POLICY_META: { key: keyof DispatchVariant["meanVHL"]; labelKey: string; color: string }[] = [
+  { key: "nearest", labelKey: "dashboard.dispatch.policyNearest", color: "#6366f1" },
+  { key: "priority", labelKey: "dashboard.dispatch.policyPriority", color: "#f97316" },
+  { key: "fifo", labelKey: "dashboard.dispatch.policyFifo", color: "#64748b" },
 ];
 
 function ReductionBadge({ pct }: { pct: number }) {
@@ -34,6 +35,7 @@ function VariantCard({
   highlight: boolean;
   cite: boolean;
 }) {
+  const t = useT();
   const maxVHL = Math.max(...POLICY_META.map((p) => variant.meanVHL[p.key]));
   return (
     <div
@@ -52,11 +54,11 @@ function VariantCard({
         </div>
         {cite ? (
           <span className="text-xs font-bold px-1.5 py-0.5 rounded border border-green-500/50 bg-green-500/10 text-green-400 ">
-            Cite this
+            {t("dashboard.dispatch.cite")}
           </span>
         ) : (
           <span className="text-xs font-bold px-1.5 py-0.5 rounded border border-red-500/50 bg-red-500/10 text-red-400 ">
-            Circular
+            {t("dashboard.dispatch.circular")}
           </span>
         )}
       </div>
@@ -68,7 +70,7 @@ function VariantCard({
           const pct = maxVHL > 0 ? (v / maxVHL) * 100 : 0;
           return (
             <div key={p.key} className="flex items-center gap-2">
-              <span className="text-xs w-20 truncate">{p.label}</span>
+              <span className="text-xs w-20 truncate">{t(p.labelKey)}</span>
               <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all"
@@ -86,16 +88,20 @@ function VariantCard({
       {/* Headline relative reduction */}
       <div className="flex items-baseline justify-between border-t border-border pt-2">
         <span className="text-xs text-muted-foreground ">
-          Impact vs nearest (relative)
+          {t("dashboard.dispatch.relative")}
         </span>
         <span className="text-lg">
           <ReductionBadge pct={variant.relReductionPct} />
         </span>
       </div>
       <p className="text-xs text-muted-foreground mt-0.5">
-        95% CI [{variant.ci95[0].toFixed(1)}%, {variant.ci95[1].toFixed(1)}%] · seeds C&gt;A{" "}
-        {variant.seedsCbeatsA}/{variant.seeds} · Spearman(cost,score){" "}
-        {variant.spearmanCostVsScore.toFixed(2)}
+        {t("dashboard.dispatch.variantStats", {
+          ciLow: variant.ci95[0].toFixed(1),
+          ciHigh: variant.ci95[1].toFixed(1),
+          seedsWon: variant.seedsCbeatsA,
+          seeds: variant.seeds,
+          spearman: variant.spearmanCostVsScore.toFixed(2),
+        })}
       </p>
 
       {/* N-sweep */}
@@ -104,9 +110,15 @@ function VariantCard({
           <div
             key={s.N}
             className="rounded bg-muted p-1.5 text-center"
-            title={`N=${s.N}: seeds C beats A = ${s.seedsCbeatsA}/${variant.seeds}`}
+            title={t("dashboard.dispatch.sweepTitle", {
+              n: s.N,
+              seedsWon: s.seedsCbeatsA,
+              seeds: variant.seeds,
+            })}
           >
-            <p className="text-xs text-muted-foreground">N={s.N}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("dashboard.dispatch.sweepN", { n: s.N })}
+            </p>
             <p className="text-xs font-bold">
               <ReductionBadge pct={s.relReductionPct} />
             </p>
@@ -118,6 +130,7 @@ function VariantCard({
 }
 
 export default function DispatchPanel() {
+  const t = useT();
   const [data, setData] = useState<DispatchData | null>(null);
 
   useEffect(() => {
@@ -137,26 +150,23 @@ export default function DispatchPanel() {
   return (
     <div className="space-y-3">
       <h3 className="text-xs  text-muted-foreground font-semibold">
-        Priority Dispatch (H2)
+        {t("dashboard.dispatch.title")}
       </h3>
       <p className="text-xs text-muted-foreground leading-relaxed">
-        Mean network <span className="text-foreground font-semibold">VHL</span> (relative index)
-        across {data.kernel.seeds} seeds at N={data.headlineN} providers — lower is better.
-        The headline is the <span className="text-foreground font-semibold">relative</span> VHL
-        reduction of impact-priority vs nearest-first.
+        {t("dashboard.dispatch.intro", { seeds: data.kernel.seeds, n: data.headlineN })}
       </p>
 
       <VariantCard
-        title="SUMO-grounded (decoupled)"
-        subtitle="independent physics cost"
+        title={t("dashboard.dispatch.sumoTitle")}
+        subtitle={t("dashboard.dispatch.sumoSubtitle")}
         variant={data.sumoGrounded}
         highlight
         cite
       />
 
       <VariantCard
-        title="Kernel (original)"
-        subtitle="cost = score's own kernel"
+        title={t("dashboard.dispatch.kernelTitle")}
+        subtitle={t("dashboard.dispatch.kernelSubtitle")}
         variant={data.kernel}
         highlight={false}
         cite={false}
@@ -164,7 +174,7 @@ export default function DispatchPanel() {
 
       <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3">
         <p className="text-xs font-bold text-yellow-400  mb-1">
-          Balanced regime
+          {t("dashboard.dispatch.balancedTitle")}
         </p>
         <p className="text-xs leading-relaxed text-muted-foreground">
           {data.balancedNote}
@@ -173,7 +183,7 @@ export default function DispatchPanel() {
 
       <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3">
         <p className="text-xs font-bold text-red-400  mb-1">
-          Honest caveat — read before citing
+          {t("dashboard.dispatch.caveatTitle")}
         </p>
         <p className="text-xs leading-relaxed text-muted-foreground">
           {data.honestCaveat}
@@ -181,7 +191,7 @@ export default function DispatchPanel() {
       </div>
 
       <p className="text-xs text-muted-foreground break-words">
-        Source: {data.source}
+        {t("dashboard.dispatch.source", { source: data.source })}
       </p>
     </div>
   );

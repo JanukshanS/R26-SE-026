@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 import LanguagePicker from "@/components/LanguagePicker";
 import { areasFor, useAuth } from "@/lib/auth";
+import { useT } from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
 
 export type PortalTab = { label: string; href: string };
@@ -35,6 +36,7 @@ export default function PortalShell({
   onBeforeSignOut?: () => Promise<void>;
   children: React.ReactNode;
 }) {
+  const t = useT();
   const { session, profile } = useAuth();
   const pathname = usePathname();
   const areas = areasFor(profile);
@@ -47,7 +49,7 @@ export default function PortalShell({
             Kaduna<span className="text-primary">.lk</span>
           </Link>
 
-          <nav aria-label="Areas" className="flex items-center gap-1 overflow-x-auto">
+          <nav aria-label={t("portal.nav.areas")} className="flex items-center gap-1 overflow-x-auto">
             {areas.map((a) => {
               const current = pathname === a.href;
               return (
@@ -78,7 +80,7 @@ export default function PortalShell({
               }}
               className="rounded-md border border-input px-3 py-1.5 font-medium hover:bg-accent"
             >
-              Sign out
+              {t("portal.action.signOut")}
             </button>
           </div>
         </div>

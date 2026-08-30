@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps, usingGoogleMaps } from "@/lib/googleMaps";
+import { useT } from "@/lib/i18n";
 
 export type Coords = { latitude: number; longitude: number };
 
@@ -45,7 +46,6 @@ interface PinMapProps {
 }
 
 const MAP_CLASS = "h-72 w-full overflow-hidden rounded-lg border border-border";
-const MAP_LABEL = "Breakdown location. Click the map to place the pin.";
 
 /**
  * Preferred pin map. Google's road geometry and junction names are closer to
@@ -53,6 +53,7 @@ const MAP_LABEL = "Breakdown location. Click the map to place the pin.";
  * is the whole point of a pin the tow truck has to find.
  */
 function GooglePinMap({ value, onChange }: PinMapProps) {
+  const t = useT();
   const nodeRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
@@ -87,7 +88,7 @@ function GooglePinMap({ value, onChange }: PinMapProps) {
           map,
           draggable: true,
           visible: Boolean(value),
-          title: "Drag to correct the location",
+          title: t("dashboard.locationPicker.dragTitle"),
           icon: {
             path: maps.SymbolPath.CIRCLE,
             scale: 9,
@@ -135,11 +136,19 @@ function GooglePinMap({ value, onChange }: PinMapProps) {
     if (map.getZoom() < 16) map.setZoom(16);
   }, [value]);
 
-  return <div ref={nodeRef} role="application" aria-label={MAP_LABEL} className={MAP_CLASS} />;
+  return (
+    <div
+      ref={nodeRef}
+      role="application"
+      aria-label={t("dashboard.locationPicker.mapLabel")}
+      className={MAP_CLASS}
+    />
+  );
 }
 
 /** Fallback pin map for deployments with no Google Maps key configured. */
 function LeafletPinMap({ value, onChange }: PinMapProps) {
+  const t = useT();
   const nodeRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
@@ -181,7 +190,7 @@ function LeafletPinMap({ value, onChange }: PinMapProps) {
         draggable: true,
         opacity: value ? 1 : 0,
         keyboard: true,
-        title: "Drag to correct the location",
+        title: t("dashboard.locationPicker.dragTitle"),
       }).addTo(map);
 
       marker.on("dragend", () => {
@@ -221,7 +230,14 @@ function LeafletPinMap({ value, onChange }: PinMapProps) {
     map.setView([value.latitude, value.longitude], Math.max(map.getZoom(), 16));
   }, [value]);
 
-  return <div ref={nodeRef} role="application" aria-label={MAP_LABEL} className={MAP_CLASS} />;
+  return (
+    <div
+      ref={nodeRef}
+      role="application"
+      aria-label={t("dashboard.locationPicker.mapLabel")}
+      className={MAP_CLASS}
+    />
+  );
 }
 
 const PinMap = usingGoogleMaps ? GooglePinMap : LeafletPinMap;
@@ -246,6 +262,7 @@ export default function LocationPicker({
   /** Overrides the label above the chosen place, for the same reason. */
   confirmLabel?: string;
 }) {
+  const t = useT();
   const [place, setPlace] = useState<string | null>(null);
   const [looking, setLooking] = useState(false);
 
@@ -278,26 +295,26 @@ export default function LocationPicker({
         {value ? (
           <>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              {confirmLabel ?? "Sending help to"}
+              {confirmLabel ?? t("dashboard.locationPicker.sendingTo")}
             </p>
             <p className="mt-0.5 font-medium">
-              {place ?? (looking ? "Looking up the address…" : "Pin placed on the map")}
+              {place ??
+                (looking
+                  ? t("dashboard.locationPicker.looking")
+                  : t("dashboard.locationPicker.pinPlaced"))}
             </p>
             <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
-              {value.latitude.toFixed(5)}, {value.longitude.toFixed(5)} —{" "}
-              {confirmLabel
-                ? "drag the pin to move it."
-                : "drag the pin if this isn't exactly where you are."}
+              {t(
+                confirmLabel
+                  ? "dashboard.locationPicker.coordsDrag"
+                  : "dashboard.locationPicker.coordsDragHere",
+                { lat: value.latitude.toFixed(5), lng: value.longitude.toFixed(5) }
+              )}
             </p>
           </>
         ) : (
           <p className="text-sm text-muted-foreground">
-            {hint ?? (
-              <>
-                Tap <span className="font-medium text-foreground">Use my location</span>, or click
-                the map where you&apos;ve broken down. Nobody can be sent without a pin.
-              </>
-            )}
+            {hint ?? t("dashboard.locationPicker.hint")}
           </p>
         )}
       </div>

@@ -23,6 +23,7 @@ import {
   type ProviderRecord,
 } from "@lib/dispatchApi";
 import { getCurrentDriverLocation, FALLBACK_LOCATION } from "@lib/driverLocation";
+import { useT, type Translate } from "@lib/i18n";
 
 type IncidentDetail = Awaited<ReturnType<typeof getIncident>>;
 
@@ -32,75 +33,78 @@ const POLL_INTERVAL_MS = 5000;
 const TERMINAL_STATUSES = ["RESOLVED", "ESCALATED", "CANCELLED"];
 
 /** Display ETA in whole minutes from the backend's computed travel time. */
-function formatEta(min?: number): string {
-  if (!min || min <= 0) return "~5 min";
-  return `${Math.max(1, Math.round(min))} min`;
+function formatEta(min: number | undefined, t: Translate): string {
+  if (!min || min <= 0) return t("emergency.connected.etaFallback");
+  return t("emergency.connected.etaMinutes", { minutes: Math.max(1, Math.round(min)) });
 }
 
 /** Headline, explanation and badge for each lifecycle state the driver can be in. */
-function statusMeta(status: string, providerName: string | null): {
+function statusMeta(status: string, providerName: string | null, t: Translate): {
   title: string;
   detail: string;
   badge: string;
   tone: "neutral" | "success" | "warning" | "danger" | "brand";
 } {
-  const who = providerName ?? "Your provider";
+  const who = providerName ?? t("emergency.connected.fallbackProvider");
   switch (status) {
     case "EN_ROUTE":
       return {
-        title: "Help is on the way",
-        detail: `${who} accepted the job and is heading to you now.`,
-        badge: "En route",
+        title: t("emergency.connected.enRouteTitle"),
+        detail: t("emergency.connected.enRouteDetail", { name: who }),
+        badge: t("emergency.connected.badgeEnRoute"),
         tone: "brand",
       };
     case "ON_SCENE":
       return {
-        title: `${who} has arrived`,
-        detail: "They're at your location. Flag them down if they can't spot your vehicle.",
-        badge: "On scene",
+        title: t("emergency.connected.onSceneTitle", { name: who }),
+        detail: t("emergency.connected.onSceneDetail"),
+        badge: t("emergency.connected.badgeOnScene"),
         tone: "success",
       };
     case "RESOLVED":
       return {
-        title: "Job complete",
-        detail: "This request has been closed. You can head back to the home screen.",
-        badge: "Resolved",
+        title: t("emergency.connected.resolvedTitle"),
+        detail: t("emergency.connected.resolvedDetail"),
+        badge: t("emergency.connected.badgeResolved"),
         tone: "success",
       };
     case "ESCALATED":
       return {
-        title: "Escalated",
-        detail: "This needed more than roadside help, so it's been escalated for follow-up.",
-        badge: "Escalated",
+        title: t("emergency.connected.escalatedTitle"),
+        detail: t("emergency.connected.escalatedDetail"),
+        badge: t("emergency.connected.badgeEscalated"),
         tone: "danger",
       };
     case "CANCELLED":
       return {
-        title: "Request cancelled",
-        detail: "This request is no longer active.",
-        badge: "Cancelled",
+        title: t("emergency.connected.cancelledTitle"),
+        detail: t("emergency.connected.cancelledDetail"),
+        badge: t("emergency.connected.badgeCancelled"),
         tone: "neutral",
       };
     case "DISPATCHING":
       return {
-        title: "Finding a new provider",
+        title: t("emergency.connected.dispatchingTitle"),
         detail: providerName
-          ? "Dispatch is assigning a provider to your request."
-          : "The provider you were matched with declined. Dispatch is finding someone else — this usually takes a few seconds.",
-        badge: "Re-dispatching",
+          ? t("emergency.connected.dispatchingDetail")
+          : t("emergency.connected.dispatchingDetailDeclined"),
+        badge: t("emergency.connected.badgeDispatching"),
         tone: "warning",
       };
     default:
       return {
-        title: "Provider assigned",
-        detail: `Waiting for ${providerName ?? "your provider"} to accept the job.`,
-        badge: "Awaiting accept",
+        title: t("emergency.connected.assignedTitle"),
+        detail: t("emergency.connected.assignedDetail", {
+          name: providerName ?? t("emergency.connected.fallbackProviderLower"),
+        }),
+        badge: t("emergency.connected.badgeAssigned"),
         tone: "warning",
       };
   }
 }
 
 export default function ConnectedScreen() {
+  const t = useT();
   const { dispatchResult, reset } = useEmergency();
   const sp = dispatchResult?.selectedProvider;
 
@@ -136,9 +140,9 @@ export default function ConnectedScreen() {
       .then((p) => { setProvider(p); })
       .catch((err: unknown) => {
         setProvider(null);
-        setProviderError(err instanceof Error ? err.message : "Couldn't reach the dispatch service.");
+        setProviderError(err instanceof Error ? err.message : t("emergency.connected.dispatchUnreachable"));
       });
-  }, [sp?.id]);
+  }, [sp?.id, t]);
 
   useEffect(() => { loadProvider(); }, [loadProvider]);
 
@@ -174,7 +178,7 @@ export default function ConnectedScreen() {
           // the provider's phone number when the network is flaky.
           if (cancelled) return;
           setPollError(
-            err instanceof Error ? err.message : "Couldn't reach the dispatch service."
+            err instanceof Error ? err.message : t("emergency.connected.dispatchUnreachable")
           );
         } finally {
           inFlight = false;
@@ -187,7 +191,7 @@ export default function ConnectedScreen() {
         cancelled = true;
         clearInterval(handle);
       };
-    }, [incidentId, terminal])
+    }, [incidentId, terminal, t])
   );
 
   // Success haptic — fire once when the dispatch result first lands on this screen.
@@ -205,7 +209,7 @@ export default function ConnectedScreen() {
   const currentProvider = incident ? incident.assignedProvider ?? null : provider;
   const displayName = currentProvider?.name ?? (incident ? null : sp?.name ?? null);
   const searching = status === "DISPATCHING";
-  const meta = statusMeta(status, displayName);
+  const meta = statusMeta(status, displayName, t);
 
   const distanceKm = currentProvider
     ? haversineKm(
@@ -221,9 +225,11 @@ export default function ConnectedScreen() {
     !!currentProvider && (status === "PROVIDER_ASSIGNED" || status === "EN_ROUTE");
 
   const etaText      = showEta && etaMin
-    ? `${Math.max(1, Math.round(etaMin))} min ETA`
+    ? t("emergency.connected.etaBadge", { minutes: Math.max(1, Math.round(etaMin)) })
     : null;
-  const distanceText = distanceKm !== null ? `${distanceKm.toFixed(1)} km away` : null;
+  const distanceText = distanceKm !== null
+    ? t("emergency.connected.distanceAway", { km: distanceKm.toFixed(1) })
+    : null;
 
   // Call / message the assigned provider. The phone number is part of the
   // provider record fetched above; until it resolves (or if the provider has
@@ -231,18 +237,18 @@ export default function ConnectedScreen() {
   const providerPhone = currentProvider?.phone ?? null;
   const openLink = (url: string) =>
     Linking.openURL(url).catch(() =>
-      Alert.alert("Unavailable", "Couldn't open this on your device."),
+      Alert.alert(t("emergency.connected.linkFailedTitle"), t("emergency.connected.linkFailedBody")),
     );
 
   // Traffic-impact score from geo-intelligence — the signal that drives dispatch
   // prioritisation. Priority bands + colours mirror the geo model's thresholds.
   const impactScore = dispatchResult?.metadata.trafficImpactScore ?? null;
   const impactSource = dispatchResult?.metadata.trafficImpactSource;
-  const impactPriority =
+  const impactPriorityKey =
     impactScore === null ? "" :
-    impactScore >= 8 ? "CRITICAL" :
-    impactScore >= 5 ? "HIGH" :
-    impactScore >= 3 ? "MEDIUM" : "LOW";
+    impactScore >= 8 ? "emergency.connected.priorityCritical" :
+    impactScore >= 5 ? "emergency.connected.priorityHigh" :
+    impactScore >= 3 ? "emergency.connected.priorityMedium" : "emergency.connected.priorityLow";
   const impactColor =
     impactScore === null ? palette.textMuted :
     impactScore >= 8 ? palette.danger :
@@ -257,7 +263,7 @@ export default function ConnectedScreen() {
       <Screen
         footer={
           <Button
-            title="Back to Home screen"
+            title={t("emergency.action.backHome")}
             onPress={() => {
               reset();
               router.replace("/(driver)/home");
@@ -266,10 +272,10 @@ export default function ConnectedScreen() {
         }
       >
         <HeaderBar showBack={false} />
-        <Text style={{ ...typography.h1, color: palette.text }}>Request</Text>
+        <Text style={{ ...typography.h1, color: palette.text }}>{t("emergency.connected.requestTitle")}</Text>
         <ErrorState
-          title="We lost this request"
-          message="This screen no longer has your dispatch details, so we can't show who is coming. Start the request again from the home screen."
+          title={t("emergency.connected.lostTitle")}
+          message={t("emergency.connected.lostBody")}
         />
       </Screen>
     );
@@ -279,7 +285,7 @@ export default function ConnectedScreen() {
     <Screen
       footer={
         <Button
-          title="Back to Home screen"
+          title={t("emergency.action.backHome")}
           variant="secondary"
           onPress={() => {
             reset();
@@ -308,7 +314,7 @@ export default function ConnectedScreen() {
           </View>
           {pollError && (
             <Text style={{ ...typography.caption, color: palette.textMuted }}>
-              Live updates paused — {pollError} Still retrying in the background.
+              {t("emergency.connected.pollPaused", { message: pollError })}
             </Text>
           )}
         </Card>
@@ -328,27 +334,34 @@ export default function ConnectedScreen() {
             </View>
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-                {displayName ?? "Fetching provider..."}
+                {displayName ?? t("emergency.connected.fetchingProvider")}
               </Text>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                 <Icon name="Star" size={12} color={palette.warning} />
                 <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                  {currentProvider ? providerTypeLabel(currentProvider.type)
-                    : sp ? providerTypeLabel(sp.type) : "—"}
-                  {currentProvider ? ` · Trust ${(currentProvider.trustScore * 100).toFixed(0)}%` : ""}
+                  {currentProvider
+                    ? t("emergency.connected.typeWithTrust", {
+                        type: providerTypeLabel(currentProvider.type, t),
+                        trust: (currentProvider.trustScore * 100).toFixed(0),
+                      })
+                    : sp ? providerTypeLabel(sp.type, t) : "—"}
                 </Text>
               </View>
             </View>
             <ActionPill
               icon="MessageCircle"
-              accessibilityLabel={displayName ? `Message ${displayName}` : "Message provider"}
+              accessibilityLabel={displayName
+                ? t("emergency.connected.messageNamedA11y", { name: displayName })
+                : t("emergency.connected.messageA11y")}
               disabled={!providerPhone}
               onPress={() => providerPhone && openLink(`sms:${providerPhone}`)}
             />
             <ActionPill
               icon="Phone"
               tone="brand"
-              accessibilityLabel={displayName ? `Call ${displayName}` : "Call provider"}
+              accessibilityLabel={displayName
+                ? t("emergency.connected.callNamedA11y", { name: displayName })
+                : t("emergency.connected.callA11y")}
               disabled={!providerPhone}
               onPress={() => providerPhone && openLink(`tel:${providerPhone}`)}
             />
@@ -358,8 +371,8 @@ export default function ConnectedScreen() {
 
       {providerError && !incident && (
         <ErrorState
-          title="Contact details unavailable"
-          message={`${providerError} Your job is dispatched — the provider is still on the way. Try again to load their phone number.`}
+          title={t("emergency.connected.contactUnavailableTitle")}
+          message={t("emergency.connected.contactUnavailableBody", { message: providerError })}
           onRetry={loadProvider}
         />
       )}
@@ -389,15 +402,15 @@ export default function ConnectedScreen() {
             >
               <View style={{ gap: 2 }}>
                 <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                  Estimated Arrival
+                  {t("emergency.connected.etaHeading")}
                 </Text>
                 <Text style={{ ...typography.h2, color: palette.text }}>
-                  {etaMin ? formatEta(etaMin) : "—"}
+                  {etaMin ? formatEta(etaMin, t) : "—"}
                 </Text>
               </View>
               <View style={{ alignItems: "flex-end", gap: 2 }}>
                 <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                  Distance
+                  {t("emergency.connected.distanceHeading")}
                 </Text>
                 <Text style={{ ...typography.h2, color: palette.text }}>
                   {distanceKm !== null ? `${distanceKm.toFixed(1)} km` : "—"}
@@ -419,10 +432,15 @@ export default function ConnectedScreen() {
                 <Icon name="Gauge" size={24} color={impactColor} />
                 <View style={{ gap: 2, flex: 1 }}>
                   <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                    Traffic Impact · Geo-Intelligence
+                    {t("emergency.connected.impactHeading")}
                   </Text>
                   <Text style={{ ...typography.bodyStrong, color: impactColor }}>
-                    {impactPriority} priority{impactSource === "geo-intelligence" ? " · live" : ""}
+                    {t(
+                      impactSource === "geo-intelligence"
+                        ? "emergency.connected.impactPriorityLive"
+                        : "emergency.connected.impactPriority",
+                      { priority: t(impactPriorityKey) }
+                    )}
                   </Text>
                 </View>
               </View>
@@ -443,7 +461,7 @@ export default function ConnectedScreen() {
         <Animated.View entering={FadeInDown.delay(240).springify()}>
           <Card variant="muted">
             <Text style={{ ...typography.micro, color: palette.textMuted }}>
-              DISPATCH RANKING (top 3)
+              {t("emergency.connected.rankingHeading")}
             </Text>
             {dispatchResult.allRankedProviders.slice(0, 3).map((p) => (
               <View
@@ -457,13 +475,15 @@ export default function ConnectedScreen() {
                   #{p.rank} {p.name}
                 </Text>
                 <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                  {p.expectedCost.toFixed(1)} min
+                  {t("emergency.connected.costMinutes", { minutes: p.expectedCost.toFixed(1) })}
                 </Text>
               </View>
             ))}
             <Text style={{ ...typography.micro, color: palette.textMuted, marginTop: 4 }}>
-              ECM computed in {dispatchResult.metadata.computationTimeMs.toFixed(2)}ms over{" "}
-              {dispatchResult.metadata.providersEvaluated} providers
+              {t("emergency.connected.ecmSummary", {
+                ms: dispatchResult.metadata.computationTimeMs.toFixed(2),
+                count: dispatchResult.metadata.providersEvaluated,
+              })}
             </Text>
           </Card>
         </Animated.View>

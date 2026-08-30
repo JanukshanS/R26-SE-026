@@ -5,31 +5,33 @@
  */
 import { OptionCard } from "@components/ui/option-card";
 import { QuestionScreen } from "@components/ui/question-screen";
+import { useT } from "@lib/i18n";
 import { useEmergency, type RunningIssueChoice } from "@lib/emergencyContext";
 
-const OPTIONS: { value: NonNullable<RunningIssueChoice>; title: string; description: string }[] = [
-  { value: "OVERHEATING", title: "Overheating",                description: "Temperature gauge climbing into the red" },
-  { value: "NOISE",       title: "Strange noise",              description: "Squeal, knock, grind, whine, clunk" },
-  { value: "NO_POWER",    title: "No power / won't accelerate",description: "Engine runs but loses power under load" },
-  { value: "SMOKE",       title: "Smoke from engine",          description: "Visible smoke from the engine bay or exhaust" },
-  { value: "STALLING",    title: "Engine stalls / dies",       description: "Cuts out while idling or driving" },
+const OPTIONS: { value: NonNullable<RunningIssueChoice>; titleKey: string; descriptionKey: string }[] = [
+  { value: "OVERHEATING", titleKey: "emergency.runningIssue.overheatingTitle", descriptionKey: "emergency.runningIssue.overheatingDesc" },
+  { value: "NOISE",       titleKey: "emergency.runningIssue.noiseTitle",       descriptionKey: "emergency.runningIssue.noiseDesc" },
+  { value: "NO_POWER",    titleKey: "emergency.runningIssue.noPowerTitle",     descriptionKey: "emergency.runningIssue.noPowerDesc" },
+  { value: "SMOKE",       titleKey: "emergency.runningIssue.smokeTitle",       descriptionKey: "emergency.runningIssue.smokeDesc" },
+  { value: "STALLING",    titleKey: "emergency.runningIssue.stallingTitle",    descriptionKey: "emergency.runningIssue.stallingDesc" },
 ];
 
 export default function RunningIssueScreen() {
+  const t = useT();
   const { runningIssue, setRunningIssue } = useEmergency();
 
 
   return (
     <QuestionScreen
       route="running-issue"
-      prompt={"What's the main problem while the engine runs?"}
+      prompt={t("emergency.runningIssue.prompt")}
       canNext={!!runningIssue}
     >
       {OPTIONS.map((o) => (
         <OptionCard
           key={o.value}
-          title={o.title}
-          description={o.description}
+          title={t(o.titleKey)}
+          description={t(o.descriptionKey)}
           selected={runningIssue === o.value}
           onPress={() => setRunningIssue(o.value)}
         />

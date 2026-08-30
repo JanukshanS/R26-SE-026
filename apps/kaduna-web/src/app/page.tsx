@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   BatteryCharging,
@@ -10,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import LanguagePicker from "@/components/LanguagePicker";
 import SignInLink from "@/components/SignInLink";
+import { useT } from "@/lib/i18n";
 import hotspots from "../../public/data/hotspots.json";
 
 /* Static data imported from public/data at build time — fetch() with a
@@ -57,72 +60,90 @@ const APK = "/downloads/kaduna-beta.apk";
 const services = [
   {
     icon: Truck,
-    name: "Towing",
-    desc: "For when the car isn't going anywhere on its own.",
+    nameKey: "landing.services.towingName",
+    descKey: "landing.services.towingDesc",
   },
   {
     icon: Wrench,
-    name: "Mechanic on-site",
-    desc: "Common faults fixed at the roadside, not the garage.",
+    nameKey: "landing.services.mechanicName",
+    descKey: "landing.services.mechanicDesc",
   },
   {
     icon: BatteryCharging,
-    name: "Battery jumpstart",
-    desc: "A dead battery brought back in minutes.",
+    nameKey: "landing.services.batteryName",
+    descKey: "landing.services.batteryDesc",
   },
   {
     icon: Fuel,
-    name: "Fuel delivery",
-    desc: "Petrol or diesel, carried to where you ran dry.",
+    nameKey: "landing.services.fuelName",
+    descKey: "landing.services.fuelDesc",
   },
   {
     icon: Camera,
-    name: "Claim photos",
-    desc: "Guided capture, so your insurer gets it right the first time.",
+    nameKey: "landing.services.claimName",
+    descKey: "landing.services.claimDesc",
   },
 ];
 
 const steps = [
   {
     n: "1",
-    title: "Tell us what happened",
-    body: "A few guided questions about what you're seeing and hearing. If your car's telemetry is plugged in, the app reads that too.",
+    titleKey: "landing.how.step1Title",
+    bodyKey: "landing.how.step1Body",
   },
   {
     n: "2",
-    title: "We identify the problem",
-    body: "Before anyone is dispatched, the app narrows down the fault — a battery that won't hold, a tank that's dry, damage that needs a tow.",
+    titleKey: "landing.how.step2Title",
+    bodyKey: "landing.how.step2Body",
   },
   {
     n: "3",
-    title: "The right specialist heads your way",
-    body: "Not just the nearest help — the right kind, already briefed on your car and your situation before they start driving.",
+    titleKey: "landing.how.step3Title",
+    bodyKey: "landing.how.step3Body",
   },
 ];
 
 const providerPoints = [
   {
-    title: "Jobs matched to your skill",
-    body: "A battery call goes to someone carrying a jump kit, not whoever happens to be closest. You get work you can actually finish.",
+    titleKey: "landing.providers.point1Title",
+    bodyKey: "landing.providers.point1Body",
   },
   {
-    title: "You set your hours",
-    body: "Go on and off shift from the app. Take the jobs that fit your day.",
+    titleKey: "landing.providers.point2Title",
+    bodyKey: "landing.providers.point2Body",
   },
   {
-    title: "Every job arrives triaged",
-    body: "You see what the breakdown is before you accept — no more driving out blind to “car won't start.”",
+    titleKey: "landing.providers.point3Title",
+    bodyKey: "landing.providers.point3Body",
   },
 ];
 
 const scoreBands = [
-  { name: "Low", range: "1–3", color: "var(--priority-low)" },
-  { name: "Medium", range: "4–5", color: "var(--priority-medium)" },
-  { name: "High", range: "6–7", color: "var(--priority-high)" },
-  { name: "Critical", range: "8–10", color: "var(--priority-critical)" },
+  {
+    name: "low",
+    labelKey: "landing.tech.scoreBandLow",
+    color: "var(--priority-low)",
+  },
+  {
+    name: "medium",
+    labelKey: "landing.tech.scoreBandMedium",
+    color: "var(--priority-medium)",
+  },
+  {
+    name: "high",
+    labelKey: "landing.tech.scoreBandHigh",
+    color: "var(--priority-high)",
+  },
+  {
+    name: "critical",
+    labelKey: "landing.tech.scoreBandCritical",
+    color: "var(--priority-critical)",
+  },
 ];
 
 export default function LandingPage() {
+  const t = useT();
+
   return (
     <div className="min-h-screen bg-background text-foreground [--radius:0.9rem]">
       {/* ── Header ── */}
@@ -139,24 +160,24 @@ export default function LandingPage() {
               href="#how"
               className="hidden px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground sm:block"
             >
-              How it works
+              {t("landing.nav.how")}
             </a>
             <a
               href="#providers"
               className="hidden px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground sm:block"
             >
-              For providers
+              {t("landing.nav.providers")}
             </a>
             <a
               href="#technology"
               className="hidden px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground sm:block"
             >
-              Technology
+              {t("landing.nav.technology")}
             </a>
             <LanguagePicker className="ml-1" />
             <SignInLink className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground" />
             <Button asChild size="sm" className="ml-2">
-              <a href="#download">Get the app</a>
+              <a href="#download">{t("landing.nav.getApp")}</a>
             </Button>
           </nav>
         </div>
@@ -191,23 +212,20 @@ export default function LandingPage() {
 
         <div className="relative mx-auto max-w-6xl px-6 pt-20 pb-24 sm:pt-28">
           <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-            Roadside assistance · Colombo
+            {t("landing.hero.eyebrow")}
           </p>
           <h1 className="font-display mt-6 max-w-3xl text-5xl leading-[1.02] font-bold tracking-[-0.02em] text-balance sm:text-7xl">
-            Stranded? Help that already knows{" "}
-            <span className="text-primary">what&apos;s wrong.</span>
+            {t("landing.hero.title")}{" "}
+            <span className="text-primary">{t("landing.hero.titleHighlight")}</span>
           </h1>
           <p className="mt-7 max-w-xl text-lg leading-relaxed text-muted-foreground">
-            Kaduna.lk connects stranded drivers across Colombo with tow trucks,
-            on-site mechanics, battery jumpstarts and fuel delivery — and works
-            out the fault before anyone is sent, so the help that arrives is
-            the help you need.
+            {t("landing.hero.subtitle")}
           </p>
           <div className="mt-10 flex flex-wrap items-center gap-4">
             <Button asChild size="lg" className="h-12 px-6 text-base">
               <a href={APK} download>
                 <Download data-icon="inline-start" />
-                Download for Android (beta)
+                {t("landing.download.cta")}
               </a>
             </Button>
             <Button
@@ -216,11 +234,11 @@ export default function LandingPage() {
               size="lg"
               className="h-12 px-5 text-base"
             >
-              <a href="#how">How it works ↓</a>
+              <a href="#how">{t("landing.hero.howLink")}</a>
             </Button>
           </div>
           <p className="mt-3 text-sm text-muted-foreground">
-            Android 10+ · ~58 MB · free
+            {t("landing.download.meta")}
           </p>
         </div>
       </section>
@@ -229,18 +247,18 @@ export default function LandingPage() {
       <section className="border-y border-border bg-secondary/60">
         <div className="mx-auto max-w-6xl px-6 py-20">
           <h2 className="font-display max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">
-            Whatever stopped you, someone&apos;s coming.
+            {t("landing.services.title")}
           </h2>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {services.map((s) => (
               <div
-                key={s.name}
+                key={s.nameKey}
                 className="rounded-xl border border-border bg-card p-5"
               >
                 <s.icon className="size-6 text-primary" aria-hidden="true" />
-                <h3 className="mt-4 font-semibold">{s.name}</h3>
+                <h3 className="mt-4 font-semibold">{t(s.nameKey)}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                  {s.desc}
+                  {t(s.descKey)}
                 </p>
               </div>
             ))}
@@ -252,10 +270,10 @@ export default function LandingPage() {
       <section id="how" className="scroll-mt-16">
         <div className="mx-auto max-w-6xl px-6 py-24">
           <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-            How it works
+            {t("landing.how.eyebrow")}
           </p>
           <h2 className="font-display mt-4 max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">
-            Three steps between stranded and sorted.
+            {t("landing.how.title")}
           </h2>
           <ol className="mt-14 grid gap-12 sm:grid-cols-3">
             {steps.map((s) => (
@@ -263,9 +281,9 @@ export default function LandingPage() {
                 <span className="font-display flex size-10 items-center justify-center rounded-full border-2 border-primary text-lg font-bold text-primary">
                   {s.n}
                 </span>
-                <h3 className="mt-5 text-lg font-semibold">{s.title}</h3>
+                <h3 className="mt-5 text-lg font-semibold">{t(s.titleKey)}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {s.body}
+                  {t(s.bodyKey)}
                 </p>
               </li>
             ))}
@@ -283,16 +301,13 @@ export default function LandingPage() {
             className="text-sm font-medium tracking-[0.18em] uppercase"
             style={{ color: "var(--priority-high)" }}
           >
-            The technology
+            {t("landing.tech.eyebrow")}
           </p>
           <h2 className="font-display mt-4 max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">
-            Built on a live model of Colombo&apos;s roads.
+            {t("landing.tech.title")}
           </h2>
           <p className="mt-5 max-w-2xl leading-relaxed text-muted-foreground">
-            The platform continuously scores each incident&apos;s impact on the
-            traffic around it and maps where trouble clusters across the city.
-            Urgent situations get urgency, and providers are positioned where
-            breakdowns actually happen.
+            {t("landing.tech.body")}
           </p>
 
           <div className="mt-14 grid gap-10 lg:grid-cols-[1.25fr_1fr]">
@@ -301,7 +316,7 @@ export default function LandingPage() {
               <svg
                 viewBox={`0 0 ${W} ${H}`}
                 role="img"
-                aria-label={`Map of ${hotspots.length} breakdown hotspot clusters across Colombo, drawn to geographic scale and colored by impact`}
+                aria-label={t("landing.tech.mapA11y", { count: hotspots.length })}
                 className="w-full"
               >
                 {gridLngs.map((g) => (
@@ -358,8 +373,7 @@ export default function LandingPage() {
                 })}
               </svg>
               <figcaption className="mt-3 font-mono text-xs text-muted-foreground">
-                {hotspots.length} breakdown hotspots across Colombo district ·
-                ring = cluster reach, to scale
+                {t("landing.tech.mapCaption", { count: hotspots.length })}
               </figcaption>
             </figure>
 
@@ -367,12 +381,10 @@ export default function LandingPage() {
             <div className="flex flex-col gap-10">
               <div>
                 <h3 className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase">
-                  Every incident scored 1–10
+                  {t("landing.tech.scaleHeading")}
                 </h3>
                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  A stalled truck on the A2 at rush hour is not a flat tire on
-                  a side street at midnight. The score tells dispatch which is
-                  which.
+                  {t("landing.tech.scaleBody")}
                 </p>
                 <div className="mt-4 flex h-2.5 overflow-hidden rounded-full">
                   {scoreBands.map((b) => (
@@ -386,7 +398,7 @@ export default function LandingPage() {
                 <div className="mt-2 flex justify-between font-mono text-xs">
                   {scoreBands.map((b) => (
                     <span key={b.name} style={{ color: b.color }}>
-                      {b.name} {b.range}
+                      {t(b.labelKey)}
                     </span>
                   ))}
                 </div>
@@ -394,7 +406,7 @@ export default function LandingPage() {
 
               <div>
                 <h3 className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase">
-                  Where trouble clusters
+                  {t("landing.tech.clustersHeading")}
                 </h3>
                 <ul className="mt-3 divide-y divide-border border-y border-border">
                   {top5.map((h, i) => (
@@ -404,10 +416,13 @@ export default function LandingPage() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium capitalize">
-                          {label(h.incidentType)} · {h.roadType} road
+                          {t("landing.tech.clusterRow", {
+                            incident: label(h.incidentType),
+                            roadType: h.roadType,
+                          })}
                         </p>
                         <p className="font-mono text-xs text-muted-foreground">
-                          peaks around {hh(h.peakHour)}
+                          {t("landing.tech.peaksAround", { time: hh(h.peakHour) })}
                         </p>
                       </div>
                       <span
@@ -420,7 +435,7 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 <p className="mt-2 font-mono text-xs text-muted-foreground/70">
-                  avg impact score per cluster
+                  {t("landing.tech.clustersCaption")}
                 </p>
               </div>
             </div>
@@ -434,28 +449,26 @@ export default function LandingPage() {
           <div className="grid gap-12 lg:grid-cols-[1fr_1.2fr]">
             <div>
               <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-                For providers
+                {t("landing.providers.eyebrow")}
               </p>
               <h2 className="font-display mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
-                Run a tow truck, a workshop, or a fuel bowser? Join the
-                network.
+                {t("landing.providers.title")}
               </h2>
               <div className="mt-8 flex flex-wrap items-center gap-4">
                 <Button asChild size="lg" className="h-12 px-6 text-base">
-                  <a href="#download">Join as a provider</a>
+                  <a href="#download">{t("landing.providers.cta")}</a>
                 </Button>
               </div>
               <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-                Provider registration happens inside the app — download it and
-                switch to provider mode.
+                {t("landing.providers.note")}
               </p>
             </div>
             <ul className="flex flex-col justify-center gap-8">
               {providerPoints.map((p) => (
-                <li key={p.title} className="border-l-2 border-primary pl-5">
-                  <h3 className="font-semibold">{p.title}</h3>
+                <li key={p.titleKey} className="border-l-2 border-primary pl-5">
+                  <h3 className="font-semibold">{t(p.titleKey)}</h3>
                   <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                    {p.body}
+                    {t(p.bodyKey)}
                   </p>
                 </li>
               ))}
@@ -471,20 +484,19 @@ export default function LandingPage() {
       >
         <div className="mx-auto flex max-w-6xl flex-col items-center px-6 py-16 text-center">
           <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
-            Kaduna.lk is in beta on Android.
+            {t("landing.download.title")}
           </h2>
           <p className="mt-3 max-w-md text-muted-foreground">
-            Drivers and providers use the same app. Install it before you need
-            it.
+            {t("landing.download.body")}
           </p>
           <Button asChild size="lg" className="mt-7 h-12 px-6 text-base">
             <a href={APK} download>
               <Download data-icon="inline-start" />
-              Download for Android (beta)
+              {t("landing.download.cta")}
             </a>
           </Button>
           <p className="mt-3 text-sm text-muted-foreground">
-            Android 10+ · ~58 MB · free
+            {t("landing.download.meta")}
           </p>
         </div>
       </section>
@@ -498,22 +510,21 @@ export default function LandingPage() {
                 Kaduna<span className="text-primary">.lk</span>
               </p>
               <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-                Roadside assistance for Colombo that understands the breakdown
-                before help is sent.
+                {t("landing.footer.tagline")}
               </p>
             </div>
             <nav className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:gap-6">
               <a href="#how" className="hover:text-foreground">
-                How it works
+                {t("landing.nav.how")}
               </a>
               <a href="#providers" className="hover:text-foreground">
-                For providers
+                {t("landing.nav.providers")}
               </a>
               <a href="#technology" className="hover:text-foreground">
-                Technology
+                {t("landing.nav.technology")}
               </a>
               <Link href="/dashboard" className="hover:text-foreground">
-                Ops dashboard
+                {t("landing.footer.dashboard")}
               </Link>
               <a
                 href="mailto:hello@kaduna.lk"

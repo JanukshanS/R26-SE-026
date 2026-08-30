@@ -7,6 +7,7 @@ import { Icon } from '@components/ui/icon';
 import { palette, radii, spacing, typography } from '@theme/index';
 import { getIncompleteUploadStatus, type IncompleteUploadStatus } from '@/lib/claim-upload-reminder';
 import { haptics } from '@lib/haptics';
+import { useT } from '@/lib/i18n';
 
 /**
  * Mounted on the Home screen only (the post-auth root) — never during login/onboarding.
@@ -18,6 +19,7 @@ import { haptics } from '@lib/haptics';
  * icon circle, title, message, and a Skip/primary button row.
  */
 export function ClaimUploadReminderModal() {
+  const t = useT();
   const [status, setStatus] = useState<IncompleteUploadStatus | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   // Tracks whether the popup was already on screen, so the vibration only fires
@@ -102,7 +104,7 @@ export function ClaimUploadReminderModal() {
 
           <View style={{ gap: spacing.sm, alignItems: 'center' }}>
             <Text style={{ ...typography.h2, color: palette.text, textAlign: 'center' }}>
-              Claim Upload Incomplete
+              {t('insurance.reminder.title')}
             </Text>
             <Text
               style={{
@@ -112,7 +114,7 @@ export function ClaimUploadReminderModal() {
                 lineHeight: 22,
               }}
             >
-              {`${status.percent}% uploaded — resume now to finish submitting your claim.`}
+              {t('insurance.reminder.body', { percent: status.percent })}
             </Text>
           </View>
 
@@ -129,7 +131,9 @@ export function ClaimUploadReminderModal() {
                 backgroundColor: pressed ? palette.homeBackground : 'transparent',
               })}
             >
-              <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>Later</Text>
+              <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>
+                {t('insurance.reminder.later')}
+              </Text>
             </Pressable>
 
             <Pressable
@@ -143,7 +147,9 @@ export function ClaimUploadReminderModal() {
                 backgroundColor: pressed ? palette.brandPressed : palette.brand,
               })}
             >
-              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Resume Now</Text>
+              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
+                {t('insurance.reminder.resume')}
+              </Text>
             </Pressable>
           </View>
         </View>

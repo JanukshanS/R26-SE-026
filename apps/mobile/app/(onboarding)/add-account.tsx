@@ -10,6 +10,7 @@ import { TextField } from "@components/ui/text-input";
 import { palette, spacing, typography } from "@theme/index";
 import * as authApi from "@lib/authApi";
 import { getMyUser } from "@lib/vehicleApi";
+import { useT } from "@lib/i18n";
 
 /**
  * Where a freshly signed-in account belongs. Both handlers below used to send
@@ -25,6 +26,7 @@ async function routeAfterAuth() {
 }
 
 export default function AddAccountScreen() {
+  const t = useT();
   const params = useLocalSearchParams<{ mode?: string }>();
   const [mode, setMode] = useState<"register" | "login">(
     params.mode === "login" ? "login" : "register"
@@ -41,11 +43,11 @@ export default function AddAccountScreen() {
     setError("");
     setNotice("");
     if (mode === "register" && !name.trim()) {
-      setError("Name is required");
+      setError(t("onboarding.account.nameRequired"));
       return;
     }
     if (!email.trim() || !password) {
-      setError("Email and password are required");
+      setError(t("onboarding.account.credentialsRequired"));
       return;
     }
     setSubmitting(true);
@@ -59,7 +61,7 @@ export default function AddAccountScreen() {
         });
         if (needsConfirmation) {
           setMode("login");
-          setNotice("Account created. Confirm your email address, then sign in here.");
+          setNotice(t("onboarding.account.confirmEmailNotice"));
           return;
         }
         router.replace("/(onboarding)/add-vehicle");
@@ -68,7 +70,7 @@ export default function AddAccountScreen() {
         await routeAfterAuth();
       }
     } catch (err) {
-      setError((err as Error).message ?? "Something went wrong");
+      setError((err as Error).message ?? t("onboarding.account.genericError"));
     } finally {
       setSubmitting(false);
     }
@@ -83,12 +85,12 @@ export default function AddAccountScreen() {
       // Web navigates away to Google and back; native returns here signed in.
       if (Platform.OS === "web") return;
       if (!signedIn) {
-        setError("Google sign-in was cancelled. Try again, or use your email and password.");
+        setError(t("onboarding.account.googleCancelled"));
         return;
       }
       await routeAfterAuth();
     } catch (err) {
-      setError((err as Error).message ?? "Google sign-in failed");
+      setError((err as Error).message ?? t("onboarding.account.googleFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -101,16 +103,16 @@ export default function AddAccountScreen() {
           <Button
             title={
               submitting
-                ? "Please wait…"
+                ? t("onboarding.account.submitting")
                 : mode === "register"
-                  ? "Create an Account"
-                  : "Login"
+                  ? t("onboarding.account.submitRegister")
+                  : t("onboarding.account.submitLogin")
             }
             disabled={submitting}
             onPress={handleSubmit}
           />
           <Button
-            title="Continue with Google"
+            title={t("onboarding.account.google")}
             variant="secondary"
             disabled={submitting}
             onPress={handleGoogle}
@@ -120,20 +122,22 @@ export default function AddAccountScreen() {
     >
       <HeaderBar showLanguage showHome={false} />
       <Text style={{ ...typography.h1, color: palette.text }}>
-        {mode === "register" ? "Add your account" : "Welcome back"}
+        {mode === "register"
+          ? t("onboarding.account.titleRegister")
+          : t("onboarding.account.titleLogin")}
       </Text>
 
       {mode === "register" && (
         <TextField
-          label="Full Name"
+          label={t("onboarding.account.nameLabel")}
           value={name}
           onChangeText={setName}
-          placeholder="Janukshan Perera"
+          placeholder={t("onboarding.account.namePlaceholder")}
           autoCapitalize="words"
         />
       )}
       <TextField
-        label="Email Address"
+        label={t("onboarding.account.emailLabel")}
         value={email}
         onChangeText={setEmail}
         placeholder="you@example.com"
@@ -142,15 +146,15 @@ export default function AddAccountScreen() {
         autoCorrect={false}
       />
       <TextField
-        label="Password"
+        label={t("onboarding.account.passwordLabel")}
         value={password}
         onChangeText={setPassword}
-        placeholder="At least 8 characters"
+        placeholder={t("onboarding.account.passwordPlaceholder")}
         secureTextEntry
       />
       {mode === "register" && (
         <TextField
-          label="Phone (optional)"
+          label={t("onboarding.account.phoneLabel")}
           value={phone}
           onChangeText={setPhone}
           placeholder="+94 77 123 4567"
@@ -160,14 +164,18 @@ export default function AddAccountScreen() {
 
       {notice ? (
         <Card style={{ borderLeftWidth: 4, borderLeftColor: palette.brand, gap: spacing.sm }}>
-          <Text style={{ ...typography.bodyStrong, color: palette.text }}>Check your email</Text>
+          <Text style={{ ...typography.bodyStrong, color: palette.text }}>{t("onboarding.account.noticeTitle")}</Text>
           <Text style={{ ...typography.caption, color: palette.textMuted }}>{notice}</Text>
         </Card>
       ) : null}
 
       {error ? (
         <ErrorState
-          title={mode === "register" ? "Registration failed" : "Sign in failed"}
+          title={
+            mode === "register"
+              ? t("onboarding.account.registerFailedTitle")
+              : t("onboarding.account.loginFailedTitle")
+          }
           message={error}
         />
       ) : null}
@@ -182,10 +190,12 @@ export default function AddAccountScreen() {
       >
         <Text style={{ ...typography.body, color: palette.textMuted }}>
           {mode === "register"
-            ? "Already have an account? "
-            : "Don't have an account? "}
+            ? t("onboarding.account.haveAccount")
+            : t("onboarding.account.noAccount")}
           <Text style={{ color: palette.brand, fontWeight: "700" }}>
-            {mode === "register" ? "Sign In" : "Register"}
+            {mode === "register"
+              ? t("onboarding.account.signInLink")
+              : t("onboarding.account.registerLink")}
           </Text>
         </Text>
       </Pressable>

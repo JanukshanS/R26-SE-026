@@ -7,20 +7,22 @@ import { palette, radii, spacing, typography } from "@theme/index";
 import { useEmergency, DEMO_VEHICLE } from "@lib/emergencyContext";
 import { createIncident, DispatchApiError } from "@lib/dispatchApi";
 import { getCurrentDriverLocation } from "@lib/driverLocation";
+import { useT } from "@lib/i18n";
 
-const LIGHTS: { id: string; icon: IconName; label: string }[] = [
-  { id: "engine",  icon: "Cog",           label: "Engine" },
-  { id: "oil",     icon: "Droplet",       label: "Oil" },
-  { id: "battery", icon: "BatteryWarning",label: "Battery" },
-  { id: "brake",   icon: "OctagonAlert",  label: "Brake" },
-  { id: "abs",     icon: "CircleSlash2",  label: "ABS" },
-  { id: "fuel",    icon: "Fuel",          label: "Fuel" },
-  { id: "tyre",    icon: "CircleDot",     label: "Tyre" },
-  { id: "temp",    icon: "Thermometer",   label: "Temp" },
-  { id: "other",   icon: "TriangleAlert", label: "Other" },
+const LIGHTS: { id: string; icon: IconName; labelKey: string }[] = [
+  { id: "engine",  icon: "Cog",           labelKey: "emergency.lights.engine" },
+  { id: "oil",     icon: "Droplet",       labelKey: "emergency.lights.oil" },
+  { id: "battery", icon: "BatteryWarning",labelKey: "emergency.lights.battery" },
+  { id: "brake",   icon: "OctagonAlert",  labelKey: "emergency.lights.brake" },
+  { id: "abs",     icon: "CircleSlash2",  labelKey: "emergency.lights.abs" },
+  { id: "fuel",    icon: "Fuel",          labelKey: "emergency.lights.fuel" },
+  { id: "tyre",    icon: "CircleDot",     labelKey: "emergency.lights.tyre" },
+  { id: "temp",    icon: "Thermometer",   labelKey: "emergency.lights.temp" },
+  { id: "other",   icon: "TriangleAlert", labelKey: "emergency.lights.other" },
 ];
 
 export default function DiagnosisLightsScreen() {
+  const t = useT();
   const {
     mobileLights, toggleLight,
     setLoading, setError, setIncidentId,
@@ -69,23 +71,23 @@ export default function DiagnosisLightsScreen() {
       if (!(err instanceof DispatchApiError) && raw.includes("signed in")) {
         setError(raw);
         Alert.alert(
-          "Sign in to get help",
-          "We need your account to send a mechanic to you. Sign in and start the diagnosis again.",
+          t("emergency.lights.signInTitle"),
+          t("emergency.lights.signInBody"),
           [
-            { text: "Not now", style: "cancel" },
-            { text: "Sign in", onPress: () => router.push("/(driver)/auth") },
+            { text: t("emergency.action.notNow"), style: "cancel" },
+            { text: t("emergency.action.signIn"), onPress: () => router.push("/(driver)/auth") },
           ]
         );
         return;
       }
       const reachable = err instanceof DispatchApiError;
-      const msg = reachable ? `${raw} (HTTP ${err.status})` : raw;
+      const msg = reachable ? t("emergency.error.withStatus", { message: raw, status: err.status }) : raw;
       setError(msg);
       Alert.alert(
-        "Couldn't request help",
+        t("emergency.lights.requestFailedTitle"),
         reachable
-          ? `${msg}\n\nTap Next to try again.`
-          : "Couldn't reach the roadside assistance service. Check your connection and tap Next to try again." +
+          ? t("emergency.lights.requestFailedBody", { message: msg })
+          : t("emergency.lights.unreachableBody") +
             (__DEV__ ? `\n\n[dev] ${msg} — is dispatch running on port 3001?` : "")
       );
     } finally {
@@ -97,9 +99,9 @@ export default function DiagnosisLightsScreen() {
   return (
     <QuestionScreen
       route="diagnosis-lights"
-      prompt="Which dashboard lights are on?"
-      hint="Tap all warning lights you see on your dashboard."
-      nextLabel={loading ? "Preparing..." : "Next"}
+      prompt={t("emergency.lights.prompt")}
+      hint={t("emergency.lights.hint")}
+      nextLabel={loading ? t("emergency.lights.preparing") : t("emergency.question.next")}
       canNext={!loading}
       onNext={handleNext}
     >
@@ -112,7 +114,7 @@ export default function DiagnosisLightsScreen() {
               key={light.id}
               onPress={() => toggleLight(light.id)}
               accessibilityRole="checkbox"
-              accessibilityLabel={`${light.label} warning light`}
+              accessibilityLabel={t("emergency.lights.a11y", { name: t(light.labelKey) })}
               accessibilityState={{ checked: active }}
               style={({ pressed }) => ({
                 opacity: pressed ? 0.85 : 1,
@@ -147,7 +149,7 @@ export default function DiagnosisLightsScreen() {
                   fontWeight: "600",
                 }}
               >
-                {light.label}
+                {t(light.labelKey)}
               </Text>
             </Pressable>
           );
@@ -158,7 +160,7 @@ export default function DiagnosisLightsScreen() {
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md }}>
           <ActivityIndicator size="small" color={palette.brand} />
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
-            Creating your request...
+            {t("emergency.lights.creating")}
           </Text>
         </View>
       )}

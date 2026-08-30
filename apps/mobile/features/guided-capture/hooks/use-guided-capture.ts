@@ -18,6 +18,7 @@ import {
   saveGuidedCaptureStoreState,
 } from '@/features/guided-capture/storage/guided-capture-store';
 import { isTiltAligned, tiltHintFor } from '@/features/guided-capture/tilt-status';
+import { useT } from '@/lib/i18n';
 import { HEIGHT_STEPS, type HeightStep, type StopPhoto } from '@/features/guided-capture/types';
 import { clearAllClaimData } from '@/lib/clear-claim-data';
 import { deletePhotoGpsEntries } from '@/lib/photo-gps-store';
@@ -96,6 +97,7 @@ export function useGuidedCapture(
   cameraRef: RefObject<CameraView | null>,
   options: UseGuidedCaptureOptions = {}
 ): UseGuidedCaptureResult {
+  const t = useT();
   const stopCount = options.stopCount ?? DEFAULT_STOP_COUNT;
 
   const [pitchDeg, setPitchDeg] = useState(0);
@@ -106,7 +108,7 @@ export function useGuidedCapture(
   );
   const [isCapturing, setIsCapturing] = useState(false);
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('Align camera and hold steady.');
+  const [statusMessage, setStatusMessage] = useState(() => t('insurance.capture.alignAndHold'));
   const [autoCaptureEnabled, setAutoCaptureEnabled] = useState(false);
   const [isResetDialogVisible, setIsResetDialogVisible] = useState(false);
   const [isStoreHydrated, setIsStoreHydrated] = useState(false);
@@ -180,18 +182,18 @@ export function useGuidedCapture(
     setStatusMessage(
       currentHeightStep
         ? shutterUnlocked
-          ? 'Angle is good — capture now.'
-          : tiltHintFor(pitchDeg, currentHeightStep)
+          ? t('insurance.capture.angleGood')
+          : tiltHintFor(pitchDeg, currentHeightStep, t)
         : ''
     );
-  }, [currentHeightStep, shutterUnlocked, pitchDeg]);
+  }, [currentHeightStep, shutterUnlocked, pitchDeg, t]);
 
   const captureButtonLabel = useMemo(() => {
-    if (isCapturing) return 'Capturing';
-    if (shutterUnlocked) return 'Take Photo';
-    if (currentHeightStep) return tiltHintFor(pitchDeg, currentHeightStep);
-    return 'Take Photo';
-  }, [isCapturing, shutterUnlocked, currentHeightStep, pitchDeg]);
+    if (isCapturing) return t('insurance.capture.capturing');
+    if (shutterUnlocked) return t('insurance.action.takePhoto');
+    if (currentHeightStep) return tiltHintFor(pitchDeg, currentHeightStep, t);
+    return t('insurance.action.takePhoto');
+  }, [isCapturing, shutterUnlocked, currentHeightStep, pitchDeg, t]);
 
   const onPoseReady = useCallback(() => {
     setPhase((prev) =>
@@ -260,11 +262,11 @@ export function useGuidedCapture(
         await onCaptured(photo.uri, capturedAtIso);
       }
     } catch {
-      setStatusMessage('Capture failed. Please try again.');
+      setStatusMessage(t('insurance.capture.captureFailedStatus'));
     } finally {
       setIsCapturing(false);
     }
-  }, [cameraRef, onCaptured]);
+  }, [cameraRef, onCaptured, t]);
 
   // Auto mode: hold steady on a green tilt for CAPTURE_STABILITY_HOLD_MS, then buzz + capture.
   useEffect(() => {
@@ -332,7 +334,7 @@ export function useGuidedCapture(
     setRetakeTarget(null);
     setIsPreviewVisible(false);
     setPhase(INITIAL_PHASE);
-    setStatusMessage('Capture reset. Previous photos cleared.');
+    setStatusMessage(t('insurance.capture.resetStatus'));
     // Resets every claim step (Guided Capture, Driving Licence, User Verification, 3rd Party),
     // not just this one — Reset here is a full "start this claim over" action.
     void clearAllClaimData();

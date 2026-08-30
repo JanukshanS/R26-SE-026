@@ -32,6 +32,7 @@ import {
 import { useIncompleteUploadStatus } from '@/features/report-accident/hooks/use-incomplete-upload-status';
 import { findInsuranceCompany, type InsuranceCompany } from '@/lib/insuranceCompaniesApi';
 import { getVehicles } from '@/lib/vehicleApi';
+import { useT } from '@/lib/i18n';
 import { getVehicleInsurance } from '@/lib/vehicleInsuranceApi';
 import { loadSelectedVehicleId } from '@/lib/selected-vehicle-store';
 import { loadClaimVehicleId, saveClaimVehicleId } from '@/lib/claim-vehicle-store';
@@ -77,17 +78,17 @@ type TaskStatus = 'done' | 'incomplete';
 
 type FlowTask = {
   key: string;
-  title: string;
+  titleKey: string;
   status: TaskStatus;
   href: Href | null;
   icon: React.ComponentProps<typeof Ionicons>['name'];
 };
 
 const FLOW_TASKS: FlowTask[] = [
-  { key: 'guided', title: 'Guided Capture', status: 'incomplete', href: '/(insurance)/guided-capture-intro', icon: 'camera-outline' },
-  { key: 'licence', title: 'Driving Licence Photo', status: 'incomplete', href: '/(insurance)/driving-licence', icon: 'card-outline' },
-  { key: 'drunk', title: 'User Verification Test', status: 'incomplete', href: '/(insurance)/drunk-test', icon: 'shield-checkmark-outline' },
-  { key: 'thirdParty', title: '3rd Party Details', status: 'incomplete', href: '/(insurance)/third-party', icon: 'people-outline' },
+  { key: 'guided', titleKey: 'insurance.hub.taskGuided', status: 'incomplete', href: '/(insurance)/guided-capture-intro', icon: 'camera-outline' },
+  { key: 'licence', titleKey: 'insurance.hub.taskLicence', status: 'incomplete', href: '/(insurance)/driving-licence', icon: 'card-outline' },
+  { key: 'drunk', titleKey: 'insurance.hub.taskDrunkTest', status: 'incomplete', href: '/(insurance)/drunk-test', icon: 'shield-checkmark-outline' },
+  { key: 'thirdParty', titleKey: 'insurance.hub.taskThirdParty', status: 'incomplete', href: '/(insurance)/third-party', icon: 'people-outline' },
 ];
 
 function StepRow({
@@ -118,10 +119,13 @@ function StepRow({
 }
 
 function StatusPill({ status }: { status: TaskStatus }) {
+  const t = useT();
   const done = status === 'done';
   return (
     <View style={[styles.pill, done ? styles.pillDone : styles.pillIncomplete]}>
-      <Text style={[styles.pillText, done ? styles.pillTextDone : styles.pillTextIncomplete]}>{done ? 'Done' : 'Incomplete'}</Text>
+      <Text style={[styles.pillText, done ? styles.pillTextDone : styles.pillTextIncomplete]}>
+        {done ? t('insurance.status.done') : t('insurance.status.incomplete')}
+      </Text>
     </View>
   );
 }
@@ -142,6 +146,7 @@ function TaskCard({
   disabled: boolean;
   onPress: () => void;
 }) {
+  const t = useT();
   return (
     <View style={[styles.taskCardGlowWrap, glow && styles.taskCardGlowWrapActive]}>
       <GlowHalo active={glow} color={INSURANCE_PRIMARY} inset={4} borderRadius={20} />
@@ -152,7 +157,7 @@ function TaskCard({
         <View style={styles.taskIconWrap}>
           <Ionicons name={task.icon} size={20} color={INSURANCE_PRIMARY} />
         </View>
-        <Text style={styles.taskTitle}>{task.title}</Text>
+        <Text style={styles.taskTitle}>{t(task.titleKey)}</Text>
         {resolving ? (
           <ActivityIndicator size="small" color={INSURANCE_PRIMARY} />
         ) : (
@@ -164,6 +169,7 @@ function TaskCard({
 }
 
 export default function InsuranceHomeScreen() {
+  const t = useT();
   const router = useRouter();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -458,7 +464,7 @@ export default function InsuranceHomeScreen() {
         // fetch above was still in flight and the dialer hadn't appeared yet.
         setHasCalledInsurer(true);
       } catch {
-        Alert.alert('Call your insurer', 'Use the phone number on your insurance card or policy document.');
+        Alert.alert(t('insurance.hub.callFallbackTitle'), t('insurance.hub.callFallbackBody'));
       }
     } finally {
       setCallingInsurer(false);
@@ -489,8 +495,8 @@ export default function InsuranceHomeScreen() {
         });
       } catch {
         Alert.alert(
-          "Couldn't open your claim",
-          'Your captured photos are safe on this device. Try Report Accident again.',
+          t('insurance.hub.openClaimFailedTitle'),
+          t('insurance.hub.openClaimFailedBody'),
         );
       } finally {
         setNavigating(false);
@@ -512,14 +518,14 @@ export default function InsuranceHomeScreen() {
                 style={({ pressed }) => [styles.headerBackWithTitle, pressed && styles.pressed]}
                 hitSlop={12}
                 accessibilityRole="button"
-                accessibilityLabel="Go back">
+                accessibilityLabel={t('insurance.action.back')}>
                 <View style={styles.headerChevronWrap} collapsable={false}>
                   <Ionicons name="chevron-back" size={24} color={COLORS.text} />
                 </View>
-                <Text style={styles.headerTitle}>Insurance</Text>
+                <Text style={styles.headerTitle}>{t('insurance.hub.title')}</Text>
               </Pressable>
             ) : (
-              <Text style={styles.headerTitle}>Insurance</Text>
+              <Text style={styles.headerTitle}>{t('insurance.hub.title')}</Text>
             )}
           </View>
 
@@ -570,28 +576,42 @@ export default function InsuranceHomeScreen() {
                     <View style={styles.taskIconWrap}>
                       <Ionicons name="call-outline" size={20} color={INSURANCE_PRIMARY} />
                     </View>
-                    <Text style={styles.callInsurerText}>{`Call ${insuranceCompany.appName}`}</Text>
+                    <Text style={styles.callInsurerText}>
+                      {t('insurance.hub.callInsurer', { name: insuranceCompany.appName })}
+                    </Text>
                   </>
                 )}
               </Pressable>
             </View>
           ) : vehicleMissingInsurer ? (
             <View style={styles.noInsurerHint}>
-              <Text style={styles.noInsurerHintText}>
-                No insurance company saved for this vehicle. Add it in My Vehicles → Edit → Add
-                insurance company → Save changes.
-              </Text>
+              <Text style={styles.noInsurerHintText}>{t('insurance.hub.noInsurerHint')}</Text>
             </View>
           ) : null}
 
           <View style={styles.stepsSection}>
-            <StepRow number={1} title="Stay safe first" caption="Move away from the traffic" showDivider />
-            <StepRow number={2} title="Walk around the vehicle" caption="Phone will guide the angles" showDivider />
-            <StepRow number={3} title="Take photos and submit" caption="We'll update you soon" showDivider={false} />
+            <StepRow
+              number={1}
+              title={t('insurance.hub.step1Title')}
+              caption={t('insurance.hub.step1Caption')}
+              showDivider
+            />
+            <StepRow
+              number={2}
+              title={t('insurance.hub.step2Title')}
+              caption={t('insurance.hub.step2Caption')}
+              showDivider
+            />
+            <StepRow
+              number={3}
+              title={t('insurance.hub.step3Title')}
+              caption={t('insurance.hub.step3Caption')}
+              showDivider={false}
+            />
           </View>
 
           <View style={styles.nextStepsHeader}>
-            <Text style={styles.nextStepsTitle}>Next Steps</Text>
+            <Text style={styles.nextStepsTitle}>{t('insurance.hub.nextSteps')}</Text>
             <Text style={styles.nextStepsProgress}>{progressLabel}</Text>
           </View>
 
@@ -617,11 +637,9 @@ export default function InsuranceHomeScreen() {
             ]}
             onPress={onReportAccident}
             accessibilityRole="button"
-            accessibilityLabel="Report Accident"
+            accessibilityLabel={t('insurance.hub.reportAccident')}
             accessibilityHint={
-              claimReportLocked
-                ? 'Opens upload status. Does not send again until you reset walkaround in Guided Capture.'
-                : undefined
+              claimReportLocked ? t('insurance.hub.reportAccidentHint') : undefined
             }
             accessibilityState={{ disabled: !allFlowStepsComplete || navigating || anyLoading }}>
             <Text
@@ -629,17 +647,14 @@ export default function InsuranceHomeScreen() {
                 styles.reportBtnText,
                 (!allFlowStepsComplete || reportLooksSubmitted) && styles.reportBtnTextDisabled,
               ]}>
-              Report Accident
+              {t('insurance.hub.reportAccident')}
             </Text>
           </Pressable>
           {claimReportLocked ? (
-            <Text style={styles.reportLockedHint}>
-              Tap the button above to review upload progress (no new upload). For a new incident, open Guided Capture and
-              use Reset capture, then complete the steps again.
-            </Text>
+            <Text style={styles.reportLockedHint}>{t('insurance.hub.reportLockedHint')}</Text>
           ) : incompleteUpload ? (
             <Text style={styles.reportIncompleteHint}>
-              {`Your last upload stopped at ${incompleteUpload.percent}% — tap Report Accident to resume.`}
+              {t('insurance.hub.reportResumeHint', { percent: incompleteUpload.percent })}
             </Text>
           ) : null}
         </ScrollView>

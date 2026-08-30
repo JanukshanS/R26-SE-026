@@ -20,6 +20,7 @@ import { unpairElm327 } from "@lib/elm327";
 import { endTrip, isTripActive } from "@lib/tripRecorder";
 import { listMyClaims } from "@lib/claims-api";
 import { useTabBack } from "@lib/useTabBack";
+import { useT } from "@lib/i18n";
 import {
   formatLicenceNumber,
   formatNicNumber,
@@ -30,6 +31,7 @@ import {
 export default function ProfileScreen() {
   const { canGoBack, goBack } = useTabBack();
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { user, vehicles, updateProfile, logout } = useVehicle();
 
   const [editing, setEditing] = useState(false);
@@ -75,11 +77,11 @@ export default function ProfileScreen() {
           }}
         >
           {canGoBack ? (
-            <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+            <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel={t("driver.profile.back")}>
               <Icon name="ChevronLeft" size={24} color={palette.text} />
             </Pressable>
           ) : null}
-          <Text style={{ ...typography.body, color: palette.text }}>Profile</Text>
+          <Text style={{ ...typography.body, color: palette.text }}>{t("driver.profile.title")}</Text>
         </View>
 
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.lg, padding: spacing.xxl }}>
@@ -95,9 +97,9 @@ export default function ProfileScreen() {
           >
             <Icon name="User" size={36} color={palette.brand} />
           </View>
-          <Text style={{ ...typography.h2, color: palette.text }}>Not signed in</Text>
+          <Text style={{ ...typography.h2, color: palette.text }}>{t("driver.profile.signedOutTitle")}</Text>
           <Text style={{ ...typography.body, color: palette.textMuted, textAlign: "center" }}>
-            Sign in to manage your vehicles and track health data.
+            {t("driver.profile.signedOutBody")}
           </Text>
           <Pressable
             onPress={() => router.push("/(driver)/auth")}
@@ -110,7 +112,7 @@ export default function ProfileScreen() {
             })}
           >
             <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-              Sign In / Register
+              {t("driver.profile.signIn")}
             </Text>
           </Pressable>
         </View>
@@ -127,17 +129,17 @@ export default function ProfileScreen() {
     .toUpperCase();
 
   async function handleSave() {
-    if (!name.trim()) { setError("Name cannot be empty"); return; }
+    if (!name.trim()) { setError(t("driver.profile.errorNameRequired")); return; }
     // Both fields are optional (the profile shows "Not added" when empty), so only
     // validate a non-empty value — matches the Add Insurer screen's same rule using
     // the same shared format, which is why these two checks were silently having no
     // effect: nothing here was ever calling them.
     if (nicNumber.trim() && !isValidNicNumber(nicNumber.trim())) {
-      setError("Enter a valid NIC number — 12 digits, or 9 digits followed by V.");
+      setError(t("driver.profile.errorNic"));
       return;
     }
     if (licenceNumber.trim() && !isValidLicenceNumber(licenceNumber.trim())) {
-      setError("Enter a valid driving licence number — 1 letter followed by 7 digits.");
+      setError(t("driver.profile.errorLicence"));
       return;
     }
     setSaving(true);
@@ -155,7 +157,7 @@ export default function ProfileScreen() {
       setEditing(false);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
-      setError(err.message ?? "Failed to update profile");
+      setError(err.message ?? t("driver.profile.errorUpdateFailed"));
     } finally {
       setSaving(false);
     }
@@ -200,12 +202,12 @@ export default function ProfileScreen() {
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
               {canGoBack && (
-                <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+                <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel={t("driver.profile.back")}>
                   <Icon name="ChevronLeft" size={18} color={palette.textOnBrand} />
                 </Pressable>
               )}
               <Text style={{ ...typography.micro, color: palette.textOnBrand, fontWeight: "700" }}>
-                DRIVER PROFILE
+                {t("driver.profile.headerEyebrow")}
               </Text>
             </View>
             <Pressable
@@ -218,7 +220,7 @@ export default function ProfileScreen() {
               })}
             >
               <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "700" }}>
-                {editing ? "Cancel" : "Edit"}
+                {editing ? t("driver.profile.cancel") : t("driver.profile.edit")}
               </Text>
             </Pressable>
           </View>
@@ -249,15 +251,15 @@ export default function ProfileScreen() {
 
               <View style={{ flexDirection: "row" }}>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={{ ...typography.micro, color: "rgba(255,255,255,0.75)" }}>NIC</Text>
+                  <Text style={{ ...typography.micro, color: "rgba(255,255,255,0.75)" }}>{t("driver.profile.nicLabel")}</Text>
                   <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-                    {user.nicNumber ?? "Not added"}
+                    {user.nicNumber ?? t("driver.profile.notAdded")}
                   </Text>
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={{ ...typography.micro, color: "rgba(255,255,255,0.75)" }}>LICENCE</Text>
+                  <Text style={{ ...typography.micro, color: "rgba(255,255,255,0.75)" }}>{t("driver.profile.licenceLabel")}</Text>
                   <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-                    {user.licenceNumber ?? "Not added"}
+                    {user.licenceNumber ?? t("driver.profile.notAdded")}
                   </Text>
                 </View>
               </View>
@@ -279,7 +281,7 @@ export default function ProfileScreen() {
           >
             <Icon name="CheckCircle" size={16} color={palette.success} />
             <Text style={{ ...typography.caption, color: palette.success, fontWeight: "600" }}>
-              Profile updated successfully
+              {t("driver.profile.updatedBanner")}
             </Text>
           </View>
         )}
@@ -295,20 +297,20 @@ export default function ProfileScreen() {
               boxShadow: "0 2px 10px rgba(15, 15, 15, 0.06)",
             }}
           >
-            <Text style={{ ...typography.bodyStrong, color: palette.text }}>Edit Profile</Text>
-            <Field label="Full Name *" value={name} onChangeText={setName} placeholder="Your name" autoCapitalize="words" />
-            <Field label="Email" value={user.email} editable={false} placeholder="" />
-            <Field label="Phone" value={phone} onChangeText={setPhone} placeholder="+94 77 123 4567" keyboardType="phone-pad" />
-            <Field label="Location" value={location} onChangeText={setLocation} placeholder="Malabe, Sri Lanka" autoCapitalize="words" />
+            <Text style={{ ...typography.bodyStrong, color: palette.text }}>{t("driver.profile.editHeading")}</Text>
+            <Field label={t("driver.profile.fieldName")} value={name} onChangeText={setName} placeholder={t("driver.profile.fieldNamePlaceholder")} autoCapitalize="words" />
+            <Field label={t("driver.profile.fieldEmail")} value={user.email} editable={false} placeholder="" />
+            <Field label={t("driver.profile.fieldPhone")} value={phone} onChangeText={setPhone} placeholder={t("driver.profile.fieldPhonePlaceholder")} keyboardType="phone-pad" />
+            <Field label={t("driver.profile.fieldLocation")} value={location} onChangeText={setLocation} placeholder={t("driver.profile.fieldLocationPlaceholder")} autoCapitalize="words" />
             <Field
-              label="NIC number"
+              label={t("driver.profile.fieldNic")}
               value={nicNumber}
               onChangeText={(t) => setNicNumber(formatNicNumber(t))}
               placeholder="200012345678"
               autoCapitalize="characters"
             />
             <Field
-              label="Driving licence number"
+              label={t("driver.profile.fieldLicence")}
               value={licenceNumber}
               onChangeText={(t) => setLicenceNumber(formatLicenceNumber(t))}
               placeholder="B1234567"
@@ -346,7 +348,7 @@ export default function ProfileScreen() {
             >
               {saving && <ActivityIndicator size="small" color={palette.textOnBrand} />}
               <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>
-                Save Changes
+                {t("driver.profile.saveChanges")}
               </Text>
             </Pressable>
           </View>
@@ -367,11 +369,11 @@ export default function ProfileScreen() {
                   boxShadow: "0 2px 8px rgba(15, 15, 15, 0.05)",
                 })}
               >
-                <Text style={{ ...typography.body, color: palette.text }}>My Vehicles</Text>
+                <Text style={{ ...typography.body, color: palette.text }}>{t("driver.profile.statVehicles")}</Text>
                 <Text style={{ fontSize: 34, fontWeight: "800", color: palette.text }}>
                   {vehicles.length}
                 </Text>
-                <Text style={{ ...typography.caption, color: palette.textMuted }}>registered</Text>
+                <Text style={{ ...typography.caption, color: palette.textMuted }}>{t("driver.profile.statVehiclesUnit")}</Text>
               </Pressable>
               <Pressable
                 onPress={() => router.push("/(driver)/my-claims")}
@@ -384,11 +386,11 @@ export default function ProfileScreen() {
                   boxShadow: "0 2px 8px rgba(15, 15, 15, 0.05)",
                 })}
               >
-                <Text style={{ ...typography.body, color: palette.text }}>Claims</Text>
+                <Text style={{ ...typography.body, color: palette.text }}>{t("driver.profile.statClaims")}</Text>
                 <Text style={{ fontSize: 34, fontWeight: "800", color: palette.text }}>
                   {claimsCount ?? "—"}
                 </Text>
-                <Text style={{ ...typography.caption, color: palette.textMuted }}>submitted</Text>
+                <Text style={{ ...typography.caption, color: palette.textMuted }}>{t("driver.profile.statClaimsUnit")}</Text>
               </Pressable>
             </View>
 
@@ -396,7 +398,7 @@ export default function ProfileScreen() {
                 value-right rows; NIC/Licence already live in the header. */}
             <View style={{ gap: spacing.sm }}>
               <Text style={{ ...typography.micro, color: palette.textMuted, fontWeight: "700", marginLeft: spacing.xs }}>
-                ACCOUNT DETAILS
+                {t("driver.profile.accountHeading")}
               </Text>
               <View
                 style={{
@@ -406,9 +408,9 @@ export default function ProfileScreen() {
                   boxShadow: "0 2px 10px rgba(15, 15, 15, 0.06)",
                 }}
               >
-                <AccountRow label="Email" value={user.email} />
-                <AccountRow label="Phone" value={user.phone} onAdd={handleEditToggle} />
-                <AccountRow label="Location" value={user.location} onAdd={handleEditToggle} />
+                <AccountRow label={t("driver.profile.fieldEmail")} value={user.email} />
+                <AccountRow label={t("driver.profile.fieldPhone")} value={user.phone} onAdd={handleEditToggle} />
+                <AccountRow label={t("driver.profile.fieldLocation")} value={user.location} onAdd={handleEditToggle} />
                 <LanguagePicker variant="row" />
               </View>
             </View>
@@ -435,7 +437,7 @@ export default function ProfileScreen() {
                 router.replace("/");
               }}
               accessibilityRole="button"
-              accessibilityLabel="Log out"
+              accessibilityLabel={t("driver.profile.logoutA11y")}
               style={({ pressed }) => ({
                 alignItems: "center",
                 paddingVertical: spacing.md,
@@ -444,7 +446,7 @@ export default function ProfileScreen() {
                 opacity: pressed ? 0.85 : 1,
               })}
             >
-              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>Log Out</Text>
+              <Text style={{ ...typography.bodyStrong, color: palette.textOnBrand }}>{t("driver.profile.logout")}</Text>
             </Pressable>
           </>
         )}
@@ -458,6 +460,7 @@ export default function ProfileScreen() {
 function AccountRow({
   label, value, onAdd, divider = true,
 }: { label: string; value?: string | null; onAdd?: () => void; divider?: boolean }) {
+  const t = useT();
   return (
     <View
       style={{
@@ -474,7 +477,7 @@ function AccountRow({
         <Text style={{ ...typography.bodyStrong, color: palette.text }}>{value}</Text>
       ) : (
         <Pressable onPress={onAdd} hitSlop={8}>
-          <Text style={{ ...typography.bodyStrong, color: palette.brand }}>+ Add</Text>
+          <Text style={{ ...typography.bodyStrong, color: palette.brand }}>{t("driver.profile.addValue")}</Text>
         </Pressable>
       )}
     </View>

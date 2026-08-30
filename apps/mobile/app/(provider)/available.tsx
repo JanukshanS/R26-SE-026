@@ -213,7 +213,7 @@ export default function ProviderAvailableScreen() {
   const displayName =
     provider?.name.split(" - ")[1] ?? provider?.name ?? t("provider.available.fallbackName");
   const typeLabel = provider
-    ? providerTypeLabel(provider.type)
+    ? providerTypeLabel(provider.type, t)
     : t("provider.available.fallbackName");
 
   return (
@@ -466,14 +466,14 @@ function JobCard({
       style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
       accessibilityRole="button"
       accessibilityLabel={t("provider.job.openA11y", {
-        service: service ? serviceTypeLabel(service) : t("provider.job.fallbackServiceLower"),
+        service: service ? serviceTypeLabel(service, t) : t("provider.job.fallbackServiceLower"),
       })}
     >
       <Card style={{ gap: spacing.sm }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
           <Icon name="TriangleAlert" size={20} color={palette.danger} />
           <Text style={{ ...typography.h3, color: palette.text, flex: 1 }}>
-            {service ? serviceTypeLabel(service) : t("provider.job.fallbackService")}
+            {service ? serviceTypeLabel(service, t) : t("provider.job.fallbackService")}
           </Text>
           <Badge
             label={jobStatusLabel(job.status, t)}
@@ -496,7 +496,7 @@ function JobCard({
           }}
         >
           <Text style={{ ...typography.body, color: palette.text }}>
-            {service ? serviceTypeAction(service) : t("provider.job.fallbackAction")}
+            {service ? serviceTypeAction(service, t) : t("provider.job.fallbackAction")}
           </Text>
           <Icon name="ChevronRight" size={18} color={palette.textMuted} />
         </View>

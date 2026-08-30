@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { matchesFilters } from "@/lib/filters";
 import { PRIORITY_COLORS, type MapProps } from "@/components/Map";
 import { loadGoogleMaps } from "@/lib/googleMaps";
+import { useT } from "@/lib/i18n";
 import { createHeatmapOverlay } from "@/lib/googleHeatmap";
 import { createIncidentOverlay } from "@/lib/googleIncidentLayer";
 
@@ -52,6 +53,7 @@ export default function GoogleMap({
   filters,
   layers,
 }: MapProps) {
+  const t = useT();
   const nodeRef = useRef<HTMLDivElement>(null);
   const mapsRef = useRef<any>(null);
   const mapRef = useRef<any>(null);
@@ -156,9 +158,9 @@ export default function GoogleMap({
         circle.addListener("click", () => {
           info.setContent(
             popupHtml(
-              `<strong>Hotspot #${h.id}</strong><br/>
-               Incidents: ${h.count} | Risk: ${h.risk}<br/>
-               Avg Score: ${h.avgScore} | Peak: ${h.peakHour}:00<br/>
+              `<strong>${t("dashboard.map.hotspotTitle", { id: h.id })}</strong><br/>
+               ${t("dashboard.map.hotspotCounts", { n: h.count, risk: h.risk })}<br/>
+               ${t("dashboard.map.hotspotScores", { score: h.avgScore, hour: h.peakHour })}<br/>
                ${h.roadType} — ${h.incidentType.replace(/_/g, " ")}`
             )
           );
@@ -207,7 +209,7 @@ export default function GoogleMap({
             `<strong>${b.name}</strong><br/>
              <span style="color:#6B7280">${b.roadType}</span><br/>
              ${b.notes}<br/>
-             <span style="color:#b91c1c;font-weight:600">Real accident blackspot — NTC 2024 / data.gov.lk</span>`
+             <span style="color:#b91c1c;font-weight:600">${t("dashboard.map.blackspotSource")}</span>`
           )
         );
       });
@@ -230,15 +232,13 @@ export default function GoogleMap({
       });
       keep({ setMap: () => click.remove() } as any);
     }
-  }, [ready, incidents, hotspots, blackspots, filters, layers, onSelectIncident]);
+  }, [ready, incidents, hotspots, blackspots, filters, layers, onSelectIncident, t]);
 
   if (failed) {
     return (
       <div className="flex h-full w-full items-center justify-center rounded-xl border border-border bg-muted/40 p-6 text-center">
         <p className="text-sm text-muted-foreground">
-          Google Maps could not load ({failed}). Check
-          <span className="font-mono"> NEXT_PUBLIC_GOOGLE_MAPS_API_KEY </span>
-          and that the key allows this domain.
+          {t("dashboard.map.googleFailed", { message: failed })}
         </p>
       </div>
     );

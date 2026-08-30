@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { Icon } from "@components/ui/icon";
 import { LanguagePicker } from "@components/ui/language-picker";
 import { palette, radii, spacing, typography } from "@theme/index";
+import { useT } from "@lib/i18n";
 
 type Props = {
   title?: string;
@@ -23,6 +24,7 @@ export function HeaderBar({
   showLanguage = false,
   right,
 }: Props) {
+  const t = useT();
   return (
     <View
       style={{
@@ -51,7 +53,7 @@ export function HeaderBar({
           >
             <Icon name="ChevronLeft" size={14} color={palette.text} />
             <Text style={{ color: palette.text, ...typography.caption, fontWeight: "600" }}>
-              back
+              {t("components.header.back")}
             </Text>
           </Pressable>
         ) : (
@@ -69,7 +71,7 @@ export function HeaderBar({
           <Pressable
             onPress={() => router.replace("/(driver)/home")}
             accessibilityRole="button"
-            accessibilityLabel="Go to home"
+            accessibilityLabel={t("components.header.goHome")}
             style={({ pressed }) => ({
               opacity: pressed ? 0.7 : 1,
               flexDirection: "row",
@@ -85,7 +87,7 @@ export function HeaderBar({
           >
             <Icon name="House" size={14} color={palette.text} />
             <Text style={{ color: palette.text, ...typography.caption, fontWeight: "600" }}>
-              home
+              {t("components.header.home")}
             </Text>
           </Pressable>
         ) : null)}

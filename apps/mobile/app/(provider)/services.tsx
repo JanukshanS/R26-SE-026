@@ -268,7 +268,7 @@ function ServiceRow({
           {on ? <Icon name="Check" size={14} color={palette.textOnBrand} /> : null}
         </View>
         <Text style={{ ...typography.body, color: palette.text, flex: 1, fontWeight: on ? "600" : "400" }}>
-          {serviceTypeLabel(service)}
+          {serviceTypeLabel(service, t)}
         </Text>
       </Pressable>
 

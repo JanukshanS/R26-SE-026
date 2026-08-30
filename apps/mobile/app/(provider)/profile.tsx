@@ -162,7 +162,7 @@ export default function ProviderProfileScreen() {
               </View>
               <Text style={{ ...typography.h3, color: palette.text }}>{provider.name}</Text>
               <Text style={{ ...typography.caption, color: palette.textMuted }}>
-                {providerTypeLabel(provider.type)}
+                {providerTypeLabel(provider.type, t)}
               </Text>
             </View>
 

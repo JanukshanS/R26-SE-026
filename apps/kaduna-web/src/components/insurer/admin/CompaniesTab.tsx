@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { authHeaders, API_BASE } from "@/lib/insurer/api";
+import { useT } from "@/lib/i18n";
 
 type Company = {
   id: string;
@@ -31,6 +32,7 @@ type FormState = {
 const EMPTY_FORM: FormState = { name: "", app_name: "", phone_tel: "", contact_email: "" };
 
 export function CompaniesTab() {
+  const t = useT();
   const [companies, setCompanies] = useState<Company[] | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
@@ -48,7 +50,7 @@ export function CompaniesTab() {
       if (res.ok) setCompanies(await res.json());
       else throw new Error(`HTTP ${res.status}`);
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "Failed to load companies");
+      setLoadError(e instanceof Error ? e.message : t("insurer.companies.loadErrorFallback"));
     }
   }
 
@@ -102,12 +104,12 @@ export function CompaniesTab() {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.detail ?? "Failed to save company");
+        throw new Error(err.detail ?? t("insurer.companies.saveFailedFallback"));
       }
       await load();
       closeModal();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error");
+      setError(e instanceof Error ? e.message : t("insurer.companies.genericError"));
     } finally {
       setSaving(false);
     }
@@ -124,14 +126,14 @@ export function CompaniesTab() {
   if (loadError) {
     return (
       <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
-        <p className="font-medium">Couldn&apos;t load companies</p>
+        <p className="font-medium">{t("insurer.companies.loadErrorTitle")}</p>
         <p className="mt-1">{loadError}</p>
         <button
           type="button"
           onClick={() => void load()}
           className="mt-3 rounded border border-red-300 px-3 py-1 font-medium hover:bg-red-100"
         >
-          Try again
+          {t("insurer.action.retry")}
         </button>
       </div>
     );
@@ -152,14 +154,14 @@ export function CompaniesTab() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold tracking-tight">
-            Insurance Companies
+            {t("insurer.companies.heading")}
           </h2>
           <button
             type="button"
             onClick={openAdd}
             className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-sm font-medium hover:opacity-90 transition-opacity"
           >
-            + Add Company
+            {t("insurer.companies.add")}
           </button>
         </div>
 
@@ -167,12 +169,12 @@ export function CompaniesTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Company Name</TableHead>
-                <TableHead>App Name</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Contact Email</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>{t("insurer.companies.colName")}</TableHead>
+                <TableHead>{t("insurer.companies.colAppName")}</TableHead>
+                <TableHead>{t("insurer.companies.colPhone")}</TableHead>
+                <TableHead>{t("insurer.companies.colEmail")}</TableHead>
+                <TableHead>{t("insurer.companies.colStatus")}</TableHead>
+                <TableHead>{t("insurer.companies.colActions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -182,7 +184,7 @@ export function CompaniesTab() {
                     colSpan={6}
                     className="text-center text-muted-foreground py-8"
                   >
-                    No companies yet
+                    {t("insurer.companies.empty")}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -200,7 +202,7 @@ export function CompaniesTab() {
                             : "bg-red-100 text-red-700"
                         }`}
                       >
-                        {c.is_active ? "Active" : "Inactive"}
+                        {c.is_active ? t("insurer.status.active") : t("insurer.status.inactive")}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -210,14 +212,14 @@ export function CompaniesTab() {
                           onClick={() => openEdit(c)}
                           className="rounded-md border border-input px-3 py-1 text-xs font-medium hover:bg-accent transition-colors"
                         >
-                          Edit
+                          {t("insurer.action.edit")}
                         </button>
                         <button
                           type="button"
                           onClick={() => void handleToggle(c.id)}
                           className="rounded-md border border-input px-3 py-1 text-xs font-medium hover:bg-accent transition-colors"
                         >
-                          {c.is_active ? "Deactivate" : "Activate"}
+                          {c.is_active ? t("insurer.action.deactivate") : t("insurer.action.activate")}
                         </button>
                       </div>
                     </TableCell>
@@ -240,7 +242,9 @@ export function CompaniesTab() {
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h3 className="text-sm font-semibold">
-                {editingCompany ? "Edit Insurance Company" : "Add Insurance Company"}
+                {editingCompany
+                  ? t("insurer.companies.editTitle")
+                  : t("insurer.companies.addTitle")}
               </h3>
               <button
                 type="button"
@@ -253,7 +257,7 @@ export function CompaniesTab() {
 
             <div className="px-5 py-4 flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Company Name</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("insurer.companies.fieldName")}</label>
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -263,8 +267,8 @@ export function CompaniesTab() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-muted-foreground">
-                  App Name{" "}
-                  <span className="font-normal">(shown in mobile app)</span>
+                  {t("insurer.companies.fieldAppName")}{" "}
+                  <span className="font-normal">{t("insurer.companies.fieldAppNameHint")}</span>
                 </label>
                 <input
                   value={form.app_name}
@@ -274,7 +278,7 @@ export function CompaniesTab() {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Phone</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("insurer.companies.fieldPhone")}</label>
                 <input
                   value={form.phone_tel}
                   onChange={(e) => setForm({ ...form, phone_tel: e.target.value })}
@@ -283,7 +287,7 @@ export function CompaniesTab() {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Contact Email</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("insurer.companies.fieldEmail")}</label>
                 <input
                   type="email"
                   value={form.contact_email}
@@ -305,7 +309,7 @@ export function CompaniesTab() {
                 onClick={closeModal}
                 className="rounded-md border border-input px-4 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent transition-colors"
               >
-                Cancel
+                {t("insurer.action.cancel")}
               </button>
               <button
                 type="button"
@@ -314,10 +318,10 @@ export function CompaniesTab() {
                 className="rounded-md px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {saving
-                  ? "Saving…"
+                  ? t("insurer.action.saving")
                   : editingCompany
-                    ? "Save Changes"
-                    : "Create Company"}
+                    ? t("insurer.companies.saveChanges")
+                    : t("insurer.companies.create")}
               </button>
             </div>
           </div>

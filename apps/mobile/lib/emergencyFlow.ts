@@ -77,8 +77,8 @@ export interface FlowState {
 
 interface StepDef {
   route: StepRoute;
-  /** Short topic heading. The question itself is the screen's `prompt`. */
-  title: string;
+  /** Key for the short topic heading. The question itself is the screen's `prompt`. */
+  titleKey: string;
   /** Active for this state? Omitted = always asked. */
   when?: (s: FlowState) => boolean;
 }
@@ -92,39 +92,39 @@ const ENGINE_INTENTS: Q1MLIntent[] = ["WONT_START", "ENGINE_PROBLEM", "WEIRD_BEH
  * matching the tree's priority ranking.
  */
 const STEPS: StepDef[] = [
-  { route: "whats-wrong",      title: "What's wrong?" },
+  { route: "whats-wrong",      titleKey: "emergency.step.whatsWrong" },
   // Q2 — 14.9%
-  { route: "engine-state",     title: "Engine",
+  { route: "engine-state",     titleKey: "emergency.step.engine",
     when: (s) => s.q1Intent != null && ENGINE_INTENTS.includes(s.q1Intent) },
   // Q5 — 22.0%, the single heaviest question. Always asked.
-  { route: "diagnosis-lights", title: "Warning lights" },
+  { route: "diagnosis-lights", titleKey: "emergency.step.lights" },
   // Q9 — 15.1%. Always asked.
-  { route: "recent",           title: "Recent warning signs" },
+  { route: "recent",           titleKey: "emergency.step.recent" },
   // Q6 — 10.8%. Always asked. The v3 retrain promoted this out of the tail.
-  { route: "smells",           title: "Smell" },
+  { route: "smells",           titleKey: "emergency.step.smell" },
   // Q2b — 7.2%. Was the root split pre-v3; now mid-weight, so it drops out of
   // the top five. Still ahead of every branch detail that reads runningIssue.
-  { route: "running-issue",    title: "Running problem",
+  { route: "running-issue",    titleKey: "emergency.step.runningIssue",
     when: (s) => s.engineState === "STARTS_NORMAL" || s.engineState === "STARTS_BUT_ISSUE" },
   // Branch detail — at most one of these is ever active.
-  { route: "diagnosis-sound",  title: "Sound",
+  { route: "diagnosis-sound",  titleKey: "emergency.step.sound",
     when: (s) => s.engineState === "CRANKS_NO_START" },
-  { route: "electrical",       title: "Lights and power",
+  { route: "electrical",       titleKey: "emergency.step.electrical",
     when: (s) => s.engineState === "NO_CRANK" },
-  { route: "overheat-detail",  title: "Overheating",
+  { route: "overheat-detail",  titleKey: "emergency.step.overheat",
     when: (s) => s.runningIssue === "OVERHEATING" },
-  { route: "noise-detail",     title: "Noise",
+  { route: "noise-detail",     titleKey: "emergency.step.noise",
     when: (s) => s.runningIssue === "NOISE" },
-  { route: "smoke-color",      title: "Smoke",
+  { route: "smoke-color",      titleKey: "emergency.step.smoke",
     when: (s) => s.runningIssue === "SMOKE" },
-  { route: "brake-detail",     title: "Brakes",
+  { route: "brake-detail",     titleKey: "emergency.step.brakes",
     when: (s) => s.q1Intent === "BRAKE_ISSUE" },
-  { route: "gear-detail",      title: "Gears",
+  { route: "gear-detail",      titleKey: "emergency.step.gears",
     when: (s) => s.q1Intent === "GEAR_ISSUE" },
   // 8.3% across last_fueled, recent_rain and parked_overnight. Its fourth
   // question, location_type, was dropped from the feature set by the v3 retrain
   // and now feeds nothing.
-  { route: "context",          title: "One last thing" },
+  { route: "context",          titleKey: "emergency.step.lastThing" },
 ];
 
 /** The steps this driver will actually see, given what they've answered. */
@@ -151,9 +151,9 @@ export function nextRoute(s: FlowState, route: StepRoute): QuestionRoute | null 
   return active[i + 1].route as QuestionRoute;
 }
 
-/** Headline for a screen, so no two screens share a title again. */
+/** Translation key for a screen's headline, so no two screens share a title again. */
 export function stepTitle(route: StepRoute): string {
-  return STEPS.find((step) => step.route === route)?.title ?? "";
+  return STEPS.find((step) => step.route === route)?.titleKey ?? "";
 }
 
 /** A step that can be navigated to. The entry grid is never a Next target. */

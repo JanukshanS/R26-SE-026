@@ -167,7 +167,7 @@ function FeedbackCard({ feedback }: { feedback: ProviderFeedback }) {
     <Card style={{ gap: spacing.xs }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
         <Text style={{ ...typography.bodyStrong, color: palette.text, flex: 1 }}>
-          {serviceTypeLabel(feedback.actualServiceType)}
+          {serviceTypeLabel(feedback.actualServiceType, t)}
         </Text>
         <Badge
           label={
@@ -181,7 +181,7 @@ function FeedbackCard({ feedback }: { feedback: ProviderFeedback }) {
       {!feedback.wasMatch && (
         <Text style={{ ...typography.caption, color: palette.textMuted }}>
           {t("provider.history.originallyPredicted", {
-            service: serviceTypeLabel(feedback.predictedServiceType),
+            service: serviceTypeLabel(feedback.predictedServiceType, t),
           })}
         </Text>
       )}

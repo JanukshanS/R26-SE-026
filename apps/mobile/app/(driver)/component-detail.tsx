@@ -15,118 +15,126 @@ import {
 import { useVehicle } from "@lib/vehicleContext";
 import { getComponentPlan, type ComponentPlan } from "@lib/maintenanceApi";
 import { getCurrentDriverLocation } from "@lib/driverLocation";
+import { useT, type Translate } from "@lib/i18n";
 
 interface ComponentMeta {
-  label: string;
+  labelKey: string;
+  labelLowerKey: string;
   icon: string;
-  whyReasons: (c: ComponentHealth) => string[];
-  nextSteps: { title: string; price: string; icon: string; description: string }[];
+  whyReasons: (c: ComponentHealth, t: Translate) => string[];
+  nextSteps: { titleKey: string; priceKey: string; icon: string; descriptionKey: string }[];
 }
 
 const META: Record<ComponentKey, ComponentMeta> = {
   brake: {
-    label: "Brake Pads",
+    labelKey: "driver.componentDetail.labelBrake",
+    labelLowerKey: "driver.componentDetail.labelBrakeLower",
     icon: "Disc",
-    whyReasons: (c) => [
-      `OBD readings: ${Math.round(c.health_pct)}%`,
+    whyReasons: (c, t) => [
+      t("driver.componentDetail.reasonObd", { pct: Math.round(c.health_pct) }),
       c.status === "Good"
-        ? "Braking events: within normal frequency"
-        : "Braking events: above normal frequency",
+        ? t("driver.componentDetail.reasonBrakingNormal")
+        : t("driver.componentDetail.reasonBrakingHigh"),
       c.status === "Good"
-        ? "Driving behaviour: no heavy braking detected"
-        : "Driving behaviour: heavy braking detected",
+        ? t("driver.componentDetail.reasonBrakingStyleNormal")
+        : t("driver.componentDetail.reasonBrakingStyleHeavy"),
     ],
     nextSteps: [
       {
-        title: "Order Brake Pads",
-        price: "From LKR 11,500",
+        titleKey: "driver.componentDetail.orderBrake",
+        priceKey: "driver.componentDetail.priceBrakePart",
         icon: "ShoppingBag",
-        description: "4 options in the parts store · indicative prices",
+        descriptionKey: "driver.componentDetail.descPartsStore",
       },
       {
-        title: "See garage options",
-        price: "LKR 2,500",
+        titleKey: "driver.componentDetail.seeGarageOptions",
+        priceKey: "driver.componentDetail.priceBrakeFitting",
         icon: "Wrench",
-        description: "Suggested garage & indicative fitting cost",
+        descriptionKey: "driver.componentDetail.descBrakeFitting",
       },
     ],
   },
   engine: {
-    label: "Engine Oil",
+    labelKey: "driver.componentDetail.labelEngine",
+    labelLowerKey: "driver.componentDetail.labelEngineLower",
     icon: "Gauge",
-    whyReasons: (c) => [
-      `OBD readings: ${Math.round(c.health_pct)}%`,
-      `Last oil change: ~${Math.round((c.max_lifespan_km - c.predicted_rul_km) / 1000)}k km ago`,
+    whyReasons: (c, t) => [
+      t("driver.componentDetail.reasonObd", { pct: Math.round(c.health_pct) }),
+      t("driver.componentDetail.reasonLastOilChange", {
+        km: Math.round((c.max_lifespan_km - c.predicted_rul_km) / 1000),
+      }),
       c.status === "Good"
-        ? "Coolant temp: within normal range"
-        : "Coolant temp: elevated patterns detected",
+        ? t("driver.componentDetail.reasonCoolantNormal")
+        : t("driver.componentDetail.reasonCoolantElevated"),
     ],
     nextSteps: [
       {
-        title: "Order Engine Oil",
-        price: "From LKR 4,500",
+        titleKey: "driver.componentDetail.orderEngine",
+        priceKey: "driver.componentDetail.priceEnginePart",
         icon: "ShoppingBag",
-        description: "Oil, filters & service kits · indicative prices",
+        descriptionKey: "driver.componentDetail.descEngineStore",
       },
       {
-        title: "See garage options",
-        price: "LKR 14,800",
+        titleKey: "driver.componentDetail.seeGarageOptions",
+        priceKey: "driver.componentDetail.priceEngineFitting",
         icon: "Droplets",
-        description: "Suggested garage & indicative oil-change cost",
+        descriptionKey: "driver.componentDetail.descEngineFitting",
       },
     ],
   },
   tire: {
-    label: "Tyres",
+    labelKey: "driver.componentDetail.labelTire",
+    labelLowerKey: "driver.componentDetail.labelTireLower",
     icon: "Circle",
-    whyReasons: (c) => [
-      `Tread health: ${Math.round(c.health_pct)}%`,
+    whyReasons: (c, t) => [
+      t("driver.componentDetail.reasonTread", { pct: Math.round(c.health_pct) }),
       c.status === "Good"
-        ? "Cornering events: within normal range"
-        : "Cornering events: above normal frequency",
+        ? t("driver.componentDetail.reasonCorneringNormal")
+        : t("driver.componentDetail.reasonCorneringHigh"),
       c.status === "Good"
-        ? "Tread wear: in line with expected rate"
-        : "Tread wear: ahead of expected rate",
+        ? t("driver.componentDetail.reasonTreadWearNormal")
+        : t("driver.componentDetail.reasonTreadWearFast"),
     ],
     nextSteps: [
       {
-        title: "Order Tyres",
-        price: "From LKR 7,800",
+        titleKey: "driver.componentDetail.orderTire",
+        priceKey: "driver.componentDetail.priceTirePart",
         icon: "ShoppingBag",
-        description: "4 options in the parts store · indicative prices",
+        descriptionKey: "driver.componentDetail.descPartsStore",
       },
       {
-        title: "See garage options",
-        price: "LKR 1,500",
+        titleKey: "driver.componentDetail.seeGarageOptions",
+        priceKey: "driver.componentDetail.priceTireFitting",
         icon: "RefreshCw",
-        description: "Suggested garage & indicative rotation cost",
+        descriptionKey: "driver.componentDetail.descTireFitting",
       },
     ],
   },
   battery: {
-    label: "Battery",
+    labelKey: "driver.componentDetail.labelBattery",
+    labelLowerKey: "driver.componentDetail.labelBatteryLower",
     icon: "Battery",
-    whyReasons: (c) => [
-      `Battery health: ${Math.round(c.health_pct)}%`,
+    whyReasons: (c, t) => [
+      t("driver.componentDetail.reasonBatteryHealth", { pct: Math.round(c.health_pct) }),
       c.status === "Good"
-        ? "Voltage readings: stable"
-        : "Voltage readings: outside normal range",
+        ? t("driver.componentDetail.reasonVoltageStable")
+        : t("driver.componentDetail.reasonVoltageAbnormal"),
       c.status === "Good"
-        ? "No voltage drops detected"
-        : "Voltage drops detected under load",
+        ? t("driver.componentDetail.reasonNoVoltageDrops")
+        : t("driver.componentDetail.reasonVoltageDrops"),
     ],
     nextSteps: [
       {
-        title: "Order Battery",
-        price: "From LKR 16,000",
+        titleKey: "driver.componentDetail.orderBattery",
+        priceKey: "driver.componentDetail.priceBatteryPart",
         icon: "ShoppingBag",
-        description: "4 options in the parts store · indicative prices",
+        descriptionKey: "driver.componentDetail.descPartsStore",
       },
       {
-        title: "See garage options",
-        price: "LKR 500",
+        titleKey: "driver.componentDetail.seeGarageOptions",
+        priceKey: "driver.componentDetail.priceBatteryFitting",
         icon: "Zap",
-        description: "Suggested garage & indicative test cost",
+        descriptionKey: "driver.componentDetail.descBatteryFitting",
       },
     ],
   },
@@ -134,6 +142,7 @@ const META: Record<ComponentKey, ComponentMeta> = {
 
 export default function ComponentDetailScreen() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const { selectedVehicle } = useVehicle();
   const { component } = useLocalSearchParams<{ component: ComponentKey }>();
   const key: ComponentKey = (component as ComponentKey) ?? "brake";
@@ -218,18 +227,20 @@ export default function ComponentDetailScreen() {
   if (!componentHealth) {
     return (
       <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
-        <DetailHeader label={meta.label} loading={loading} />
+        <DetailHeader label={t(meta.labelKey)} loading={loading} />
         <View style={{ padding: spacing.lg }}>
           {!vehicleId ? (
             <View style={{ gap: spacing.md }}>
               <ErrorState
-                title="No vehicle selected"
-                message={`Add a vehicle and select it on Home to see its ${meta.label.toLowerCase()} health.`}
+                title={t("driver.componentDetail.noVehicleTitle")}
+                message={t("driver.componentDetail.noVehicleBody", {
+                  component: t(meta.labelLowerKey),
+                })}
               />
               <Pressable
                 onPress={() => router.push("/(driver)/manage-vehicles")}
                 accessibilityRole="button"
-                accessibilityLabel="Manage vehicles"
+                accessibilityLabel={t("driver.componentDetail.manageVehiclesA11y")}
                 style={({ pressed }) => ({
                   borderRadius: radii.lg,
                   paddingVertical: spacing.md,
@@ -241,14 +252,16 @@ export default function ComponentDetailScreen() {
                 })}
               >
                 <Text style={{ ...typography.bodyStrong, color: palette.brand }}>
-                  Manage Vehicles
+                  {t("driver.componentDetail.manageVehicles")}
                 </Text>
               </Pressable>
             </View>
           ) : error ? (
             <ErrorState
-              title="Couldn't load health data"
-              message={`We couldn't reach the maintenance service to read your ${meta.label.toLowerCase()}. Check your connection and try again.`}
+              title={t("driver.componentDetail.loadFailedTitle")}
+              message={t("driver.componentDetail.loadFailedBody", {
+                component: t(meta.labelLowerKey),
+              })}
               onRetry={load}
             />
           ) : (
@@ -296,7 +309,7 @@ export default function ComponentDetailScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.homeBackground }}>
-      <DetailHeader label={meta.label} loading={loading} />
+      <DetailHeader label={t(meta.labelKey)} loading={loading} />
 
       <ScrollView
         contentContainerStyle={{
@@ -307,7 +320,7 @@ export default function ComponentDetailScreen() {
       >
         {/* Title + urgency banner */}
         <View style={{ gap: spacing.sm }}>
-          <Text style={{ ...typography.h1, color: palette.text }}>{meta.label}</Text>
+          <Text style={{ ...typography.h1, color: palette.text }}>{t(meta.labelKey)}</Text>
 
           {noData ? (
             <View
@@ -366,7 +379,7 @@ export default function ComponentDetailScreen() {
           }}
         >
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text style={{ ...typography.bodyStrong, color: palette.text }}>Health Score</Text>
+            <Text style={{ ...typography.bodyStrong, color: palette.text }}>{t("driver.componentDetail.healthScore")}</Text>
             <Text
               style={{
                 ...typography.h2,
@@ -396,8 +409,10 @@ export default function ComponentDetailScreen() {
           </View>
           <Text style={{ ...typography.caption, color: palette.textMuted }}>
             {noData
-              ? "Not enough trip data yet to estimate remaining life"
-              : `${Math.round(health.predicted_rul_km).toLocaleString()} km remaining life estimated`}
+              ? t("driver.componentDetail.noRulEstimate")
+              : t("driver.componentDetail.rulEstimate", {
+                  km: Math.round(health.predicted_rul_km).toLocaleString(),
+                })}
           </Text>
         </View>
 
@@ -441,12 +456,12 @@ export default function ComponentDetailScreen() {
             the answer is visible while it is being written, which makes the
             wait feel like progress instead of a stall. */}
         {noData ? (
-          <SectionCard icon="Info" title="How we assess this">
+          <SectionCard icon="Info" title={t("driver.componentDetail.assessHeading")}>
             <Bullets
               items={[
-                "No trips recorded yet, so there is nothing to analyse.",
-                "Pair an OBD-II adapter and drive - we read live sensor data each trip.",
-                "A health score appears once we have enough readings.",
+                t("driver.componentDetail.assessNoTrips"),
+                t("driver.componentDetail.assessPairObd"),
+                t("driver.componentDetail.assessScoreLater"),
               ]}
             />
           </SectionCard>
@@ -458,12 +473,12 @@ export default function ComponentDetailScreen() {
                 because they carry the actual figures, which is what makes the
                 conclusion checkable rather than something to be taken on
                 trust. The local ones remain as a fallback. */}
-            <SectionCard icon="Activity" title="Why we think this">
+            <SectionCard icon="Activity" title={t("driver.componentDetail.whyHeading")}>
               <Bullets
                 items={
                   advice.advice.reasons.length
                     ? advice.advice.reasons
-                    : meta.whyReasons(health)
+                    : meta.whyReasons(health, t)
                 }
               />
             </SectionCard>
@@ -472,7 +487,7 @@ export default function ComponentDetailScreen() {
                 never by the model, because these are the words that send
                 someone to a garage or leave them driving on worn pads. */}
             {advice.advice.actions.length ? (
-              <SectionCard icon="ClipboardCheck" title="What to do">
+              <SectionCard icon="ClipboardCheck" title={t("driver.componentDetail.whatHeading")}>
                 <View style={{ gap: spacing.sm }}>
                   {advice.advice.actions.map((action, i) => (
                     <View
@@ -493,7 +508,7 @@ export default function ComponentDetailScreen() {
                 against a real row on the server before being returned, so the
                 driver can verify the claim against the garage list itself. */}
             {rec && rec.garage_name ? (
-              <SectionCard icon="MapPin" title="Best garage" accent>
+              <SectionCard icon="MapPin" title={t("driver.componentDetail.garageHeading")} accent>
                 <View style={{ gap: spacing.sm }}>
                   <Text style={{ ...typography.h3, color: palette.text }}>
                     {rec.garage_name}
@@ -508,7 +523,7 @@ export default function ComponentDetailScreen() {
                   {recGarage ? (
                     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                       {recGarage.distance_km != null ? (
-                        <Chip icon="Navigation" text={`${recGarage.distance_km} km away`} />
+                        <Chip icon="Navigation" text={t("driver.componentDetail.distanceAway", { km: recGarage.distance_km })} />
                       ) : null}
                       {recGarage.rating != null ? (
                         <Chip icon="Star" text={`${recGarage.rating.toFixed(1)}`} />
@@ -523,17 +538,18 @@ export default function ComponentDetailScreen() {
                     <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
                       <Icon name="Package" size={14} color={palette.textMuted} />
                       <Text style={{ ...typography.caption, color: palette.textMuted, flex: 1 }}>
-                        Fitting {rec.part_name}
+                        {t("driver.componentDetail.fittingPart", { part: rec.part_name })}
                       </Text>
                     </View>
                   ) : null}
 
                   {rec.estimated_total_lkr != null ? (
                     <Text style={{ ...typography.bodyStrong, color: palette.brand }}>
-                      Around LKR{" "}
-                      {Math.round(rec.estimated_total_lkr).toLocaleString("en-LK")}{" "}
+                      {t("driver.componentDetail.estimateTotal", {
+                        amount: Math.round(rec.estimated_total_lkr).toLocaleString("en-LK"),
+                      })}{" "}
                       <Text style={{ ...typography.micro, color: palette.textMuted }}>
-                        part + fitting
+                        {t("driver.componentDetail.estimateNote")}
                       </Text>
                     </Text>
                   ) : null}
@@ -554,14 +570,14 @@ export default function ComponentDetailScreen() {
                         onPress={() => Linking.openURL(`tel:${recGarage.phone}`)}
                         hitSlop={8}
                         accessibilityRole="button"
-                        accessibilityLabel={`Call ${rec.garage_name}`}
+                        accessibilityLabel={t("driver.componentDetail.callA11y", { garage: rec.garage_name })}
                         style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
                       >
                         <Icon name="Phone" size={14} color={palette.brand} />
                         <Text
                           style={{ ...typography.caption, color: palette.brand, fontWeight: "700" }}
                         >
-                          Call
+                          {t("driver.componentDetail.call")}
                         </Text>
                       </Pressable>
                     ) : null}
@@ -575,12 +591,12 @@ export default function ComponentDetailScreen() {
                       }
                       hitSlop={8}
                       accessibilityRole="button"
-                      accessibilityLabel="See all garages"
+                      accessibilityLabel={t("driver.componentDetail.allGaragesA11y")}
                     >
                       <Text
                         style={{ ...typography.caption, color: palette.brand, fontWeight: "700" }}
                       >
-                        See all garages →
+                        {t("driver.componentDetail.allGarages")}
                       </Text>
                     </Pressable>
                   </View>
@@ -594,10 +610,10 @@ export default function ComponentDetailScreen() {
                 and it is what a driver most often does not know when handing
                 over the keys. */}
             {rec && rec.how_its_done ? (
-              <SectionCard icon="Wrench" title="How they will do it">
+              <SectionCard icon="Wrench" title={t("driver.componentDetail.howHeading")}>
                 <View style={{ gap: spacing.sm }}>
                   <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "700" }}>
-                    Expert says
+                    {t("driver.componentDetail.expertSays")}
                   </Text>
                   <Text style={{ ...typography.body, color: palette.text, lineHeight: 22 }}>
                     {rec.how_its_done}
@@ -616,25 +632,29 @@ export default function ComponentDetailScreen() {
                   {sourceDocs.length ? (
                     <View style={{ gap: 4 }}>
                       <Text style={{ ...typography.micro, color: palette.textMuted }}>
-                        Based on {sourceDocs.length === 1 ? "our guide" : "our guides"}:{" "}
-                        {sourceDocs.join(" · ")}
+                        {t("driver.componentDetail.basedOn", {
+                          count: sourceDocs.length,
+                          docs: sourceDocs.join(" · "),
+                        })}
                       </Text>
                       <Text style={{ ...typography.micro, color: palette.textMuted }}>
-                        Your mechanic may work differently
-                        {advice.advice.is_estimated ? " · some figures are estimated" : ""}
+                        {advice.advice.is_estimated
+                          ? t("driver.componentDetail.mechanicNoteEstimated")
+                          : t("driver.componentDetail.mechanicNote")}
                       </Text>
                     </View>
                   ) : (
                     <Text style={{ ...typography.micro, color: palette.textMuted }}>
-                      General guidance - your mechanic may work differently
-                      {advice.advice.is_estimated ? " · some figures are estimated" : ""}
+                      {advice.advice.is_estimated
+                        ? t("driver.componentDetail.generalGuidanceEstimated")
+                        : t("driver.componentDetail.generalGuidance")}
                     </Text>
                   )}
                 </View>
               </SectionCard>
             ) : advice.advice.is_estimated ? (
               <Text style={{ ...typography.micro, color: palette.textMuted }}>
-                Some figures are estimated
+                {t("driver.componentDetail.someEstimated")}
               </Text>
             ) : null}
           </>
@@ -656,7 +676,7 @@ export default function ComponentDetailScreen() {
         {!isHealthy && !noData && (
           <View style={{ gap: spacing.sm }}>
             <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-              Next steps
+              {t("driver.componentDetail.nextStepsHeading")}
             </Text>
 
             <Pressable
@@ -664,7 +684,7 @@ export default function ComponentDetailScreen() {
                 router.push({ pathname: "/(driver)/order-parts", params: { component: key } })
               }
               accessibilityRole="button"
-              accessibilityLabel={meta.nextSteps[0].title}
+              accessibilityLabel={t(meta.nextSteps[0].titleKey)}
               style={({ pressed }) => ({
                 backgroundColor: pressed ? palette.homeBackground : palette.surface,
                 borderRadius: radii.lg,
@@ -690,18 +710,20 @@ export default function ComponentDetailScreen() {
               </View>
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-                  {meta.nextSteps[0].title}
+                  {t(meta.nextSteps[0].titleKey)}
                 </Text>
                 <Text style={{ ...typography.caption, color: palette.textMuted }}>
                   {partCount
-                    ? `${partCount} ${partCount === 1 ? "option" : "options"} that fit your vehicle`
-                    : meta.nextSteps[0].description}
+                    ? t("driver.componentDetail.partOptions", { count: partCount })
+                    : t(meta.nextSteps[0].descriptionKey)}
                 </Text>
               </View>
               <Text style={{ ...typography.bodyStrong, color: palette.brand, fontWeight: "700" }}>
                 {cheapestPart != null
-                  ? `From LKR ${Math.round(cheapestPart).toLocaleString("en-LK")}`
-                  : meta.nextSteps[0].price}
+                  ? t("driver.componentDetail.priceFrom", {
+                      amount: Math.round(cheapestPart).toLocaleString("en-LK"),
+                    })
+                  : t(meta.nextSteps[0].priceKey)}
               </Text>
             </Pressable>
 
@@ -711,7 +733,9 @@ export default function ComponentDetailScreen() {
               }
               accessibilityRole="button"
               accessibilityLabel={
-                rec?.garage_name ? `Book the fitting at ${rec.garage_name}` : "See garage options"
+                rec?.garage_name
+                  ? t("driver.componentDetail.bookAtA11y", { garage: rec.garage_name })
+                  : t("driver.componentDetail.seeGarageOptions")
               }
               style={({ pressed }) => ({
                 backgroundColor: pressed ? palette.homeBackground : palette.surface,
@@ -738,17 +762,19 @@ export default function ComponentDetailScreen() {
               </View>
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={{ ...typography.bodyStrong, color: palette.text }}>
-                  {rec?.garage_name ? `Book at ${rec.garage_name}` : "Book the fitting"}
+                  {rec?.garage_name
+                    ? t("driver.componentDetail.bookAt", { garage: rec.garage_name })
+                    : t("driver.componentDetail.bookFitting")}
                 </Text>
                 <Text style={{ ...typography.caption, color: palette.textMuted }}>
                   {garageCount
-                    ? `${garageCount} ${garageCount === 1 ? "garage" : "garages"} near you`
-                    : "See garage options"}
+                    ? t("driver.componentDetail.garagesNearby", { count: garageCount })
+                    : t("driver.componentDetail.seeGarageOptions")}
                 </Text>
               </View>
               {recGarage && recGarage.distance_km != null ? (
                 <Text style={{ ...typography.bodyStrong, color: palette.brand, fontWeight: "700" }}>
-                  {recGarage.distance_km} km
+                  {t("driver.componentDetail.distanceKm", { km: recGarage.distance_km })}
                 </Text>
               ) : (
                 <Icon name="ChevronRight" size={18} color={palette.brand} />
@@ -764,6 +790,7 @@ export default function ComponentDetailScreen() {
 
 function DetailHeader({ label, loading }: { label: string; loading: boolean }) {
   const insets = useSafeAreaInsets();
+  const t = useT();
   return (
     <View
       style={{
@@ -778,10 +805,10 @@ function DetailHeader({ label, loading }: { label: string; loading: boolean }) {
         gap: spacing.md,
       }}
     >
-      <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+      <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel={t("driver.componentDetail.back")}>
         <Icon name="ChevronLeft" size={24} color={palette.text} />
       </Pressable>
-      <Text style={{ ...typography.caption, color: palette.textMuted }}>Health</Text>
+      <Text style={{ ...typography.caption, color: palette.textMuted }}>{t("driver.componentDetail.headerLabel")}</Text>
       <Icon name="ChevronRight" size={14} color={palette.textMuted} />
       <Text style={{ ...typography.bodyStrong, color: palette.text, flex: 1 }}>{label}</Text>
       {loading && <ActivityIndicator size="small" color={palette.brand} />}
@@ -920,6 +947,7 @@ function Bar({ width, height = 12 }: { width: number | `${number}%`; height?: nu
  * exactly which question each card will answer.
  */
 function AnalysisSkeleton() {
+  const t = useT();
   return (
     <Pulse>
       <View style={{ gap: spacing.md }}>
@@ -933,17 +961,17 @@ function AnalysisSkeleton() {
         >
           <Icon name="Sparkles" size={14} color={palette.brand} />
           <Text style={{ ...typography.caption, color: palette.brand, fontWeight: "700" }}>
-            Working out your best options…
+            {t("driver.componentDetail.working")}
           </Text>
         </View>
 
         {[
-          { title: "Why we think this", lines: 3 },
-          { title: "What to do", lines: 2 },
-          { title: "Best garage", lines: 2 },
+          { titleKey: "driver.componentDetail.whyHeading", lines: 3 },
+          { titleKey: "driver.componentDetail.whatHeading", lines: 2 },
+          { titleKey: "driver.componentDetail.garageHeading", lines: 2 },
         ].map((card) => (
           <View
-            key={card.title}
+            key={card.titleKey}
             style={{
               backgroundColor: palette.surface,
               borderRadius: radii.lg,
@@ -951,7 +979,7 @@ function AnalysisSkeleton() {
               gap: spacing.md,
             }}
           >
-            <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>{card.title}</Text>
+            <Text style={{ ...typography.bodyStrong, color: palette.textMuted }}>{t(card.titleKey)}</Text>
             <View style={{ gap: spacing.sm }}>
               {Array.from({ length: card.lines }).map((_, i) => (
                 <Bar key={i} width={i === card.lines - 1 ? "60%" : "100%"} />

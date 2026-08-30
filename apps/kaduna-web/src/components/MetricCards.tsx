@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/lib/i18n";
 import type { Stats } from "@/lib/types";
 
 /**
@@ -26,23 +27,36 @@ export default function MetricCards({
   total: number;
   live: number;
 }) {
+  const t = useT();
   const filtered = shown !== total;
 
   const metrics = [
     {
-      label: "On the map",
+      label: t("dashboard.metric.onTheMap"),
       value: shown.toLocaleString(),
-      unit: filtered ? `of ${total.toLocaleString()}` : "incidents",
-      hint: live > 0 ? `${live} live` : null,
+      unit: filtered
+        ? t("dashboard.metric.ofTotal", { total: total.toLocaleString() })
+        : t("dashboard.metric.incidents"),
+      hint: live > 0 ? t("dashboard.metric.live", { n: live }) : null,
     },
-    { label: "Average impact", value: stats.avgScore.toFixed(1), unit: "of 10", hint: null },
     {
-      label: "Vehicle-hours lost",
-      value: Math.round(stats.totalVHL).toLocaleString(),
-      unit: "hrs",
+      label: t("dashboard.metric.avgImpact"),
+      value: stats.avgScore.toFixed(1),
+      unit: t("dashboard.metric.ofTen"),
       hint: null,
     },
-    { label: "Queue length", value: stats.totalQueueKm.toLocaleString(), unit: "km", hint: null },
+    {
+      label: t("dashboard.metric.vhl"),
+      value: Math.round(stats.totalVHL).toLocaleString(),
+      unit: t("dashboard.unit.hrs"),
+      hint: null,
+    },
+    {
+      label: t("dashboard.metric.queue"),
+      value: stats.totalQueueKm.toLocaleString(),
+      unit: t("dashboard.unit.km"),
+      hint: null,
+    },
   ];
 
   return (

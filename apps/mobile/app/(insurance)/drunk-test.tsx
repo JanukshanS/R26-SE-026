@@ -41,12 +41,10 @@ import {
 import { captureLocationSnapshot } from '@/lib/location-snapshot-store';
 import { savePhotoGps } from '@/lib/photo-gps-store';
 import { getCachedMyUser, getMyUser } from '@/lib/vehicleApi';
+import { useT } from '@/lib/i18n';
 
 /** Matches on-screen “Recording N seconds left” and `recordAsync.maxDuration`. */
 const RECORD_DURATION_SEC = 40;
-
-const READ_ALOUD_SCRIPT_TEMPLATE =
-  'My name is (Full Name). Licence number (Licence Number). I am driving a (Vehicle Type). Today is (Date). The time is (Time), and I am at (Location). I am recording this after the accident to confirm I am conscious and not under the influence of alcohol or drugs. The accident happened because (brief description).';
 
 const DRUNK_TEST_VIDEO_DIR = (FileSystem.documentDirectory ?? '') + 'drunk-test-videos/';
 
@@ -84,6 +82,7 @@ function RecordingDot() {
 }
 
 export default function DrunkTestScreen() {
+  const t = useT();
   const router = useRouter();
   const navigation = useNavigation();
   const { locked } = useLocalSearchParams<{ locked?: string }>();
@@ -122,16 +121,15 @@ export default function DrunkTestScreen() {
     }, [])
   );
 
-  const readAloudScript = READ_ALOUD_SCRIPT_TEMPLATE.replace(
-    '(Licence Number)',
-    licenceNumber ? licenceNumber : '(Licence Number)'
-  );
+  const readAloudScript = t('insurance.drunkTest.readAloudScript', {
+    licence: licenceNumber ? licenceNumber : t('insurance.drunkTest.licencePlaceholder'),
+  });
 
   const hasVideo = videoUri !== null;
 
   const headline = hasVideo
-    ? 'All set — review your video below.'
-    : 'Tap Take Video and Read this aloud facing the camera';
+    ? t('insurance.drunkTest.headlineDone')
+    : t('insurance.drunkTest.headlineStart');
 
   const clearCountdownTimer = useCallback(() => {
     if (countdownTimerRef.current) {
@@ -176,13 +174,13 @@ export default function DrunkTestScreen() {
 
   const startRecording = async () => {
     if (Platform.OS === 'web') {
-      Alert.alert('Not supported', 'Video recording runs on a physical device.');
+      Alert.alert(t('insurance.drunkTest.notSupportedTitle'), t('insurance.drunkTest.notSupportedBody'));
       return;
     }
     const cam = cameraRef.current;
     if (!cam || isRecording || !isCameraReady) return;
     if (Platform.OS === 'android' && !micPermission?.granted) {
-      Alert.alert('Microphone required', 'Grant microphone access to record video with sound on Android.');
+      Alert.alert(t('insurance.drunkTest.micRequiredTitle'), t('insurance.drunkTest.micRequiredBody'));
       return;
     }
 
@@ -239,13 +237,13 @@ export default function DrunkTestScreen() {
         } catch {
           // Fallback to the raw recorded URI so user can still play it until Retake.
           setVideoUri(recorded.uri);
-          Alert.alert('Saved temporarily', 'Video saved in temporary storage for this session.');
+          Alert.alert(t('insurance.drunkTest.savedTempTitle'), t('insurance.drunkTest.savedTempBody'));
         }
       } else {
-        Alert.alert('Recording failed', 'No video file was produced. Please try again.');
+        Alert.alert(t('insurance.drunkTest.recordFailedTitle'), t('insurance.drunkTest.recordFailedNoFile'));
       }
     } catch {
-      Alert.alert('Recording failed', 'Please try again.');
+      Alert.alert(t('insurance.drunkTest.recordFailedTitle'), t('insurance.drunkTest.recordFailedRetry'));
     } finally {
       clearCountdownTimer();
       setIsRecording(false);
@@ -271,7 +269,7 @@ export default function DrunkTestScreen() {
     try {
       const localInfo = await FileSystem.getInfoAsync(videoUri);
       if (!localInfo.exists) {
-        Alert.alert('Video not found', 'Saved video is missing. Please record again.');
+        Alert.alert(t('insurance.drunkTest.videoMissingTitle'), t('insurance.drunkTest.videoMissingBody'));
         return;
       }
       const uriToOpen =
@@ -288,7 +286,7 @@ export default function DrunkTestScreen() {
       }
       const canOpen = await Linking.canOpenURL(uriToOpen);
       if (!canOpen) {
-        Alert.alert('Unable to play video', 'No app available to open the saved video on this device.');
+        Alert.alert(t('insurance.drunkTest.playFailedTitle'), t('insurance.drunkTest.playFailedBody'));
         return;
       }
       await Linking.openURL(uriToOpen);
@@ -297,7 +295,7 @@ export default function DrunkTestScreen() {
     } finally {
       isOpeningVideoRef.current = false;
     }
-  }, [videoUri]);
+  }, [videoUri, t]);
 
   if (isLocked) {
     // Already submitted — no camera/mic needed at all, just let the driver replay
@@ -315,35 +313,41 @@ export default function DrunkTestScreen() {
                 style={({ pressed }) => [styles.headerBack, pressed && styles.pressed]}
                 hitSlop={12}
                 accessibilityRole="button"
-                accessibilityLabel="Go back">
+                accessibilityLabel={t('insurance.action.back')}>
                 <View style={styles.headerChevronWrap} collapsable={false}>
                   <Ionicons name="chevron-back" size={22} color={COLORS.text} />
                 </View>
-                <Text style={styles.headerTitle}>User Verification Test</Text>
+                <Text style={styles.headerTitle}>{t('insurance.hub.taskDrunkTest')}</Text>
               </Pressable>
             ) : (
-              <Text style={styles.headerTitle}>User Verification Test</Text>
+              <Text style={styles.headerTitle}>{t('insurance.hub.taskDrunkTest')}</Text>
             )}
           </View>
 
-          <Text style={styles.headline}>Already submitted with your claim</Text>
-          <Text style={styles.subtitle}>This video was sent with your claim and can&apos;t be re-recorded.</Text>
+          <Text style={styles.headline}>{t('insurance.licence.lockedTitle')}</Text>
+          <Text style={styles.subtitle}>{t('insurance.drunkTest.lockedBody')}</Text>
 
           {videoUri ? (
             <Pressable
               style={({ pressed }) => [styles.lockedVideoTile, pressed && styles.pressed]}
               onPress={() => void playSavedVideo()}
               accessibilityRole="button"
-              accessibilityLabel="Play saved video">
+              accessibilityLabel={t('insurance.drunkTest.playA11y')}>
               <Icon name="Play" size={28} color={WHITE} />
-              <Text style={styles.cornerVideoLabel}>Play video</Text>
-              <Text style={styles.cornerVideoSub}>{RECORD_DURATION_SEC}s clip</Text>
+              <Text style={styles.cornerVideoLabel}>{t('insurance.drunkTest.playVideo')}</Text>
+              <Text style={styles.cornerVideoSub}>
+                {t('insurance.drunkTest.clipLength', { seconds: RECORD_DURATION_SEC })}
+              </Text>
             </Pressable>
           ) : null}
 
           <View style={styles.buttonRow}>
             <View style={styles.primaryButtonWrap}>
-              <CaptureButton title="Close" variant="primary" onPress={() => router.back()} />
+              <CaptureButton
+                title={t('insurance.action.close')}
+                variant="primary"
+                onPress={() => router.back()}
+              />
             </View>
           </View>
         </ScrollView>
@@ -355,7 +359,7 @@ export default function DrunkTestScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.center}>
-          <Text style={styles.centerText}>Checking camera permission...</Text>
+          <Text style={styles.centerText}>{t('insurance.camera.checkingPermission')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -365,18 +369,20 @@ export default function DrunkTestScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.center}>
-          <Text style={styles.centerText}>Camera access is required for the drunk test.</Text>
+          <Text style={styles.centerText}>{t('insurance.drunkTest.permissionBody')}</Text>
           {/* Once the OS refuses to ask again, requestPermission() resolves without showing
               anything — the button has to send the driver to Settings instead of doing nothing. */}
           <Pressable
             style={styles.permissionButton}
             onPress={() => void (permission.canAskAgain ? requestPermission() : Linking.openSettings())}>
             <Text style={styles.permissionButtonText}>
-              {permission.canAskAgain ? 'Grant Camera Permission' : 'Open Settings'}
+              {permission.canAskAgain
+                ? t('insurance.camera.grantPermission')
+                : t('insurance.camera.openSettings')}
             </Text>
           </Pressable>
           <Pressable style={styles.textButton} onPress={() => router.back()}>
-            <Text style={styles.textButtonLabel}>Go back</Text>
+            <Text style={styles.textButtonLabel}>{t('insurance.action.back')}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -388,7 +394,7 @@ export default function DrunkTestScreen() {
       return (
         <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
           <View style={styles.center}>
-            <Text style={styles.centerText}>Checking microphone permission...</Text>
+            <Text style={styles.centerText}>{t('insurance.drunkTest.checkingMicPermission')}</Text>
           </View>
         </SafeAreaView>
       );
@@ -397,20 +403,20 @@ export default function DrunkTestScreen() {
       return (
         <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
           <View style={styles.center}>
-            <Text style={styles.centerText}>
-              Microphone access is required on Android so your drunk test video can include sound.
-            </Text>
+            <Text style={styles.centerText}>{t('insurance.drunkTest.micPermissionBody')}</Text>
             <Pressable
               style={styles.permissionButton}
               onPress={() =>
                 void (micPermission.canAskAgain ? requestMicPermission() : Linking.openSettings())
               }>
               <Text style={styles.permissionButtonText}>
-                {micPermission.canAskAgain ? 'Grant Microphone Permission' : 'Open Settings'}
+                {micPermission.canAskAgain
+                  ? t('insurance.drunkTest.grantMicPermission')
+                  : t('insurance.camera.openSettings')}
               </Text>
             </Pressable>
             <Pressable style={styles.textButton} onPress={() => router.back()}>
-              <Text style={styles.textButtonLabel}>Go back</Text>
+              <Text style={styles.textButtonLabel}>{t('insurance.action.back')}</Text>
             </Pressable>
           </View>
         </SafeAreaView>
@@ -429,20 +435,20 @@ export default function DrunkTestScreen() {
   const primaryTitle = isRecording
     ? ' '
     : hasVideo
-      ? 'Continue'
+      ? t('insurance.action.continue')
       : !isCameraReady
-        ? 'Preparing camera…'
+        ? t('insurance.drunkTest.preparingCamera')
         : Platform.OS === 'web'
-          ? 'Video (device only)'
-          : 'Take Video';
+          ? t('insurance.drunkTest.deviceOnly')
+          : t('insurance.drunkTest.takeVideo');
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
       <ResetCaptureDialog
         visible={isResetDialogVisible}
-        title="Retake Video"
-        message="Clear the current drunk test video and record again?"
-        confirmLabel="Retake"
+        title={t('insurance.drunkTest.retakeTitle')}
+        message={t('insurance.drunkTest.retakeBody')}
+        confirmLabel={t('insurance.licence.retakeConfirm')}
         icon="Video"
         onCancel={() => setIsResetDialogVisible(false)}
         onConfirm={() => {
@@ -462,14 +468,14 @@ export default function DrunkTestScreen() {
               style={({ pressed }) => [styles.headerBack, pressed && styles.pressed]}
               hitSlop={12}
               accessibilityRole="button"
-              accessibilityLabel="Go back">
+              accessibilityLabel={t('insurance.action.back')}>
               <View style={styles.headerChevronWrap} collapsable={false}>
                 <Ionicons name="chevron-back" size={22} color={COLORS.text} />
               </View>
-              <Text style={styles.headerTitle}>User Verification Test</Text>
+              <Text style={styles.headerTitle}>{t('insurance.hub.taskDrunkTest')}</Text>
             </Pressable>
           ) : (
-            <Text style={styles.headerTitle}>User Verification Test</Text>
+            <Text style={styles.headerTitle}>{t('insurance.hub.taskDrunkTest')}</Text>
           )}
         </View>
 
@@ -501,10 +507,12 @@ export default function DrunkTestScreen() {
             <View style={styles.recordingBar} pointerEvents="none">
               <View style={styles.recordingBadgeRow}>
                 <RecordingDot />
-                <Text style={styles.recordingBadgeText}>Recording</Text>
+                <Text style={styles.recordingBadgeText}>{t('insurance.drunkTest.recording')}</Text>
               </View>
-              <Text style={styles.recordingBarText}>{remainingSeconds}s left</Text>
-              <Text style={styles.recordingBarHint}>Stay in frame till the countdown finishes.</Text>
+              <Text style={styles.recordingBarText}>
+                {t('insurance.drunkTest.secondsLeft', { seconds: remainingSeconds })}
+              </Text>
+              <Text style={styles.recordingBarHint}>{t('insurance.drunkTest.stayInFrame')}</Text>
             </View>
           ) : null}
           {hasVideo ? (
@@ -512,11 +520,13 @@ export default function DrunkTestScreen() {
               <View style={styles.cornerPreviewTile}>
                 <Pressable
                   style={({ pressed }) => [StyleSheet.absoluteFill, pressed && styles.pressed]}
-                  accessibilityLabel="Play saved video"
+                  accessibilityLabel={t('insurance.drunkTest.playA11y')}
                   onPress={() => void playSavedVideo()}>
                   <View style={styles.cornerPreviewTileContent}>
-                    <Text style={styles.cornerVideoLabel}>Play</Text>
-                    <Text style={styles.cornerVideoSub}>{RECORD_DURATION_SEC}s clip</Text>
+                    <Text style={styles.cornerVideoLabel}>{t('insurance.drunkTest.play')}</Text>
+                    <Text style={styles.cornerVideoSub}>
+                      {t('insurance.drunkTest.clipLength', { seconds: RECORD_DURATION_SEC })}
+                    </Text>
                   </View>
                 </Pressable>
                 <Pressable
@@ -524,7 +534,7 @@ export default function DrunkTestScreen() {
                   onPress={() => setIsResetDialogVisible(true)}
                   hitSlop={12}
                   accessibilityRole="button"
-                  accessibilityLabel="Retake video">
+                  accessibilityLabel={t('insurance.drunkTest.retakeA11y')}>
                   <Icon name="RotateCcw" size={12} color={CAPTURE_ACTION_BLUE} />
                 </Pressable>
               </View>

@@ -34,6 +34,7 @@ import {
 import LocationPicker, { type Coords } from "@/components/LocationPicker";
 import PortalShell from "@/components/portal/PortalShell";
 import RequireAuth from "@/lib/auth";
+import { useT, type Translate } from "@/lib/i18n";
 import {
   createIncident,
   DispatchApiError,
@@ -96,11 +97,11 @@ const PRIMARY_BTN =
 const GHOST_BTN =
   "rounded-md border border-input px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50";
 
-function describe(err: unknown): string {
+function describe(err: unknown, t: Translate): string {
   if (err instanceof DispatchApiError) {
     return err.status === 401
-      ? "Your session expired. Sign out and back in, then report again."
-      : `${err.message} (HTTP ${err.status})`;
+      ? t("report.error.sessionExpired")
+      : t("report.error.http", { message: err.message, status: err.status });
   }
   return err instanceof Error ? err.message : String(err);
 }
@@ -118,6 +119,7 @@ function ErrorCard({
   message: string;
   onRetry?: () => void;
 }) {
+  const t = useT();
   return (
     <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
       <p className="font-medium">{title}</p>
@@ -128,7 +130,7 @@ function ErrorCard({
           onClick={onRetry}
           className="mt-3 rounded border border-red-300 px-3 py-1 font-medium hover:bg-red-100"
         >
-          Try again
+          {t("report.action.retry")}
         </button>
       )}
     </div>
@@ -216,12 +218,13 @@ function WhereStep({
   setDescription: (v: string) => void;
   onNext: () => void;
 }) {
+  const t = useT();
   const [locating, setLocating] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
 
   const locate = useCallback(() => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      setGeoError("This browser can't share your location. Click the map below instead.");
+      setGeoError(t("report.where.geoUnsupported"));
       return;
     }
     setGeoError(null);
@@ -234,14 +237,14 @@ function WhereStep({
       (err) => {
         setGeoError(
           err.code === err.PERMISSION_DENIED
-            ? "Location permission was denied. Allow it in your browser, or just click the map below where you've broken down."
-            : `Couldn't read your location (${err.message}). Click the map below instead.`
+            ? t("report.where.geoDenied")
+            : t("report.where.geoFailed", { message: err.message })
         );
         setLocating(false);
       },
       { enableHighAccuracy: true, timeout: 10_000 }
     );
-  }, [setCoords]);
+  }, [setCoords, t]);
 
   const noVehicles = vehicles?.length === 0;
   const ready = !!coords && (noVehicles ? plate.trim().length > 0 : !!vehicleId);
@@ -249,17 +252,16 @@ function WhereStep({
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-border bg-card p-6">
-        <h2 className="font-display text-lg font-semibold tracking-tight">Where are you?</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          The provider is sent to this pin, so it has to be right. Phone GPS is often a block
-          off — check the map and drag the pin if it&apos;s wrong.
-        </p>
+        <h2 className="font-display text-lg font-semibold tracking-tight">
+          {t("report.where.title")}
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t("report.where.body")}</p>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button type="button" onClick={locate} disabled={locating} className={GHOST_BTN}>
             <span className="flex items-center gap-2">
               {locating ? <Spinner /> : <MapPin className="size-4" />}
-              {locating ? "Finding you…" : "Use my location"}
+              {locating ? t("report.where.locating") : t("report.where.useMyLocation")}
             </span>
           </button>
         </div>
@@ -276,29 +278,28 @@ function WhereStep({
       </section>
 
       <section className="rounded-xl border border-border bg-card p-6">
-        <h2 className="font-display text-lg font-semibold tracking-tight">Which vehicle?</h2>
+        <h2 className="font-display text-lg font-semibold tracking-tight">
+          {t("report.vehicle.title")}
+        </h2>
 
         {vehiclesError ? (
           <div className="mt-4">
             <ErrorCard
-              title="Couldn't load your vehicles"
+              title={t("report.vehicle.loadFailedTitle")}
               message={vehiclesError}
               onRetry={reloadVehicles}
             />
           </div>
         ) : !vehicles ? (
           <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-            <Spinner /> Loading your vehicles…
+            <Spinner /> {t("report.vehicle.loading")}
           </p>
         ) : noVehicles ? (
           <div className="mt-4 space-y-2">
-            <p className="text-sm text-muted-foreground">
-              You haven&apos;t added a vehicle yet. Type the plate instead — it&apos;s what
-              links this report back to you, so you can follow it in My Kaduna.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("report.vehicle.noneBody")}</p>
             <label className="block text-sm">
               <span className="block text-xs uppercase tracking-wide text-muted-foreground">
-                Number plate
+                {t("report.vehicle.plateLabel")}
               </span>
               <input
                 value={plate}
@@ -309,7 +310,7 @@ function WhereStep({
             </label>
           </div>
         ) : (
-          <div className="mt-4 space-y-2" role="radiogroup" aria-label="Vehicle">
+          <div className="mt-4 space-y-2" role="radiogroup" aria-label={t("report.vehicle.groupLabel")}>
             {vehicles.map((v) => (
               <OptionCard
                 key={v.id}
@@ -325,28 +326,31 @@ function WhereStep({
 
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="font-display text-lg font-semibold tracking-tight">
-          Anything else? <span className="text-sm font-normal text-muted-foreground">Optional</span>
+          {t("report.notes.title")}{" "}
+          <span className="text-sm font-normal text-muted-foreground">
+            {t("report.notes.optional")}
+          </span>
         </h2>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value.slice(0, 500))}
           rows={3}
-          placeholder="Parked on the shoulder just past the Malabe junction, hazards on."
+          placeholder={t("report.notes.placeholder")}
           className="mt-3 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
       </section>
 
       <div className="flex items-center gap-4">
         <button type="button" onClick={onNext} disabled={!ready} className={PRIMARY_BTN}>
-          Continue
+          {t("report.action.continue")}
         </button>
         {!ready && (
           <span className="text-sm text-muted-foreground">
             {!coords
-              ? "We need your location first."
+              ? t("report.where.needLocation")
               : noVehicles
-                ? "Add the number plate so we can match this report to you."
-                : "Pick the vehicle that broke down."}
+                ? t("report.vehicle.needPlate")
+                : t("report.vehicle.needVehicle")}
           </span>
         )}
       </div>
@@ -357,6 +361,7 @@ function WhereStep({
 // ─── Step 2: the adaptive questionnaire ──────────────────────────────────
 
 function IntentGrid({ tiles, onPick }: { tiles: IntentTile[]; onPick: (t: IntentTile) => void }) {
+  const t = useT();
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       {tiles.map((tile) => {
@@ -374,7 +379,7 @@ function IntentGrid({ tiles, onPick }: { tiles: IntentTile[]; onPick: (t: Intent
               aria-hidden
               className={`size-6 ${tile.urgent ? "text-red-600" : "text-primary"}`}
             />
-            {tile.label}
+            {t(tile.labelKey)}
           </button>
         );
       })}
@@ -395,6 +400,8 @@ function QuestionStep({
    *  value that was just picked rather than a stale render. */
   onAdvance: (a: Answers) => void;
 }) {
+  const t = useT();
+
   if (step.kind === "intent") {
     const pick = (tile: IntentTile) => {
       const next = answer(answers, "Q1_intent", tile.value);
@@ -406,11 +413,9 @@ function QuestionStep({
         <IntentGrid tiles={FAST_TILES} onPick={pick} />
         <div className="space-y-3">
           <h3 className="font-display text-lg font-semibold tracking-tight">
-            Not sure what it is?
+            {t("report.intent.unsureTitle")}
           </h3>
-          <p className="text-sm text-muted-foreground">
-            A few quick questions and we&apos;ll work out what you need.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("report.intent.unsureBody")}</p>
           <IntentGrid tiles={ML_TILES} onPick={pick} />
         </div>
       </div>
@@ -438,7 +443,7 @@ function QuestionStep({
               }`}
             >
               <Glyph aria-hidden className="size-6" />
-              {lamp.label}
+              {t(lamp.labelKey)}
             </button>
           );
         })}
@@ -453,8 +458,8 @@ function QuestionStep({
         {step.options!.map((o) => (
           <OptionCard
             key={o.value}
-            title={o.title}
-            description={o.description}
+            title={t(o.titleKey)}
+            description={o.descriptionKey ? t(o.descriptionKey) : undefined}
             tone={o.tone}
             selected={on.includes(o.value)}
             onSelect={() => setAnswers({ ...answers, [step.key]: toggle(on, o.value) })}
@@ -470,7 +475,7 @@ function QuestionStep({
         {step.groups!.map((group) => (
           <div key={group.key} className="rounded-xl border border-border bg-card p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {group.label}
+              {t(group.labelKey)}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {group.options.map((o) => {
@@ -491,7 +496,7 @@ function QuestionStep({
                         : "border-input bg-card hover:bg-accent/40"
                     }`}
                   >
-                    {o.label}
+                    {t(o.labelKey)}
                   </button>
                 );
               })}
@@ -503,12 +508,12 @@ function QuestionStep({
   }
 
   return (
-    <div className="space-y-2" role="radiogroup" aria-label={step.prompt}>
+    <div className="space-y-2" role="radiogroup" aria-label={t(step.promptKey)}>
       {step.options!.map((o) => (
         <OptionCard
           key={o.value}
-          title={o.title}
-          description={o.description}
+          title={t(o.titleKey)}
+          description={o.descriptionKey ? t(o.descriptionKey) : undefined}
           tone={o.tone}
           selected={answers[step.key] === o.value}
           onSelect={() => setAnswers(answer(answers, step.key, o.value))}
@@ -521,6 +526,7 @@ function QuestionStep({
 // ─── Step 3: submit ──────────────────────────────────────────────────────
 
 function TriageCard({ result }: { result: TriageResult }) {
+  const t = useT();
   const ranked = Object.entries(result.probabilities)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4)
@@ -529,12 +535,12 @@ function TriageCard({ result }: { result: TriageResult }) {
   return (
     <div className="rounded-xl border border-border bg-card p-6">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Looks like
+        {t("report.triage.heading")}
       </p>
       <p className="font-display mt-1 text-2xl font-bold tracking-tight">
         {enumLabel(result.predictedServiceType)}{" "}
         <span className="text-muted-foreground">
-          ({Math.round(result.confidence * 100)}%)
+          {t("report.triage.confidence", { percent: Math.round(result.confidence * 100) })}
         </span>
       </p>
 
@@ -550,7 +556,7 @@ function TriageCard({ result }: { result: TriageResult }) {
                 />
               </span>
               <span className="w-10 text-right tabular-nums text-muted-foreground">
-                {Math.round(p * 100)}%
+                {t("report.triage.percent", { percent: Math.round(p * 100) })}
               </span>
             </li>
           ))}
@@ -558,8 +564,7 @@ function TriageCard({ result }: { result: TriageResult }) {
       )}
 
       <p className="mt-4 border-t border-border pt-3 text-sm text-muted-foreground">
-        Tier-1 diagnosis — questionnaire only. The mobile app adds live OBD telemetry when a
-        dongle is paired.
+        {t("report.triage.tierNote")}
       </p>
     </div>
   );
@@ -572,14 +577,12 @@ function DispatchCard({
   result: DispatchResultData | null;
   noProviders: boolean;
 }) {
+  const t = useT();
   if (noProviders) {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-900">
-        <p className="font-semibold">No providers available right now</p>
-        <p className="mt-1 text-sm">
-          Your report is filed and the diagnosis is saved — nobody has been assigned yet. Ops can
-          see it, and the status updates in My Kaduna as soon as someone takes it.
-        </p>
+        <p className="font-semibold">{t("report.dispatch.noneTitle")}</p>
+        <p className="mt-1 text-sm">{t("report.dispatch.noneBody")}</p>
       </div>
     );
   }
@@ -590,39 +593,44 @@ function DispatchCard({
   return (
     <div className="rounded-xl border border-border bg-card p-6">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Provider assigned
+        {t("report.dispatch.assignedHeading")}
       </p>
       <p className="font-display mt-1 text-2xl font-bold tracking-tight">{p.name}</p>
       <dl className="mt-4 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <dt className="text-xs uppercase tracking-wide text-muted-foreground">Type</dt>
+          <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t("report.dispatch.rowType")}
+          </dt>
           <dd className="mt-0.5 font-medium">{providerTypeLabel(p.type)}</dd>
         </div>
         <div>
-          <dt className="text-xs uppercase tracking-wide text-muted-foreground">Arrives in</dt>
+          <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t("report.dispatch.rowEta")}
+          </dt>
           <dd className="mt-0.5 font-medium">
-            {Math.round(p.estimatedTravelTimeMin)} min
+            {t("report.dispatch.minutes", { minutes: Math.round(p.estimatedTravelTimeMin) })}
           </dd>
         </div>
         <div>
           <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-            Considered
+            {t("report.dispatch.rowConsidered")}
           </dt>
           <dd className="mt-0.5 font-medium">
-            {result.metadata.providersEvaluated} provider
-            {result.metadata.providersEvaluated === 1 ? "" : "s"}
+            {t("report.dispatch.providersEvaluated", {
+              count: result.metadata.providersEvaluated,
+            })}
           </dd>
         </div>
         {Number.isFinite(impact) && impact > 0 && (
           <div>
             <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-              Traffic impact
+              {t("report.dispatch.rowImpact")}
             </dt>
             <dd
               className="mt-0.5 font-medium tabular-nums"
-              title="What this breakdown does to city traffic, scored 1-10 by the geo-intelligence service while dispatch was running. Context for road operators, not a ranking of who gets helped first."
+              title={t("report.dispatch.impactTooltip")}
             >
-              {impact.toFixed(1)}/10
+              {t("report.dispatch.impactValue", { score: impact.toFixed(1) })}
             </dd>
           </div>
         )}
@@ -636,6 +644,7 @@ function DispatchCard({
 type Stage = "where" | "questions" | "submit" | "done";
 
 function ReportFlow() {
+  const t = useT();
   const [stage, setStage] = useState<Stage>("where");
 
   // One source of truth for the location: the pin. Both "Use my location" and
@@ -653,8 +662,8 @@ function ReportFlow() {
     listVehicles().then((vs) => {
       setVehicles(vs);
       setVehicleId((cur) => cur ?? (vs.find((v) => v.isDefault) ?? vs[0])?.id ?? null);
-    }, (err) => setVehiclesError(describe(err)));
-  }, []);
+    }, (err) => setVehiclesError(describe(err, t)));
+  }, [t]);
   useEffect(loadVehicles, [loadVehicles]);
 
   const [answers, setAnswers] = useState<Answers>(EMPTY_ANSWERS);
@@ -750,11 +759,11 @@ function ReportFlow() {
       }
       setSettled(true);
     } catch (err) {
-      setPipelineError(describe(err));
+      setPipelineError(describe(err, t));
     } finally {
       inFlightRef.current = false;
     }
-  }, [answers, coords, description, plate, selected]);
+  }, [answers, coords, description, plate, selected, t]);
 
   useEffect(() => {
     if (stage === "submit" && !settled) void run();
@@ -766,7 +775,7 @@ function ReportFlow() {
   const crash = answers.Q1_intent === "MAJOR_CRASH";
 
   return (
-    <PortalShell title="Report a breakdown">
+    <PortalShell title={t("report.page.title")}>
       {stage === "where" && (
         <WhereStep
           coords={coords}
@@ -789,14 +798,18 @@ function ReportFlow() {
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>
-                {step.title} · Step {stepIndex + 1} of {steps.length}
+                {t("report.question.stepCounter", {
+                  topic: t(step.titleKey),
+                  index: stepIndex + 1,
+                  total: steps.length,
+                })}
               </span>
               <button
                 type="button"
                 onClick={back}
                 className="flex items-center gap-1.5 hover:text-foreground"
               >
-                <ArrowLeft className="size-4" /> Back
+                <ArrowLeft className="size-4" /> {t("report.action.back")}
               </button>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-muted">
@@ -808,8 +821,12 @@ function ReportFlow() {
           </div>
 
           <div>
-            <h2 className="font-display text-2xl font-bold tracking-tight">{step.prompt}</h2>
-            {step.hint && <p className="mt-1 text-sm text-muted-foreground">{step.hint}</p>}
+            <h2 className="font-display text-2xl font-bold tracking-tight">
+              {t(step.promptKey)}
+            </h2>
+            {step.hintKey && (
+              <p className="mt-1 text-sm text-muted-foreground">{t(step.hintKey)}</p>
+            )}
           </div>
 
           <QuestionStep
@@ -826,7 +843,9 @@ function ReportFlow() {
               disabled={!isAnswered(step, answers)}
               className={PRIMARY_BTN}
             >
-              {stepIndex === steps.length - 1 ? "Get help" : "Next"}
+              {stepIndex === steps.length - 1
+                ? t("report.action.getHelp")
+                : t("report.action.next")}
             </button>
           )}
         </div>
@@ -836,28 +855,25 @@ function ReportFlow() {
         <div className="space-y-6">
           {crash && (
             <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-900">
-              <p className="font-semibold">If anyone is hurt, call 1990 first.</p>
-              <p className="mt-1 text-sm">
-                1990 Suwa Seriya is the free ambulance service. We&apos;ll keep arranging the
-                tow while you do.
-              </p>
+              <p className="font-semibold">{t("report.crash.title")}</p>
+              <p className="mt-1 text-sm">{t("report.crash.body")}</p>
             </div>
           )}
 
           {pipelineError ? (
             <ErrorCard
-              title="Couldn't finish your report"
-              message={`${pipelineError} Nothing you answered has been lost — retrying picks up where it stopped.`}
+              title={t("report.pipeline.failedTitle")}
+              message={t("report.pipeline.failedBody", { message: pipelineError })}
               onRetry={() => void run()}
             />
           ) : !settled ? (
             <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
               <Spinner className="text-primary" />
               {!incidentId
-                ? "Filing your report…"
+                ? t("report.pipeline.filing")
                 : !triage
-                  ? "Running the diagnosis…"
-                  : "Finding the closest provider…"}
+                  ? t("report.pipeline.diagnosing")
+                  : t("report.pipeline.matching")}
             </div>
           ) : (
             <>
@@ -868,23 +884,20 @@ function ReportFlow() {
 
           {settled && stage === "submit" && (
             <button type="button" onClick={() => setStage("done")} className={PRIMARY_BTN}>
-              Done
+              {t("report.action.done")}
             </button>
           )}
 
           {stage === "done" && (
             <div className="rounded-xl border border-border bg-card p-6">
               <h2 className="font-display text-lg font-semibold tracking-tight">
-                That&apos;s everything we need
+                {t("report.done.title")}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Reference{" "}
-                <span className="font-mono text-foreground">{incidentId}</span>. Keep an eye on
-                it — the status and the provider&apos;s phone number appear as soon as they
-                accept.
+                {t("report.done.body", { reference: incidentId ?? "" })}
               </p>
               <Link href="/app#incidents" className={`mt-4 inline-block ${PRIMARY_BTN}`}>
-                Track it in My Kaduna
+                {t("report.done.track")}
               </Link>
             </div>
           )}
