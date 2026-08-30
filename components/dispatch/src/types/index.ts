@@ -245,6 +245,10 @@ export interface TriageResult {
   entropy:              number;
   obdDataUsed:          boolean;
   bayesianPriorsApplied:boolean;
+  /** True when stored trouble codes resolved against the DTC catalogue and
+   *  reweighted the distribution. Absent on the fast path, which never runs
+   *  inference at all. */
+  faultCodesApplied?:   boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -272,7 +276,19 @@ export interface OBDData {
   brake_pad_wear_mm?:       number;
   brake_temp_c?:            number;
 
-  faultCodes?:        string[];
+  /**
+   * Stored OBD-II trouble codes read from the adapter (mode 03/07/0A).
+   *
+   * Accepts a bare code or a code with its status, because the two callers
+   * differ: the phone's DTC reader knows whether a code is confirmed or only
+   * pending, and a pending code is a weaker claim that carries less weight in
+   * triage (see constants/dtc-mapping.ts). Plain strings stay valid so nothing
+   * that already sends them breaks.
+   *
+   * An EMPTY ARRAY IS NOT PROOF THE VEHICLE IS HEALTHY — it is also what a
+   * failed read looks like. Only ever treat it as "no evidence".
+   */
+  faultCodes?:        (string | { code: string; status?: 'confirmed' | 'pending' | 'permanent' })[];
   predictiveAlerts?:  string[];
   available:          boolean;
 }

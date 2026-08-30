@@ -50,6 +50,7 @@ export type { TriageOBDData, VehicleState } from "./elm327.sim";
 export { VEHICLE_STATES } from "./elm327.sim";
 
 import type { PairingInfo, VehicleState } from "./elm327.sim";
+import type { DtcStatus } from "./elm327.dtc";
 export type { PairingInfo };
 
 /**
@@ -290,7 +291,7 @@ export async function readObdFromElm327(
   if (backend === "classic" && classic.isConnected()) {
     try {
       const real = await classic.readObd();
-      if (real) return real;
+      if (real) return { ...real, faultCodes: await readFaultCodes() };
     } catch {
       /* fall through to a simulated read below */
     }
@@ -299,6 +300,44 @@ export async function readObdFromElm327(
   }
 
   return sim.readObd(incidentId);
+}
+
+/** How long a code read may take before triage gives up on it. */
+const TRIAGE_DTC_TIMEOUT_MS = 5000;
+
+/**
+ * Stored trouble codes for the triage payload, or `undefined`.
+ *
+ * A code is the strongest evidence dispatch can get about WHICH provider to
+ * send — it is the ECU's own conclusion about a fault, not an inference from
+ * sensor values — so it is worth one extra round-trip here.
+ *
+ * But it is strictly a bonus: triage already works without it. So the read is
+ * time-boxed and every failure path returns `undefined` rather than throwing.
+ * A driver waiting at the roadside must never wait longer, or get no provider
+ * at all, because a dongle was slow to answer mode 03.
+ *
+ * `undefined` and "no codes stored" are deliberately the same value here.
+ * Dispatch treats both as "no evidence" and never as "this vehicle is
+ * healthy" — only `readOk` could tell those apart, and it would change no
+ * decision on this path.
+ *
+ * Classic only: it is the sole transport with a code reader, and the
+ * obd-ii-simulator this is demonstrated against is classic-only too.
+ */
+async function readFaultCodes(): Promise<
+  { code: string; status: DtcStatus }[] | undefined
+> {
+  try {
+    const scan = await Promise.race([
+      classic.scanDtcCodes(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), TRIAGE_DTC_TIMEOUT_MS)),
+    ]);
+    if (!scan?.readOk || !scan.codes.length) return undefined;
+    return scan.codes.map((c) => ({ code: c.code, status: c.status }));
+  } catch {
+    return undefined;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────

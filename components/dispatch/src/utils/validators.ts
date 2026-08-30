@@ -114,7 +114,19 @@ export const obdDataSchema = z.object({
   brake_fluid_level_psi:  z.number().optional(),
   brake_pad_wear_mm:      z.number().optional(),
   brake_temp_c:           z.number().optional(),
-  faultCodes:             z.array(z.string()).optional(),
+  // Either a bare code or a code with its status — see OBDData.faultCodes for
+  // why both shapes are accepted.
+  faultCodes: z
+    .array(
+      z.union([
+        z.string(),
+        z.object({
+          code:   z.string(),
+          status: z.enum(['confirmed', 'pending', 'permanent']).optional(),
+        }),
+      ]),
+    )
+    .optional(),
   predictiveAlerts:       z.array(z.string()).optional(),
   available:              z.boolean(),
 });
