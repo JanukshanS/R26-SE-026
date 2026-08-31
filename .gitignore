@@ -61,6 +61,14 @@ ios/DerivedData/
 *.orig.*
 web-build/
 
+# apps/mobile has BOTH package-lock.json and pnpm-lock.yaml. EAS builds from
+# the pnpm one and uploads only git-tracked files, so committing the npm
+# lockfile puts a second, competing lockfile in the build tree - which has
+# already once produced an APK that silently shipped without its native
+# module. Keep it local. .npmrc is the matching local npm convenience.
+apps/mobile/package-lock.json
+apps/mobile/.npmrc
+
 # Mobile build artefacts
 *.aab
 *.apk
