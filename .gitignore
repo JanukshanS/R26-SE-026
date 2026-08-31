@@ -87,6 +87,12 @@ Thumbs.db
 # Logs
 *.log
 
+# Local dev-run scratch. start-dev.sh writes service logs AND regenerates
+# run-expo-qr.bat here on every run, baking in whoever's absolute paths ran
+# it last - the committed copy still pointed at a machine and a checkout
+# location that no longer exist.
+.dev-logs/
+
 # Local data / large artefacts
 data/raw/
 data/cache/
