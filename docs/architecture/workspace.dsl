@@ -11,22 +11,22 @@ workspace "Kaduna.lk" "Where data travels across the mobile app, the web app, th
 
         kaduna = softwareSystem "Kaduna.lk platform" "Roadside-assistance platform: emergency dispatch, predictive maintenance, insurance claims." {
 
-            mobile = container "Mobile app" "Driver + provider app. Emergency triage, OBD trip recording, guided claim capture." "Expo SDK 54 / React Native" "Client"
-            web    = container "Kaduna web" "Public landing, driver portal, provider console, ops dashboard, admin, /report triage port." "Next.js 16 / React 19" "Client"
+            mobile = container "Mobile app" "Shared (team) - Driver + provider app. Emergency triage, OBD trip recording, guided claim capture." "Expo SDK 54 / React Native" "Client"
+            web    = container "Kaduna web" "Shared (team) - Public landing, driver portal, provider console, ops dashboard, admin, /report triage port." "Next.js 16 / React 19" "Client"
 
-            dispatch = container "Dispatch service" "Incident lifecycle, Bayesian triage engine, ECM provider optimiser. Port 3001." "Node + Express + Prisma"
-            geo      = container "Geo-Intelligence service" "5-factor traffic-impact scoring, uncertainty band, timeline curve, hotspot clusters. Port 5001." "Python + FastAPI"
-            predict  = container "Predictive-Maintenance service" "Trip ingestion, RUL / health prediction, OBD fault plans, parts marketplace. Port 5000." "Python + FastAPI"
-            claims   = container "Claims-Privacy service" "RETIRED. Logic ported 1:1 into Supabase Edge Functions; still deployed at claims.vps.kaduna.lk with no callers." "Python + FastAPI" "Retired"
+            dispatch = container "Dispatch service" "IT22635266 Janukshan S - Incident lifecycle, Bayesian triage engine, ECM provider optimiser. Port 3001." "Node + Express + Prisma"
+            geo      = container "Geo-Intelligence service" "IT22633422 Asath M M - 5-factor traffic-impact scoring, uncertainty band, timeline curve, hotspot clusters. Port 5001." "Python + FastAPI"
+            predict  = container "Predictive-Maintenance service" "IT22639776 Herath D M S T - Trip ingestion, RUL / health prediction, OBD fault plans, parts marketplace. Port 5000." "Python + FastAPI"
+            claims   = container "Claims-Privacy service" "IT22001252 De Silva R K D H - RETIRED. Logic ported 1:1 into Supabase Edge Functions; still deployed at claims.vps.kaduna.lk with no callers." "Python + FastAPI" "Retired"
 
-            edgefn = container "Supabase Edge Functions" "sign-photo-upload (mints presigned R2 PUT + metadata headers) and complete-capture (finalises a capture)." "Deno / TypeScript"
-            gotrue = container "Supabase Auth (GoTrue)" "Email+password and Google PKCE. Issues the JWT that every other call carries." "Supabase"
-            rest   = container "Supabase PostgREST" "RLS-scoped table access for app data." "PostgREST"
+            edgefn = container "Supabase Edge Functions" "IT22001252 De Silva R K D H - sign-photo-upload (mints presigned R2 PUT + metadata headers) and complete-capture (finalises a capture)." "Deno / TypeScript"
+            gotrue = container "Supabase Auth (GoTrue)" "Platform (shared) - Email+password and Google PKCE. Issues the JWT that every other call carries." "Supabase"
+            rest   = container "Supabase PostgREST" "Platform (shared) - RLS-scoped table access for app data." "PostgREST"
 
-            appdb = container "App database" "profiles (role, provider_id), vehicles, vehicle_insurance, insurance_companies, captures, capture_photos. RLS by auth.uid()." "Supabase Postgres (public schema)" "Database"
-            dispdb = container "Dispatch database" "Incident, TriageResponse, Provider, DispatchDecision, ResolutionFeedback, BayesianPrior." "Postgres via Prisma (dispatch schema)" "Database"
-            preddb = container "Maintenance database" "Trips, component health, service records, DTC faults, marketplace parts/garages." "Supabase Postgres (predictive schema)" "Database"
-            geodata = container "Geo static datasets" "hotspots.json + stats.json baked into the image; the model itself holds the fitted 5-factor weights." "JSON on disk" "Database"
+            appdb = container "App database" "Platform (shared) - profiles (role, provider_id), vehicles, vehicle_insurance, insurance_companies, captures, capture_photos. RLS by auth.uid()." "Supabase Postgres (public schema)" "Database"
+            dispdb = container "Dispatch database" "Platform (shared) - Incident, TriageResponse, Provider, DispatchDecision, ResolutionFeedback, BayesianPrior." "Postgres via Prisma (dispatch schema)" "Database"
+            preddb = container "Maintenance database" "Platform (shared) - Trips, component health, service records, DTC faults, marketplace parts/garages." "Supabase Postgres (predictive schema)" "Database"
+            geodata = container "Geo static datasets" "IT22633422 Asath M M - hotspots.json + stats.json baked into the image; the model itself holds the fitted 5-factor weights." "JSON on disk" "Database"
 
             # ---- identity -------------------------------------------------
             mobile -> gotrue "Signs up / signs in; receives access + refresh JWT" "HTTPS (supabase-js)"
