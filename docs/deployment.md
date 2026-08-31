@@ -31,12 +31,22 @@ Contabo VPS, 6 vCPU / 12 GB, Ubuntu 24.04, at `169.58.147.190`, checkout in
 sslip.io, which resolves any `<anything>.169-58-147-190.sslip.io` to that IP
 and still gets real Let's Encrypt certificates:
 
-| Service | URL |
-|---|---|
-| dispatch | `https://dispatch.169-58-147-190.sslip.io` |
-| geo-intelligence | `https://geo.169-58-147-190.sslip.io` |
-| predictive-maintenance | `https://predict.169-58-147-190.sslip.io` |
-| claims-privacy | `https://claims.169-58-147-190.sslip.io` |
+| Service | URL | Checked 2026-08-31 |
+|---|---|---|
+| dispatch | `https://dispatch.vps.kaduna.lk` | `/health` 200 |
+| geo-intelligence | `https://geo.vps.kaduna.lk` | `/v1/health` 200 |
+| predictive-maintenance | `https://predict.vps.kaduna.lk` | `/health` 200 |
+| claims-privacy | `https://claims.vps.kaduna.lk` | 502 — service retired, see below |
+
+The `*.169-58-147-190.sslip.io` hostnames this table used to list no longer
+answer on 443 (port 80 responds 404, so Caddy is up but has no certificate or
+route for them). The live deployment is on `*.vps.kaduna.lk`. Anything still
+pointing at the sslip.io names — including a release build of the mobile app
+— is talking to nothing.
+
+claims-privacy returns 502 and that is expected: the service is retired. The
+app reads claims straight from Supabase now (`apps/mobile/lib/claims-api.ts`),
+so nothing depends on it.
 
 To move to the real domain: add A records for `dispatch`, `geo`, `predict` and
 `claims` pointing at the VPS, remove `BASE_DOMAIN` from `.env`, redeploy.
