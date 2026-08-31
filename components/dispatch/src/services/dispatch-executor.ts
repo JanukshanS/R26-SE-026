@@ -7,6 +7,7 @@
  * @author Janukshan Sivakumar - IT22635266
  */
 import { prisma } from '../utils/prisma';
+import { argmaxServiceType } from './bayesian-engine';
 import { logger } from '../utils/logger';
 import { runDispatchOptimizer, ECMProvider } from './dispatch-optimizer';
 import { fetchTrafficImpactScore } from './geo-client';
@@ -94,14 +95,45 @@ export async function executeDispatch(params: ExecuteDispatchParams): Promise<Ex
     ...busy.map((i) => i.assignedProviderId as string),
   ]));
 
+  // The single most likely diagnosis. A provider who cannot perform THIS is
+  // not a candidate, however close they are.
+  //
+  // WHY A HARD GATE AND NOT A PRICED RISK. The ECM already prices mismatch as
+  // assessment delay + re-dispatch penalty + service time, which is the right
+  // model when a job is substitutable — a mechanic who guessed wrong can often
+  // still help. It is the wrong model when it is not: dispatched against a
+  // SEVERE_MECHANICAL_TOW, a mobile mechanic with no tow gear achieves nothing
+  // on scene, and the driver waits the full assessment-plus-re-dispatch delay
+  // to find that out. Observed in production on 2026-08-31: a mechanic 0.0 min
+  // away outranked a tow truck 34 min away for a tow-required incident,
+  // because ~40 cost units of priced mismatch did not cover a 34-minute travel
+  // advantage. No amount of tuning the penalty fixes the category error.
+  //
+  // Filtered in the QUERY rather than after, so `take` still returns a full
+  // page of genuinely eligible providers rather than a page that is mostly
+  // discarded.
+  const predicted = argmaxServiceType(
+    incident.triageResponse.probabilities as unknown as ServiceTypeProbabilities,
+  ).serviceType;
+
   const dbProviders = await prisma.provider.findMany({
     where: {
       status: 'AVAILABLE',
+      capabilities: { has: predicted },
       ...(unavailableIds.length > 0 ? { id: { notIn: unavailableIds } } : {}),
     },
     take: maxProviders,
   });
-  if (dbProviders.length === 0) return { status: 'no_providers' };
+
+  if (dbProviders.length === 0) {
+    // Nobody in the fleet can do this job right now. Escalating is the honest
+    // outcome — sending someone who cannot help is not a fallback, it is the
+    // bug this gate exists to prevent.
+    logger.warn('No capable provider available for the predicted service', {
+      incidentId, predictedServiceType: predicted, excluded: unavailableIds.length,
+    });
+    return { status: 'no_providers' };
+  }
 
   const ecmProviders: ECMProvider[] = dbProviders.map((p) => ({
     id: p.id,
