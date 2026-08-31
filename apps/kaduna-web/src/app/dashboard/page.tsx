@@ -249,15 +249,39 @@ export default function OperationsPage() {
 
   const handleSelectIncident = useCallback((inc: Incident) => setSelected(inc), []);
 
-  // A recommendation is about a cluster, so the hotspot rings have to come on
-  // with it — landing on the map with the ring still hidden would show the
-  // operator a patch of dots and no reason they were sent there. The hash
-  // change is what switches the tab; the listener above picks it up.
-  const showOnMap = useCallback((r: Recommendation) => {
-    setFocus({ lat: r.lat, lng: r.lng, radiusM: r.radiusM });
-    setLayers((l) => ({ ...l, hotspots: true }));
+  // Send the operator to the live map, framed on one place. The hash change is
+  // what switches the tab; the listener above picks it up.
+  const focusMap = useCallback((lat: number, lng: number, radiusM: number) => {
+    setFocus({ lat, lng, radiusM });
     window.location.hash = "#livemap";
   }, []);
+
+  // A recommendation is about a cluster, so the hotspot rings have to come on
+  // with it — landing on the map with the ring still hidden would show the
+  // operator a patch of dots and no reason they were sent there.
+  const showClusterOnMap = useCallback(
+    (r: Recommendation) => {
+      setLayers((l) => ({ ...l, hotspots: true }));
+      focusMap(r.lat, r.lng, r.radiusM);
+    },
+    [focusMap]
+  );
+
+  // A scoring-log row is about one incident, so the breakdown opens beside the
+  // map as well: the operator clicked a row to find out about that incident,
+  // and arriving at an unlabelled dot would lose what they came for.
+  const showIncidentOnMap = useCallback(
+    (inc: Incident) => {
+      setSelected(inc);
+      setLayers((l) => ({ ...l, incidents: true }));
+      // Clear the filters only if they would have hidden the very incident the
+      // operator asked to see; an unrelated filter is theirs to keep.
+      setFilters((f) => (matchesFilters(inc, f) ? f : NO_FILTERS));
+      // Tight enough to read the junction the incident sits on.
+      focusMap(inc.lat, inc.lng, 250);
+    },
+    [focusMap]
+  );
 
   const togglePriority = (p: string) =>
     setFilters((prev) => ({
@@ -505,10 +529,10 @@ export default function OperationsPage() {
                 <RecommendationsPanel
                   hotspots={hotspots}
                   incidents={incidents}
-                  onShowOnMap={showOnMap}
+                  onShowOnMap={showClusterOnMap}
                 />
               )}
-              {tab === "Scoring log" && <ScoringLogPanel />}
+              {tab === "Scoring log" && <ScoringLogPanel onShowOnMap={showIncidentOnMap} />}
             </div>
           )}
         </div>

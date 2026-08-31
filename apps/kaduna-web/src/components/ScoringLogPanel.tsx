@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download } from "lucide-react";
+import { Download, MapPin } from "lucide-react";
 
 import IncidentPanel from "@/components/IncidentPanel";
 import { Button } from "@/components/ui/button";
 import { downloadIncidentsCsv } from "@/lib/exportCsv";
 import { useT } from "@/lib/i18n";
 import { getScoreLog, subscribeScoreLog, type ScoreLogEntry } from "@/lib/scoreLog";
+import type { Incident } from "@/lib/types";
 
 const PRIORITY_TOKEN: Record<string, string> = {
   CRITICAL: "var(--priority-critical)",
@@ -16,7 +17,13 @@ const PRIORITY_TOKEN: Record<string, string> = {
   LOW: "var(--priority-low)",
 };
 
-const time = (d: Date) =>
+/**
+ * Date as well as clock time. A log row that says only "14:22" cannot be tied
+ * to a shift or a report once the tab has been open across midnight, and the
+ * scored incident carries no date of its own.
+ */
+const when = (d: Date) =>
+  `${d.getDate()} ${d.toLocaleString(undefined, { month: "short" })} ` +
   `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 
 /** Where the road class came from, said plainly. */
@@ -26,7 +33,11 @@ const ROAD_SOURCE: Record<string, string> = {
   default: "dashboard.scoringLog.roadUnmatched",
 };
 
-export default function ScoringLogPanel() {
+export default function ScoringLogPanel({
+  onShowOnMap,
+}: {
+  onShowOnMap: (incident: Incident) => void;
+}) {
   const t = useT();
   const [entries, setEntries] = useState<ScoreLogEntry[]>(getScoreLog());
   const [openKey, setOpenKey] = useState<string | null>(null);
@@ -75,8 +86,8 @@ export default function ScoringLogPanel() {
           <table className="w-full min-w-[34rem] text-sm">
             <thead>
               <tr className="border-b border-border bg-card text-left">
-                <th scope="col" className="px-3 py-2 font-medium">{t("dashboard.scoringLog.colTime")}</th>
-                <th scope="col" className="px-3 py-2 font-medium">{t("dashboard.scoringLog.colIncident")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("dashboard.scoringLog.colWhen")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("dashboard.scoringLog.colWhere")}</th>
                 <th scope="col" className="px-3 py-2 font-medium">{t("dashboard.scoringLog.colRoad")}</th>
                 <th scope="col" className="px-3 py-2 text-right font-medium">{t("dashboard.scoringLog.colImpact")}</th>
                 <th scope="col" className="px-3 py-2 font-medium">{t("dashboard.scoringLog.colPriority")}</th>
@@ -94,8 +105,35 @@ export default function ScoringLogPanel() {
                       selected ? "bg-accent" : "hover:bg-accent/50"
                     }`}
                   >
-                    <td className="px-3 py-2 tabular-nums text-muted-foreground">{time(e.at)}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{e.incident.id}</td>
+                    <td className="whitespace-nowrap px-3 py-2 tabular-nums text-muted-foreground">
+                      {when(e.at)}
+                    </td>
+                    {/* The road name and a jump to the map, because the incident
+                        id identifies the row to the system and to nobody else.
+                        Its own button inside the row: selecting the row opens the
+                        breakdown beside the table, which is a different intent
+                        from going to look at the location. */}
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        title={t("dashboard.scoringLog.locateTitle")}
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          onShowOnMap(e.incident);
+                        }}
+                        className="group flex items-start gap-1.5 text-left hover:text-foreground"
+                      >
+                        <MapPin className="mt-0.5 size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden />
+                        <span className="min-w-0">
+                          <span className="block truncate group-hover:underline">
+                            {e.incident.roadName || t("dashboard.scoringLog.noRoadName")}
+                          </span>
+                          <span className="block font-mono text-xs tabular-nums text-muted-foreground">
+                            {e.incident.lat.toFixed(4)}, {e.incident.lng.toFixed(4)}
+                          </span>
+                        </span>
+                      </button>
+                    </td>
                     <td className="px-3 py-2">
                       <span className="capitalize">{e.incident.roadType}</span>
                       <span className="ml-1.5 text-xs text-muted-foreground">
