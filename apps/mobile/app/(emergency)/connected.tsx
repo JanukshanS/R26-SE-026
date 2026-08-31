@@ -6,6 +6,8 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { Badge } from "@components/ui/badge";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
+import { ConfirmDialog } from "@components/ui/confirm-dialog";
+import { RatingCard, type Stars } from "@components/ui/rating-card";
 import { ErrorState } from "@components/ui/error-state";
 import { HeaderBar } from "@components/ui/header-bar";
 import { Icon, type IconName } from "@components/ui/icon";
@@ -19,6 +21,7 @@ import {
   cancelIncident,
   getIncident,
   getProvider,
+  rateIncident,
   haversineKm,
   providerTypeLabel,
   type ProviderRecord,
@@ -269,6 +272,9 @@ export default function ConnectedScreen() {
 
   // ── Calling the request off ─────────────────────────────────────
   const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   const doCancel = useCallback(async () => {
     if (!incidentId || cancelling) return;
@@ -276,39 +282,42 @@ export default function ConnectedScreen() {
     try {
       await cancelIncident(incidentId);
       haptics.success();
+      setConfirmingCancel(false);
+      // Nothing left to watch, so do not park the driver on a tracking screen
+      // for a job that no longer exists — take them home.
+      goHome();
     } catch (err) {
       // The likeliest failure by far is a 409: a provider accepted in the
       // seconds between the screen rendering the button and the driver
-      // pressing it. Refreshing below turns that into the truth on screen
-      // ("Help is on the way") rather than leaving a stale Cancel button.
+      // pressing it. Refresh so the screen shows what actually happened
+      // ("Help is on the way") instead of a stale Cancel button.
       haptics.error();
-      Alert.alert(
-        t("emergency.connected.cancelFailedTitle"),
+      setConfirmingCancel(false);
+      setCancelError(
         err instanceof Error ? err.message : t("emergency.connected.dispatchUnreachable")
       );
-    } finally {
-      // Re-read either way. On success this flips the screen to "Request
-      // cancelled" and stops the poll; on failure it shows what actually
-      // happened instead of what we assumed.
       try {
         setIncident(await getIncident(incidentId));
       } catch {
         /* the poll will catch up on its next tick */
       }
+    } finally {
       setCancelling(false);
     }
-  }, [incidentId, cancelling, t]);
+  }, [incidentId, cancelling, goHome, t]);
 
-  const confirmCancel = useCallback(() => {
-    Alert.alert(
-      t("emergency.connected.cancelTitle"),
-      t("emergency.connected.cancelBody"),
-      [
-        { text: t("emergency.connected.cancelKeep"), style: "cancel" },
-        { text: t("emergency.connected.cancelConfirm"), style: "destructive", onPress: () => void doCancel() },
-      ]
-    );
-  }, [doCancel, t]);
+  // ── Rating the finished job ────────────────────────────────────
+  const submitRating = useCallback(async (rating: Stars) => {
+    if (!incidentId) return;
+    await rateIncident(incidentId, rating);
+    // Re-read rather than assuming: the response confirms the rating, but the
+    // incident row is what the card reads to decide it has been answered.
+    try {
+      setIncident(await getIncident(incidentId));
+    } catch {
+      /* the card falls back to its own submitted state on the next poll */
+    }
+  }, [incidentId]);
 
   // Traffic-impact score from geo-intelligence — the signal that drives dispatch
   // prioritisation. Priority bands + colours mirror the geo model's thresholds.
@@ -347,7 +356,18 @@ export default function ConnectedScreen() {
     );
   }
 
-  const canCancel = CANCELLABLE_STATUSES.includes(status) && !!incidentId;
+  // `status` falls back to PROVIDER_ASSIGNED before the first poll answers, so
+  // gate on the status we have actually been told. Otherwise a driver
+  // returning to this screen after a provider accepted sees a Cancel button
+  // for the first few hundred milliseconds — offering something the backend
+  // will refuse.
+  const knownStatus = incident?.status ?? null;
+  const canCancel = !!incidentId && !!knownStatus && CANCELLABLE_STATUSES.includes(knownStatus);
+
+  // Rating is offered only once the provider has closed the job, and only when
+  // there is a resolution record for it to attach to.
+  const feedback = incident?.feedback ?? null;
+  const showRating = knownStatus === "RESOLVED" && !!feedback;
 
   return (
     <Screen
@@ -358,7 +378,7 @@ export default function ConnectedScreen() {
               title={cancelling ? t("emergency.connected.cancelling") : t("emergency.connected.cancelAction")}
               variant="danger"
               disabled={cancelling}
-              onPress={confirmCancel}
+              onPress={() => setConfirmingCancel(true)}
             />
           )}
           <Button
@@ -369,6 +389,19 @@ export default function ConnectedScreen() {
         </View>
       }
     >
+      <ConfirmDialog
+        visible={confirmingCancel}
+        destructive
+        busy={cancelling}
+        icon="CircleX"
+        title={t("emergency.connected.cancelTitle")}
+        message={t("emergency.connected.cancelBody")}
+        confirmLabel={cancelling ? t("emergency.connected.cancelling") : t("emergency.connected.cancelConfirm")}
+        cancelLabel={t("emergency.connected.cancelKeep")}
+        onConfirm={() => void doCancel()}
+        onCancel={() => setConfirmingCancel(false)}
+      />
+
       <HeaderBar
         showBack={false}
         right={<Badge label={meta.badge} tone={meta.tone} withDot />}
@@ -376,6 +409,25 @@ export default function ConnectedScreen() {
       <Text style={{ ...typography.h1, color: palette.text }}>
         {meta.title}
       </Text>
+
+      {/* A cancel that was refused — almost always because a provider accepted
+          first. Kept on the screen rather than in a dismissable alert, since
+          the status card right below it now explains what happened instead. */}
+      {cancelError && (
+        <Text style={{ ...typography.caption, color: palette.danger }}>{cancelError}</Text>
+      )}
+
+      {/* The job is done. This is the only place the driver is ever asked to
+          rate, and it feeds the provider trust score the ECM divides by. */}
+      {showRating && (
+        <Animated.View entering={FadeInDown.springify()}>
+          <RatingCard
+            providerName={provider?.name ?? sp?.name ?? t("emergency.connected.fallbackProvider")}
+            submitted={feedback?.userRating ?? null}
+            onSubmit={submitRating}
+          />
+        </Animated.View>
+      )}
 
       {/* What is actually happening to the request right now, straight from
           the polled incident status. */}

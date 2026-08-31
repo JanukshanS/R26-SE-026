@@ -15,7 +15,10 @@ const { mockPrisma } = vi.hoisted(() => ({
       findMany: vi.fn(), count: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn(),
     },
     dispatchDecision: { findFirst: vi.fn(), update: vi.fn() },
-    resolutionFeedback: { create: vi.fn() },
+    // findMany + provider.update back recomputeProviderTrust, which /resolve
+    // calls once the feedback row is written.
+    resolutionFeedback: { create: vi.fn(), findMany: vi.fn() },
+    provider: { update: vi.fn() },
   },
 }));
 
@@ -394,6 +397,11 @@ describe("POST /api/v1/incidents/:id/resolve — ownership", () => {
     });
     mockPrisma.incident.update.mockResolvedValue({ ...assignedIncident, status: "RESOLVED" });
     mockPrisma.resolutionFeedback.create.mockResolvedValue({});
+    mockPrisma.resolutionFeedback.findMany.mockResolvedValue([
+      { wasMatch: true, userRating: null },
+      { wasMatch: false, userRating: 2 },
+    ]);
+    mockPrisma.provider.update.mockResolvedValue({});
 
     const res = await request(makeApp("u-owner"))
       .post(`/api/v1/incidents/${INCIDENT_ID}/resolve`)
@@ -405,5 +413,15 @@ describe("POST /api/v1/incidents/:id/resolve — ownership", () => {
     const written = mockPrisma.resolutionFeedback.create.mock.calls[0][0].data;
     expect(written.providerId).toBe(PROVIDER_ID);
     expect(written.wasMatch).toBe(true);
+
+    // Closing a job must move the provider's trust, since the ECM divides
+    // expected cost by it. One matched job of two, floored at 0.5.
+    expect(mockPrisma.provider.update).toHaveBeenCalledTimes(1);
+    const trustWrite = mockPrisma.provider.update.mock.calls[0][0];
+    expect(trustWrite.where.id).toBe(PROVIDER_ID);
+    expect(trustWrite.data.totalJobs).toBe(2);
+    expect(trustWrite.data.successfulJobs).toBe(1);
+    expect(trustWrite.data.trustScore).toBe(0.5);
+    expect(trustWrite.data.averageRating).toBe(2);
   });
 });

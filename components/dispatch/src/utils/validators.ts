@@ -181,3 +181,14 @@ export const updateProviderProfileSchema = z.object({
   capabilities: z.array(enumOf(SERVICE_TYPES)).min(1).optional(),
   serviceTimes: z.record(z.string(), z.number().int().min(1).max(480)).optional(),
 });
+
+/**
+ * The driver's rating of a finished job.
+ *
+ * Whole stars only: the UI shows five of them, and accepting 3.5 would let a
+ * hand-written request express something the driver has no way to say and the
+ * trust rule (>= 4 is satisfactory) treats as a cliff edge anyway.
+ */
+export const incidentRatingSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+});

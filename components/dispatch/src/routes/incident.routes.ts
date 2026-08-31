@@ -6,8 +6,9 @@
 import { Router } from 'express';
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
-import { createIncidentSchema, resolutionReportSchema } from '../utils/validators';
+import { createIncidentSchema, incidentRatingSchema, resolutionReportSchema } from '../utils/validators';
 import { assertOwnsProvider } from '../middleware/auth';
+import { recomputeProviderTrust } from '../services/provider-trust';
 
 export const incidentRouter = Router();
 
@@ -118,6 +119,76 @@ incidentRouter.get('/', async (req, res) => {
 });
 
 /** POST /api/v1/incidents/:id/resolve — Submit resolution + Bayesian feedback */
+/**
+ * POST /api/v1/incidents/:id/rating — the driver rates a finished job.
+ *
+ * WHY THIS IS SEPARATE FROM /feedback. That endpoint is the provider's: it
+ * needs `actualServiceType`, `providerId` and a resolution time, which is
+ * knowledge a driver does not have. Asking the phone to supply them so it
+ * could attach one number would mean inventing four.
+ *
+ * The rating lands on the `ResolutionFeedback` row the provider already
+ * created when they closed the job, then trust is recomputed from the record.
+ * That is the whole point of collecting it: a rating below 4 turns a matched
+ * dispatch into an unsuccessful one, which lowers trust, which raises that
+ * provider's expected cost the next time the ECM ranks them.
+ *
+ * Re-rating overwrites. A driver who taps 2 and immediately means 4 should be
+ * able to fix it, and trust is derived rather than accumulated, so the
+ * correction simply recomputes.
+ */
+incidentRouter.post('/:id/rating', async (req, res) => {
+  try {
+    const parsed = incidentRatingSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false, error: 'Invalid rating',
+        details: parsed.error.flatten(), timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const incidentId = String(req.params.id);
+    const feedback = await prisma.resolutionFeedback.findUnique({ where: { incidentId } });
+
+    if (!feedback) {
+      // Either the incident does not exist, or the provider has not closed it
+      // yet. Both mean the same thing to the driver: there is nothing to rate.
+      res.status(409).json({
+        success: false,
+        error: 'This job has not been completed yet, so there is nothing to rate',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const updated = await prisma.resolutionFeedback.update({
+      where: { incidentId },
+      data: { userRating: parsed.data.rating },
+    });
+
+    const trust = await recomputeProviderTrust(feedback.providerId);
+
+    logger.info('Driver rating recorded', {
+      incidentId,
+      providerId: feedback.providerId,
+      rating: parsed.data.rating,
+      wasMatch: feedback.wasMatch,
+      newTrustScore: trust.trustScore.toFixed(3),
+    });
+
+    res.json({
+      success: true,
+      data: { incidentId, rating: updated.userRating, provider: trust },
+      message: 'Thanks — your rating has been recorded',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    logger.error('Failed to record rating:', error);
+    res.status(500).json({ success: false, error: error.message, timestamp: new Date().toISOString() });
+  }
+});
+
 /**
  * Statuses a driver may still cancel from — everything up to and including a
  * provider having been OFFERED the job, but not one who has accepted it.
@@ -291,8 +362,29 @@ incidentRouter.post('/:id/resolve', async (req, res) => {
         },
       });
 
+      // The ECM divides expected cost by trust, so a job that closed without
+      // this ran the next dispatch on a score that ignored it. Derived from
+      // the feedback rows, so calling it here and again when the driver rates
+      // is idempotent rather than a double count.
+      //
+      // Deliberately not fatal. The provider has finished the job and the
+      // feedback row is already written; refusing their resolution because a
+      // derived score could not be refreshed would lose the thing that
+      // matters to keep the thing that can be recomputed at any time. Logged
+      // at error level so it cannot rot silently — a trust score that quietly
+      // stops moving is exactly the bug this call was added to fix.
+      let trustScore: number | null = null;
+      try {
+        trustScore = (await recomputeProviderTrust(incident.assignedProviderId)).trustScore;
+      } catch (trustError) {
+        logger.error('Resolution recorded but provider trust could not be recomputed', {
+          incidentId, providerId: incident.assignedProviderId, error: trustError,
+        });
+      }
+
       logger.info('Resolution feedback recorded', {
         incidentId, predictedServiceType, actualServiceType, wasMatch, resolutionTimeMinutes,
+        providerTrustScore: trustScore?.toFixed(3) ?? 'unchanged',
       });
     }
 

@@ -28,6 +28,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
+import { recomputeProviderTrust } from '../services/provider-trust';
 import {
   ServiceType,
   ServiceTypeProbabilities,
@@ -185,28 +186,11 @@ feedbackRouter.post('/:incidentId/feedback', async (req, res) => {
     // ── Apply the observation to the Bayesian posterior ───────────────
     const updatedPrior = await applyFeedback(symptomKey, actualServiceType as ServiceType);
 
-    // Also update the provider's aggregate trust score. A matched dispatch
-    // + a >= 4-star rating counts as a success; anything else does not.
-    const isSuccessful = wasMatch && (userRating === undefined || userRating >= 4);
-    await prisma.provider.update({
-      where: { id: providerId },
-      data: {
-        totalJobs:      { increment: 1 },
-        successfulJobs: isSuccessful ? { increment: 1 } : undefined,
-      },
-    });
-    // Recompute trust score = successfulJobs / totalJobs, floored at 0.5
-    // so a single early failure doesn't tank a provider's dispatch score.
-    const refreshed = await prisma.provider.findUnique({ where: { id: providerId } });
-    if (refreshed) {
-      const trust = refreshed.totalJobs > 0
-        ? Math.max(0.5, refreshed.successfulJobs / refreshed.totalJobs)
-        : refreshed.trustScore;
-      await prisma.provider.update({
-        where: { id: providerId },
-        data: { trustScore: trust },
-      });
-    }
+    // Trust is DERIVED from the feedback rows, not incremented here — see
+    // services/provider-trust.ts. Incrementing made the score depend on which
+    // endpoint happened to close the job, and double-counted whenever this
+    // handler ran twice for one incident, which its own upsert invites.
+    await recomputeProviderTrust(providerId);
 
     // ── Move incident → RESOLVED ──────────────────────────────────────
     await prisma.incident.update({

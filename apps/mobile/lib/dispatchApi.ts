@@ -330,12 +330,24 @@ export async function respondToJob(
   });
 }
 
+/** The driver's rating lands on this row, which the provider creates on resolve. */
+export interface IncidentFeedback {
+  providerId: string;
+  actualServiceType: string;
+  wasMatch: boolean;
+  resolutionTimeMinutes: number;
+  /** `null` until the driver rates the job — rating is optional. */
+  userRating: number | null;
+  providerNotes?: string | null;
+}
+
 export async function getIncident(
   incidentId: string
 ): Promise<Incident & {
   triageResponse?: any;
   assignedProvider?: ProviderRecord;
   dispatchDecisions?: any[];
+  feedback?: IncidentFeedback | null;
 }> {
   return request(`/api/v1/incidents/${incidentId}`);
 }
@@ -350,6 +362,24 @@ export async function getIncident(
  */
 export async function cancelIncident(incidentId: string): Promise<Incident> {
   return request(`/api/v1/incidents/${incidentId}/cancel`, { method: "POST" });
+}
+
+/**
+ * The driver's star rating for a finished job.
+ *
+ * Lands on the resolution record the provider created when they closed the
+ * job, and moves that provider's trust score — which the ECM divides expected
+ * cost by, so this is the driver's one direct input into who gets dispatched
+ * next. Re-rating overwrites, so a mis-tap can be corrected.
+ */
+export async function rateIncident(
+  incidentId: string,
+  rating: 1 | 2 | 3 | 4 | 5
+): Promise<{ incidentId: string; rating: number }> {
+  return request(`/api/v1/incidents/${incidentId}/rating`, {
+    method: "POST",
+    body: JSON.stringify({ rating }),
+  });
 }
 
 export interface AssignedIncident extends Incident {
