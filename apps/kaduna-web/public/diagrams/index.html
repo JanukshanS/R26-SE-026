@@ -1,0 +1,66 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Kaduna.lk — architecture diagrams</title>
+<style>
+  :root { --paper:#FCFBF8; --ink:#1F2328; --muted:#6A7076; --line:#E3E0D8; --card:#F5F3EC; --accent:#C77F00; }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#17191C; --ink:#ECEDEA; --muted:#9BA1A6; --line:#33373C; --card:#212429; --accent:#E8A013; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:2.5rem 1.25rem 4rem; background:var(--paper); color:var(--ink);
+         font:16px/1.55 system-ui, -apple-system, "Segoe UI", Arial, sans-serif; }
+  main { max-width:64rem; margin:0 auto; }
+  .eyebrow { text-transform:uppercase; letter-spacing:.14em; font-size:.8rem; font-weight:600;
+             color:var(--accent); margin:0; }
+  h1 { font-size:2rem; margin:.35rem 0 0; letter-spacing:-.01em; }
+  p.lede { color:var(--muted); max-width:44rem; margin:.6rem 0 0; }
+  figure { margin:2.5rem 0 0; }
+  figcaption { display:flex; flex-wrap:wrap; align-items:baseline; gap:.6rem; margin-bottom:.6rem; }
+  figcaption b { font-size:1.05rem; }
+  figcaption span { color:var(--muted); font-size:.92rem; }
+  figcaption a { margin-left:auto; color:var(--accent); font-size:.9rem; }
+  .frame { border:1px solid var(--line); border-radius:10px; background:#fff; padding:.75rem;
+           overflow-x:auto; }
+  img { display:block; width:100%; height:auto; max-width:100%; }
+  footer { margin-top:3rem; border-top:1px solid var(--line); padding-top:1rem;
+           color:var(--muted); font-size:.9rem; }
+  code { background:var(--card); padding:0 .3rem; border-radius:3px; }
+</style>
+<main>
+  <p class="eyebrow">R26-SE-026 &middot; Kaduna.lk</p>
+  <h1>Architecture diagrams</h1>
+  <p class="lede">Rendered from the C4 model at <code>docs/architecture/workspace.dsl</code> in the
+    team monorepo. Every container is labelled with the student ID of the member who owns it.</p>
+
+  <figure>
+    <figcaption>
+      <b>Containers</b>
+      <span>Everything that stores or moves data, with owner IDs</span>
+      <a href="c4-containers-owners.png">Open full size</a>
+    </figcaption>
+    <div class="frame"><img src="c4-containers-owners.png" alt="C4 container diagram of the Kaduna.lk platform, each container labelled with its owner's student ID"></div>
+  </figure>
+
+  <figure>
+    <figcaption>
+      <b>System context</b>
+      <span>The platform and the people and systems around it</span>
+      <a href="c4-context.png">Open full size</a>
+    </figcaption>
+    <div class="frame"><img src="c4-context.png" alt="C4 system context diagram for the Kaduna.lk platform"></div>
+  </figure>
+
+  <figure>
+    <figcaption>
+      <b>Emergency spine</b>
+      <span>Mobile to dispatch to geo-intelligence to provider</span>
+      <a href="c4-emergency-spine.png">Open full size</a>
+    </figcaption>
+    <div class="frame"><img src="c4-emergency-spine.png" alt="Dynamic view of the emergency dispatch flow from the mobile app through dispatch and geo-intelligence to the assigned provider"></div>
+  </figure>
+
+  <footer>Regenerate by running Structurizr against <code>docs/architecture/</code> — the command
+    is in that folder's README.</footer>
+</main>
