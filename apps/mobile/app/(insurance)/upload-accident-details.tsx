@@ -252,6 +252,39 @@ export default function UploadAccidentDetailsScreen() {
   );
 
   const isExistingClaimMode = existingClaimId != null;
+
+  // The Insurer Dashboard's pipeline (low-light enhancement + 3D reconstruction) runs
+  // entirely server-side, with no interim progress reported back to this app — the
+  // only signal is captures.status flipping to "pending_review" once it's done. That
+  // status is otherwise only ever read in existingClaimId mode above, but nothing
+  // navigates here with existingClaimId any more (Home always opens the 4-steps screen
+  // now, even for an already-submitted claim) — so without this, a claim reached the
+  // normal way (Report Accident → this screen) would show Low light enhancement / 3D
+  // Reconstruction stuck at 0% forever, even after the server has genuinely finished.
+  // Polls the same listMyClaims() list used elsewhere, matching the most recent claim
+  // (claims[0]) since nothing else could have been submitted more recently than the
+  // one this screen is currently the upload/status view for.
+  const [liveClaimStatus, setLiveClaimStatus] = useState<string | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      if (isExistingClaimMode || !(photosUploadComplete && fraudValidationComplete)) {
+        return;
+      }
+      let cancelled = false;
+      listMyClaims()
+        .then((claims) => {
+          if (!cancelled) {
+            setLiveClaimStatus(claims[0]?.status ?? null);
+          }
+        })
+        .catch(() => {
+          // Best-effort — keep whatever was already shown.
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [isExistingClaimMode, photosUploadComplete, fraudValidationComplete])
+  );
   const displayLocationLine = isExistingClaimMode
     ? existingClaim?.locationLabel ?? '—'
     : locationLine;
@@ -266,11 +299,13 @@ export default function UploadAccidentDetailsScreen() {
   // Set server-side once the Insurer Dashboard's 3D pipeline finishes (captures.status
   // -> "pending_review"). No interim progress is reported back to this app — it's a
   // binary flip once the whole pipeline (low-light enhancement + reconstruction) is done.
+  // existingClaimId mode reads it from the claim fetched by id; the normal (uploadKey)
+  // mode reads it from the polled liveClaimStatus above instead.
+  const serverPipelineStatus = isExistingClaimMode ? existingClaim?.status : liveClaimStatus;
   const displayLowLightComplete =
-    existingClaim?.status === 'pending_review' || existingClaim?.status === 'approved';
+    serverPipelineStatus === 'pending_review' || serverPipelineStatus === 'approved';
   const displayLowLightPercent = displayLowLightComplete ? 100 : 0;
-  const display3DReconstructionComplete =
-    existingClaim?.status === 'pending_review' || existingClaim?.status === 'approved';
+  const display3DReconstructionComplete = displayLowLightComplete;
   const display3DReconstructionPercent = display3DReconstructionComplete ? 100 : 0;
 
   const claimComplete = isExistingClaimMode
@@ -485,13 +520,13 @@ export default function UploadAccidentDetailsScreen() {
                   styles.detailCardStatusBadge,
                   {
                     backgroundColor:
-                      existingClaim?.status === 'approved'
+                      serverPipelineStatus === 'approved'
                         ? COLORS.statusBadgeApprovedBg
                         : COLORS.statusBadgeSubmittedBg,
                   },
                 ]}>
                 <Text style={styles.detailCardHeaderLeft}>
-                  {existingClaim?.status === 'approved'
+                  {serverPipelineStatus === 'approved'
                     ? t('insurance.upload.statusApproved')
                     : t('insurance.upload.statusSubmitted')}
                 </Text>
@@ -507,11 +542,11 @@ export default function UploadAccidentDetailsScreen() {
               {displayTimestampLine || (displayLocationLoading ? '…' : formatTimestamp(new Date()))}
             </Text>
             <Text style={styles.detailFooter}>
-              {existingClaim?.status === 'approved'
+              {serverPipelineStatus === 'approved'
                 ? t('insurance.upload.footerApproved')
-                : existingClaim?.status === 'pending_review'
+                : serverPipelineStatus === 'pending_review'
                 ? t('insurance.upload.footerPendingReview')
-                : existingClaim?.status === 'processing' || claimComplete
+                : serverPipelineStatus === 'processing' || claimComplete
                 ? t(SUBMITTED_MESSAGE_KEY)
                 : t('insurance.upload.footerUploading')}
             </Text>
