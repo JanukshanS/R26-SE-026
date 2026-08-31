@@ -7,7 +7,7 @@ import { Badge } from "@components/ui/badge";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
 import { ConfirmDialog } from "@components/ui/confirm-dialog";
-import { RatingCard, type Stars } from "@components/ui/rating-card";
+import { JobConfirmationCard, type Stars } from "@components/ui/job-confirmation-card";
 import { ErrorState } from "@components/ui/error-state";
 import { HeaderBar } from "@components/ui/header-bar";
 import { Icon, type IconName } from "@components/ui/icon";
@@ -21,7 +21,7 @@ import {
   cancelIncident,
   getIncident,
   getProvider,
-  rateIncident,
+  confirmIncident,
   haversineKm,
   providerTypeLabel,
   type ProviderRecord,
@@ -203,6 +203,10 @@ export default function ConnectedScreen() {
           if (cancelled) return;
           setIncident(next);
           setPollError(null);
+          // A refused cancel explains itself against the status at the time.
+          // Once a fresh status has landed, the status card says it better,
+          // and leaving the old line up reads as a live error.
+          setCancelError(null);
         } catch (err) {
           // Never blank good data on a failed poll — the driver still needs
           // the provider's phone number when the network is flaky.
@@ -306,10 +310,10 @@ export default function ConnectedScreen() {
     }
   }, [incidentId, cancelling, goHome, t]);
 
-  // ── Rating the finished job ────────────────────────────────────
-  const submitRating = useCallback(async (rating: Stars) => {
+  // ── Confirming the job, and optionally rating it ──
+  const submitConfirmation = useCallback(async (input: { resolved: boolean; rating?: Stars }) => {
     if (!incidentId) return;
-    await rateIncident(incidentId, rating);
+    await confirmIncident(incidentId, input);
     // Re-read rather than assuming: the response confirms the rating, but the
     // incident row is what the card reads to decide it has been answered.
     try {
@@ -417,14 +421,16 @@ export default function ConnectedScreen() {
         <Text style={{ ...typography.caption, color: palette.danger }}>{cancelError}</Text>
       )}
 
-      {/* The job is done. This is the only place the driver is ever asked to
-          rate, and it feeds the provider trust score the ECM divides by. */}
+      {/* The provider says the job is done. This is the only place the driver
+          is ever asked whether it actually was, and their answer is what
+          decides if the dispatch counted as a success. */}
       {showRating && (
         <Animated.View entering={FadeInDown.springify()}>
-          <RatingCard
+          <JobConfirmationCard
             providerName={provider?.name ?? sp?.name ?? t("emergency.connected.fallbackProvider")}
-            submitted={feedback?.userRating ?? null}
-            onSubmit={submitRating}
+            confirmed={feedback?.driverConfirmed ?? null}
+            rating={feedback?.userRating ?? null}
+            onSubmit={submitConfirmation}
           />
         </Animated.View>
       )}

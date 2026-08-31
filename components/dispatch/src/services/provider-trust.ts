@@ -15,10 +15,18 @@
  * it is the same answer no matter who asks, and a rating arriving after the job
  * closed simply changes the inputs and is recomputed.
  *
- * WHAT COUNTS AS A SUCCESS. A dispatch succeeded when the provider was the
- * RIGHT ONE (`wasMatch`) and the driver did not say otherwise. An unrated job
- * counts as successful \u2014 most drivers never rate, and treating silence as
- * dissatisfaction would drive every provider to the floor.
+ * WHAT COUNTS AS A SUCCESS. A dispatch succeeded when the right provider was
+ * sent (`wasMatch`) and the job actually got done. Only the driver can speak
+ * to the second half, which is what `driverConfirmed` is for — and only an
+ * explicit "no" counts against the provider. A job nobody confirmed is a
+ * success, because most drivers close the app the moment their car starts.
+ *
+ * THE STAR RATING IS A NUDGE, NOT A VERDICT. It moves trust by at most
+ * ±RATING_INFLUENCE, so a provider who fixes the fault is not punished for
+ * a driver who was in a bad mood, and a charming provider cannot rate their
+ * way out of a run of jobs they did not fix. Rating nothing changes nothing:
+ * the adjustment is zero when no job has been rated, so a provider whose
+ * drivers never rate sits exactly where their completion record puts them.
  *
  * THE 0.5 FLOOR is deliberate and load-bearing: trust divides the cost, so an
  * unbounded score lets a couple of early bad jobs multiply a provider's cost
@@ -32,10 +40,19 @@
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
-/** Below this, the driver is telling us the job did not go well. */
-export const SATISFACTORY_RATING = 4;
+/**
+ * The most a star average can move trust, in either direction.
+ *
+ * 0.1 against a score that spans 0.5-1.0 means ratings can reorder providers
+ * whose completion records are close, and can never outweigh actually fixing
+ * cars. That ordering of priorities is the point.
+ */
+export const RATING_INFLUENCE = 0.1;
 
-/** Trust can sink no lower than this \u2014 see the note above. */
+/** The star average that means "fine" — above nudges up, below nudges down. */
+export const NEUTRAL_RATING = 3;
+
+/** Trust can sink no lower than this — see the note above. */
 export const TRUST_FLOOR = 0.5;
 
 /** What a provider starts on, before they have any history at all. */
@@ -52,18 +69,21 @@ export interface TrustSummary {
  * Recompute and persist a provider's trust from their resolution history.
  *
  * Safe to call more than once for the same job: it reads the current rows and
- * overwrites, so a repeated call is a no-op rather than a double count \u2014 which
+ * overwrites, so a repeated call is a no-op rather than a double count — which
  * is exactly why the counters are not incremented.
  */
 export async function recomputeProviderTrust(providerId: string): Promise<TrustSummary> {
   const rows = await prisma.resolutionFeedback.findMany({
     where: { providerId },
-    select: { wasMatch: true, userRating: true },
+    select: { wasMatch: true, userRating: true, driverConfirmed: true },
   });
 
   const totalJobs = rows.length;
+
+  // The right provider, and the driver did not come back to say it was still
+  // broken. `null` — never asked, or asked and ignored — counts as done.
   const successfulJobs = rows.filter(
-    (r) => r.wasMatch && (r.userRating === null || r.userRating >= SATISFACTORY_RATING),
+    (r) => r.wasMatch && r.driverConfirmed !== false,
   ).length;
 
   const rated = rows.filter((r) => r.userRating !== null).map((r) => r.userRating as number);
@@ -71,9 +91,15 @@ export async function recomputeProviderTrust(providerId: string): Promise<TrustS
     ? rated.reduce((sum, v) => sum + v, 0) / rated.length
     : null;
 
-  const trustScore = totalJobs > 0
-    ? Math.max(TRUST_FLOOR, successfulJobs / totalJobs)
-    : DEFAULT_TRUST;
+  // Map the 1-5 average onto -1..+1 around neutral, then scale it right down.
+  // No ratings at all leaves this at exactly zero rather than at some assumed
+  // value, so silence is genuinely neutral.
+  const ratingAdjustment = averageRating === null
+    ? 0
+    : RATING_INFLUENCE * ((averageRating - NEUTRAL_RATING) / (5 - NEUTRAL_RATING));
+
+  const completionRate = totalJobs > 0 ? successfulJobs / totalJobs : DEFAULT_TRUST;
+  const trustScore = Math.min(1, Math.max(TRUST_FLOOR, completionRate + ratingAdjustment));
 
   await prisma.provider.update({
     where: { id: providerId },
@@ -82,6 +108,8 @@ export async function recomputeProviderTrust(providerId: string): Promise<TrustS
 
   logger.info('Provider trust recomputed', {
     providerId, totalJobs, successfulJobs,
+    completionRate: completionRate.toFixed(3),
+    ratingAdjustment: ratingAdjustment.toFixed(3),
     trustScore: trustScore.toFixed(3),
     averageRating: averageRating?.toFixed(2) ?? null,
   });

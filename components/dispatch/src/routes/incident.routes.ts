@@ -6,7 +6,7 @@
 import { Router } from 'express';
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
-import { createIncidentSchema, incidentRatingSchema, resolutionReportSchema } from '../utils/validators';
+import { createIncidentSchema, incidentConfirmationSchema, resolutionReportSchema } from '../utils/validators';
 import { assertOwnsProvider } from '../middleware/auth';
 import { recomputeProviderTrust } from '../services/provider-trust';
 
@@ -120,29 +120,33 @@ incidentRouter.get('/', async (req, res) => {
 
 /** POST /api/v1/incidents/:id/resolve — Submit resolution + Bayesian feedback */
 /**
- * POST /api/v1/incidents/:id/rating — the driver rates a finished job.
+ * POST /api/v1/incidents/:id/confirm — the driver's word on a finished job.
  *
- * WHY THIS IS SEPARATE FROM /feedback. That endpoint is the provider's: it
- * needs `actualServiceType`, `providerId` and a resolution time, which is
- * knowledge a driver does not have. Asking the phone to supply them so it
- * could attach one number would mean inventing four.
+ * WHY THE DRIVER IS ASKED AT ALL. The provider closes their own job, so
+ * without this the only record of whether a car was actually fixed is the
+ * account of the person paid to fix it. `resolved: false` is the driver
+ * saying it was not, and it is the one signal that marks a dispatch
+ * unsuccessful no matter what the provider filed.
  *
- * The rating lands on the `ResolutionFeedback` row the provider already
- * created when they closed the job, then trust is recomputed from the record.
- * That is the whole point of collecting it: a rating below 4 turns a matched
- * dispatch into an unsuccessful one, which lowers trust, which raises that
- * provider's expected cost the next time the ECM ranks them.
+ * WHY IT IS SEPARATE FROM /feedback. That endpoint is the provider's: it needs
+ * `actualServiceType`, `providerId` and a resolution time, which is knowledge
+ * a driver does not have. Asking the phone to supply them so it could attach
+ * two fields would mean inventing four.
  *
- * Re-rating overwrites. A driver who taps 2 and immediately means 4 should be
- * able to fix it, and trust is derived rather than accumulated, so the
- * correction simply recomputes.
+ * The star rating rides along optionally and moves trust only slightly. Both
+ * land on the `ResolutionFeedback` row the provider created when they closed
+ * the job, and trust is then recomputed from the record.
+ *
+ * Re-confirming overwrites. A driver who taps the wrong answer should be able
+ * to fix it, and trust is derived rather than accumulated, so a correction
+ * simply recomputes.
  */
-incidentRouter.post('/:id/rating', async (req, res) => {
+incidentRouter.post('/:id/confirm', async (req, res) => {
   try {
-    const parsed = incidentRatingSchema.safeParse(req.body);
+    const parsed = incidentConfirmationSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({
-        success: false, error: 'Invalid rating',
+        success: false, error: 'Invalid confirmation',
         details: parsed.error.flatten(), timestamp: new Date().toISOString(),
       });
       return;
@@ -153,38 +157,52 @@ incidentRouter.post('/:id/rating', async (req, res) => {
 
     if (!feedback) {
       // Either the incident does not exist, or the provider has not closed it
-      // yet. Both mean the same thing to the driver: there is nothing to rate.
+      // yet. Both mean the same thing to the driver: there is nothing to
+      // confirm.
       res.status(409).json({
         success: false,
-        error: 'This job has not been completed yet, so there is nothing to rate',
+        error: 'This job has not been completed yet, so there is nothing to confirm',
         timestamp: new Date().toISOString(),
       });
       return;
     }
 
+    const { resolved, rating } = parsed.data;
+
     const updated = await prisma.resolutionFeedback.update({
       where: { incidentId },
-      data: { userRating: parsed.data.rating },
+      data: {
+        driverConfirmed: resolved,
+        // Only overwrite the rating when one was actually given, so
+        // re-confirming without touching the stars does not wipe them.
+        ...(rating !== undefined ? { userRating: rating } : {}),
+      },
     });
 
     const trust = await recomputeProviderTrust(feedback.providerId);
 
-    logger.info('Driver rating recorded', {
+    logger.info('Driver confirmation recorded', {
       incidentId,
       providerId: feedback.providerId,
-      rating: parsed.data.rating,
+      resolved,
+      rating: rating ?? null,
       wasMatch: feedback.wasMatch,
       newTrustScore: trust.trustScore.toFixed(3),
     });
 
     res.json({
       success: true,
-      data: { incidentId, rating: updated.userRating, provider: trust },
-      message: 'Thanks — your rating has been recorded',
+      data: {
+        incidentId,
+        driverConfirmed: updated.driverConfirmed,
+        rating: updated.userRating,
+        provider: trust,
+      },
+      message: resolved ? 'Thanks — glad you are back on the road' : 'Thanks — we have recorded that this was not fixed',
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
-    logger.error('Failed to record rating:', error);
+    logger.error('Failed to record driver confirmation:', error);
     res.status(500).json({ success: false, error: error.message, timestamp: new Date().toISOString() });
   }
 });
@@ -340,12 +358,12 @@ incidentRouter.post('/:id/resolve', async (req, res) => {
     const predictedServiceType = incident.triageResponse?.predictedServiceType;
     const wasMatch = predictedServiceType === actualServiceType;
 
-    const updatedIncident = await prisma.incident.update({
-      where: { id: incidentId },
-      data: { status: escalationNeeded ? 'ESCALATED' : 'RESOLVED', resolvedAt: new Date() },
-    });
-
-    // Record feedback for Bayesian learning
+    // ORDER MATTERS. The driver's screen stops polling the moment it sees a
+    // terminal status, and the card that asks whether the job was actually
+    // fixed only renders once the feedback row exists. Flipping the status
+    // first left a window where a poll landing in between saw RESOLVED with
+    // no feedback row, stopped polling, and never asked the question at all.
+    // Write the row first, then publish the status that ends the poll.
     if (incident.triageResponse && incident.assignedProviderId) {
       const triage = incident.triageResponse;
       await prisma.resolutionFeedback.create({
@@ -387,6 +405,11 @@ incidentRouter.post('/:id/resolve', async (req, res) => {
         providerTrustScore: trustScore?.toFixed(3) ?? 'unchanged',
       });
     }
+
+    const updatedIncident = await prisma.incident.update({
+      where: { id: incidentId },
+      data: { status: escalationNeeded ? 'ESCALATED' : 'RESOLVED', resolvedAt: new Date() },
+    });
 
     res.json({
       success: true,

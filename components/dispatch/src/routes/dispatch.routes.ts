@@ -154,6 +154,33 @@ dispatchRouter.post('/respond', async (req, res) => {
       return;
     }
 
+    // One job at a time. A provider driving to one roadside cannot be at
+    // another, and a second acceptance strands whichever driver they do not
+    // reach. Derived from the incidents rather than a flag on the provider,
+    // for the same reason the dispatch candidate query is (see
+    // services/dispatch-executor.ts).
+    //
+    // Only guards ACCEPT: declining while busy is exactly what a busy
+    // provider should be able to do.
+    if (accepted && !alreadyAccepted) {
+      const held = await prisma.incident.findFirst({
+        where: {
+          assignedProviderId: providerId,
+          status: { in: ['EN_ROUTE', 'ON_SCENE'] },
+          id: { not: incidentId },
+        },
+        select: { id: true },
+      });
+      if (held) {
+        res.status(409).json({
+          success: false,
+          error: 'You already have a job in progress. Complete it before accepting another.',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+    }
+
     let updatedIncident = incident;
     if (!alreadyAccepted) {
       // Conditional write: the transition only lands while the incident still

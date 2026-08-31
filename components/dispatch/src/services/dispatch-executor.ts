@@ -71,10 +71,33 @@ export async function executeDispatch(params: ExecuteDispatchParams): Promise<Ex
     }
   }
 
+  // A provider already holding a job is not a candidate for another one.
+  //
+  // DERIVED FROM THE INCIDENTS, not from a BUSY flag on the provider. A flag
+  // has to be set on accept and cleared on resolve, decline, cancel, timeout
+  // and re-dispatch, and any path that forgets leaves a provider invisible to
+  // dispatch for ever with nothing on screen to explain why. The incident rows
+  // already say who is occupied, so ask them.
+  //
+  // PROVIDER_ASSIGNED counts as busy even though it has not been accepted:
+  // holding two competing offers at once is how a provider ends up accepting
+  // both and stranding one driver.
+  const busy = await prisma.incident.findMany({
+    where: {
+      assignedProviderId: { not: null },
+      status: { in: ['PROVIDER_ASSIGNED', 'EN_ROUTE', 'ON_SCENE'] },
+    },
+    select: { assignedProviderId: true },
+  });
+  const unavailableIds = Array.from(new Set([
+    ...excludeProviderIds,
+    ...busy.map((i) => i.assignedProviderId as string),
+  ]));
+
   const dbProviders = await prisma.provider.findMany({
     where: {
       status: 'AVAILABLE',
-      ...(excludeProviderIds.length > 0 ? { id: { notIn: excludeProviderIds } } : {}),
+      ...(unavailableIds.length > 0 ? { id: { notIn: unavailableIds } } : {}),
     },
     take: maxProviders,
   });

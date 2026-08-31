@@ -338,6 +338,8 @@ export interface IncidentFeedback {
   resolutionTimeMinutes: number;
   /** `null` until the driver rates the job — rating is optional. */
   userRating: number | null;
+  /** The driver's answer to "did they actually fix it?". `null` until asked. */
+  driverConfirmed: boolean | null;
   providerNotes?: string | null;
 }
 
@@ -365,20 +367,23 @@ export async function cancelIncident(incidentId: string): Promise<Incident> {
 }
 
 /**
- * The driver's star rating for a finished job.
+ * The driver's word on a job the provider has closed.
  *
- * Lands on the resolution record the provider created when they closed the
- * job, and moves that provider's trust score — which the ECM divides expected
- * cost by, so this is the driver's one direct input into who gets dispatched
- * next. Re-rating overwrites, so a mis-tap can be corrected.
+ * `resolved` is the part that counts: the provider closes their own job, so
+ * without this the only record of whether the car was actually fixed comes
+ * from the person paid to fix it. Saying no marks the dispatch unsuccessful
+ * and lowers that provider's trust, which the ECM divides expected cost by.
+ *
+ * The star rating is optional and moves trust only slightly, so a driver who
+ * just wants to get going is not penalising anyone by skipping it.
  */
-export async function rateIncident(
+export async function confirmIncident(
   incidentId: string,
-  rating: 1 | 2 | 3 | 4 | 5
-): Promise<{ incidentId: string; rating: number }> {
-  return request(`/api/v1/incidents/${incidentId}/rating`, {
+  input: { resolved: boolean; rating?: 1 | 2 | 3 | 4 | 5 }
+): Promise<{ incidentId: string; driverConfirmed: boolean; rating: number | null }> {
+  return request(`/api/v1/incidents/${incidentId}/confirm`, {
     method: "POST",
-    body: JSON.stringify({ rating }),
+    body: JSON.stringify(input),
   });
 }
 

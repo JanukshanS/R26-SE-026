@@ -183,12 +183,17 @@ export const updateProviderProfileSchema = z.object({
 });
 
 /**
- * The driver's rating of a finished job.
+ * The driver's word on a job the provider has closed.
  *
- * Whole stars only: the UI shows five of them, and accepting 3.5 would let a
- * hand-written request express something the driver has no way to say and the
- * trust rule (>= 4 is satisfactory) treats as a cliff edge anyway.
+ * `resolved` is the part that matters and is required: only the driver can say
+ * whether the car actually got fixed, and that is what decides whether the
+ * dispatch counted as a success. The star rating is optional and, by design, a
+ * much smaller influence — see services/provider-trust.ts.
+ *
+ * Whole stars only: the UI shows five of them, so accepting 3.5 would let a
+ * hand-written request express something no driver can.
  */
-export const incidentRatingSchema = z.object({
-  rating: z.number().int().min(1).max(5),
+export const incidentConfirmationSchema = z.object({
+  resolved: z.boolean(),
+  rating:   z.number().int().min(1).max(5).optional(),
 });

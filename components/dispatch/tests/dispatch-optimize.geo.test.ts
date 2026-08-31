@@ -11,7 +11,9 @@ vi.hoisted(() => {
 const { mockFetchGeo, mockPrisma } = vi.hoisted(() => ({
   mockFetchGeo: vi.fn(),
   mockPrisma: {
-    incident: { findUnique: vi.fn(), update: vi.fn() },
+    // findMany backs the busy-provider exclusion: a provider already
+    // holding a job is not a candidate for another one.
+    incident: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
     provider: { findMany: vi.fn() },
     dispatchDecision: { create: vi.fn() },
   },
@@ -82,6 +84,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockPrisma.incident.findUnique.mockResolvedValue(mockIncident);
   mockPrisma.provider.findMany.mockResolvedValue(mockProviders);
+  mockPrisma.incident.findMany.mockResolvedValue([]); // nobody is busy
   mockPrisma.incident.update.mockResolvedValue({});
   mockPrisma.dispatchDecision.create.mockResolvedValue({});
 });
