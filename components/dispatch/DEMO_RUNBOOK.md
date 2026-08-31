@@ -20,25 +20,44 @@ provider table with Google Distance Matrix supplying travel times. Re-derived 20
 | Ops dashboard | `http://localhost:3000` | Next.js web app. |
 | geo-intelligence | `https://geo.vps.kaduna.lk` | Not local — dispatch calls Asath's VPS, which is what its `.env` already points at. |
 
-**The phones reach all of this over the USB cable, not Wi-Fi.** `apps/mobile/.env` now points at
-`http://localhost:3001` and `scripts/demo-phones.sh` sets up the `adb reverse` tunnels. Shared
-Wi-Fi isolates clients from each other often enough that the LAN route is not worth the risk
-mid-demo. One consequence: *this value is wrong for a production build* — swap it for a reachable
-host before building.
+**The phones reach all of this over the USB cable, not Wi-Fi.** `apps/mobile/.env` points at
+`http://localhost:3001`, which only resolves through an `adb reverse` tunnel (§2). Shared Wi-Fi
+isolates clients from each other often enough that the LAN route is not worth the risk mid-demo.
+One consequence: *this value is wrong for a production build* — swap it for a reachable host
+before building.
 
 ---
 
 ## 2. Setting up the two phones
 
-1. **Plug both phones in and run the rig script.**
+1. **Plug both phones in and open the tunnels.** `adb` is not on PATH on the demo laptop; it
+   lives with the Android SDK (`D:\AndroidData\platform-tools` there).
 
    ```bash
-   bash scripts/demo-phones.sh
+   export PATH="/d/AndroidData/platform-tools:$PATH"
+   for s in $(adb devices | awk '$2=="device"{print $1}'); do
+     for p in 3001 8081 8082; do adb -s "$s" reverse tcp:$p tcp:$p; done
+     # Check from the DEVICE. The laptop can always reach its own services;
+     # only this proves the tunnel actually carries traffic.
+     adb -s "$s" shell "curl -s -m 8 -o /dev/null -w '%{http_code}' http://localhost:3001/health; echo"
+   done
    ```
 
-   It finds each phone by which app is installed, opens the tunnels it needs, and launches it
-   straight against the right bundler. Re-run it any time a phone shows "Failed to connect to
-   localhost" — reverse tunnels drop silently and re-running is the fix.
+   Three ports on every phone, not one each: both ends talk to dispatch (3001), and a phone
+   carrying both apps swaps roles between runs. Expect `200` from each device.
+
+   **Re-run this any time a phone shows "Failed to connect to localhost".** Reverse tunnels drop
+   silently, and re-adding them is the fix — it is almost never a real backend problem.
+
+   To launch an app straight against its bundler without typing a URL:
+
+   ```bash
+   adb -s <serial> shell am force-stop com.kaduna.app
+   adb -s <serial> shell am start -a android.intent.action.VIEW \
+     -d "mobile://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081"
+   ```
+
+   For the simulator use scheme `kadunaobdsim`, package `com.kaduna.obdsimulator`, port `8082`.
 
 2. **Sign in on phone A as the driver.** Use `sjanukshan9825@gmail.com` — "Janukshan Sivakumar",
    role `driver`, no provider linked.
@@ -241,7 +260,7 @@ the same value used for the trees.
 | --- | --- |
 | Result says Tier-1 on the OBD run | The adapter dropped, so no telemetry reached the payload. Re-pair from the home screen. The app will not silently substitute synthetic data — that is why this shows up honestly. |
 | Tier-2, but the diagnosis is still the overheat | The codes did not come back. Almost always the ignition: mode 03 needs the engine running on phone B. |
-| Phone shows "Failed to connect to localhost" | A reverse tunnel dropped. Re-run `scripts/demo-phones.sh`. |
+| Phone shows "Failed to connect to localhost" | A reverse tunnel dropped. Re-add the tunnels (§2 step 1). |
 | Phone B's simulator has no Fault Memory card | It is running the standalone production APK, not the dev client, so it never loaded today's Metro bundle. Reinstall the dev client build and relaunch through the script. |
 | Job vanishes from the provider screen | The 120 s watchdog reclaimed it and offered it elsewhere. Start a fresh incident. |
 | "Couldn't reach the diagnosis service" | Dispatch is down or untunnelled. Check `curl http://127.0.0.1:3001/health` — use the literal IP, since `localhost` resolves to IPv6 first on this machine and hangs. |
