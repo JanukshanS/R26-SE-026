@@ -38,7 +38,10 @@ async function scoreOne(inc: DispatchIncident): Promise<Incident | null> {
     // Whatever geo matched at the incident's coordinates, rather than the
     // placeholder this used to invent.
     roadType: s.road?.road_type ?? "primary",
-    roadName: s.road?.matched_road ?? "Live report",
+    // Empty, not a placeholder: geo matches plenty of OSM ways that carry no
+    // name tag, and "Live report" sitting in the road-name column of the
+    // scoring log reads as though that were the road's name.
+    roadName: s.road?.matched_road ?? "",
     totalLanes: s.road?.total_lanes ?? 2,
     lanesBlocked: s.lanesBlocked ?? 1,
     incidentType: s.incidentType,
