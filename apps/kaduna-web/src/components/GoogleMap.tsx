@@ -52,6 +52,7 @@ export default function GoogleMap({
   onSelectIncident,
   filters,
   layers,
+  focus,
 }: MapProps) {
   const t = useT();
   const nodeRef = useRef<HTMLDivElement>(null);
@@ -99,6 +100,24 @@ export default function GoogleMap({
       setReady(false);
     };
   }, []);
+
+  // Its own effect, not part of the render pass: the map loads asynchronously
+  // after the tab switch that brings the operator here, so a fit applied while
+  // the layers are drawn would race the load and be dropped.
+  useEffect(() => {
+    if (!ready || !focus) return;
+    const maps = mapsRef.current;
+    const map = mapRef.current;
+    if (!maps || !map) return;
+    // A Circle with no map attached is the cheapest way to get the bounds of a
+    // radius in metres. 1.6x leaves the cluster surrounded by the roads it sits
+    // on rather than filling the frame edge to edge.
+    const bounds = new maps.Circle({
+      center: { lat: focus.lat, lng: focus.lng },
+      radius: focus.radiusM * 1.6,
+    }).getBounds();
+    map.fitBounds(bounds);
+  }, [ready, focus]);
 
   useEffect(() => {
     if (!ready) return;

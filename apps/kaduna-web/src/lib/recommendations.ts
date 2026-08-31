@@ -8,10 +8,11 @@ import type { HotspotCluster } from "./types";
  * 25 clusters into a ranked list of placements, each with a unit type, a time
  * window, and the distance to the nearest unit that could already cover it.
  *
- * The ranking is deliberately one line of arithmetic rather than a model. A
- * road authority has to be able to ask why a location is first and get an
- * answer in a sentence, which is the same reason the impact score is a weighted
- * sum and not a neural network.
+ * Clusters are ranked by the vehicle-hours of delay a unit stationed there
+ * would avoid, which is the unit the rest of the dashboard already reports.
+ * The earlier ranking multiplied incident count by average impact by distance
+ * and produced a bare index — a number that ordered the list correctly but
+ * meant nothing on its own, so nobody could say what a placement was worth.
  */
 
 export interface ProviderPoint {
@@ -22,11 +23,20 @@ export interface ProviderPoint {
   longitude: number;
 }
 
+/** The fields of a scored incident this ranking needs. `Incident` satisfies it. */
+export interface IncidentPoint {
+  lat: number;
+  lng: number;
+  vhl: number;
+  recoveryMin: number;
+}
+
 export interface Recommendation {
   hotspotId: number;
   lat: number;
   lng: number;
-  /** Incidents in the cluster. */
+  radiusM: number;
+  /** Incidents in the cluster, as mined. */
   incidents: number;
   avgScore: number;
   /** Local hour the cluster peaks, 0-23. */
@@ -38,17 +48,27 @@ export interface Recommendation {
   /** Distance to the nearest unit of that type, km. Null when none exist. */
   nearestKm: number | null;
   nearestName: string | null;
-  /** incidents x average impact — how much disruption the cluster produces. */
-  demand: number;
-  /** demand weighted by how far help currently is. */
-  priority: number;
+  /** Scored incidents that fall inside the drawn cluster radius. */
+  matchedIncidents: number;
+  /** How much sooner a unit stationed here would arrive, minutes. */
+  minutesSaved: number;
+  /** Vehicle-hours of delay that earlier arrival would avoid. */
+  vhlSaved: number;
   covered: boolean;
 }
 
 /** A cluster whose nearest capable unit is beyond this is treated as uncovered. */
 export const COVERED_KM = 5;
-/** Distance past which extra remoteness stops increasing priority. */
+/** Distance past which a unit is treated as absent rather than merely far. */
 const DISTANCE_CAP_KM = 10;
+/**
+ * Colombo urban average. The same number dispatch uses for its own ETA
+ * (`AVG_SPEED_KMH` in dispatch-optimizer.ts) — two different response-time
+ * assumptions in one platform is a contradiction waiting to be found.
+ */
+const RESPONSE_KMH = 25;
+/** Floor on the cluster radius, matching the circle the map draws. */
+const MIN_RADIUS_M = 300;
 
 const EARTH_KM = 6371;
 
@@ -95,19 +115,30 @@ export function unitForIncident(incidentType: string): string {
 }
 
 /**
- * Rank the clusters by where a unit would do the most good.
+ * Rank the clusters by the delay a placement would avoid.
  *
- * priority = incidents x average impact x (km to nearest capable unit, capped
- * at 10, over 10)
+ * A unit stationed on the cluster arrives `nearestKm / 25 km/h` sooner than the
+ * nearest capable unit does today. An incident that is cleared that much sooner
+ * blocks the road for that much less of its recovery time, so it sheds the same
+ * share of the vehicle-hours it was going to cost.
  *
- * The first two terms are how much disruption the cluster produces; the third
- * is how poorly it is served today. A busy cluster with a unit already parked
- * on it scores near zero, which is correct — there is nothing to recommend.
+ * The share is taken as linear in the time saved. Deterministic queueing makes
+ * the real relationship steeper than linear, because the queue is still growing
+ * while the incident stands, so this understates the benefit rather than
+ * inflating it.
  */
 export function buildRecommendations(
   hotspots: HotspotCluster[],
-  providers: ProviderPoint[]
+  providers: ProviderPoint[],
+  incidents: IncidentPoint[] = []
 ): Recommendation[] {
+  const meanVhl = incidents.length
+    ? incidents.reduce((s, i) => s + i.vhl, 0) / incidents.length
+    : 0;
+  const meanRecovery = incidents.length
+    ? incidents.reduce((s, i) => s + i.recoveryMin, 0) / incidents.length
+    : 0;
+
   return hotspots
     .map((h) => {
       const unitType = unitForIncident(h.incidentType);
@@ -123,16 +154,31 @@ export function buildRecommendations(
         }
       }
 
-      const demand = h.count * h.avgScore;
-      // With no capable unit anywhere, the gap is total, so the distance term
-      // takes its maximum rather than dropping the cluster from the list.
-      const distanceTerm =
-        nearestKm === null ? 1 : Math.min(nearestKm, DISTANCE_CAP_KM) / DISTANCE_CAP_KM;
+      // With no capable unit anywhere the gap is total, so the saving takes the
+      // value it would have at the cap rather than dropping out of the ranking.
+      const gapKm = nearestKm === null ? DISTANCE_CAP_KM : Math.min(nearestKm, DISTANCE_CAP_KM);
+      const minutesSaved = (gapKm / RESPONSE_KMH) * 60;
+
+      const radiusM = Math.max(h.radiusM, MIN_RADIUS_M);
+      const inCluster = incidents.filter(
+        (i) => haversineKm(h.lat, h.lng, i.lat, i.lng) * 1000 <= radiusM
+      );
+
+      const share = (recoveryMin: number) =>
+        recoveryMin > 0 ? Math.min(minutesSaved / recoveryMin, 1) : 1;
+
+      // DBSCAN clusters are not circles, so a few have no scored incident
+      // inside the radius the map draws. Those fall back to the dataset average
+      // rather than reading as a cluster worth nothing.
+      const vhlSaved = inCluster.length
+        ? inCluster.reduce((s, i) => s + i.vhl * share(i.recoveryMin), 0)
+        : h.count * meanVhl * share(meanRecovery);
 
       return {
         hotspotId: h.id,
         lat: h.lat,
         lng: h.lng,
+        radiusM,
         incidents: h.count,
         avgScore: h.avgScore,
         peakHour: h.peakHour,
@@ -141,12 +187,13 @@ export function buildRecommendations(
         unitType,
         nearestKm,
         nearestName,
-        demand: Math.round(demand * 10) / 10,
-        priority: Math.round(demand * distanceTerm * 10) / 10,
+        matchedIncidents: inCluster.length,
+        minutesSaved: Math.round(minutesSaved),
+        vhlSaved: Math.round(vhlSaved * 10) / 10,
         covered: nearestKm !== null && nearestKm <= COVERED_KM,
       };
     })
-    .sort((a, b) => b.priority - a.priority);
+    .sort((a, b) => b.vhlSaved - a.vhlSaved);
 }
 
 /** The recommendation as a sentence, which is what a report needs. */
@@ -157,5 +204,10 @@ export function recommendationText(r: Recommendation): string {
     r.nearestKm === null
       ? `No ${unit} is registered anywhere.`
       : `Nearest ${unit} is ${r.nearestKm.toFixed(1)} km away.`;
-  return `Station a ${unit} near this cluster, covering ${window}. ${cover}`;
+  const n = r.matchedIncidents || r.incidents;
+  return (
+    `Station a ${unit} near this cluster, covering ${window}. ${cover} ` +
+    `Arriving ${r.minutesSaved} min sooner would avoid about ${r.vhlSaved} ` +
+    `vehicle-hours of delay across the ${n} incidents recorded here.`
+  );
 }

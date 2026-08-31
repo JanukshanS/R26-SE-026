@@ -5,7 +5,7 @@ import { matchesFilters } from "@/lib/filters";
 import { PRIORITY_COLORS, type MapProps } from "@/components/Map";
 import { useT } from "@/lib/i18n";
 
-export default function LeafletMap({ incidents, hotspots, blackspots, onSelectIncident, filters, layers }: MapProps) {
+export default function LeafletMap({ incidents, hotspots, blackspots, onSelectIncident, filters, layers, focus }: MapProps) {
   const t = useT();
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMap = useRef<any>(null);
@@ -68,6 +68,20 @@ export default function LeafletMap({ incidents, hotspots, blackspots, onSelectIn
       setReady(false);
     };
   }, []);
+
+  // Its own effect, not part of the render pass: the map loads asynchronously
+  // after the tab switch that brings the operator here, so a fit applied while
+  // the layers are drawn would race the load and be dropped.
+  useEffect(() => {
+    if (!ready || !focus || !leafletMap.current) return;
+    import("leaflet").then(({ default: L }) => {
+      // toBounds takes the full width, so 3.2x a radius is the same 1.6x frame
+      // the Google engine uses.
+      leafletMap.current?.fitBounds(
+        L.latLng(focus.lat, focus.lng).toBounds(focus.radiusM * 3.2)
+      );
+    });
+  }, [ready, focus]);
 
   useEffect(() => {
     if (!ready || !leafletMap.current) return;

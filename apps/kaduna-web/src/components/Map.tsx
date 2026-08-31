@@ -12,6 +12,8 @@ export interface MapProps {
   onSelectIncident: (incident: Incident) => void;
   filters: MapFilters;
   layers: { incidents: boolean; hotspots: boolean; heatmap: boolean; blackspots: boolean };
+  /** Cluster to bring into view, set when a placement recommendation is opened. */
+  focus?: { lat: number; lng: number; radiusM: number } | null;
 }
 
 /** Shared by both engines so a CRITICAL dot is the same red on either basemap. */

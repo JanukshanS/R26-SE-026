@@ -24,6 +24,7 @@ import { DAY_NAMES, NO_FILTERS, describeFilters, isFiltered, matchesFilters } fr
 import { downloadIncidentsCsv } from "@/lib/exportCsv";
 import { fetchHotspots, fetchStats, fetchGeoHealth, type DataSource } from "@/lib/geoData";
 import { useT } from "@/lib/i18n";
+import type { Recommendation } from "@/lib/recommendations";
 import type { Blackspot, HotspotCluster, Incident, ModelConfig, Stats } from "@/lib/types";
 
 const Map = dynamic(() => import("@/components/Map"), { ssr: false });
@@ -177,6 +178,9 @@ export default function OperationsPage() {
     heatmap: false,
     blackspots: false,
   });
+  // Set when a placement recommendation is opened, so the live map arrives
+  // already framed on the cluster the operator was reading about.
+  const [focus, setFocus] = useState<{ lat: number; lng: number; radiusM: number } | null>(null);
   const [live, setLive] = useState<Incident[]>([]);
   const [liveOn, setLiveOn] = useState(false);
   const [dataSource, setDataSource] = useState<DataSource>("static");
@@ -244,6 +248,16 @@ export default function OperationsPage() {
   const allIncidents = useMemo(() => [...incidents, ...live], [incidents, live]);
 
   const handleSelectIncident = useCallback((inc: Incident) => setSelected(inc), []);
+
+  // A recommendation is about a cluster, so the hotspot rings have to come on
+  // with it — landing on the map with the ring still hidden would show the
+  // operator a patch of dots and no reason they were sent there. The hash
+  // change is what switches the tab; the listener above picks it up.
+  const showOnMap = useCallback((r: Recommendation) => {
+    setFocus({ lat: r.lat, lng: r.lng, radiusM: r.radiusM });
+    setLayers((l) => ({ ...l, hotspots: true }));
+    window.location.hash = "#livemap";
+  }, []);
 
   const togglePriority = (p: string) =>
     setFilters((prev) => ({
@@ -428,6 +442,7 @@ export default function OperationsPage() {
                   onSelectIncident={handleSelectIncident}
                   filters={filters}
                   layers={layers}
+                  focus={focus}
                 />
               </div>
 
@@ -486,7 +501,13 @@ export default function OperationsPage() {
             <div className="rounded-xl border border-border bg-card p-4 md:p-6">
               {tab === "What-if" && <WhatIfSimulator model={model} />}
               {tab === "Model accuracy" && <ValidationPanel />}
-              {tab === "Where to station" && <RecommendationsPanel />}
+              {tab === "Where to station" && (
+                <RecommendationsPanel
+                  hotspots={hotspots}
+                  incidents={incidents}
+                  onShowOnMap={showOnMap}
+                />
+              )}
               {tab === "Scoring log" && <ScoringLogPanel />}
             </div>
           )}
