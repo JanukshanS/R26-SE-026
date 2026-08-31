@@ -15,6 +15,12 @@ import type { Incident } from "./types";
 export interface ScoreLogEntry {
   /** Unique per call, so repeated scores of one incident are separate rows. */
   key: string;
+  /**
+   * When dispatch recorded the incident, not when this dashboard got round to
+   * scoring it. The two are unrelated: the poll scores everything outstanding
+   * on page load, so stamping the clock here made every row read as the
+   * moment the tab was opened.
+   */
   at: Date;
   incident: Incident;
   /** How geo established the road: osm | request | default. */
@@ -26,13 +32,13 @@ const MAX_ENTRIES = 200;
 let entries: ScoreLogEntry[] = [];
 const listeners = new Set<(e: ScoreLogEntry[]) => void>();
 
-export function recordScore(incident: Incident, roadSource: string): void {
+export function recordScore(incident: Incident, roadSource: string, at: Date): void {
   // One row per incident per hour: the live poll re-scores every 5s and an
   // unchanged score is not a new event.
   const key = `${incident.id}:${incident.hour}`;
   if (entries.some((e) => e.key === key)) return;
 
-  entries = [{ key, at: new Date(), incident, roadSource }, ...entries].slice(0, MAX_ENTRIES);
+  entries = [{ key, at, incident, roadSource }, ...entries].slice(0, MAX_ENTRIES);
   listeners.forEach((fn) => fn(entries));
 }
 

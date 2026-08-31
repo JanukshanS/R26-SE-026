@@ -70,7 +70,7 @@ async function scoreOne(inc: DispatchIncident): Promise<Incident | null> {
         }
       : undefined,
   };
-  recordScore(scored, s.road?.source ?? "default");
+  recordScore(scored, s.road?.source ?? "default", at);
   return scored;
 }
 

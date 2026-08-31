@@ -18,13 +18,14 @@ const PRIORITY_TOKEN: Record<string, string> = {
 };
 
 /**
- * Date as well as clock time. A log row that says only "14:22" cannot be tied
- * to a shift or a report once the tab has been open across midnight, and the
- * scored incident carries no date of its own.
+ * Date, clock time and seconds. Seconds are not fussiness: incidents arrive in
+ * bursts a second or two apart, and to the minute a whole burst collapses into
+ * one repeated timestamp with nothing to tell the rows apart.
  */
+const pad = (n: number) => String(n).padStart(2, "0");
 const when = (d: Date) =>
   `${d.getDate()} ${d.toLocaleString(undefined, { month: "short" })} ` +
-  `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 
 /** Where the road class came from, said plainly. */
 const ROAD_SOURCE: Record<string, string> = {
@@ -130,6 +131,7 @@ export default function ScoringLogPanel({
                           </span>
                           <span className="block font-mono text-xs tabular-nums text-muted-foreground">
                             {e.incident.lat.toFixed(4)}, {e.incident.lng.toFixed(4)}
+                            <span className="ml-2 opacity-70">#{e.incident.id}</span>
                           </span>
                         </span>
                       </button>
