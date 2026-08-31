@@ -1,8 +1,8 @@
 # The P0480 Runbook — two-phone dispatch demo
 
-One set of symptoms, run twice. Without the OBD tier the model calls it a **severe overheat**
-and books a tow. With the tier — and one stored trouble code — it calls it a **dead radiator
-fan** and books a roadside repair.
+One set of symptoms, run twice. Without the OBD tier the model calls it a **severe overheat**.
+With the tier — and one stored trouble code — it calls it a **dead radiator fan**: a
+different fault, a different job, and a third off the expected cost.
 
 Every number below came out of the real triage engine and the real ECM, scored against the live
 provider table with Google Distance Matrix supplying travel times. Re-derived 2026-08-31.
@@ -47,13 +47,18 @@ host before building.
    carries a `provider_id` pointing at a provider row that no longer exists, so provider calls made
    under it will fail.
 
-3. **Register the provider on phone B as a *light tow truck*.** Open the Kaduna app on phone B, go
-   to the provider side, register a fresh account and pick **Tow (light)**. It takes the phone's
-   GPS, so it lands beside the driver and wins both runs outright.
+3. **Register the provider on phone B, then give it both cooling services.** Register a fresh
+   account on the provider side (any type). It takes the phone's GPS, so it lands beside the
+   driver. Then open **Services** and make sure both **ENGINE_OVERHEAT_SEVERE** and
+   **RADIATOR_FAN_ISSUE** are ticked.
 
-   The type matters more than it looks. A mobile mechanic *cannot* be sent a severe overheat at
-   all, and even after the fan code lands it still loses to a tow (see §6). A light tow can service
-   both diagnoses, so one account covers the whole demo.
+   The Services list, not the type, is what dispatch actually matches on. `type` only seeds the
+   defaults at registration — a provider may add any real service type afterwards, by design
+   (`getAllServiceTypes()`). So one account covers both runs whatever you registered it as, and
+   without both services ticked it is ineligible for one of them and will not be offered the job.
+
+   This is how `New Malabe Auto` is set up in the database now: a MOBILE_MECHANIC with
+   ENGINE_OVERHEAT_SEVERE added, which is why it ranks #1 in both runs below.
 
 4. **Pair the simulator's adapter in Android Bluetooth settings.** On phone B, start the OBD
    simulator once and let it advertise as `KADUNA-OBDII`; on phone A, pair that name in the system
@@ -74,17 +79,23 @@ adapter paired when it reaches the last question.
 | Step 1 · Engine | Starts but runs rough |
 | Step 2 · Lights | Temp — *that lamp only* |
 | Step 3 · Recent | Temperature gauge went up |
-| Step 4 · Smell | Sweet smell |
-| Step 5 · Running | Overheating |
+| Step 4 · Running | Overheating |
+| Step 5 · Smell | Sweet smell |
 | Step 6 · Overheat | Even when driving normally |
+
+> Steps 4 and 5 swapped when the model was retrained: `Q2b_running_issue` went
+> from 7.2% to 11.6% of the tree's routing weight and now outranks
+> `Q6_smells`. The questionnaire is ordered by measured weight, so the retrain
+> reordered it.
 
 Tapping **Next** on step 6 is what fires the triage call — it reads the OBD adapter first, if one
 is connected, then posts the answers. There is no separate "Get Diagnosis" screen any more.
 
-**The overheat answer is not load-bearing.** All three of "Even when driving normally", "Only in
-heavy traffic" and "Only when climbing hills" produce the same pair of outcomes, so a mis-tap under
-pressure costs nothing. Verified across 450 combinations of the sensor values the simulator
-actually produces.
+**Do not improvise the smell answer.** "Sweet smell" is load-bearing: it is what keeps Tier 1 on
+ENGINE_OVERHEAT_SEVERE and out of the fan, which is the whole contrast (see §6). The overheat
+detail on step 6 is safer — "Even when driving normally" and "Only in heavy traffic" both leave
+Tier 1 on the overheat — but re-check any answer you change, because the 450-combination sweep
+that backed this claim was run against the pre-retrain model.
 
 ---
 
@@ -124,7 +135,7 @@ and accept it there.
    ```
 
 5. **Accept on the provider end.** The Bluetooth link has done its job by now, so phone B can
-   switch over to the Kaduna app and accept as the tow provider. If switching apps mid-demo feels
+   switch over to the Kaduna app and accept the job. If switching apps mid-demo feels
    risky, take the provider end in a browser at `localhost:8090` instead.
 
 **Accept within two minutes.** `DISPATCH_TIMEOUT_SECONDS` is 120, and the re-dispatch watchdog
@@ -140,21 +151,38 @@ which is a fine thing to demonstrate on purpose, and an awkward thing to discove
 | Model | Tier-1 · questionnaire only | Tier-2 · OBD enhanced |
 | Codes | none read | `P0480` confirmed · MIL on |
 | Diagnosis | **ENGINE_OVERHEAT_SEVERE** (100%) | **RADIATOR_FAN_ISSUE** (55%) |
-| Eligible providers | tow trucks only | mechanics and tows |
-| Expected cost | 163.4 | 108.4 |
-| Rank 1 | phone B | phone B |
+| Full distribution | overheat 100% | fan 55% · overheat 36% · coolant 9% |
+| Entropy | 0.00 | 0.91 |
+| Expected cost (rank 1) | 160.7 | 94.0 |
 
-**The sensors alone changed nothing.** Running Tier 2 with live telemetry but *no* codes still
-returns ENGINE_OVERHEAT_SEVERE at 100%. Coolant at 117 °C confirms the symptom the driver already
-described; only the stored code names a cause. That is the single sharpest thing this demo says,
-and it is worth saying out loud.
+Add the middle step if you want it: **Tier 2 with the adapter paired but the
+engine off**, so no codes are read. That gives ENGINE_OVERHEAT_SEVERE at 83%
+(overheat 80% / coolant 20%), cost 132.0 — the sensors alone sharpen nothing
+about the cause. Then start the engine and re-run to bring the code in.
 
-**Why the same tow wins both times.** At 55% confidence a mobile mechanic carries 45% mismatch risk
-— it cannot service the residual chance that this really is a severe overheat — and the ECM prices
-that risk above 14 minutes of extra travel. The nearest mechanic sits at 2.3 minutes and still
-scores 141.5 against the tow's 130.7. So the code changed the *diagnosis, the job and its cost*,
-not the class of provider. If an examiner presses on it, that is the answer: the optimizer is
-hedging deliberately, and it would stop hedging as confidence rose.
+**The sensors alone do not name the cause.** With the adapter paired but no codes read, Tier 2
+still says ENGINE_OVERHEAT_SEVERE — it only softens from 100% to 83% and adds COOLANT_LOW at 20%.
+Coolant at 117 °C confirms the symptom the driver already described. Only the stored code moves
+the answer to a different fault. That is the sharpest thing this demo says, and it is worth
+saying out loud.
+
+**Be careful how you describe the Tier-1 100%.** It is leaf purity on a decision tree, not a
+calibrated probability. After the `min_samples_leaf=5` retrain, 41% of Tier-1 leaves are still
+one-hot (down from 96%) and this path happens to land on one of them. The honest line is *"that
+figure is the tree's leaf purity; our reliability analysis puts Tier-1 ECE at 0.14, which is why
+the OBD tier exists"* — do not present it as the model being certain.
+
+**Why the confidence FALLS from 100% to 55%.** Because the evidence became contradictory, not
+because the diagnosis got worse. Entropy rises 0.00 → 0.91. The 55/45 split is also arithmetic
+rather than a learned number: `STRENGTH_WEIGHT.strong` is 0.55, so a confirmed code contradicting
+a confident tree always lands near there. Say that before an examiner finds it.
+
+**Why the questionnaire never suspects the fan.** The demo answers include *sweet smell*, which
+the UI itself labels "coolant leak (antifreeze)". In the training data, OVERHEATING + ALWAYS +
+SWEET contains **zero** RADIATOR_FAN_ISSUE rows — it is 8 hose-leak and 8 severe-overheat. So a
+correctly calibrated model *should not* rank the fan second here, and the code is carrying
+information the questionnaire genuinely does not have. Answer NO_SMELL instead and Tier 1 puts
+the fan joint-first on its own — which removes the contrast the demo is built on.
 
 ---
 
@@ -179,6 +207,31 @@ the OBD half of this demo was not possible before today. Fixed in `obd-ii-simula
 already reported. P0480 is the cooling-fan circuit: the cause, and the thing a mechanic would
 actually be sent to replace. Pairing the two would split the code evidence between them and land
 back on the tow, which is why the preset carries only the fan code.
+
+---
+
+## 7b. The model behind these numbers
+
+Retrained on 2026-08-31 with `min_samples_leaf=5` (was 1, i.e. fully unpruned).
+
+| | before | after |
+| --- | --- | --- |
+| Tier-1 leaves | 213 (depth 19) | 102 (depth 16) |
+| Tier-1 one-hot leaves | 96% | 41% |
+| Tier-1 ECE (10-bin) | 0.362 | **0.142** |
+| Tier-1 Brier | 0.718 | 0.602 |
+| Tier-1 accuracy | 0.644 | 0.575 |
+| Tier-2 ECE | 0.310 | **0.136** |
+| Tier-2 accuracy | 0.690 | **0.713** |
+
+Tier-1 accuracy fell ~7pp on an 87-row test set (about six cases, within noise), while calibration
+error more than halved and Tier 2 improved on both counts. The point of the change was that a tree
+reporting 100% on nearly every input cannot support any claim about confidence — which is exactly
+the question an examiner asks first.
+
+`calibration_eval_v3.py` had `min_samples_leaf` hardcoded to 1 while `train_v3.py` exposed it as a
+flag, so it silently measured a different model from the deployed one. It now takes the flag; pass
+the same value used for the trees.
 
 ---
 

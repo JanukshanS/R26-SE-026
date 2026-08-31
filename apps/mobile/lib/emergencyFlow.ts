@@ -12,13 +12,18 @@
  * (sample-weighted share of split decisions). Re-measured against the v3
  * real-data retrain (depth 19, 213 leaves), which reshuffled the weights:
  *
- *     Q5_lights          22.0%
- *     Q9_recent          15.1%
- *     Q2_engine_start    14.9%
- *     Q6_smells          10.8%   ← was 1.9% and asked last, pre-v3
- *     Q2b_running_issue   7.2%   ← was 29.0% and the root split, pre-v3
- *     Q3_sound            4.3%
- *     ...everything else  <4% each
+ *     Q5_lights          22.9%
+ *     Q2_engine_start    16.0%
+ *     Q9_recent          15.2%
+ *     Q2b_running_issue  11.6%
+ *     Q6_smells          11.3%
+ *     Q_brake_detail      4.3%
+ *     ...everything else  <4.2% each
+ *
+ * Re-measured after the min_samples_leaf=5 retrain, which pruned the tree from
+ * 213 leaves to 102 and moved Q2b back above Q6. FIVE questions now clear 10%
+ * rather than four, so the high-signal set no longer fits in five screens with
+ * Q1 occupying the first — the window is six. See emergency-flow-order.test.ts.
  *
  * Since the driver can bail at any step (see SKIP below), question order
  * decides how much signal the model gets from someone who stops early. The
@@ -100,12 +105,12 @@ const STEPS: StepDef[] = [
   { route: "diagnosis-lights", titleKey: "emergency.step.lights" },
   // Q9 — 15.1%. Always asked.
   { route: "recent",           titleKey: "emergency.step.recent" },
-  // Q6 — 10.8%. Always asked. The v3 retrain promoted this out of the tail.
-  { route: "smells",           titleKey: "emergency.step.smell" },
-  // Q2b — 7.2%. Was the root split pre-v3; now mid-weight, so it drops out of
-  // the top five. Still ahead of every branch detail that reads runningIssue.
+  // Q2b — 11.6%. Also the selector every branch detail below reads, so it has
+  // to precede them regardless of weight.
   { route: "running-issue",    titleKey: "emergency.step.runningIssue",
     when: (s) => s.engineState === "STARTS_NORMAL" || s.engineState === "STARTS_BUT_ISSUE" },
+  // Q6 — 11.3%. Always asked. Fifth of the five questions above 10%.
+  { route: "smells",           titleKey: "emergency.step.smell" },
   // Branch detail — at most one of these is ever active.
   { route: "diagnosis-sound",  titleKey: "emergency.step.sound",
     when: (s) => s.engineState === "CRANKS_NO_START" },
