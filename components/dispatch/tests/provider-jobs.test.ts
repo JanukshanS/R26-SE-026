@@ -13,9 +13,14 @@ const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
     incident: {
       findMany: vi.fn(), count: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn(),
+      // findFirst backs the one-job-at-a-time guard on accept.
+      findFirst: vi.fn(),
     },
     dispatchDecision: { findFirst: vi.fn(), update: vi.fn() },
-    resolutionFeedback: { create: vi.fn() },
+    // findMany + provider.update back recomputeProviderTrust, which /resolve
+    // calls once the feedback row is written.
+    resolutionFeedback: { create: vi.fn(), findMany: vi.fn() },
+    provider: { update: vi.fn() },
   },
 }));
 
@@ -58,6 +63,9 @@ const assignedIncident = {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
+  // Default: this provider is not already holding another job. Tests that
+  // care about the one-job-at-a-time rule override it.
+  mockPrisma.incident.findFirst.mockResolvedValue(null);
 });
 
 describe("GET /api/v1/incidents?assignedProviderId", () => {
@@ -185,6 +193,45 @@ describe("POST /api/v1/dispatch/respond", () => {
     assignedProviderId: PROVIDER_ID,
     status: "PROVIDER_ASSIGNED",
   };
+
+  it("refuses a second job while one is already in progress", async () => {
+    // A provider driving to one roadside cannot be at another, and a second
+    // acceptance strands whichever driver they do not reach.
+    mockProfile([{ provider_id: PROVIDER_ID }]);
+    mockPrisma.incident.findUnique.mockResolvedValue(assignedIncident);
+    mockPrisma.incident.findFirst.mockResolvedValue({ id: "other-job-in-progress" });
+
+    const res = await request(makeApp("user-busy"))
+      .post("/api/v1/dispatch/respond")
+      .send(body)
+      .set("Authorization", TOKEN);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/already have a job/i);
+    // The offer must be left untouched, not silently declined on their behalf.
+    expect(mockPrisma.incident.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("still lets a busy provider DECLINE an offer", async () => {
+    // Declining while busy is exactly what a busy provider should be doing.
+    mockProfile([{ provider_id: PROVIDER_ID }]);
+    mockPrisma.incident.findUnique
+      .mockResolvedValueOnce(assignedIncident)
+      .mockResolvedValueOnce({ ...assignedIncident, status: "DISPATCHING", assignedProviderId: null });
+    mockPrisma.incident.findFirst.mockResolvedValue({ id: "other-job-in-progress" });
+    mockPrisma.incident.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.dispatchDecision.findFirst.mockResolvedValue({
+      id: "decision-1",
+      createdAt: new Date(Date.now() - 30_000),
+    });
+
+    const res = await request(makeApp("user-busy-decline"))
+      .post("/api/v1/dispatch/respond")
+      .send({ ...body, accepted: false, declineReason: "BUSY" })
+      .set("Authorization", TOKEN);
+
+    expect(res.status).toBe(200);
+  });
 
   it("accepts a job and moves the incident to EN_ROUTE", async () => {
     mockProfile([{ provider_id: PROVIDER_ID }]);
@@ -394,6 +441,11 @@ describe("POST /api/v1/incidents/:id/resolve — ownership", () => {
     });
     mockPrisma.incident.update.mockResolvedValue({ ...assignedIncident, status: "RESOLVED" });
     mockPrisma.resolutionFeedback.create.mockResolvedValue({});
+    mockPrisma.resolutionFeedback.findMany.mockResolvedValue([
+      { wasMatch: true, userRating: null },
+      { wasMatch: false, userRating: 2 },
+    ]);
+    mockPrisma.provider.update.mockResolvedValue({});
 
     const res = await request(makeApp("u-owner"))
       .post(`/api/v1/incidents/${INCIDENT_ID}/resolve`)
@@ -405,5 +457,15 @@ describe("POST /api/v1/incidents/:id/resolve — ownership", () => {
     const written = mockPrisma.resolutionFeedback.create.mock.calls[0][0].data;
     expect(written.providerId).toBe(PROVIDER_ID);
     expect(written.wasMatch).toBe(true);
+
+    // Closing a job must move the provider's trust, since the ECM divides
+    // expected cost by it. One matched job of two, floored at 0.5.
+    expect(mockPrisma.provider.update).toHaveBeenCalledTimes(1);
+    const trustWrite = mockPrisma.provider.update.mock.calls[0][0];
+    expect(trustWrite.where.id).toBe(PROVIDER_ID);
+    expect(trustWrite.data.totalJobs).toBe(2);
+    expect(trustWrite.data.successfulJobs).toBe(1);
+    expect(trustWrite.data.trustScore).toBe(0.5);
+    expect(trustWrite.data.averageRating).toBe(2);
   });
 });

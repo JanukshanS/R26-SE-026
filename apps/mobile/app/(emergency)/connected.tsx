@@ -6,6 +6,8 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { Badge } from "@components/ui/badge";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
+import { ConfirmDialog } from "@components/ui/confirm-dialog";
+import { JobConfirmationCard, type Stars } from "@components/ui/job-confirmation-card";
 import { ErrorState } from "@components/ui/error-state";
 import { HeaderBar } from "@components/ui/header-bar";
 import { Icon, type IconName } from "@components/ui/icon";
@@ -16,8 +18,10 @@ import { useEmergency } from "@lib/emergencyContext";
 import { useHardwareBack } from "@lib/useHardwareBack";
 import { haptics } from "@lib/haptics";
 import {
+  cancelIncident,
   getIncident,
   getProvider,
+  confirmIncident,
   haversineKm,
   providerTypeLabel,
   type ProviderRecord,
@@ -31,6 +35,16 @@ const POLL_INTERVAL_MS = 5000;
 
 /** Nothing left to watch once the job ends — polling stops here. */
 const TERMINAL_STATUSES = ["RESOLVED", "ESCALATED", "CANCELLED"];
+
+/**
+ * While the job is still being offered around, the driver can call it off.
+ *
+ * EN_ROUTE is deliberately absent: by then a provider has accepted and is
+ * driving to the scene, so calling it off is a phone call, not a button. The
+ * backend enforces the same list — this only decides whether to show the
+ * control, it is not the check that matters.
+ */
+const CANCELLABLE_STATUSES = ["CREATED", "TRIAGING", "DISPATCHING", "PROVIDER_ASSIGNED"];
 
 /** Display ETA in whole minutes from the backend's computed travel time. */
 function formatEta(min: number | undefined, t: Translate): string {
@@ -108,13 +122,29 @@ export default function ConnectedScreen() {
   const { dispatchResult, reset } = useEmergency();
   const sp = dispatchResult?.selectedProvider;
 
+  /**
+   * Set the instant we start navigating away, and never unset.
+   *
+   * `reset()` clears `dispatchResult` synchronously, and React re-renders
+   * before the navigation commits — so the "we lost this request" branch
+   * below rendered for a frame on the way out, flashing an error at a driver
+   * whose job had just gone perfectly fine. The branch is for a genuinely
+   * absent result (web reload, deep link), not for a screen being left.
+   */
+  const leaving = useRef(false);
+
+  const goHome = useCallback(() => {
+    leaving.current = true;
+    reset();
+    router.replace("/(driver)/home");
+  }, [reset]);
+
   // Job is dispatched — back returns home (clearing the emergency state for a
   // fresh start), never into the now-stale questionnaire.
   useHardwareBack(useCallback(() => {
-    reset();
-    router.replace("/(driver)/home");
+    goHome();
     return true;
-  }, [reset]));
+  }, [goHome]));
 
   // After dispatch we fetch the provider's full record so we have lat/lng
   // for the map view and distance display.
@@ -173,6 +203,10 @@ export default function ConnectedScreen() {
           if (cancelled) return;
           setIncident(next);
           setPollError(null);
+          // A refused cancel explains itself against the status at the time.
+          // Once a fresh status has landed, the status card says it better,
+          // and leaving the old line up reads as a live error.
+          setCancelError(null);
         } catch (err) {
           // Never blank good data on a failed poll — the driver still needs
           // the provider's phone number when the network is flaky.
@@ -240,6 +274,55 @@ export default function ConnectedScreen() {
       Alert.alert(t("emergency.connected.linkFailedTitle"), t("emergency.connected.linkFailedBody")),
     );
 
+  // ── Calling the request off ─────────────────────────────────────
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+
+  const doCancel = useCallback(async () => {
+    if (!incidentId || cancelling) return;
+    setCancelling(true);
+    try {
+      await cancelIncident(incidentId);
+      haptics.success();
+      setConfirmingCancel(false);
+      // Nothing left to watch, so do not park the driver on a tracking screen
+      // for a job that no longer exists — take them home.
+      goHome();
+    } catch (err) {
+      // The likeliest failure by far is a 409: a provider accepted in the
+      // seconds between the screen rendering the button and the driver
+      // pressing it. Refresh so the screen shows what actually happened
+      // ("Help is on the way") instead of a stale Cancel button.
+      haptics.error();
+      setConfirmingCancel(false);
+      setCancelError(
+        err instanceof Error ? err.message : t("emergency.connected.dispatchUnreachable")
+      );
+      try {
+        setIncident(await getIncident(incidentId));
+      } catch {
+        /* the poll will catch up on its next tick */
+      }
+    } finally {
+      setCancelling(false);
+    }
+  }, [incidentId, cancelling, goHome, t]);
+
+  // ── Confirming the job, and optionally rating it ──
+  const submitConfirmation = useCallback(async (input: { resolved: boolean; rating?: Stars }) => {
+    if (!incidentId) return;
+    await confirmIncident(incidentId, input);
+    // Re-read rather than assuming: the response confirms the rating, but the
+    // incident row is what the card reads to decide it has been answered.
+    try {
+      setIncident(await getIncident(incidentId));
+    } catch {
+      /* the card falls back to its own submitted state on the next poll */
+    }
+  }, [incidentId]);
+
   // Traffic-impact score from geo-intelligence — the signal that drives dispatch
   // prioritisation. Priority bands + colours mirror the geo model's thresholds.
   const impactScore = dispatchResult?.metadata.trafficImpactScore ?? null;
@@ -259,17 +342,13 @@ export default function ConnectedScreen() {
   // show — every field below would be invented. Say so instead of rendering an
   // assignment that does not exist (web reload / deep link).
   if (!dispatchResult) {
+    // On the way out this branch would flash an error over a job that ended
+    // perfectly well; render nothing for the frame or two before the
+    // navigation commits.
+    if (leaving.current) return null;
     return (
       <Screen
-        footer={
-          <Button
-            title={t("emergency.action.backHome")}
-            onPress={() => {
-              reset();
-              router.replace("/(driver)/home");
-            }}
-          />
-        }
+        footer={<Button title={t("emergency.action.backHome")} onPress={goHome} />}
       >
         <HeaderBar showBack={false} />
         <Text style={{ ...typography.h1, color: palette.text }}>{t("emergency.connected.requestTitle")}</Text>
@@ -281,19 +360,52 @@ export default function ConnectedScreen() {
     );
   }
 
+  // `status` falls back to PROVIDER_ASSIGNED before the first poll answers, so
+  // gate on the status we have actually been told. Otherwise a driver
+  // returning to this screen after a provider accepted sees a Cancel button
+  // for the first few hundred milliseconds — offering something the backend
+  // will refuse.
+  const knownStatus = incident?.status ?? null;
+  const canCancel = !!incidentId && !!knownStatus && CANCELLABLE_STATUSES.includes(knownStatus);
+
+  // Rating is offered only once the provider has closed the job, and only when
+  // there is a resolution record for it to attach to.
+  const feedback = incident?.feedback ?? null;
+  const showRating = knownStatus === "RESOLVED" && !!feedback;
+
   return (
     <Screen
       footer={
-        <Button
-          title={t("emergency.action.backHome")}
-          variant="secondary"
-          onPress={() => {
-            reset();
-            router.replace("/(driver)/home");
-          }}
-        />
+        <View style={{ gap: spacing.sm }}>
+          {canCancel && (
+            <Button
+              title={cancelling ? t("emergency.connected.cancelling") : t("emergency.connected.cancelAction")}
+              variant="danger"
+              disabled={cancelling}
+              onPress={() => setConfirmingCancel(true)}
+            />
+          )}
+          <Button
+            title={t("emergency.action.backHome")}
+            variant="secondary"
+            onPress={goHome}
+          />
+        </View>
       }
     >
+      <ConfirmDialog
+        visible={confirmingCancel}
+        destructive
+        busy={cancelling}
+        icon="CircleX"
+        title={t("emergency.connected.cancelTitle")}
+        message={t("emergency.connected.cancelBody")}
+        confirmLabel={cancelling ? t("emergency.connected.cancelling") : t("emergency.connected.cancelConfirm")}
+        cancelLabel={t("emergency.connected.cancelKeep")}
+        onConfirm={() => void doCancel()}
+        onCancel={() => setConfirmingCancel(false)}
+      />
+
       <HeaderBar
         showBack={false}
         right={<Badge label={meta.badge} tone={meta.tone} withDot />}
@@ -301,6 +413,27 @@ export default function ConnectedScreen() {
       <Text style={{ ...typography.h1, color: palette.text }}>
         {meta.title}
       </Text>
+
+      {/* A cancel that was refused — almost always because a provider accepted
+          first. Kept on the screen rather than in a dismissable alert, since
+          the status card right below it now explains what happened instead. */}
+      {cancelError && (
+        <Text style={{ ...typography.caption, color: palette.danger }}>{cancelError}</Text>
+      )}
+
+      {/* The provider says the job is done. This is the only place the driver
+          is ever asked whether it actually was, and their answer is what
+          decides if the dispatch counted as a success. */}
+      {showRating && (
+        <Animated.View entering={FadeInDown.springify()}>
+          <JobConfirmationCard
+            providerName={provider?.name ?? sp?.name ?? t("emergency.connected.fallbackProvider")}
+            confirmed={feedback?.driverConfirmed ?? null}
+            rating={feedback?.userRating ?? null}
+            onSubmit={submitConfirmation}
+          />
+        </Animated.View>
+      )}
 
       {/* What is actually happening to the request right now, straight from
           the polled incident status. */}

@@ -11,7 +11,9 @@ vi.hoisted(() => {
 const { mockFetchGeo, mockPrisma } = vi.hoisted(() => ({
   mockFetchGeo: vi.fn(),
   mockPrisma: {
-    incident: { findUnique: vi.fn(), update: vi.fn() },
+    // findMany backs the busy-provider exclusion: a provider already
+    // holding a job is not a candidate for another one.
+    incident: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
     provider: { findMany: vi.fn() },
     dispatchDecision: { create: vi.fn() },
   },
@@ -82,6 +84,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockPrisma.incident.findUnique.mockResolvedValue(mockIncident);
   mockPrisma.provider.findMany.mockResolvedValue(mockProviders);
+  mockPrisma.incident.findMany.mockResolvedValue([]); // nobody is busy
   mockPrisma.incident.update.mockResolvedValue({});
   mockPrisma.dispatchDecision.create.mockResolvedValue({});
 });
@@ -218,19 +221,19 @@ describe("runDispatchOptimizer — traffic impact influences ranking", () => {
   };
 
   const providers = [nearLowTrust, farHighTrust];
-  const rankedIds = (score: number) =>
-    runDispatchOptimizer(providers, incidentLocation, batteryOnly, score)
+  const rankedIds = async (score: number) =>
+    (await runDispatchOptimizer(providers, incidentLocation, batteryOnly, score))
       .rankedProviders.map((p) => p.provider.id);
 
-  it("ranks providers differently at low vs high traffic impact", () => {
-    expect(rankedIds(1)).not.toEqual(rankedIds(10));
+  it("ranks providers differently at low vs high traffic impact", async () => {
+    expect(await rankedIds(1)).not.toEqual(await rankedIds(10));
   });
 
-  it("prefers the far high-trust provider at low traffic impact", () => {
-    expect(rankedIds(1)[0]).toBe("far");
+  it("prefers the far high-trust provider at low traffic impact", async () => {
+    expect((await rankedIds(1))[0]).toBe("far");
   });
 
-  it("prefers the near provider at high traffic impact", () => {
-    expect(rankedIds(10)[0]).toBe("near");
+  it("prefers the near provider at high traffic impact", async () => {
+    expect((await rankedIds(10))[0]).toBe("near");
   });
 });

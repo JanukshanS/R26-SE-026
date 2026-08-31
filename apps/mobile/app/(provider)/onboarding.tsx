@@ -136,7 +136,18 @@ export default function ProviderOnboardingScreen() {
       if (mode === "login") {
         const user = await login(email.trim(), password);
         if (!user.providerId) {
-          setError(t("provider.onboarding.notAProvider"));
+          // Account exists but never finished the provider profile (e.g. the
+          // app closed between signUpEmail and createProvider). Reuse the
+          // "account exists, just need the profile" branch instead of a dead
+          // end - same shape as the Google flow, which has the same gap by
+          // design (Google can't supply service type/location either).
+          //
+          // This replaces the old `provider.onboarding.notAProvider` error,
+          // which told the driver to switch to Register but left them to work
+          // that out themselves; the key is now unused.
+          setGoogleAccount({ name: user.name ?? "", email: user.email ?? "" });
+          setName((prev) => prev || user.name || "");
+          setMode("register");
           return;
         }
         router.replace("/(provider)/available");

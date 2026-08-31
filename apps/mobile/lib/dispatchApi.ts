@@ -330,14 +330,61 @@ export async function respondToJob(
   });
 }
 
+/** The driver's rating lands on this row, which the provider creates on resolve. */
+export interface IncidentFeedback {
+  providerId: string;
+  actualServiceType: string;
+  wasMatch: boolean;
+  resolutionTimeMinutes: number;
+  /** `null` until the driver rates the job — rating is optional. */
+  userRating: number | null;
+  /** The driver's answer to "did they actually fix it?". `null` until asked. */
+  driverConfirmed: boolean | null;
+  providerNotes?: string | null;
+}
+
 export async function getIncident(
   incidentId: string
 ): Promise<Incident & {
   triageResponse?: any;
   assignedProvider?: ProviderRecord;
   dispatchDecisions?: any[];
+  feedback?: IncidentFeedback | null;
 }> {
   return request(`/api/v1/incidents/${incidentId}`);
+}
+
+/**
+ * Call off a request the driver no longer needs.
+ *
+ * Only valid while the job is still being offered around — once a provider
+ * accepts, the backend answers 409 and the driver has to speak to them
+ * instead. Cancelling twice succeeds rather than erroring, so a retried tap
+ * on a bad roadside connection is not punished.
+ */
+export async function cancelIncident(incidentId: string): Promise<Incident> {
+  return request(`/api/v1/incidents/${incidentId}/cancel`, { method: "POST" });
+}
+
+/**
+ * The driver's word on a job the provider has closed.
+ *
+ * `resolved` is the part that counts: the provider closes their own job, so
+ * without this the only record of whether the car was actually fixed comes
+ * from the person paid to fix it. Saying no marks the dispatch unsuccessful
+ * and lowers that provider's trust, which the ECM divides expected cost by.
+ *
+ * The star rating is optional and moves trust only slightly, so a driver who
+ * just wants to get going is not penalising anyone by skipping it.
+ */
+export async function confirmIncident(
+  incidentId: string,
+  input: { resolved: boolean; rating?: 1 | 2 | 3 | 4 | 5 }
+): Promise<{ incidentId: string; driverConfirmed: boolean; rating: number | null }> {
+  return request(`/api/v1/incidents/${incidentId}/confirm`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export interface AssignedIncident extends Incident {

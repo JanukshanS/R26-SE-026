@@ -12,13 +12,18 @@
  * (sample-weighted share of split decisions). Re-measured against the v3
  * real-data retrain (depth 19, 213 leaves), which reshuffled the weights:
  *
- *     Q5_lights          22.0%
- *     Q9_recent          15.1%
- *     Q2_engine_start    14.9%
- *     Q6_smells          10.8%   ← was 1.9% and asked last, pre-v3
- *     Q2b_running_issue   7.2%   ← was 29.0% and the root split, pre-v3
- *     Q3_sound            4.3%
- *     ...everything else  <4% each
+ *     Q5_lights          22.9%
+ *     Q2_engine_start    16.0%
+ *     Q9_recent          15.2%
+ *     Q2b_running_issue  11.6%
+ *     Q6_smells          11.3%
+ *     Q_brake_detail      4.3%
+ *     ...everything else  <4.2% each
+ *
+ * Re-measured after the min_samples_leaf=5 retrain, which pruned the tree from
+ * 213 leaves to 102 and moved Q2b back above Q6. FIVE questions now clear 10%
+ * rather than four, so the high-signal set no longer fits in five screens with
+ * Q1 occupying the first — the window is six. See emergency-flow-order.test.ts.
  *
  * Since the driver can bail at any step (see SKIP below), question order
  * decides how much signal the model gets from someone who stops early. The
@@ -27,9 +32,10 @@
  * best any ordering can do is Q1 plus the four heaviest questions.
  *
  * The v3 retrain also dropped location_type and vehicle_age_bucket from the
- * feature set entirely. `context` still earns its place — it collects
- * last_fueled, recent_rain and parked_overnight too, worth 8.3% between them —
- * but its location question is now a dead input.
+ * feature set entirely — the `context` screen (location, rain, parked-overnight,
+ * vehicle age, last-fueled) was removed accordingly (see git history), so
+ * every driver now gets the same SL-context defaults the fast-path already
+ * used (DEFAULT_SL_CONTEXT in emergencyContext.tsx), same as skipping ever did.
  *
  * Reordering is answer-preserving: Q5, Q9 and Q6 are asked unconditionally on
  * every path, so re-sequencing them cannot change WHICH questions a given
@@ -65,8 +71,7 @@ export type StepRoute =
   | "smoke-color"
   | "brake-detail"
   | "gear-detail"
-  | "smells"
-  | "context";
+  | "smells";
 
 /** Just the answers that decide which steps are active. */
 export interface FlowState {
@@ -100,12 +105,12 @@ const STEPS: StepDef[] = [
   { route: "diagnosis-lights", titleKey: "emergency.step.lights" },
   // Q9 — 15.1%. Always asked.
   { route: "recent",           titleKey: "emergency.step.recent" },
-  // Q6 — 10.8%. Always asked. The v3 retrain promoted this out of the tail.
-  { route: "smells",           titleKey: "emergency.step.smell" },
-  // Q2b — 7.2%. Was the root split pre-v3; now mid-weight, so it drops out of
-  // the top five. Still ahead of every branch detail that reads runningIssue.
+  // Q2b — 11.6%. Also the selector every branch detail below reads, so it has
+  // to precede them regardless of weight.
   { route: "running-issue",    titleKey: "emergency.step.runningIssue",
     when: (s) => s.engineState === "STARTS_NORMAL" || s.engineState === "STARTS_BUT_ISSUE" },
+  // Q6 — 11.3%. Always asked. Fifth of the five questions above 10%.
+  { route: "smells",           titleKey: "emergency.step.smell" },
   // Branch detail — at most one of these is ever active.
   { route: "diagnosis-sound",  titleKey: "emergency.step.sound",
     when: (s) => s.engineState === "CRANKS_NO_START" },
@@ -121,10 +126,6 @@ const STEPS: StepDef[] = [
     when: (s) => s.q1Intent === "BRAKE_ISSUE" },
   { route: "gear-detail",      titleKey: "emergency.step.gears",
     when: (s) => s.q1Intent === "GEAR_ISSUE" },
-  // 8.3% across last_fueled, recent_rain and parked_overnight. Its fourth
-  // question, location_type, was dropped from the feature set by the v3 retrain
-  // and now feeds nothing.
-  { route: "context",          titleKey: "emergency.step.lastThing" },
 ];
 
 /** The steps this driver will actually see, given what they've answered. */
@@ -136,11 +137,17 @@ export function flowSteps(s: FlowState): StepDef[] {
  * "Step 3 of 7" for the header. `total` is recomputed from current answers, so
  * it can tick up by one when a branch question opens a detail screen — that's
  * honest, and only ever moves by one.
+ *
+ * `whats-wrong` is excluded from the count. It is step one in the flow's
+ * ORDERING — everything else is sequenced after it — but it is the entry grid,
+ * rendered by its own screen rather than QuestionScreen, so it never displays a
+ * counter. Counting it anyway made the first question a driver actually saw
+ * announce itself as "Step 2 of 8", which reads as a step having been skipped.
  */
 export function stepPosition(s: FlowState, route: StepRoute): { index: number; total: number } {
-  const active = flowSteps(s);
-  const i = active.findIndex((step) => step.route === route);
-  return { index: i < 0 ? 1 : i + 1, total: active.length };
+  const counted = flowSteps(s).filter((step) => step.route !== "whats-wrong");
+  const i = counted.findIndex((step) => step.route === route);
+  return { index: i < 0 ? 1 : i + 1, total: counted.length };
 }
 
 /** Where "Next" goes from here. `null` means this was the last question. */

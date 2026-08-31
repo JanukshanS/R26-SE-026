@@ -276,6 +276,16 @@ model ResolutionFeedback {
 
   resolutionTimeMinutes Float
   reDispatches          Int         @default(0)
+
+  /// The driver's answer to "did they actually fix it?", asked once the
+  /// provider closes the job. `null` means they were never asked or did not
+  /// answer, which counts as satisfied — only an explicit `false` marks the
+  /// dispatch unsuccessful. This is the authoritative signal; the star rating
+  /// below is a much smaller nudge on top of it.
+  driverConfirmed       Boolean?
+
+  /// 1-5 stars, optional. Deliberately a minor influence on trust: most
+  /// drivers never rate, so it adjusts a score rather than deciding one.
   userRating            Float?
   providerNotes         String?
 

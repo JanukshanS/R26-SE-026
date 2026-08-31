@@ -32,12 +32,18 @@ if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
 }
 
-// Log slow queries in development
-prisma.$on('query' as never, (e: any) => {
-  if (e.duration > 100) {
-    logger.warn(`Slow query (${e.duration}ms): ${e.query}`);
-  }
-});
+// Log slow queries in development only. The threshold is generous because
+// `e.duration` is wall-clock round-trip through the Supabase pooler, not
+// server-side execution time — a trivial `SELECT 1` routinely takes
+// 250-700ms cross-region (this project's pooler is ap-northeast-2), so a
+// tight threshold just logs network latency as if it were a real slow query.
+if (process.env.NODE_ENV !== 'production') {
+  prisma.$on('query' as never, (e: any) => {
+    if (e.duration > 1000) {
+      logger.warn(`Slow query (${e.duration}ms): ${e.query}`);
+    }
+  });
+}
 
 prisma.$on('error' as never, (e: any) => {
   logger.error('Prisma error:', e);

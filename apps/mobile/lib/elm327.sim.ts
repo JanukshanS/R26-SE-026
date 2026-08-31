@@ -29,6 +29,8 @@
  * @author Janukshan Sivakumar - IT22635266
  */
 
+import type { DtcStatus } from "@lib/elm327.dtc";
+
 export interface TriageOBDData {
   battery_voltage_v:      number;
   battery_temp_c:         number;
@@ -45,6 +47,14 @@ export interface TriageOBDData {
   brake_fluid_level_psi:  number;
   brake_pad_wear_mm:      number;
   brake_temp_c:           number;
+  /**
+   * Stored trouble codes, when a real adapter answered mode 03. Absent on a
+   * simulated read (nothing to report) and absent when the code read failed.
+   *
+   * ABSENT IS NOT "NO FAULTS" — dispatch treats it only as "no evidence",
+   * because a failed read and a healthy car look identical from here.
+   */
+  faultCodes?:            { code: string; status: DtcStatus }[];
   available:              true;
 }
 

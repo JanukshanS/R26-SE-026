@@ -28,6 +28,7 @@ import {
   FAST_PATH_INTENT_TO_SERVICE, isFastPathIntent,
 } from '../types';
 import { runDecisionTree, TreeInput } from './decision-tree-engine';
+import { dtcEvidence, ReportedDtc } from '../constants/dtc-mapping';
 import { logger } from '../utils/logger';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -114,6 +115,59 @@ function expandToFullDistribution(
   return out;
 }
 
+/**
+ * Fold stored trouble codes into the tree's distribution.
+ *
+ *   P_final = (1 − w) · P_tree + w · P_dtc
+ *
+ * A convex combination, deliberately the same shape as the Bayesian layer's
+ * `blendPriorWithTree`, so the two compose predictably instead of one
+ * swamping the other. `w` comes from the strongest code present and is capped
+ * (MAX_DTC_WEIGHT) so the questionnaire and sensors always keep a meaningful
+ * minority stake — codes sharpen the diagnosis, they do not replace it.
+ *
+ * A mixture rather than a multiplicative reweight for one specific reason: the
+ * tree can assign a service type ~0 probability, and multiplying would leave
+ * it at ~0 no matter how conclusive the code. A confirmed P0562 has to be able
+ * to raise ALTERNATOR_ISSUE even when the questionnaire pointed at a flat
+ * battery — that case is exactly the one worth catching.
+ *
+ * Returns the input unchanged when no code resolved, so this is a no-op for
+ * vehicles with no faults stored, adapters that could not answer mode 03, and
+ * codes outside the catalogue.
+ */
+function applyDtcEvidence(
+  treeProbs: ServiceTypeProbabilities,
+  codes: OBDData['faultCodes'],
+): { probabilities: ServiceTypeProbabilities; applied: ReturnType<typeof dtcEvidence> | null } {
+  if (!codes?.length) return { probabilities: treeProbs, applied: null };
+
+  // Callers may send bare codes or codes with a status; normalise to one shape.
+  const reported: ReportedDtc[] = codes.map((c) =>
+    typeof c === 'string' ? { code: c } : { code: c.code, status: c.status },
+  );
+
+  const evidence = dtcEvidence(reported);
+  if (evidence.weight <= 0) return { probabilities: treeProbs, applied: null };
+
+  const scoreTotal = Object.values(evidence.scores).reduce((s, v) => s + (v ?? 0), 0);
+  if (scoreTotal <= 0) return { probabilities: treeProbs, applied: null };
+
+  const w = evidence.weight;
+  const out = zeroProbabilities();
+  for (const st of SERVICE_TYPES) {
+    const dtcShare = (evidence.scores[st] ?? 0) / scoreTotal;
+    out[st] = (1 - w) * treeProbs[st] + w * dtcShare;
+  }
+
+  // Both inputs sum to 1, so the mixture does too; renormalise against float
+  // drift rather than trusting it.
+  const total = Object.values(out).reduce((s, p) => s + p, 0);
+  if (total > 0) for (const st of SERVICE_TYPES) out[st] /= total;
+
+  return { probabilities: out, applied: evidence };
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Public API
 // ─────────────────────────────────────────────────────────────────────────
@@ -166,7 +220,15 @@ export function runTriageEngine(
   const treeInput = toTreeInput(responses, obdData);
   const treeResult = runDecisionTree(treeInput, tier);
 
-  const probabilities = expandToFullDistribution(treeResult.probabilities);
+  const treeProbabilities = expandToFullDistribution(treeResult.probabilities);
+
+  // Stored trouble codes, when the adapter managed to read any. Applied after
+  // the tree and before the argmax, so the prediction reflects what the ECU
+  // actually recorded rather than only what was inferred from sensors.
+  const { probabilities, applied: dtc } = applyDtcEvidence(
+    treeProbabilities,
+    obdData?.faultCodes,
+  );
 
   // Pick argmax across the FULL distribution (not just the model's classes).
   // This is robust if expansion ever changes the ranking.
@@ -179,14 +241,21 @@ export function runTriageEngine(
     }
   }
 
+  // Confidence and entropy must describe the distribution actually returned.
+  // Reusing the tree's own figures after reweighting would report certainty
+  // the final answer does not have (or hide certainty it gained).
+  const confidence = dtc ? maxProb : treeResult.confidence;
+  const entropy = dtc ? shannonEntropy(probabilities) : treeResult.entropy;
+
   const result: TriageResult = {
     probabilities,
     predictedServiceType,
-    confidence:            treeResult.confidence,
+    confidence,
     tier:                  tier === 2 ? 'OBD_ENHANCED' : 'QUESTIONNAIRE_ONLY',
-    entropy:               treeResult.entropy,
+    entropy,
     obdDataUsed:           tier === 2,
     bayesianPriorsApplied: false,
+    faultCodesApplied:     dtc !== null,
   };
 
   logger.info('Triage ML inference completed', {
@@ -198,9 +267,31 @@ export function runTriageEngine(
     pathDepth:             treeResult.pathDepth,
     elapsedMs:             Date.now() - startedAt,
     topThree:              topN(probabilities, 3),
+    ...(dtc
+      ? {
+          faultCodes:        dtc.matched.map((m) => m.code),
+          faultTitles:       dtc.matched.map((m) => m.title),
+          faultCodeWeight:   dtc.weight.toFixed(2),
+          predictionBeforeCodes: topN(treeProbabilities, 1)[0],
+        }
+      : {}),
   });
 
   return result;
+}
+
+/**
+ * Shannon entropy in nats, over the full distribution. Local rather than
+ * imported from bayesian-engine to keep this module free of that dependency —
+ * the Bayesian layer wraps triage, not the other way round.
+ */
+function shannonEntropy(p: ServiceTypeProbabilities): number {
+  let h = 0;
+  for (const st of SERVICE_TYPES) {
+    const v = p[st];
+    if (v > 0) h -= v * Math.log(v);
+  }
+  return h;
 }
 
 function topN(probs: ServiceTypeProbabilities, n: number) {

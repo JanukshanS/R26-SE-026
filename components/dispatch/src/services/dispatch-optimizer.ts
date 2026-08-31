@@ -28,6 +28,7 @@ import {
   Location,
 } from '../types';
 import { calculateMismatchRisk } from '../constants/capability-matrix';
+import { fetchRealTravelTimesMinutes } from './maps-client';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 
@@ -52,7 +53,10 @@ function haversineDistanceKm(a: Location, b: Location): number {
 /**
  * Estimate travel time in minutes from distance.
  * Assumes average speed of 25 km/h in Colombo urban traffic.
- * This is replaced by Google Maps Distance Matrix API in production.
+ * Fallback only — the real path is a batched Google Distance Matrix lookup
+ * in runDispatchOptimizer(), used per-provider whenever that lookup didn't
+ * resolve a real value for them (no API key, over quota, that specific leg
+ * unresolvable, or the whole request timed out/failed).
  */
 function estimateTravelTimeMinutes(distanceKm: number): number {
   const AVG_SPEED_KMH = 25; // Colombo urban traffic average
@@ -100,13 +104,19 @@ function calculateExpectedCost(
   probabilities: ServiceTypeProbabilities,
   trafficImpactScore: number,
   lambda: number,
-): { expectedCost: number; breakdown: CostBreakdown; travelTimeMin: number; serviceTimeMin: number; mismatchRisk: number } {
+  /** Real driving minutes from a batched Distance Matrix lookup, if it
+   *  resolved one for this provider. Falls back to Haversine when absent —
+   *  see fetchRealTravelTimesMinutes()'s doc comment for every reason that
+   *  can happen. */
+  realTravelTimeMin?: number | null,
+): { expectedCost: number; breakdown: CostBreakdown; travelTimeMin: number; serviceTimeMin: number; mismatchRisk: number; travelTimeSource: 'google_maps' | 'haversine' } {
 
   const distanceKm = haversineDistanceKm(
     { latitude: provider.latitude, longitude: provider.longitude },
     incidentLocation
   );
-  const travelTimeMin = estimateTravelTimeMinutes(distanceKm);
+  const travelTimeMin = realTravelTimeMin ?? estimateTravelTimeMinutes(distanceKm);
+  const travelTimeSource: 'google_maps' | 'haversine' = realTravelTimeMin != null ? 'google_maps' : 'haversine';
 
   let expectedServiceCost = 0;
   let expectedMismatchCost = 0;
@@ -183,6 +193,7 @@ function calculateExpectedCost(
     travelTimeMin: parseFloat(travelTimeMin.toFixed(1)),
     serviceTimeMin: parseFloat(avgServiceTime.toFixed(1)),
     mismatchRisk: parseFloat(mismatchRisk.toFixed(4)),
+    travelTimeSource,
   };
 }
 
@@ -202,12 +213,12 @@ function calculateExpectedCost(
  * @param trafficImpactScore - Traffic impact (1-10) from Geo-Intelligence
  * @returns DispatchResult with ranked providers and cost breakdowns
  */
-export function runDispatchOptimizer(
+export async function runDispatchOptimizer(
   providers: ECMProvider[],
   incidentLocation: Location,
   probabilities: ServiceTypeProbabilities,
   trafficImpactScore: number = 5,
-): DispatchResult {
+): Promise<DispatchResult> {
   const startTime = performance.now();
   const lambda = config.dispatch.trafficLambda;
 
@@ -215,10 +226,21 @@ export function runDispatchOptimizer(
     throw new Error('No available providers to dispatch');
   }
 
+  // One batched Distance Matrix call for every provider being evaluated,
+  // rather than one call each — keeps this an O(1) network round-trip
+  // regardless of fleet size, matching the O(n×k) complexity the proposal
+  // describes for the rest of the loop. `null` (whole array, or a specific
+  // entry) means calculateExpectedCost falls back to Haversine below.
+  const realTravelTimes = await fetchRealTravelTimesMinutes(
+    providers.map((p) => ({ latitude: p.latitude, longitude: p.longitude })),
+    incidentLocation,
+  );
+
   // Calculate expected cost for each provider
-  const evaluatedProviders: RankedProvider[] = providers.map((provider) => {
+  const evaluatedProviders: RankedProvider[] = providers.map((provider, i) => {
     const result = calculateExpectedCost(
-      provider, incidentLocation, probabilities, trafficImpactScore, lambda
+      provider, incidentLocation, probabilities, trafficImpactScore, lambda,
+      realTravelTimes?.[i],
     );
 
     return {
@@ -237,6 +259,7 @@ export function runDispatchOptimizer(
       estimatedServiceTimeMin: result.serviceTimeMin,
       mismatchRisk: result.mismatchRisk,
       costBreakdown: result.breakdown,
+      travelTimeSource: result.travelTimeSource,
     };
   });
 

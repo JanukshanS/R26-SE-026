@@ -51,30 +51,45 @@ const ROUTE_TO_QUESTION: Record<StepRoute, string> = {
   "brake-detail":     "Q_brake_detail",
   "gear-detail":      "Q_gear_detail",
   smells:             "Q6_smells",
-  context:            "location_type",
 };
 
-/** The most common full path: engine trouble, car runs but makes a noise. */
+/**
+ * A full path through the engine branch: engine trouble, car runs but smokes.
+ * SMOKE (not NOISE) deliberately, so this path still exercises Q8_smoke_color
+ * — the tree's one remaining never-split feature now that the context screen
+ * (whose location_type was the other one) is gone — for the "dead questions
+ * come last" test below.
+ */
 const COMMON_PATH: FlowState = {
   q1Intent: "ENGINE_PROBLEM",
   engineState: "STARTS_NORMAL",
-  runningIssue: "NOISE",
+  runningIssue: "SMOKE",
 };
 
 describe("emergency questionnaire order", () => {
   const share = routingShare();
   const path = flowSteps(COMMON_PATH).map((s) => ROUTE_TO_QUESTION[s.route]);
 
-  it("asks every high-signal question (>=10% routing share) within the first 5 steps", () => {
+  // SIX, not five. The window is one plus however many questions clear the
+  // threshold, because Q1 occupies the first slot and is only worth ~3.6%
+  // itself. The msl=5 retrain took the count of >=10% questions from four to
+  // five, so five screens became arithmetically impossible rather than merely
+  // missed. Widen this only when a retrain genuinely changes that count, and
+  // say which retrain did it — never to make a reshuffled STEPS array pass.
+  it("asks every high-signal question (>=10% routing share) as early as it can", () => {
     const heavy = Object.entries(share)
       .filter(([, pct]) => pct >= 10)
       .map(([q]) => q);
 
     expect(heavy.length).toBeGreaterThan(0);
+    // Q1 is the entry grid and must be step one, so the best any ordering can
+    // do is Q1 followed by every heavy question back to back.
+    const window = heavy.length + 1;
     for (const q of heavy) {
       const at = path.indexOf(q);
       expect(at, `${q} (${share[q].toFixed(1)}%) must be asked early`).toBeGreaterThanOrEqual(0);
-      expect(at, `${q} (${share[q].toFixed(1)}%) is at step ${at + 1}`).toBeLessThan(5);
+      expect(at, `${q} (${share[q].toFixed(1)}%) is at step ${at + 1} of a ${window}-step window`)
+        .toBeLessThan(window);
     }
   });
 
@@ -84,6 +99,9 @@ describe("emergency questionnaire order", () => {
   // under that ceiling, not an aspiration. If a retrain pushes the achievable
   // maximum up, raise this with it; if it fails, STEPS needs re-measuring.
   it("captures at least 65% of routing signal in the first 5 steps", () => {
+    // 69.3% against the msl=5 tree (Q1 3.6 + Q2 16.0 + Q5 22.9 + Q9 15.2 +
+    // Q2b 11.6). Still a drift alarm sitting under the achievable ceiling,
+    // not an aspiration.
     const captured = path.slice(0, 5).reduce((sum, q) => sum + (share[q] ?? 0), 0);
     expect(captured).toBeGreaterThanOrEqual(65);
   });
@@ -114,6 +132,5 @@ describe("emergency questionnaire order", () => {
     expect(brake).toContain("diagnosis-lights");
     expect(brake).toContain("recent");
     expect(brake).toContain("smells");
-    expect(brake).toContain("context");
   });
 });

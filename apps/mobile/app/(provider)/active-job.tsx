@@ -146,7 +146,12 @@ export default function ActiveJobScreen() {
 
   function openResolution() {
     setActualType(triage?.predictedServiceType ?? serviceOptions[0] ?? null);
-    setMinutes(job ? String(elapsedMinutes(job.updatedAt)) : "");
+    // From when the DRIVER asked for help, not from the last status change.
+    // `updatedAt` is touched by every write, including the accept, so it
+    // read as "minutes since I last tapped something" — which is 0 for a
+    // provider who accepts and closes in the same few minutes. Still fully
+    // editable; this is only the starting figure.
+    setMinutes(job ? String(elapsedMinutes(job.createdAt)) : "");
     setFormError(null);
     setActionError(null);
     setMode("resolve");

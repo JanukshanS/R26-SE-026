@@ -114,7 +114,19 @@ export const obdDataSchema = z.object({
   brake_fluid_level_psi:  z.number().optional(),
   brake_pad_wear_mm:      z.number().optional(),
   brake_temp_c:           z.number().optional(),
-  faultCodes:             z.array(z.string()).optional(),
+  // Either a bare code or a code with its status — see OBDData.faultCodes for
+  // why both shapes are accepted.
+  faultCodes: z
+    .array(
+      z.union([
+        z.string(),
+        z.object({
+          code:   z.string(),
+          status: z.enum(['confirmed', 'pending', 'permanent']).optional(),
+        }),
+      ]),
+    )
+    .optional(),
   predictiveAlerts:       z.array(z.string()).optional(),
   available:              z.boolean(),
 });
@@ -168,4 +180,20 @@ export const updateProviderProfileSchema = z.object({
   vehiclePlate: z.string().max(20).optional(),
   capabilities: z.array(enumOf(SERVICE_TYPES)).min(1).optional(),
   serviceTimes: z.record(z.string(), z.number().int().min(1).max(480)).optional(),
+});
+
+/**
+ * The driver's word on a job the provider has closed.
+ *
+ * `resolved` is the part that matters and is required: only the driver can say
+ * whether the car actually got fixed, and that is what decides whether the
+ * dispatch counted as a success. The star rating is optional and, by design, a
+ * much smaller influence — see services/provider-trust.ts.
+ *
+ * Whole stars only: the UI shows five of them, so accepting 3.5 would let a
+ * hand-written request express something no driver can.
+ */
+export const incidentConfirmationSchema = z.object({
+  resolved: z.boolean(),
+  rating:   z.number().int().min(1).max(5).optional(),
 });

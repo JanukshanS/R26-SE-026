@@ -173,7 +173,6 @@ interface EmergencyContextValue extends EmergencyState {
   setGearDetail:     (s: GearDetailChoice) => void;
   setSmells:         (s: SmellChoice) => void;
   toggleRecentSign:  (s: RecentSign) => void;
-  setSLContext:      (patch: Partial<SLContext>) => void;
   setLoading:       (b: boolean) => void;
   setError:         (e: string | null) => void;
   setIncidentId:    (id: string | null) => void;
@@ -305,7 +304,11 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
   const [gearDetail, setGearDetail] = useState<GearDetailChoice>(null);
   const [smells, setSmells] = useState<SmellChoice>(null);
   const [recentSigns, setRecentSigns] = useState<Set<RecentSign>>(new Set());
-  const [slContext, setSLContextState] = useState<SLContext>(DEFAULT_SL_CONTEXT);
+  // Never mutated — the context screen that used to collect these was
+  // removed (location_type/vehicle_age_bucket had already been dropped from
+  // the trained tree's feature set, and the remaining three fields weren't
+  // worth a dedicated screen), so every driver gets these defaults.
+  const [slContext] = useState<SLContext>(DEFAULT_SL_CONTEXT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [incidentId, setIncidentId] = useState<string | null>(null);
@@ -399,10 +402,6 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const setSLContext = useCallback((patch: Partial<SLContext>) => {
-    setSLContextState((prev) => ({ ...prev, ...patch }));
-  }, []);
-
   const reset = useCallback(() => {
     setDamage(null);
     setSound(null);
@@ -419,7 +418,6 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
     setGearDetail(null);
     setSmells(null);
     setRecentSigns(new Set());
-    setSLContextState(DEFAULT_SL_CONTEXT);
     setLoading(false);
     setError(null);
     setIncidentId(null);
@@ -452,7 +450,7 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
       setDamage, setSound, toggleLight,
       setQ1Intent, setIntent, setEngineState, setRunningIssue, setOverheatDetail,
       setNoiseDetail, setSmokeColor, setElectrical, setBrakeDetail, setGearDetail,
-      setSmells, toggleRecentSign, setSLContext,
+      setSmells, toggleRecentSign,
       setLoading, setError,
       setIncidentId, setTriageResult, setDispatchResult,
       buildTriageResponses, reset,
@@ -462,7 +460,7 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
       overheatDetail, noiseDetail, smokeColor, electrical, brakeDetail,
       gearDetail, smells, recentSigns, slContext,
       incidentId, triageResult, dispatchResult,
-      loading, error, toggleLight, toggleRecentSign, setSLContext,
+      loading, error, toggleLight, toggleRecentSign,
       setQ1Intent, setIntent, setEngineState, setRunningIssue,
       buildTriageResponses, reset,
     ]

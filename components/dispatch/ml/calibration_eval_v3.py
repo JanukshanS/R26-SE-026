@@ -16,6 +16,7 @@ figures.
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -117,33 +118,49 @@ def plot_reliability(cal: dict, title: str, out_path: Path) -> None:
 
 
 def main() -> int:
+    # min_samples_leaf was hardcoded to 1 here while train_v3.py exposed it as
+    # a flag, so this script silently evaluated a DIFFERENT model from the one
+    # actually deployed whenever the trees were trained with anything else.
+    # The default keeps the historical behaviour; pass the same value used for
+    # the deployed trees to measure what is really shipping.
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--min-samples-leaf", type=int, default=1)
+    ap.add_argument("--seed", type=int, default=42)
+    # The sanity check below compares against train_v3.py's own reported
+    # log-loss, which only matches when both ran with the same settings.
+    ap.add_argument("--skip-sanity-check", action="store_true")
+    args = ap.parse_args()
+
     print("=" * 70)
-    print("Calibration evaluation — v3 real-only-holdout trees (production)")
+    print(f"Calibration evaluation — v3 real-only-holdout trees "
+          f"(min_samples_leaf={args.min_samples_leaf})")
     print("=" * 70)
 
-    seed = 42
+    seed = args.seed
     q_df = load_questionnaire_v3()
     obd_df = load_obd_v3()
 
     print("\n--- Tier 1 (questionnaire only, real-only holdout) ---")
     t1_train, t1_test = split_real_only_holdout(q_df, source_col="source", seed=seed)
     m1, f1, c1, met1, (X_te1, y_te1) = train_config(
-        t1_train, t1_test, use_obd=False, model_kind="dt", seed=seed, min_samples_leaf=1,
+        t1_train, t1_test, use_obd=False, model_kind="dt", seed=seed, min_samples_leaf=args.min_samples_leaf,
     )
     cal1 = compute_calibration(m1, X_te1, y_te1, c1)
     print(f"Sanity check — log_loss recomputed={cal1['log_loss']:.6f} vs train_v3.py reported={met1['log_loss']:.6f}")
-    assert abs(cal1["log_loss"] - met1["log_loss"]) < 1e-6, "Split/model mismatch vs train_v3.py"
+    if not args.skip_sanity_check:
+        assert abs(cal1["log_loss"] - met1["log_loss"]) < 1e-6, "Split/model mismatch vs train_v3.py"
     print(json.dumps({k: v for k, v in cal1.items() if k != "reliability_bins"}, indent=2))
 
     print("\n--- Tier 2 (questionnaire + OBD, real-only holdout) ---")
     joined = join_for_tier2(q_df, obd_df, seed=seed)
     t2_train, t2_test = split_real_only_holdout(joined, source_col="source_joined", seed=seed)
     m2, f2, c2, met2, (X_te2, y_te2) = train_config(
-        t2_train, t2_test, use_obd=True, model_kind="dt", seed=seed, min_samples_leaf=1,
+        t2_train, t2_test, use_obd=True, model_kind="dt", seed=seed, min_samples_leaf=args.min_samples_leaf,
     )
     cal2 = compute_calibration(m2, X_te2, y_te2, c2)
     print(f"Sanity check — log_loss recomputed={cal2['log_loss']:.6f} vs train_v3.py reported={met2['log_loss']:.6f}")
-    assert abs(cal2["log_loss"] - met2["log_loss"]) < 1e-6, "Split/model mismatch vs train_v3.py"
+    if not args.skip_sanity_check:
+        assert abs(cal2["log_loss"] - met2["log_loss"]) < 1e-6, "Split/model mismatch vs train_v3.py"
     print(json.dumps({k: v for k, v in cal2.items() if k != "reliability_bins"}, indent=2))
 
     plot_reliability(cal1, "Tier 1 v3 — Reliability Diagram", REPORT_DIR / "reliability_v3_tier1.png")

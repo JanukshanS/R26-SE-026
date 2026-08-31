@@ -61,6 +61,14 @@ ios/DerivedData/
 *.orig.*
 web-build/
 
+# apps/mobile has BOTH package-lock.json and pnpm-lock.yaml. EAS builds from
+# the pnpm one and uploads only git-tracked files, so committing the npm
+# lockfile puts a second, competing lockfile in the build tree - which has
+# already once produced an APK that silently shipped without its native
+# module. Keep it local. .npmrc is the matching local npm convenience.
+apps/mobile/package-lock.json
+apps/mobile/.npmrc
+
 # Mobile build artefacts
 *.aab
 *.apk
@@ -78,6 +86,12 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Local dev-run scratch. start-dev.sh writes service logs AND regenerates
+# run-expo-qr.bat here on every run, baking in whoever's absolute paths ran
+# it last - the committed copy still pointed at a machine and a checkout
+# location that no longer exist.
+.dev-logs/
 
 # Local data / large artefacts
 data/raw/
