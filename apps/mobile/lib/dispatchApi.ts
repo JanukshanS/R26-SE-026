@@ -340,6 +340,18 @@ export async function getIncident(
   return request(`/api/v1/incidents/${incidentId}`);
 }
 
+/**
+ * Call off a request the driver no longer needs.
+ *
+ * Only valid while the job is still being offered around — once a provider
+ * accepts, the backend answers 409 and the driver has to speak to them
+ * instead. Cancelling twice succeeds rather than erroring, so a retried tap
+ * on a bad roadside connection is not punished.
+ */
+export async function cancelIncident(incidentId: string): Promise<Incident> {
+  return request(`/api/v1/incidents/${incidentId}/cancel`, { method: "POST" });
+}
+
 export interface AssignedIncident extends Incident {
   triageResponse?: any;
   assignedProvider?: ProviderRecord | null;

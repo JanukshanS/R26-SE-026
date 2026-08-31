@@ -118,6 +118,111 @@ incidentRouter.get('/', async (req, res) => {
 });
 
 /** POST /api/v1/incidents/:id/resolve — Submit resolution + Bayesian feedback */
+/**
+ * Statuses a driver may still cancel from — everything up to and including a
+ * provider having been OFFERED the job, but not one who has accepted it.
+ *
+ * EN_ROUTE is the line. Once a provider has accepted they are driving to the
+ * scene, possibly across Colombo, and a silent cancellation strands them with
+ * an unpaid trip. Cancelling after that point is a conversation, not a button.
+ */
+const CANCELLABLE_STATUSES = ['CREATED', 'TRIAGING', 'DISPATCHING', 'PROVIDER_ASSIGNED'] as const;
+
+/**
+ * POST /api/v1/incidents/:id/cancel — the driver calls off their own request.
+ *
+ * OWNERSHIP IS NOT VERIFIED HERE, and cannot be: `Incident` carries no user
+ * id, so there is nothing to compare the bearer token against. Any signed-in
+ * user could cancel any incident whose id they know. That matches the rest of
+ * this router (`GET /:id` is equally open) and is the same hardening gap
+ * already tracked for the provider routes — but it is a real hole, not an
+ * accepted design, and closing it needs a `userId` column on Incident.
+ */
+incidentRouter.post('/:id/cancel', async (req, res) => {
+  try {
+    const incidentId = String(req.params.id);
+    const incident = await prisma.incident.findUnique({ where: { id: incidentId } });
+
+    if (!incident) {
+      res.status(404).json({ success: false, error: 'Incident not found', timestamp: new Date().toISOString() });
+      return;
+    }
+
+    // Cancelling an already-cancelled request is what a retried tap looks
+    // like on a flaky roadside connection. Succeed rather than showing the
+    // driver an error for something that already went their way.
+    if (incident.status === 'CANCELLED') {
+      res.json({ success: true, data: incident, message: 'Incident was already cancelled', timestamp: new Date().toISOString() });
+      return;
+    }
+
+    if (!(CANCELLABLE_STATUSES as readonly string[]).includes(incident.status)) {
+      res.status(409).json({
+        success: false,
+        error: `Incident cannot be cancelled once it is ${incident.status.toLowerCase().replace(/_/g, ' ')}`,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    // The provider being offered this job may accept in this exact instant,
+    // and the re-dispatch watchdog may release it in the same tick. Guard the
+    // write on the status we decided from, same as the watchdog and /respond
+    // do, so whichever lands second is a no-op instead of a clobber.
+    const { count } = await prisma.incident.updateMany({
+      where: { id: incidentId, status: { in: [...CANCELLABLE_STATUSES] } },
+      data: { status: 'CANCELLED', assignedProviderId: null },
+    });
+
+    if (count === 0) {
+      res.status(409).json({
+        success: false,
+        error: 'A provider accepted this job just now, so it can no longer be cancelled',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    // Close out the offer the provider was still holding, so their job list
+    // clears and the decision row does not read as an unanswered offer for
+    // ever. Mirrors the watchdog's release path.
+    if (incident.assignedProviderId) {
+      const decision = await prisma.dispatchDecision.findFirst({
+        where: { incidentId, providerId: incident.assignedProviderId },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (decision) {
+        await prisma.dispatchDecision.update({
+          where: { id: decision.id },
+          data: {
+            accepted: false,
+            declineReason: 'CANCELLED_BY_DRIVER',
+            responseTimeSeconds: Math.round((Date.now() - new Date(decision.createdAt).getTime()) / 1000),
+          },
+        });
+      }
+    }
+
+    const cancelled = await prisma.incident.findUnique({ where: { id: incidentId } });
+
+    logger.info('Incident cancelled by driver', {
+      incidentId,
+      previousStatus: incident.status,
+      releasedProviderId: incident.assignedProviderId ?? null,
+    });
+
+    res.json({
+      success: true,
+      data: cancelled,
+      message: 'Request cancelled',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    logger.error('Failed to cancel incident:', error);
+    res.status(500).json({ success: false, error: error.message, timestamp: new Date().toISOString() });
+  }
+});
+
 incidentRouter.post('/:id/resolve', async (req, res) => {
   try {
     const parsed = resolutionReportSchema.safeParse(req.body);

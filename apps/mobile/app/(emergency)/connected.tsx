@@ -16,6 +16,7 @@ import { useEmergency } from "@lib/emergencyContext";
 import { useHardwareBack } from "@lib/useHardwareBack";
 import { haptics } from "@lib/haptics";
 import {
+  cancelIncident,
   getIncident,
   getProvider,
   haversineKm,
@@ -31,6 +32,16 @@ const POLL_INTERVAL_MS = 5000;
 
 /** Nothing left to watch once the job ends — polling stops here. */
 const TERMINAL_STATUSES = ["RESOLVED", "ESCALATED", "CANCELLED"];
+
+/**
+ * While the job is still being offered around, the driver can call it off.
+ *
+ * EN_ROUTE is deliberately absent: by then a provider has accepted and is
+ * driving to the scene, so calling it off is a phone call, not a button. The
+ * backend enforces the same list — this only decides whether to show the
+ * control, it is not the check that matters.
+ */
+const CANCELLABLE_STATUSES = ["CREATED", "TRIAGING", "DISPATCHING", "PROVIDER_ASSIGNED"];
 
 /** Display ETA in whole minutes from the backend's computed travel time. */
 function formatEta(min: number | undefined, t: Translate): string {
@@ -108,13 +119,29 @@ export default function ConnectedScreen() {
   const { dispatchResult, reset } = useEmergency();
   const sp = dispatchResult?.selectedProvider;
 
+  /**
+   * Set the instant we start navigating away, and never unset.
+   *
+   * `reset()` clears `dispatchResult` synchronously, and React re-renders
+   * before the navigation commits — so the "we lost this request" branch
+   * below rendered for a frame on the way out, flashing an error at a driver
+   * whose job had just gone perfectly fine. The branch is for a genuinely
+   * absent result (web reload, deep link), not for a screen being left.
+   */
+  const leaving = useRef(false);
+
+  const goHome = useCallback(() => {
+    leaving.current = true;
+    reset();
+    router.replace("/(driver)/home");
+  }, [reset]);
+
   // Job is dispatched — back returns home (clearing the emergency state for a
   // fresh start), never into the now-stale questionnaire.
   useHardwareBack(useCallback(() => {
-    reset();
-    router.replace("/(driver)/home");
+    goHome();
     return true;
-  }, [reset]));
+  }, [goHome]));
 
   // After dispatch we fetch the provider's full record so we have lat/lng
   // for the map view and distance display.
@@ -240,6 +267,49 @@ export default function ConnectedScreen() {
       Alert.alert(t("emergency.connected.linkFailedTitle"), t("emergency.connected.linkFailedBody")),
     );
 
+  // ── Calling the request off ─────────────────────────────────────
+  const [cancelling, setCancelling] = useState(false);
+
+  const doCancel = useCallback(async () => {
+    if (!incidentId || cancelling) return;
+    setCancelling(true);
+    try {
+      await cancelIncident(incidentId);
+      haptics.success();
+    } catch (err) {
+      // The likeliest failure by far is a 409: a provider accepted in the
+      // seconds between the screen rendering the button and the driver
+      // pressing it. Refreshing below turns that into the truth on screen
+      // ("Help is on the way") rather than leaving a stale Cancel button.
+      haptics.error();
+      Alert.alert(
+        t("emergency.connected.cancelFailedTitle"),
+        err instanceof Error ? err.message : t("emergency.connected.dispatchUnreachable")
+      );
+    } finally {
+      // Re-read either way. On success this flips the screen to "Request
+      // cancelled" and stops the poll; on failure it shows what actually
+      // happened instead of what we assumed.
+      try {
+        setIncident(await getIncident(incidentId));
+      } catch {
+        /* the poll will catch up on its next tick */
+      }
+      setCancelling(false);
+    }
+  }, [incidentId, cancelling, t]);
+
+  const confirmCancel = useCallback(() => {
+    Alert.alert(
+      t("emergency.connected.cancelTitle"),
+      t("emergency.connected.cancelBody"),
+      [
+        { text: t("emergency.connected.cancelKeep"), style: "cancel" },
+        { text: t("emergency.connected.cancelConfirm"), style: "destructive", onPress: () => void doCancel() },
+      ]
+    );
+  }, [doCancel, t]);
+
   // Traffic-impact score from geo-intelligence — the signal that drives dispatch
   // prioritisation. Priority bands + colours mirror the geo model's thresholds.
   const impactScore = dispatchResult?.metadata.trafficImpactScore ?? null;
@@ -259,17 +329,13 @@ export default function ConnectedScreen() {
   // show — every field below would be invented. Say so instead of rendering an
   // assignment that does not exist (web reload / deep link).
   if (!dispatchResult) {
+    // On the way out this branch would flash an error over a job that ended
+    // perfectly well; render nothing for the frame or two before the
+    // navigation commits.
+    if (leaving.current) return null;
     return (
       <Screen
-        footer={
-          <Button
-            title={t("emergency.action.backHome")}
-            onPress={() => {
-              reset();
-              router.replace("/(driver)/home");
-            }}
-          />
-        }
+        footer={<Button title={t("emergency.action.backHome")} onPress={goHome} />}
       >
         <HeaderBar showBack={false} />
         <Text style={{ ...typography.h1, color: palette.text }}>{t("emergency.connected.requestTitle")}</Text>
@@ -281,17 +347,26 @@ export default function ConnectedScreen() {
     );
   }
 
+  const canCancel = CANCELLABLE_STATUSES.includes(status) && !!incidentId;
+
   return (
     <Screen
       footer={
-        <Button
-          title={t("emergency.action.backHome")}
-          variant="secondary"
-          onPress={() => {
-            reset();
-            router.replace("/(driver)/home");
-          }}
-        />
+        <View style={{ gap: spacing.sm }}>
+          {canCancel && (
+            <Button
+              title={cancelling ? t("emergency.connected.cancelling") : t("emergency.connected.cancelAction")}
+              variant="danger"
+              disabled={cancelling}
+              onPress={confirmCancel}
+            />
+          )}
+          <Button
+            title={t("emergency.action.backHome")}
+            variant="secondary"
+            onPress={goHome}
+          />
+        </View>
       }
     >
       <HeaderBar
