@@ -226,7 +226,7 @@ current training:
    347 train / 87 holdout, stratified by service_type where possible
 
 6. TRAIN
-   DecisionTreeClassifier(random_state=42, min_samples_leaf=1, criterion="gini")
+   DecisionTreeClassifier(random_state=42, min_samples_leaf=5, criterion="gini")
 
 7. EVALUATE
    Holdout accuracy, top-3 accuracy, macro F1, log-loss
@@ -242,7 +242,40 @@ current training:
 | Version | Trained on | Purpose | Runtime file |
 |---|---|---|---|
 | v0-synthetic | 100 hand-crafted synthetic incidents | Initial proof-of-concept | `exported_tree_tier{1,2}_synthetic.json` (archived) |
-| v1-real | 434 validated real questionnaire + 285 real OBD | Current production | `exported_tree_tier{1,2}.json` |
+| v1-real | 434 validated real questionnaire + 285 real OBD | Superseded | `exported_tree_tier{1,2}_v1_real.json` (archived, 154 leaves) |
+| v3-real | same data, retrained | Superseded 2026-08-31 | not on disk — `git show b99ef0d^:components/dispatch/ml/exported_tree_tier1.json` (213 leaves) |
+| v4-pruned | same data, `min_samples_leaf=5` | Current production | `exported_tree_tier{1,2}.json` (102 leaves) |
+
+**Why v4 prunes.** Every earlier tree was grown fully (`min_samples_leaf=1`),
+which left 96% of Tier-1 leaves and 100% of Tier-2 leaves one-hot: the model
+reported 1.00 confidence on very nearly any input while being right 64% of the
+time. A confidence figure that is 1.00 for everything cannot support a claim
+about confidence, which matters because uncertainty is what this component
+claims to reason about. Raising `min_samples_leaf` to 5 trades a little
+accuracy for a calibration that means something:
+
+| | v1 (`msl=1`) | v4 (`msl=5`) |
+|---|---|---|
+| Tier-1 leaves | 213 (depth 19) | 102 (depth 16) |
+| Tier-1 one-hot leaves | 96% | 41% |
+| Tier-1 ECE (10-bin) | 0.362 | **0.142** |
+| Tier-1 Brier | 0.718 | 0.602 |
+| Tier-1 accuracy | 0.644 | 0.575 |
+| Tier-2 ECE | 0.310 | **0.136** |
+| Tier-2 accuracy | 0.690 | **0.713** |
+
+Tier-1 accuracy falls ~7pp — six cases on an 87-row holdout. That is slightly
+wider than the ±4.7pp cross-validation spread, so it is a real if small
+regression rather than pure noise, accepted deliberately: calibration error
+more than halves, and Tier 2 — the tier the OBD contribution is measured on —
+improves on both axes. Reproduce with
+`python train_v3.py --min-samples-leaf 5` and
+`python calibration_eval_v3.py --min-samples-leaf 5`.
+
+Note that `calibration_eval_v3.py` retrains its own model rather than loading
+the exported JSON, and had `min_samples_leaf` hardcoded to 1 while
+`train_v3.py` exposed it as a flag — so before v4 it silently measured a
+different model from the deployed one. It now takes the flag.
 
 The synthetic tree is preserved for the paper's "before/after" comparison
 narrative — one of the paper's contributions is demonstrating that a
@@ -562,6 +595,18 @@ types + 10 fast-path types. Two classes present in the real questionnaire
 (`HYDRO_LOCK`, `ABS_SENSOR_RUST_CORROSION`, 9 rows total) are dropped
 during training. Expanding the runtime catalog is straightforward but
 requires a Prisma migration and an updated capability matrix.
+
+**The questionnaire cannot localise a cooling fault.** Symptom answers
+separate "the engine is overheating" from other complaints, but not the CAUSE
+of the overheat. In the training data, `OVERHEATING + ALWAYS + SWEET smell`
+contains zero `RADIATOR_FAN_ISSUE` rows (8 hose-leak, 8 severe-overheat),
+because a sweet smell is the antifreeze signature; the fan is only separable
+when the driver reports no smell, and then it is already the majority class.
+So on these symptoms a correctly calibrated Tier-1 model *should not* rank a
+fan fault second — the information genuinely is not there. This is the
+clearest empirical case for the OBD tier: a stored `P0480` names a cause the
+questionnaire cannot reach at any level of model quality, which is precisely
+the gap SO1's tiering is designed around.
 
 **Class balance**. The real questionnaire is imbalanced (`BATTERY_JUMP`:
 65 rows vs `SEVERE_MECHANICAL_TOW`: 10 rows). This depresses accuracy on
