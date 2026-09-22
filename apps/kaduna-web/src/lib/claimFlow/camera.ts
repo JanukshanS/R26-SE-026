@@ -71,17 +71,38 @@ export function useCameraStream(
   return { stream, error };
 }
 
+/** True once a video element actually has decoded frame data to draw (real
+ * width/height, not the 0x0 it reports while a stream is still attaching or
+ * mid-facingMode-switch). Capturing before this is what produced empty
+ * canvases/blob failures — checking it first turns that into a clear,
+ * catchable "camera not ready yet" instead of an uncaught exception. */
+export function isVideoReadyToCapture(video: HTMLVideoElement): boolean {
+  return video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0 && video.videoHeight > 0;
+}
+
 /** One still frame from a playing <video> element, as a JPEG Blob — the web
- * equivalent of CameraView.takePictureAsync(). Always the true (unmirrored)
- * frame regardless of how the preview itself is styled. High quality (0.95,
- * not the canvas-toBlob default 0.92) since this feeds 3D reconstruction —
- * compression artifacts hurt feature matching the same way low resolution does. */
-export function capturePhotoBlob(video: HTMLVideoElement, quality = 0.95): Promise<Blob> {
+ * equivalent of CameraView.takePictureAsync(). High quality (0.95, not the
+ * canvas-toBlob default 0.92) since this feeds 3D reconstruction —
+ * compression artifacts hurt feature matching the same way low resolution
+ * does. `mirror: true` flips the frame horizontally before saving — for a
+ * front-camera selfie, this matches what the user actually saw in the live
+ * (CSS-mirrored) preview, the same "save it as I saw it" fix already applied
+ * to the verification video (see useMirroredRecorder below). Without this,
+ * the saved photo reads backwards (e.g. licence text) relative to the
+ * mirrored preview the user just composed the shot against. */
+export function capturePhotoBlob(video: HTMLVideoElement, quality = 0.95, mirror = false): Promise<Blob> {
+  if (!isVideoReadyToCapture(video)) {
+    return Promise.reject(new Error("Camera isn't ready yet — try again in a moment."));
+  }
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   const ctx = canvas.getContext("2d");
   if (!ctx) return Promise.reject(new Error("Canvas not supported."));
+  if (mirror) {
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+  }
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   return new Promise((resolve, reject) => {
     canvas.toBlob(

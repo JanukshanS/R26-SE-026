@@ -28,3 +28,27 @@ export async function createClaimLink(params: {
   }
   return res.json();
 }
+
+export type VehicleSearchResult = {
+  plateNumber: string;
+  vehicleModel: string | null;
+  nic: string | null;
+  phone: string | null;
+};
+
+/** GET /claims/vehicle-search?q=... — typeahead used by the Generate Link
+ * form's Vehicle Reg No field. Looks up vehicles across all drivers (an
+ * insurer session has none of its own), so selecting a result can auto-fill
+ * NIC + phone. See backend/app/api/routes/claims.py::search_vehicles. */
+export async function searchVehicles(query: string): Promise<VehicleSearchResult[]> {
+  const res = await insurerFetch(`/claims/vehicle-search?q=${encodeURIComponent(query)}`);
+  if (!res.ok) return [];
+  const rows: { plate_number: string; vehicle_model: string | null; nic: string | null; phone: string | null }[] =
+    await res.json();
+  return rows.map((r) => ({
+    plateNumber: r.plate_number,
+    vehicleModel: r.vehicle_model,
+    nic: r.nic,
+    phone: r.phone,
+  }));
+}

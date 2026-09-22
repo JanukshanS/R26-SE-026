@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera } from "lucide-react";
 
 import { useT } from "@/lib/i18n";
-import { useCameraStream, capturePhotoBlob } from "@/lib/claimFlow/camera";
+import { useCameraStream, capturePhotoBlob, isVideoReadyToCapture } from "@/lib/claimFlow/camera";
 import { requestMotionPermission, useTiltDegrees } from "@/lib/claimFlow/motion";
 import { isTiltAligned, tiltHintFor } from "@/lib/claimFlow/tiltStatus";
 import { enqueueUpload } from "@/lib/claimFlow/uploadQueue";
@@ -85,6 +85,7 @@ export function GuidedCaptureStep({
   const [motionGranted, setMotionGranted] = useState(false);
   const [motionRequested, setMotionRequested] = useState(false);
   const [capturing, setCapturing] = useState(false);
+  const [captureError, setCaptureError] = useState<string | null>(null);
   const photoIndexRef = useRef(startPhotoIndex);
 
   const initialPhase = useMemo<Phase>(() => {
@@ -136,6 +137,11 @@ export function GuidedCaptureStep({
     if (phase.kind !== "aiming" || !aligned || capturing) return;
     const video = videoRef.current;
     if (!video) return;
+    setCaptureError(null);
+    if (!isVideoReadyToCapture(video)) {
+      setCaptureError(t("claim.guided.cameraNotReady"));
+      return;
+    }
     setCapturing(true);
     try {
       const capturedAtIso = new Date().toISOString();
@@ -165,6 +171,8 @@ export function GuidedCaptureStep({
       } else {
         setPhase({ kind: "walking", fromStop: phase.stopIndex });
       }
+    } catch (err) {
+      setCaptureError(err instanceof Error ? err.message : t("claim.guided.cameraNotReady"));
     } finally {
       setCapturing(false);
     }
@@ -179,11 +187,19 @@ export function GuidedCaptureStep({
   const currentStopIndex = phase.kind === "walking" ? phase.fromStop : phase.stopIndex;
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight">{t("claim.guided.title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("claim.guided.body")}</p>
-      </div>
+    <div className="space-y-3">
+      {/* Hidden during "aiming" — on a phone viewport this title+body plus a
+          fixed-aspect (so width-driven, often taller than the screen) video
+          box pushed the capture button below the fold, forcing a scroll for
+          every single one of 36 photos. Dropping this text (redundant once
+          the user is mid-shot) and switching the video box to a
+          viewport-height cap below are what get the button back on-screen. */}
+      {phase.kind !== "aiming" && (
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-tight">{t("claim.guided.title")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t("claim.guided.body")}</p>
+        </div>
+      )}
 
       <p className="text-sm font-medium">
         {t("claim.guided.stopLabel", { index: currentStopIndex + 1, total: STOP_COUNT })} · {uploadedCount}/{TOTAL_PHOTOS}
@@ -197,8 +213,13 @@ export function GuidedCaptureStep({
           which it doesn't between posing/aiming (same camera the whole way
           through). A freshly remounted <video> with no srcObject has 0
           width/height, so capturing from it produces an empty canvas — this
-          is the exact bug that broke every single photo here before. */}
-      <div className={`relative aspect-[3/4] overflow-hidden rounded-xl border border-border bg-black ${phase.kind === "aiming" ? "" : "hidden"}`}>
+          is the exact bug that broke every single photo here before.
+
+          Height is capped by viewport (dvh), not a fixed aspect ratio tied to
+          width — aspect-[3/4] at full width made the box itself taller than
+          most phone screens, which was the actual cause of "have to scroll
+          down to take the picture". */}
+      <div className={`relative h-[38dvh] w-full overflow-hidden rounded-xl border border-border bg-black ${phase.kind === "aiming" ? "" : "hidden"}`}>
         <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
         {phase.kind === "aiming" && (
           <>
@@ -243,7 +264,7 @@ export function GuidedCaptureStep({
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {motionRequested && !motionGranted && (
             <button type="button" onClick={() => void onEnableMotion()} className={GHOST_BTN}>
               {t("claim.guided.enableMotion")}
@@ -253,6 +274,7 @@ export function GuidedCaptureStep({
           <p className={`text-sm font-medium ${aligned ? "text-green-700" : "text-amber-700"}`}>
             {t(TILT_HINT_KEY[tiltDeg != null ? tiltHintFor(tiltDeg, phase.height) : "upright"])}
           </p>
+          {captureError && <p className="text-sm text-red-600">{captureError}</p>}
           <button
             type="button"
             onClick={() => void onCapture()}
