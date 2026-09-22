@@ -3,7 +3,7 @@
 import { Info } from "lucide-react";
 
 import { useT } from "@/lib/i18n";
-import { OrbitDiagram } from "./illustrations/OrbitDiagram";
+import { ArcCarousel } from "./illustrations/ArcCarousel";
 import { PoseFigureIcon } from "./illustrations/PoseFigureIcon";
 
 const PRIMARY_BTN =
@@ -12,9 +12,9 @@ const PRIMARY_BTN =
 /**
  * Shown once before Guided Capture starts — ported from apps/mobile's
  * guided-capture-intro.tsx + capture-instructions.tsx (pose icons + callout
- * copy). Simplified from the app's 3-slide swipeable arc carousel to one
- * static car+arc diagram — the interactive carousel wasn't load-bearing,
- * just a "this applies to any side of the car" nicety.
+ * copy + the 3-slide swipeable arc carousel showing front/side/rear corner
+ * coverage, so it's clear the walk-around pattern applies to any side of the
+ * car, not one fixed start point).
  */
 export function GuidedCaptureIntroStep({ onNext }: { onNext: () => void }) {
   const t = useT();
@@ -25,7 +25,7 @@ export function GuidedCaptureIntroStep({ onNext }: { onNext: () => void }) {
       </div>
 
       <div className="flex justify-center rounded-xl bg-white py-4">
-        <OrbitDiagram stopCount={12} targetStopIndex={0} />
+        <ArcCarousel />
       </div>
 
       <div className="flex items-start gap-2.5 rounded-xl bg-[#FFEDD5] px-4 py-3">

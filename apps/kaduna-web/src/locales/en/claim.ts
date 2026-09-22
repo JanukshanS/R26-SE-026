@@ -19,6 +19,8 @@ const claim: Record<string, string> = {
   "claim.captureIntro.poseOverhead": "Overhead",
   "claim.captureIntro.poseChest": "Chest height",
   "claim.captureIntro.poseWaist": "Waist height",
+  "claim.captureIntro.diagramStart": "Start",
+  "claim.captureIntro.diagramDistance": "2m",
 
   "claim.invalidLink.title": "This link isn't valid",
   "claim.invalidLink.body":
@@ -68,6 +70,7 @@ const claim: Record<string, string> = {
   "claim.guided.manualNext": "I've moved to the next spot",
   "claim.guided.done": "All photos captured",
   "claim.guided.cameraError": "Couldn't access the camera. Check your browser's camera permission and reload.",
+  "claim.guided.cameraNotReady": "Camera isn't ready yet — wait a moment and try again.",
   "claim.guided.uploadFailed": "Couldn't upload that photo.",
   "claim.guided.ready": "Ready",
   "claim.guided.standBack": "Stand about 1.5m from the vehicle",

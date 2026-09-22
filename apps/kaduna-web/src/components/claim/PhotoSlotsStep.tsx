@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Camera, Check, RotateCcw } from "lucide-react";
 
 import { useT } from "@/lib/i18n";
-import { useCameraStream, capturePhotoBlob, type FacingMode } from "@/lib/claimFlow/camera";
+import { useCameraStream, capturePhotoBlob, isVideoReadyToCapture, type FacingMode } from "@/lib/claimFlow/camera";
 import { enqueueUpload } from "@/lib/claimFlow/uploadQueue";
 import { type PhotoSlot } from "@/lib/claimFlow/uploadApi";
 import { getCurrentCoords, type PhotoGps } from "@/lib/claimFlow/location";
@@ -66,6 +66,7 @@ export function PhotoSlotsStep({
   const capturedAtIsoRef = useRef<string>("");
   const gpsPromiseRef = useRef<Promise<PhotoGps | null>>(Promise.resolve(null));
   const [completedThumbs, setCompletedThumbs] = useState<(string | null)[]>(() => slots.map(() => null));
+  const [captureError, setCaptureError] = useState<string | null>(null);
 
   useEffect(() => {
     if (videoRef.current && stream) videoRef.current.srcObject = stream;
@@ -79,15 +80,29 @@ export function PhotoSlotsStep({
   const onCapture = async () => {
     const video = videoRef.current;
     if (!video) return;
-    capturedAtIsoRef.current = new Date().toISOString();
-    gpsPromiseRef.current = getCurrentCoords();
-    const blob = await capturePhotoBlob(video);
-    setPreview({ blob, url: URL.createObjectURL(blob) });
+    setCaptureError(null);
+    if (!isVideoReadyToCapture(video)) {
+      // Most likely to hit right after switching to the selfie slot — the
+      // front camera needs a moment to actually start streaming frames after
+      // the facingMode change, and capturing during that gap silently
+      // produced no photo at all before this check existed.
+      setCaptureError(t("claim.guided.cameraNotReady"));
+      return;
+    }
+    try {
+      capturedAtIsoRef.current = new Date().toISOString();
+      gpsPromiseRef.current = getCurrentCoords();
+      const blob = await capturePhotoBlob(video, 0.95, slot.facingMode === "user");
+      setPreview({ blob, url: URL.createObjectURL(blob) });
+    } catch (err) {
+      setCaptureError(err instanceof Error ? err.message : t("claim.guided.cameraNotReady"));
+    }
   };
 
   const onRetake = () => {
     if (preview) URL.revokeObjectURL(preview.url);
     setPreview(null);
+    setCaptureError(null);
   };
 
   const onConfirm = async () => {
@@ -195,6 +210,8 @@ export function PhotoSlotsStep({
               )}
             </div>
           )}
+
+          {captureError && <p className="text-sm text-red-600">{captureError}</p>}
 
           {!preview ? (
             <button type="button" onClick={() => void onCapture()} disabled={!!cameraError} className={PRIMARY_BTN}>
