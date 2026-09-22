@@ -4,6 +4,7 @@ import landing from "./landing";
 import portal from "./portal";
 import signin from "./signin";
 import app from "./app";
+import claim from "./claim";
 import report from "./report";
 import provider from "./provider";
 import dashboard from "./dashboard";
@@ -17,6 +18,7 @@ const catalogue: Record<string, string> = {
   ...portal,
   ...signin,
   ...app,
+  ...claim,
   ...report,
   ...provider,
   ...dashboard,

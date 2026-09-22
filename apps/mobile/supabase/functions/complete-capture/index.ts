@@ -18,6 +18,21 @@ const R2_BUCKET_NAME = Deno.env.get("R2_BUCKET_NAME")!;
 // the Python class default is 5 — override via this function's own env if needed).
 const MIN_CAPTURE_PHOTOS = Number(Deno.env.get("MIN_CAPTURE_PHOTOS") ?? "6");
 
+// See sign-photo-upload/index.ts for why this is needed (browser callers, unlike
+// React Native, enforce CORS — this was never exercised before the web claim-link flow).
+const CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
+
 const _PLACEHOLDER_CLAIMANT_NAME = "UNKNOWN";
 const _PLACEHOLDER_CLAIMANT_NIC = "000000000000";
 
@@ -119,13 +134,16 @@ async function writeLocationsToR2(capture: CaptureRow): Promise<void> {
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: CORS_HEADERS });
+  }
   if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
-    return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401 });
+    return jsonResponse({ error: "Missing Authorization header" }, 401);
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -141,10 +159,10 @@ Deno.serve(async (req: Request) => {
     .maybeSingle<CaptureRow>();
 
   if (captureErr || !capture) {
-    return new Response(JSON.stringify({ error: "Capture session not found." }), { status: 404 });
+    return jsonResponse({ error: "Capture session not found." }, 404);
   }
   if (capture.status !== "uploading") {
-    return new Response(JSON.stringify({ error: "Capture session is already completed." }), { status: 409 });
+    return jsonResponse({ error: "Capture session is already completed." }, 409);
   }
 
   const { count: originalCount } = await supabase
@@ -154,9 +172,9 @@ Deno.serve(async (req: Request) => {
     .eq("asset_kind", "original");
 
   if ((originalCount ?? 0) < MIN_CAPTURE_PHOTOS) {
-    return new Response(
-      JSON.stringify({ error: `Not enough original photos uploaded. Minimum required: ${MIN_CAPTURE_PHOTOS}.` }),
-      { status: 400 }
+    return jsonResponse(
+      { error: `Not enough original photos uploaded. Minimum required: ${MIN_CAPTURE_PHOTOS}.` },
+      400
     );
   }
 
@@ -169,7 +187,7 @@ Deno.serve(async (req: Request) => {
     .maybeSingle();
 
   if (updateErr || !updated) {
-    return new Response(JSON.stringify({ error: "Capture session could not be completed." }), { status: 409 });
+    return jsonResponse({ error: "Capture session could not be completed." }, 409);
   }
 
   try {
@@ -186,15 +204,12 @@ Deno.serve(async (req: Request) => {
     .eq("capture_id", captureId)
     .eq("asset_kind", "enhanced");
 
-  return new Response(
-    JSON.stringify({
-      id: updated.id,
-      status: updated.status,
-      created_at: updated.created_at,
-      completed_at: updated.completed_at,
-      uploaded_photo_count: originalCount ?? 0,
-      uploaded_enhanced_count: enhancedCount ?? 0,
-    }),
-    { headers: { "Content-Type": "application/json" } }
-  );
+  return jsonResponse({
+    id: updated.id,
+    status: updated.status,
+    created_at: updated.created_at,
+    completed_at: updated.completed_at,
+    uploaded_photo_count: originalCount ?? 0,
+    uploaded_enhanced_count: enhancedCount ?? 0,
+  });
 });

@@ -24,6 +24,22 @@ const R2_BUCKET_NAME = Deno.env.get("R2_BUCKET_NAME")!;
 
 const PRESIGN_EXPIRES_SECONDS = 300;
 
+// Supabase's standard CORS pattern for Edge Functions (see supabase.com/docs/guides/functions/cors) —
+// needed once this is called from a browser (kaduna-web's claim-link flow), not just React Native,
+// which never enforces CORS in the first place so this never mattered before.
+const CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
+
 const _PLACEHOLDER_CLAIMANT_NAME = "UNKNOWN";
 const _PLACEHOLDER_CLAIMANT_NIC = "000000000000";
 const _PLACEHOLDER_CLAIMANT_LICENCE = "UNKNOWN";
@@ -137,13 +153,16 @@ function buildPhotoObjectMetadata(
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: CORS_HEADERS });
+  }
   if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
-    return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401 });
+    return jsonResponse({ error: "Missing Authorization header" }, 401);
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -164,7 +183,7 @@ Deno.serve(async (req: Request) => {
   } = await req.json();
 
   if (assetKind !== "original" && assetKind !== "enhanced") {
-    return new Response(JSON.stringify({ error: "asset_kind must be 'original' or 'enhanced'." }), { status: 400 });
+    return jsonResponse({ error: "asset_kind must be 'original' or 'enhanced'." }, 400);
   }
 
   // RLS-scoped read (the user's own JWT is on this client) — a capture that isn't
@@ -177,10 +196,10 @@ Deno.serve(async (req: Request) => {
     .maybeSingle<CaptureRow>();
 
   if (captureErr || !capture) {
-    return new Response(JSON.stringify({ error: "Capture session not found." }), { status: 404 });
+    return jsonResponse({ error: "Capture session not found." }, 404);
   }
   if (capture.status !== "uploading") {
-    return new Response(JSON.stringify({ error: "Capture session is not accepting uploads." }), { status: 409 });
+    return jsonResponse({ error: "Capture session is not accepting uploads." }, 409);
   }
 
   if (assetKind === "enhanced") {
@@ -192,9 +211,9 @@ Deno.serve(async (req: Request) => {
       .eq("asset_kind", "original")
       .maybeSingle();
     if (!original) {
-      return new Response(
-        JSON.stringify({ error: "Upload the original for this photo_index before uploading enhanced." }),
-        { status: 400 }
+      return jsonResponse(
+        { error: "Upload the original for this photo_index before uploading enhanced." },
+        400
       );
     }
   }
@@ -251,13 +270,10 @@ Deno.serve(async (req: Request) => {
   // The client must PUT with exactly this Content-Type and these x-amz-meta-* headers
   // (lowercased, without the x-amz-meta- prefix here — the client adds that prefix),
   // or the presigned signature won't match.
-  return new Response(
-    JSON.stringify({
-      uploadUrl,
-      key,
-      contentType: contentType || "application/octet-stream",
-      metadataHeaders: metadata,
-    }),
-    { headers: { "Content-Type": "application/json" } }
-  );
+  return jsonResponse({
+    uploadUrl,
+    key,
+    contentType: contentType || "application/octet-stream",
+    metadataHeaders: metadata,
+  });
 });
