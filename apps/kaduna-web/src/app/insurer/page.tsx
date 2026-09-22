@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import PortalShell from "@/components/portal/PortalShell";
 import { ClaimDetailPanel } from "@/components/insurer/dashboard/ClaimDetailPanel";
+import { ClaimLinkPanel } from "@/components/insurer/dashboard/ClaimLinkPanel";
 import { ClaimsListPanel } from "@/components/insurer/dashboard/ClaimsListPanel";
 import { PipelineSteps } from "@/components/insurer/dashboard/PipelineSteps";
 import { PipelineJobProvider, usePipelineJob } from "@/lib/insurer/PipelineJobContext";
@@ -83,35 +84,50 @@ function DashboardInner() {
         <p className="mb-4 text-sm text-muted-foreground">{user.company_name}</p>
       )}
 
-      {loading && <p className="py-8 text-muted-foreground">{t("insurer.dashboard.loading")}</p>}
-      {error && <p className="py-8 text-red-600">{error}</p>}
-
-      {!loading && !error && (
-        <div
-          className={`grid gap-4 h-full transition-[grid-template-columns] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${
-            expanded ? "grid-cols-[240px_1fr]" : "grid-cols-[minmax(280px,38%)_1fr]"
-          }`}
-        >
-          <ClaimsListPanel
-            claims={claims}
-            selectedFolder={selectedFolder}
-            search={search}
-            onSearchChange={setSearch}
-            onSelect={setSelectedFolder}
-            expanded={expanded}
-          />
-          {selectedClaim && (
-            <ClaimDetailPanel
-              claim={selectedClaim}
-              key={selectedClaim.folder}
-              expanded={expanded}
-              onToggleExpand={handleToggleExpand}
-              onCollapse={handleCollapse}
-              isAnimating={isAnimating}
-            />
-          )}
+      {/* flex column, not two independent block siblings — PortalShell's
+          "stretch" mode locks this whole area to a fixed viewport-derived
+          height (h-screen + overflow-hidden further up), so the claims grid
+          below can't just assume it owns 100% of that height: it has to
+          actually share the space with this panel via flexbox. A plain
+          height:100% grid next to a block-level sibling overflows by exactly
+          that sibling's height, and the overflow silently clips off-screen
+          — which is what was hiding the accident-images thumbnail strip and
+          zoom controls (they live at the bottom of that grid). */}
+      <div className="flex h-full flex-col">
+        <div className="mb-4 shrink-0">
+          <ClaimLinkPanel />
         </div>
-      )}
+
+        {loading && <p className="py-8 text-muted-foreground">{t("insurer.dashboard.loading")}</p>}
+        {error && <p className="py-8 text-red-600">{error}</p>}
+
+        {!loading && !error && (
+          <div
+            className={`grid min-h-0 flex-1 gap-4 transition-[grid-template-columns] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${
+              expanded ? "grid-cols-[240px_1fr]" : "grid-cols-[minmax(280px,38%)_1fr]"
+            }`}
+          >
+            <ClaimsListPanel
+              claims={claims}
+              selectedFolder={selectedFolder}
+              search={search}
+              onSearchChange={setSearch}
+              onSelect={setSelectedFolder}
+              expanded={expanded}
+            />
+            {selectedClaim && (
+              <ClaimDetailPanel
+                claim={selectedClaim}
+                key={selectedClaim.folder}
+                expanded={expanded}
+                onToggleExpand={handleToggleExpand}
+                onCollapse={handleCollapse}
+                isAnimating={isAnimating}
+              />
+            )}
+          </div>
+        )}
+      </div>
 
       <GlobalPipelineWidget />
     </PortalShell>
