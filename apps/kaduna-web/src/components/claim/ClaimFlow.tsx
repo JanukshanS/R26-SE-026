@@ -9,6 +9,7 @@ import { ensureClaimSession } from "@/lib/claimFlow/session";
 import { getOrCreateCapture, reconcileProgress, updateCapture } from "@/lib/claimFlow/uploadApi";
 import { loadClaimProgress, newClaimProgress, saveClaimProgress, type ClaimProgress } from "@/lib/claimFlow/progress";
 import type { ClaimLinkIdentity, LocationSnapshot, VerifiedClaimant } from "@/lib/claimFlow/types";
+import { STAGE_ORDER, type ClaimStage } from "@/lib/claimFlow/types";
 
 import { ClaimShell } from "./ClaimShell";
 import { VerifyStep } from "./VerifyStep";
@@ -25,6 +26,21 @@ const LICENCE_TOTAL = 3;
 const VIDEO_START = LICENCE_START + LICENCE_TOTAL; // 39
 const THIRD_PARTY_START = VIDEO_START + 1; // 40
 const THIRD_PARTY_TOTAL = 3;
+
+/** Which stage "owns" a given photo index — used to roll `stage` itself back
+ * (not just `nextPhotoIndex`) when reconcileProgress finds the server is
+ * behind an already-passed stage. Without this, a stage that had already
+ * advanced past the gap before a reload happened would never be revisited:
+ * every stage's own startPhotoIndex/resumeCount math clamps up to at least
+ * that stage's own START constant, so a corrected-but-lower nextPhotoIndex
+ * from an EARLIER stage is silently ignored once `stage` itself has moved on. */
+function stageForPhotoIndex(index: number): ClaimStage | null {
+  if (index < GUIDED_TOTAL) return "guidedCapture";
+  if (index < LICENCE_START + LICENCE_TOTAL) return "drivingLicence";
+  if (index < VIDEO_START + 1) return "userVerification";
+  if (index < THIRD_PARTY_START + THIRD_PARTY_TOTAL) return "thirdParty";
+  return null; // Caught up through every photo/video stage — no rollback needed.
+}
 
 const LICENCE_SLOTS: PhotoSlotDef[] = [
   { key: "front", labelKey: "claim.licence.sideFront", bodyKey: "claim.licence.bodyFront", facingMode: "environment" },
@@ -89,11 +105,20 @@ export function ClaimFlow({ token }: { token: string }) {
       // a photo is *enqueued*, not once its upload is confirmed (see
       // uploadQueue.ts), so a reload while items were still queued could
       // otherwise leave this claiming more is on the server than really is.
-      if (existing.captureId) {
+      if (existing.captureId && existing.stage !== "submit" && existing.stage !== "done") {
         void reconcileProgress(existing.captureId, existing.nextPhotoIndex).then((corrected) => {
-          if (corrected !== existing.nextPhotoIndex) {
-            update({ nextPhotoIndex: corrected });
-          }
+          if (corrected === existing.nextPhotoIndex) return;
+          const correctStage = stageForPhotoIndex(corrected);
+          // Only roll the stage itself backward — never forward — and only
+          // when the recorded stage is genuinely ahead of where the gap is,
+          // so a false correction never regresses someone still legitimately
+          // mid-stage.
+          const shouldRollBackStage =
+            correctStage && STAGE_ORDER.indexOf(correctStage) < STAGE_ORDER.indexOf(existing.stage);
+          update({
+            nextPhotoIndex: corrected,
+            ...(shouldRollBackStage ? { stage: correctStage } : {}),
+          });
         });
       }
     } else if (token !== "direct") {
