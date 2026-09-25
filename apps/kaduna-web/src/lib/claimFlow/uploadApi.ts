@@ -154,15 +154,27 @@ export async function fetchCaptureStatus(captureId: string): Promise<string | nu
  * counter) as soon as a photo is enqueued, not once its upload is confirmed
  * (see uploadQueue.ts) — a reload while items are still queued would
  * otherwise leave local progress claiming more is on the server than really
- * is. Only ever corrects downward (the server's confirmed count is always a
- * lower bound on truth; it can't know about anything still queued client-side).
+ * is.
+ *
+ * Uses the longest *contiguous* run of indices starting at 0, not a raw row
+ * count — a plain count silently breaks the moment there's a gap (e.g.
+ * indices 0-12 confirmed, then a dropped run, then 39-42 confirmed after a
+ * later stage succeeded): the count is 17, but the true safe resume point is
+ * 13. Counting rows instead of walking the run would then wrongly resume
+ * from 17, permanently skipping the missing 13-38 without ever re-prompting
+ * for them.
  */
 export async function reconcileProgress(captureId: string, localNextPhotoIndex: number): Promise<number> {
-  const { count } = await supabase
+  const { data } = await supabase
     .from("capture_photos")
-    .select("id", { count: "exact", head: true })
+    .select("photo_index")
     .eq("capture_id", captureId)
-    .eq("asset_kind", "original");
-  const confirmed = count ?? 0;
-  return Math.min(localNextPhotoIndex, confirmed);
+    .eq("asset_kind", "original")
+    .order("photo_index", { ascending: true });
+
+  const confirmedIndices = new Set((data ?? []).map((row) => row.photo_index as number));
+  let contiguous = 0;
+  while (confirmedIndices.has(contiguous)) contiguous += 1;
+
+  return Math.min(localNextPhotoIndex, contiguous);
 }
