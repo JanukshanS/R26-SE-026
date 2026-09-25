@@ -8,6 +8,7 @@ import { useCameraStream, capturePhotoBlob, isVideoReadyToCapture, type FacingMo
 import { enqueueUpload } from "@/lib/claimFlow/uploadQueue";
 import { type PhotoSlot } from "@/lib/claimFlow/uploadApi";
 import { getCurrentCoords, type PhotoGps } from "@/lib/claimFlow/location";
+import { playShutterSound } from "@/lib/claimFlow/sounds";
 
 export type PhotoSlotDef = {
   key: string;
@@ -20,9 +21,9 @@ export type PhotoSlotDef = {
 };
 
 const PRIMARY_BTN =
-  "w-full rounded-md bg-[#f97316] px-5 py-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50";
+  "w-full rounded-md bg-[#f97316] px-5 py-3 text-sm font-semibold text-white transition-transform duration-150 hover:opacity-90 active:scale-[0.97] disabled:opacity-50";
 const GHOST_BTN =
-  "flex-1 rounded-md border border-input px-5 py-3 text-sm font-medium hover:bg-accent disabled:opacity-50";
+  "flex-1 rounded-md border border-input px-5 py-3 text-sm font-medium transition-transform duration-150 hover:bg-accent active:scale-[0.97] disabled:opacity-50";
 
 /**
  * Reusable "photograph up to N fixed slots" step — Driving Licence (front,
@@ -93,6 +94,7 @@ export function PhotoSlotsStep({
       capturedAtIsoRef.current = new Date().toISOString();
       gpsPromiseRef.current = getCurrentCoords();
       const blob = await capturePhotoBlob(video, 0.95, slot.facingMode === "user");
+      playShutterSound();
       setPreview({ blob, url: URL.createObjectURL(blob) });
     } catch (err) {
       setCaptureError(err instanceof Error ? err.message : t("claim.guided.cameraNotReady"));
@@ -142,7 +144,7 @@ export function PhotoSlotsStep({
   const allDone = slotIndex >= slots.length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div>
         <h1 className="font-display text-2xl font-bold tracking-tight">{t(titleKey)}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t(allDone ? doneBodyKey : slot.bodyKey)}</p>
@@ -182,20 +184,30 @@ export function PhotoSlotsStep({
 
       {!allDone && (
         <>
-          <p className="text-sm font-medium">{t(slot.labelKey)}</p>
+          {/* Keyed on slotIndex only — safe to remount, unlike the video box
+              below, which must NEVER be inside a keyed wrapper (see its own
+              comment: remounting it is exactly the "Could not capture a
+              photo" bug this session already fixed once). */}
+          <p key={slotIndex} className="animate-in fade-in text-sm font-medium duration-200">
+            {t(slot.labelKey)}
+          </p>
 
           {cameraError ? (
             <p className="text-sm text-red-600">{t("claim.guided.cameraError")}</p>
           ) : (
-            <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-border bg-black">
-              {/* The <video> stays mounted across slot changes even while a preview
-                  is showing — swapping it out for an <img> (unmounting it) loses
-                  the camera stream binding, since the effect that attaches
-                  srcObject only re-runs when the `stream` object itself changes,
-                  which it doesn't between two slots using the same-facing camera
-                  (e.g. licence front -> back). A freshly remounted <video> with no
-                  srcObject has 0 width/height, so capturing from it produces an
-                  empty canvas — exactly what broke the "back" slot. */}
+            // h-[46dvh] (viewport-capped), not aspect-[3/4] — the same fix as
+            // GuidedCaptureStep's live-camera box, and the same height, for a
+            // consistent preview size across every camera step. A width-driven
+            // fixed aspect ratio made this box taller than the screen on a
+            // narrow phone, pushing "Take Photo" below the fold.
+            //
+            // NEVER wrap this box (or the <video> inside it) in a `key`-ed
+            // element for animation purposes — a key change unmounts it, and
+            // a freshly-remounted <video> has no srcObject / 0x0 dimensions
+            // (the effect that attaches srcObject only re-fires when the
+            // `stream` object itself changes, not on remount), which is
+            // exactly what broke the driving-licence "back" slot before.
+            <div className="relative h-[46dvh] w-full overflow-hidden rounded-xl border border-border bg-black">
               <video
                 ref={videoRef}
                 autoPlay
@@ -206,31 +218,36 @@ export function PhotoSlotsStep({
               />
               {preview && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={preview.url} alt="" className="h-full w-full object-cover" />
+                <img src={preview.url} alt="" className="h-full w-full object-cover animate-in fade-in duration-200" />
               )}
             </div>
           )}
 
           {captureError && <p className="text-sm text-red-600">{captureError}</p>}
 
-          {!preview ? (
-            <button type="button" onClick={() => void onCapture()} disabled={!!cameraError} className={PRIMARY_BTN}>
-              <span className="flex items-center justify-center gap-2">
-                <Camera className="size-4" aria-hidden /> {t("claim.licence.takePhoto")}
-              </span>
-            </button>
-          ) : (
-            <div className="flex gap-3">
-              <button type="button" onClick={onRetake} className={GHOST_BTN}>
+          <div
+            key={preview ? "preview-actions" : "camera-actions"}
+            className="animate-in fade-in slide-in-from-bottom-1 duration-200"
+          >
+            {!preview ? (
+              <button type="button" onClick={() => void onCapture()} disabled={!!cameraError} className={PRIMARY_BTN}>
                 <span className="flex items-center justify-center gap-2">
-                  <RotateCcw className="size-4" aria-hidden /> {t("claim.licence.retake")}
+                  <Camera className="size-4" aria-hidden /> {t("claim.licence.takePhoto")}
                 </span>
               </button>
-              <button type="button" onClick={() => void onConfirm()} className={`flex-1 ${PRIMARY_BTN}`}>
-                {t("claim.common.continue")}
-              </button>
-            </div>
-          )}
+            ) : (
+              <div className="flex gap-3">
+                <button type="button" onClick={onRetake} className={GHOST_BTN}>
+                  <span className="flex items-center justify-center gap-2">
+                    <RotateCcw className="size-4" aria-hidden /> {t("claim.licence.retake")}
+                  </span>
+                </button>
+                <button type="button" onClick={() => void onConfirm()} className={`flex-1 ${PRIMARY_BTN}`}>
+                  {t("claim.common.continue")}
+                </button>
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>

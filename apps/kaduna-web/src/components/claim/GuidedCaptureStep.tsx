@@ -9,6 +9,7 @@ import { requestMotionPermission, useTiltDegrees } from "@/lib/claimFlow/motion"
 import { isTiltAligned, tiltHintFor } from "@/lib/claimFlow/tiltStatus";
 import { enqueueUpload } from "@/lib/claimFlow/uploadQueue";
 import { getCurrentCoords } from "@/lib/claimFlow/location";
+import { playShutterSound } from "@/lib/claimFlow/sounds";
 import { HEIGHT_STEPS, type HeightStep } from "@/lib/claimFlow/types";
 import { ViewfinderBrackets, type TiltAlignState } from "./illustrations/ViewfinderBrackets";
 import { CaptureProgressRing } from "./illustrations/CaptureProgressRing";
@@ -18,9 +19,9 @@ const STOP_COUNT = 12;
 const TOTAL_PHOTOS = STOP_COUNT * HEIGHT_STEPS.length;
 
 const PRIMARY_BTN =
-  "w-full rounded-md bg-[#f97316] px-5 py-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50";
+  "w-full rounded-md bg-[#f97316] px-5 py-3 text-sm font-semibold text-white transition-transform duration-150 hover:opacity-90 active:scale-[0.97] disabled:opacity-50";
 const GHOST_BTN =
-  "w-full rounded-md border border-input px-5 py-3 text-sm font-medium hover:bg-accent disabled:opacity-50";
+  "w-full rounded-md border border-input px-5 py-3 text-sm font-medium transition-transform duration-150 hover:bg-accent active:scale-[0.97] disabled:opacity-50";
 
 const HEIGHT_LABEL_KEY: Record<HeightStep, string> = {
   overhead: "claim.guided.heightOverhead",
@@ -146,6 +147,7 @@ export function GuidedCaptureStep({
     try {
       const capturedAtIso = new Date().toISOString();
       const [blob, gps] = await Promise.all([capturePhotoBlob(video), getCurrentCoords()]);
+      playShutterSound();
       const photoIndex = photoIndexRef.current;
       enqueueUpload({
         captureId,
@@ -185,25 +187,39 @@ export function GuidedCaptureStep({
   };
 
   const currentStopIndex = phase.kind === "walking" ? phase.fromStop : phase.stopIndex;
+  // Distinct per screen the claimant actually sees (walking / posing+height /
+  // aiming+height) — re-keying the block below on this is what re-triggers
+  // its fade-in on every phase change, not just once.
+  const phaseKey =
+    phase.kind === "walking" ? `walking-${phase.fromStop}` : `${phase.kind}-${phase.stopIndex}-${phase.height}`;
 
   return (
     <div className="space-y-3">
-      {/* Hidden during "aiming" — on a phone viewport this title+body plus a
-          fixed-aspect (so width-driven, often taller than the screen) video
-          box pushed the capture button below the fold, forcing a scroll for
-          every single one of 36 photos. Dropping this text (redundant once
-          the user is mid-shot) and switching the video box to a
-          viewport-height cap below are what get the button back on-screen. */}
-      {phase.kind !== "aiming" && (
+      {/* Shown only on "walking" — this title+body was also eating headroom on
+          "posing" (the reference-image screen shown before every shot: image
+          + instructions + Ready button), which combined with a width-driven
+          image size was the actual "have to scroll down to take the picture"
+          complaint — not the live-camera screen, which is handled separately
+          below. Dropping this text there (redundant once the user is
+          mid-shot anyway) plus capping the reference image by viewport
+          height (below) is what gets the Ready button back on-screen. */}
+      {phase.kind === "walking" && (
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight">{t("claim.guided.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("claim.guided.body")}</p>
         </div>
       )}
 
-      <p className="text-sm font-medium">
-        {t("claim.guided.stopLabel", { index: currentStopIndex + 1, total: STOP_COUNT })} · {uploadedCount}/{TOTAL_PHOTOS}
-      </p>
+      {/* The progress ring used to float inside the video box (top-right),
+          which put it in the same corner as the viewfinder bracket — moved
+          up here, right-aligned with the stop label, so it's never competing
+          with the bracket for the same space. */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">
+          {t("claim.guided.stopLabel", { index: currentStopIndex + 1, total: STOP_COUNT })}
+        </p>
+        <CaptureProgressRing current={uploadedCount} total={TOTAL_PHOTOS} size={52} />
+      </div>
 
       {/* The <video> stays mounted for this component's whole lifetime (just
           hidden via CSS outside "aiming") rather than being conditionally
@@ -215,79 +231,83 @@ export function GuidedCaptureStep({
           width/height, so capturing from it produces an empty canvas — this
           is the exact bug that broke every single photo here before.
 
-          Height is capped by viewport (dvh), not a fixed aspect ratio tied to
-          width — aspect-[3/4] at full width made the box itself taller than
-          most phone screens, which was the actual cause of "have to scroll
-          down to take the picture". */}
-      <div className={`relative h-[38dvh] w-full overflow-hidden rounded-xl border border-border bg-black ${phase.kind === "aiming" ? "" : "hidden"}`}>
+          Height is capped by viewport (dvh, shared with PhotoSlotsStep and
+          VideoStep for a consistent preview size across every camera step —
+          keep those in sync if this changes), not a fixed aspect ratio tied
+          to width — aspect-[3/4] at full width made the box itself taller
+          than most phone screens, which was the actual cause of "have to
+          scroll down to take the picture". */}
+      <div className={`relative h-[46dvh] w-full overflow-hidden rounded-xl border border-border bg-black ${phase.kind === "aiming" ? "" : "hidden"}`}>
         <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
-        {phase.kind === "aiming" && (
-          <>
-            <ViewfinderBrackets state={tiltState} />
-            <div className="absolute right-3 top-3">
-              <CaptureProgressRing current={uploadedCount} total={TOTAL_PHOTOS} />
-            </div>
-          </>
-        )}
+        {phase.kind === "aiming" && <ViewfinderBrackets state={tiltState} />}
       </div>
 
       {cameraError && <p className="text-sm text-red-600">{t("claim.guided.cameraError")}</p>}
 
-      {phase.kind === "walking" ? (
-        <div className="space-y-3 rounded-xl border border-border bg-card p-6 text-center">
-          <div className="flex justify-center">
-            <OrbitDiagram stopCount={STOP_COUNT} targetStopIndex={phase.fromStop + 1} />
-          </div>
-          <p className="font-medium">{t("claim.guided.keepWalking")}</p>
-          <p className="text-sm text-muted-foreground">{t("claim.guided.walkHint")}</p>
-          <button type="button" onClick={onManualNext} className={PRIMARY_BTN}>
-            {t("claim.guided.manualNext")}
-          </button>
-        </div>
-      ) : phase.kind === "posing" ? (
-        <div className="space-y-4">
-          <div className="flex justify-center overflow-hidden rounded-xl border border-border bg-white p-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={REFERENCE_IMAGE[phase.height]}
-              alt=""
-              className="aspect-[4/3] w-full max-w-xs rounded-lg object-contain"
-            />
-          </div>
-          <div className="text-center">
-            <p className="font-display text-lg font-bold tracking-tight">{t(REFERENCE_TITLE_KEY[phase.height])}</p>
-            <p className="mt-1 text-sm font-bold text-[#f97316]">{t("claim.guided.standBack")}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{t(REFERENCE_INSTRUCTION_KEY[phase.height])}</p>
-          </div>
-          <button type="button" onClick={onReady} className={PRIMARY_BTN}>
-            {t("claim.guided.ready")}
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {motionRequested && !motionGranted && (
-            <button type="button" onClick={() => void onEnableMotion()} className={GHOST_BTN}>
-              {t("claim.guided.enableMotion")}
+      {/* Keyed by phase so each posing/aiming/walking screen fades in fresh —
+          same reasoning as ClaimShell's stage wrapper, one level down. */}
+      <div key={phaseKey} className="animate-in fade-in slide-in-from-bottom-1 duration-200">
+        {phase.kind === "walking" ? (
+          <div className="space-y-3 rounded-xl border border-border bg-card p-6 text-center">
+            <div className="flex justify-center">
+              <OrbitDiagram stopCount={STOP_COUNT} targetStopIndex={phase.fromStop + 1} />
+            </div>
+            <p className="font-medium">{t("claim.guided.keepWalking")}</p>
+            <p className="text-sm text-muted-foreground">{t("claim.guided.walkHint")}</p>
+            <button type="button" onClick={onManualNext} className={PRIMARY_BTN}>
+              {t("claim.guided.manualNext")}
             </button>
-          )}
-          <p className="text-sm text-muted-foreground">{t(HEIGHT_LABEL_KEY[phase.height])}</p>
-          <p className={`text-sm font-medium ${aligned ? "text-green-700" : "text-amber-700"}`}>
-            {t(TILT_HINT_KEY[tiltDeg != null ? tiltHintFor(tiltDeg, phase.height) : "upright"])}
-          </p>
-          {captureError && <p className="text-sm text-red-600">{captureError}</p>}
-          <button
-            type="button"
-            onClick={() => void onCapture()}
-            disabled={!aligned || capturing || !!cameraError}
-            className={PRIMARY_BTN}
-          >
-            <span className="flex items-center justify-center gap-2">
-              <Camera className="size-4" aria-hidden />
-              {t("claim.guided.takePhoto")}
-            </span>
-          </button>
-        </div>
-      )}
+          </div>
+        ) : phase.kind === "posing" ? (
+          <div className="space-y-3">
+            {/* max-h (viewport-relative), not a fixed aspect ratio at full
+                width — aspect-[4/3] sized off the container's width made this
+                image taller than the screen on a narrow phone, pushing the
+                Ready button below the fold (the "see the car and the angle,
+                then scroll down to take the picture" complaint). */}
+            <div className="flex justify-center overflow-hidden rounded-xl border border-border bg-white p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={REFERENCE_IMAGE[phase.height]}
+                alt=""
+                className="max-h-[30dvh] w-auto max-w-full rounded-lg object-contain"
+              />
+            </div>
+            <div className="text-center">
+              <p className="font-display text-lg font-bold tracking-tight">{t(REFERENCE_TITLE_KEY[phase.height])}</p>
+              <p className="mt-1 text-sm font-bold text-[#f97316]">{t("claim.guided.standBack")}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t(REFERENCE_INSTRUCTION_KEY[phase.height])}</p>
+            </div>
+            <button type="button" onClick={onReady} className={PRIMARY_BTN}>
+              {t("claim.guided.ready")}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {motionRequested && !motionGranted && (
+              <button type="button" onClick={() => void onEnableMotion()} className={GHOST_BTN}>
+                {t("claim.guided.enableMotion")}
+              </button>
+            )}
+            <p className="text-sm text-muted-foreground">{t(HEIGHT_LABEL_KEY[phase.height])}</p>
+            <p className={`text-sm font-medium ${aligned ? "text-green-700" : "text-amber-700"}`}>
+              {t(TILT_HINT_KEY[tiltDeg != null ? tiltHintFor(tiltDeg, phase.height) : "upright"])}
+            </p>
+            {captureError && <p className="text-sm text-red-600">{captureError}</p>}
+            <button
+              type="button"
+              onClick={() => void onCapture()}
+              disabled={!aligned || capturing || !!cameraError}
+              className={PRIMARY_BTN}
+            >
+              <span className="flex items-center justify-center gap-2">
+                <Camera className="size-4" aria-hidden />
+                {t("claim.guided.takePhoto")}
+              </span>
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

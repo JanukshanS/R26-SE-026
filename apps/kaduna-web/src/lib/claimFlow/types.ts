@@ -45,6 +45,7 @@ export type ClaimStage =
   | "callInsurer"
   | "guidedCaptureIntro"
   | "guidedCapture"
+  | "drivingLicenceIntro"
   | "drivingLicence"
   | "userVerification"
   | "thirdParty"
@@ -56,6 +57,7 @@ export const STAGE_ORDER: ClaimStage[] = [
   "callInsurer",
   "guidedCaptureIntro",
   "guidedCapture",
+  "drivingLicenceIntro",
   "drivingLicence",
   "userVerification",
   "thirdParty",

@@ -81,6 +81,10 @@ const claim: Record<string, string> = {
   "claim.guided.poseChestInstruction": "Hold the phone upright at chest height.",
   "claim.guided.poseWaistInstruction": "Hold the phone upright at waist height.",
 
+  "claim.licenceIntro.title": "Identity verification",
+  "claim.licenceIntro.body":
+    "Next, we'll verify who you are — a photo of your driving licence, then a short verification video.",
+
   "claim.licence.title": "Your driving licence",
   "claim.licence.bodyFront": "Take a photo of the front of your Driving Licence.",
   "claim.licence.bodyBack": "Take a photo of the other side of your Driving Licence.",

@@ -7,7 +7,7 @@ import { ArcCarousel } from "./illustrations/ArcCarousel";
 import { PoseFigureIcon } from "./illustrations/PoseFigureIcon";
 
 const PRIMARY_BTN =
-  "w-full rounded-md bg-[#f97316] px-5 py-3 text-sm font-semibold text-white hover:opacity-90";
+  "w-full rounded-md bg-[#f97316] px-5 py-3 text-sm font-semibold text-white transition-transform duration-150 hover:opacity-90 active:scale-[0.97]";
 
 /**
  * Shown once before Guided Capture starts — ported from apps/mobile's
@@ -19,7 +19,16 @@ const PRIMARY_BTN =
 export function GuidedCaptureIntroStep({ onNext }: { onNext: () => void }) {
   const t = useT();
   return (
-    <div className="space-y-6">
+    // min-h-[calc(100dvh-...)] instead of h-full — h-full depends on every
+    // ancestor in the chain (ClaimShell's outer div, <main>, the stage
+    // wrapper) resolving a definite height via nested flex-grow, which
+    // didn't hold up in practice. Sizing directly against the viewport here
+    // (100dvh minus the header/progress-bar/step-label chrome above this
+    // screen) is more reliable: this screen's content is shorter than most
+    // phone viewports, so mt-auto on the button then pushes it down to the
+    // actual bottom of the screen; on a viewport too short for that, it just
+    // follows the content normally (scrollable).
+    <div className="flex min-h-[calc(100dvh-90px)] flex-col space-y-6">
       <div>
         <h1 className="font-display text-2xl font-bold tracking-tight">{t("claim.captureIntro.title")}</h1>
       </div>
@@ -44,7 +53,7 @@ export function GuidedCaptureIntroStep({ onNext }: { onNext: () => void }) {
         <p className="text-sm font-medium text-[#111111]">{t("claim.captureIntro.calloutOrder")}</p>
       </div>
 
-      <button type="button" onClick={onNext} className={PRIMARY_BTN}>
+      <button type="button" onClick={onNext} className={`${PRIMARY_BTN} mt-auto`}>
         {t("claim.common.next")}
       </button>
     </div>
