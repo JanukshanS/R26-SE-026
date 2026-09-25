@@ -7,13 +7,14 @@ import { useT } from "@/lib/i18n";
 import { useCameraStream, useMirroredRecorder } from "@/lib/claimFlow/camera";
 import { enqueueUpload } from "@/lib/claimFlow/uploadQueue";
 import { getCurrentCoords, type PhotoGps } from "@/lib/claimFlow/location";
+import { playRecordStartSound, playRecordStopSound } from "@/lib/claimFlow/sounds";
 
 const RECORD_DURATION_MS = 40_000;
 
 const PRIMARY_BTN =
-  "w-full rounded-md bg-[#f97316] px-5 py-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50";
+  "w-full rounded-md bg-[#f97316] px-5 py-3 text-sm font-semibold text-white transition-transform duration-150 hover:opacity-90 active:scale-[0.97] disabled:opacity-50";
 const GHOST_BTN =
-  "flex-1 rounded-md border border-input px-5 py-3 text-sm font-medium hover:bg-accent disabled:opacity-50";
+  "flex-1 rounded-md border border-input px-5 py-3 text-sm font-medium transition-transform duration-150 hover:bg-accent active:scale-[0.97] disabled:opacity-50";
 
 /**
  * User Verification (mobile's "drunk-test"): a 40s front-camera + mic
@@ -80,7 +81,8 @@ export function VideoStep({
   const onStart = () => {
     capturedAtIsoRef.current = new Date().toISOString();
     gpsPromiseRef.current = getCurrentCoords();
-    start(RECORD_DURATION_MS, () => {});
+    playRecordStartSound();
+    start(RECORD_DURATION_MS, () => playRecordStopSound());
   };
 
   const onRetake = () => {
@@ -109,7 +111,7 @@ export function VideoStep({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div>
         <h1 className="font-display text-2xl font-bold tracking-tight">{t("claim.userVerification.title")}</h1>
         <p className="mt-1 text-sm font-medium">
@@ -117,8 +119,21 @@ export function VideoStep({
         </p>
       </div>
 
+      {/* The script is long enough on its own to push the camera/button below
+          the fold — it's already internally scrollable (overflow-y-auto), so
+          shrinking the visible slice (max-h-48 -> max-h-28) trades "read it
+          all at a glance" for "camera + button visible without scrolling the
+          whole page", while the full text is still reachable by scrolling
+          just this box. Once recording actually starts, the claimant needs
+          to be reading this, not watching themselves — the video shrinks to
+          a small self-check strip and this grows to show (most or all of)
+          the script at once instead. */}
       {!videoBlob && (
-        <div className="max-h-48 overflow-y-auto rounded-xl bg-[#fff0e6] px-4 py-3">
+        <div
+          className={`overflow-y-auto rounded-xl bg-[#fff0e6] px-4 py-3 transition-[max-height] duration-300 ${
+            recording ? "max-h-[46dvh]" : "max-h-28"
+          }`}
+        >
           <p className="text-sm leading-relaxed text-[#111111]">
             {t("claim.userVerification.script", {
               licence: licenceNumber.trim() || t("claim.userVerification.licencePlaceholder"),
@@ -127,7 +142,15 @@ export function VideoStep({
         </div>
       )}
 
-      <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-border bg-black">
+      {/* h-[46dvh] matches GuidedCaptureStep/PhotoSlotsStep's preview size —
+          shrinks while recording (see above), but not too far: at 16dvh the
+          portrait camera feed under object-cover was cropped down to just
+          eyes/forehead. 28dvh keeps the whole face visible. */}
+      <div
+        className={`relative w-full overflow-hidden rounded-xl border border-border bg-black transition-[height] duration-300 ${
+          recording ? "h-[28dvh]" : "h-[46dvh]"
+        }`}
+      >
         <video
           ref={videoRef}
           autoPlay
@@ -138,15 +161,15 @@ export function VideoStep({
           style={!videoBlob ? { transform: "scaleX(-1)" } : undefined}
         />
         {recording && (
-          <div className="absolute inset-x-0 bottom-0 space-y-1 bg-white/60 px-4 py-3 text-center backdrop-blur-sm">
-            <p className="flex items-center justify-center gap-2 text-sm font-bold text-red-600">
-              <span className="size-2.5 animate-pulse rounded-full bg-red-600" aria-hidden />
+          <div className="absolute inset-x-0 bottom-0 space-y-1 bg-white/60 px-4 py-2 text-center backdrop-blur-sm">
+            <p className="flex items-center justify-center gap-2 text-xs font-bold text-red-600">
+              <span className="size-2 animate-pulse rounded-full bg-red-600" aria-hidden />
               {t("claim.userVerification.recordingLabel")} · {t("claim.userVerification.recording", { seconds: secondsLeft })}
             </p>
-            <p className="text-xs text-[#333333]">{t("claim.userVerification.stayInFrame")}</p>
           </div>
         )}
       </div>
+      {recording && <p className="text-center text-xs text-muted-foreground">{t("claim.userVerification.stayInFrame")}</p>}
 
       {!stream ? null : uploaded ? (
         <button type="button" onClick={onDone} className={PRIMARY_BTN}>

@@ -8,7 +8,7 @@ import { verifyClaimant } from "@/lib/claimFlow/verifyClaimant";
 import type { ClaimLinkIdentity, VerifiedClaimant } from "@/lib/claimFlow/types";
 
 const PRIMARY_BTN =
-  "w-full rounded-md bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50";
+  "w-full rounded-md bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition-transform duration-150 hover:opacity-90 active:scale-[0.97] disabled:opacity-50";
 
 export function VerifyStep({
   prefill,

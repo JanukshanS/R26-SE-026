@@ -16,6 +16,7 @@ import { VerifyStep } from "./VerifyStep";
 import { CallInsurerStep } from "./CallInsurerStep";
 import { GuidedCaptureIntroStep } from "./GuidedCaptureIntroStep";
 import { GuidedCaptureStep } from "./GuidedCaptureStep";
+import { DrivingLicenceIntroStep } from "./DrivingLicenceIntroStep";
 import { PhotoSlotsStep, type PhotoSlotDef } from "./PhotoSlotsStep";
 import { VideoStep } from "./VideoStep";
 import { SubmitStep } from "./SubmitStep";
@@ -185,7 +186,9 @@ export function ClaimFlow({ token }: { token: string }) {
 
   const onPhotoUploaded = (nextPhotoIndex: number) => update({ nextPhotoIndex });
 
-  const onGuidedDone = () => update({ stage: "drivingLicence" });
+  const onGuidedDone = () => update({ stage: "drivingLicenceIntro" });
+
+  const onLicenceIntroNext = () => update({ stage: "drivingLicence" });
 
   const onLicenceDone = async () => {
     if (progress.captureId) {
@@ -254,6 +257,8 @@ export function ClaimFlow({ token }: { token: string }) {
           onAllStopsDone={onGuidedDone}
         />
       )}
+
+      {progress.stage === "drivingLicenceIntro" && <DrivingLicenceIntroStep onNext={onLicenceIntroNext} />}
 
       {progress.stage === "drivingLicence" && progress.captureId && (
         <PhotoSlotsStep
