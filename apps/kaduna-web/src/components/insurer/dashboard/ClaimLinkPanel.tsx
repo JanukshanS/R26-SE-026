@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronUp, Copy, LoaderCircle, Link2 } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Copy, LoaderCircle, Link2, MessageSquare } from "lucide-react";
 
 import { useT } from "@/lib/i18n";
 import {
   createClaimLink,
   searchVehicles,
+  sendClaimLinkSms,
   type ClaimLinkResult,
   type VehicleSearchResult,
 } from "@/lib/insurer/claimLinksApi";
@@ -30,6 +31,9 @@ export function ClaimLinkPanel() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ClaimLinkResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [smsPending, setSmsPending] = useState(false);
+  const [smsSent, setSmsSent] = useState(false);
+  const [smsError, setSmsError] = useState<string | null>(null);
 
   const [vehicleResults, setVehicleResults] = useState<VehicleSearchResult[]>([]);
   const [showResults, setShowResults] = useState(false);
@@ -75,6 +79,8 @@ export function ClaimLinkPanel() {
     setError(null);
     setResult(null);
     setCopied(false);
+    setSmsSent(false);
+    setSmsError(null);
     try {
       const link = await createClaimLink({
         nic: nic.trim(),
@@ -97,6 +103,24 @@ export function ClaimLinkPanel() {
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Clipboard API unavailable — the URL is still visible to select/copy manually.
+    }
+  };
+
+  // Reads `phone` live rather than freezing it at generation time — lets
+  // staff fix up (or fill in) the number after seeing the result, when it
+  // wasn't auto-filled by the vehicle search.
+  const onSendSms = async () => {
+    if (!result || !phone.trim() || smsPending) return;
+    setSmsPending(true);
+    setSmsError(null);
+    setSmsSent(false);
+    try {
+      await sendClaimLinkSms({ phone: phone.trim(), url: result.url });
+      setSmsSent(true);
+    } catch (err) {
+      setSmsError(err instanceof Error ? err.message : t("insurer.claimLink.smsErrorFallback"));
+    } finally {
+      setSmsPending(false);
     }
   };
 
@@ -222,7 +246,32 @@ export function ClaimLinkPanel() {
                     </>
                   )}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => void onSendSms()}
+                  disabled={!phone.trim() || smsPending}
+                  title={!phone.trim() ? t("insurer.claimLink.smsNeedsPhone") : undefined}
+                  className="flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:opacity-50"
+                >
+                  {smsPending ? (
+                    <>
+                      <LoaderCircle className="size-3.5 animate-spin" /> {t("insurer.claimLink.sendingSms")}
+                    </>
+                  ) : smsSent ? (
+                    <>
+                      <Check className="size-3.5" /> {t("insurer.claimLink.smsSent")}
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="size-3.5" /> {t("insurer.claimLink.sendSms")}
+                    </>
+                  )}
+                </button>
               </div>
+              {!phone.trim() && (
+                <p className="mt-2 text-xs text-muted-foreground">{t("insurer.claimLink.smsNeedsPhone")}</p>
+              )}
+              {smsError && <p className="mt-2 text-xs text-red-600">{smsError}</p>}
               <p className="mt-2 text-xs text-muted-foreground">
                 {t("insurer.claimLink.expiresIn", { hours: result.expiresInHours })}
               </p>

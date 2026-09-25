@@ -52,3 +52,21 @@ export async function searchVehicles(query: string): Promise<VehicleSearchResult
     phone: r.phone,
   }));
 }
+
+/** POST /claims/claim-links/send-sms — texts an already-generated claim link
+ * to the claimant via Notify.lk. Separate from createClaimLink so staff can
+ * fix up (or type in) the phone number after seeing the generated link,
+ * without regenerating it. Throws with the backend's actual reason (e.g. "SMS
+ * isn't configured", "not a valid Sri Lankan phone number") so the UI can
+ * show it instead of a generic failure. */
+export async function sendClaimLinkSms(params: { phone: string; url: string }): Promise<void> {
+  const res = await insurerFetch("/claims/claim-links/send-sms", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone: params.phone, url: params.url }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail || `Failed to send SMS (${res.status})`);
+  }
+}
