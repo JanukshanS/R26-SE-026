@@ -27,7 +27,8 @@ import { ErrorState } from "@components/ui/error-state";
 import { HeaderBar } from "@components/ui/header-bar";
 import { Screen } from "@components/ui/screen";
 import { palette, spacing, typography } from "@theme/index";
-import { useEmergency, DEMO_VEHICLE } from "@lib/emergencyContext";
+import { useEmergency, incidentVehicleInfo } from "@lib/emergencyContext";
+import { useVehicleOptional } from "@lib/vehicleContext";
 import { haptics } from "@lib/haptics";
 import {
   createIncident, submitTriage, runDispatch, DispatchApiError,
@@ -88,6 +89,8 @@ export default function QuickDispatchScreen() {
   // pipeline writes incidentId / triageResult back into context, and this
   // screen must not restart itself when that happens.
   const responsesRef = useRef(skipped ? buildTriageResponses() : null);
+  const selectedVehicle = useVehicleOptional()?.selectedVehicle;
+  const vehicleInfoRef = useRef(incidentVehicleInfo(selectedVehicle));
 
   const runDispatchFlow = useCallback(async () => {
     if (inFlightRef.current) return;
@@ -99,7 +102,7 @@ export default function QuickDispatchScreen() {
       if (!id) {
         const incident = await createIncident({
           location:    { latitude: driver.latitude, longitude: driver.longitude },
-          vehicleInfo: DEMO_VEHICLE,
+          vehicleInfo: vehicleInfoRef.current,
           description: skipped
             ? "Roadside assistance requested via mobile app (questions skipped)"
             : `Quick-dispatch from home: ${label ?? intent}`,

@@ -19,6 +19,7 @@ import { saveSelectedVehicleId } from "@lib/selected-vehicle-store";
 import { clearVehicleInsuranceCache } from "@lib/vehicleInsuranceApi";
 import { clearCachedClaims, listMyClaims } from "@lib/claims-api";
 import { setActiveSessionId, getActiveSessionId } from "@lib/session-guard";
+import { FEATURES } from "@lib/features";
 
 interface ProfilePatch {
   name?: string;
@@ -203,7 +204,7 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
       // instead of paying a network round trip on every tap — see claims-api.ts.
       // (listMyClaims() itself checks session-guard before writing its cache, so no
       // extra guard is needed here.)
-      void listMyClaims().catch(() => {});
+      if (FEATURES.insurance) void listMyClaims().catch(() => {});
     });
     return () => sub.subscription.unsubscribe();
   }, [refreshVehicles]);

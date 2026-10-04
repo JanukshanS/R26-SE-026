@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 import { palette } from "@theme/index";
 import { useAutoTripController } from "@hooks/use-auto-trip-controller";
+import { FEATURES } from "@lib/features";
 
 /**
  * Owns the engine monitor for the whole (driver) group. Renders nothing — it
@@ -18,7 +19,7 @@ function AutoTripController() {
 export default function DriverLayout() {
   return (
     <>
-      <AutoTripController />
+      {FEATURES.obd && FEATURES.predictiveMaintenance ? <AutoTripController /> : null}
       <Stack
         screenOptions={{
           headerShown: false,
@@ -33,9 +34,29 @@ export default function DriverLayout() {
           is a genuine push and keeps the slide.
         */}
         <Stack.Screen name="home" options={{ animation: "fade" }} />
-        <Stack.Screen name="health" options={{ animation: "fade" }} />
-        <Stack.Screen name="order-parts" options={{ animation: "fade" }} />
         <Stack.Screen name="profile" options={{ animation: "fade" }} />
+        <Stack.Screen name="auth" />
+        <Stack.Screen name="manage-vehicles" />
+
+        <Stack.Protected guard={FEATURES.predictiveMaintenance}>
+          <Stack.Screen name="health" options={{ animation: "fade" }} />
+          <Stack.Screen name="component-detail" />
+          <Stack.Screen name="fault-detail" />
+          <Stack.Screen name="service-records" />
+          <Stack.Screen name="add-service-record" />
+          <Stack.Screen name="trip-summary" />
+          <Stack.Screen name="auto-schedule" />
+        </Stack.Protected>
+        <Stack.Protected guard={FEATURES.predictiveMaintenance && FEATURES.obd}>
+          <Stack.Screen name="active-trip" />
+        </Stack.Protected>
+        <Stack.Protected guard={FEATURES.marketplace}>
+          <Stack.Screen name="marketplace" />
+          <Stack.Screen name="order-parts" options={{ animation: "fade" }} />
+        </Stack.Protected>
+        <Stack.Protected guard={FEATURES.insurance}>
+          <Stack.Screen name="my-claims" />
+        </Stack.Protected>
       </Stack>
     </>
   );

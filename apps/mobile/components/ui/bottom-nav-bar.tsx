@@ -6,6 +6,7 @@ import { palette, spacing, typography } from "@theme/index";
 import { haptics } from "@lib/haptics";
 import { useVehicleOptional } from "@lib/vehicleContext";
 import { useT } from "@lib/i18n";
+import { FEATURES } from "@lib/features";
 
 // Exported so screens can calculate scroll content padding correctly
 export const NAV_BAR_HEIGHT = 56;
@@ -21,10 +22,14 @@ type TabDef = { key: TabKey; labelKey: string; icon: IconName };
 
 const TABS_LEFT: TabDef[] = [
   { key: "home", labelKey: "components.nav.home", icon: "House" },
-  { key: "maintenance", labelKey: "components.nav.maintenance", icon: "Wrench" },
+  ...(FEATURES.predictiveMaintenance
+    ? [{ key: "maintenance", labelKey: "components.nav.maintenance", icon: "Wrench" } as TabDef]
+    : []),
 ];
 const TABS_RIGHT: TabDef[] = [
-  { key: "store", labelKey: "components.nav.store", icon: "Store" },
+  ...(FEATURES.marketplace
+    ? [{ key: "store", labelKey: "components.nav.store", icon: "Store" } as TabDef]
+    : []),
   { key: "profile", labelKey: "components.nav.profile", icon: "User" },
 ];
 

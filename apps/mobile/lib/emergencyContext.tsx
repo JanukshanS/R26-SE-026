@@ -30,7 +30,11 @@ import type {
   ServiceType,
   TriageResult,
   TriageResponses,
+  VehicleInfo,
 } from "./dispatchApi";
+import type { Vehicle } from "./vehicleApi";
+import { isElm327Paired } from "./elm327";
+import { FEATURES } from "./features";
 
 // ─────────────────────────────────────────────────────────────────────────
 // User selections collected as they walk through the form
@@ -483,21 +487,27 @@ export function useEmergency(): EmergencyContextValue {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Demo defaults — hardcoded vehicle + location until profile/GPS are wired
+// Incident defaults — vehicle from the driver's profile, fallback location
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Vehicle info hardcoded for the demo. Matches the existing home screen UI
- * (Toyota Aqua, CBD-3742). Replace with profile-store lookup when auth is wired.
+ * The vehicle a new incident is filed against: the driver's selected vehicle,
+ * so the provider sees what they are actually driving out to. `undefined`
+ * when no vehicle is on file — the dispatch API accepts an incident without one.
  */
-export const DEMO_VEHICLE = {
-  make:               "Toyota",
-  model:              "Aqua",
-  year:               2015,
-  fuelType:           "HYBRID" as const,
-  registrationNumber: "CBD-3742",
-  hasOBD:             true,
-};
+export function incidentVehicleInfo(vehicle: Vehicle | null | undefined): VehicleInfo | undefined {
+  if (!vehicle) return undefined;
+  const year = vehicle.year;
+  return {
+    make:               vehicle.make,
+    model:              vehicle.model,
+    // Dispatch rejects years outside 1900–2030 with a 400, which would block the SOS.
+    year:               year && year >= 1900 && year <= 2030 ? year : undefined,
+    fuelType:           vehicle.fuelType.toUpperCase() as VehicleInfo["fuelType"],
+    registrationNumber: vehicle.plateNumber,
+    hasOBD:             FEATURES.obd && isElm327Paired(),
+  };
+}
 
 /**
  * Demo / fallback location — Malabe (matches the home screen caption).

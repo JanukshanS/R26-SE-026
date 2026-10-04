@@ -21,6 +21,7 @@ import { endTrip, isTripActive } from "@lib/tripRecorder";
 import { listMyClaims } from "@lib/claims-api";
 import { useTabBack } from "@lib/useTabBack";
 import { useT } from "@lib/i18n";
+import { FEATURES } from "@lib/features";
 import {
   formatLicenceNumber,
   formatNicNumber,
@@ -49,6 +50,7 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (!FEATURES.insurance) return;
       let cancelled = false;
       void listMyClaims()
         .then((claims) => {
@@ -375,6 +377,7 @@ export default function ProfileScreen() {
                 </Text>
                 <Text style={{ ...typography.caption, color: palette.textMuted }}>{t("driver.profile.statVehiclesUnit")}</Text>
               </Pressable>
+              {FEATURES.insurance ? (
               <Pressable
                 onPress={() => router.push("/(driver)/my-claims")}
                 style={({ pressed }) => ({
@@ -392,6 +395,7 @@ export default function ProfileScreen() {
                 </Text>
                 <Text style={{ ...typography.caption, color: palette.textMuted }}>{t("driver.profile.statClaimsUnit")}</Text>
               </Pressable>
+              ) : null}
             </View>
 
             {/* Account Details — email/phone/location as plain label-left,

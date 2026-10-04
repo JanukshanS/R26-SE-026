@@ -5,6 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { palette } from "@theme/index";
 import { I18nProvider } from "@lib/i18n";
 import { VehicleProvider } from "@lib/vehicleContext";
+import { FEATURES } from "@lib/features";
 import "@lib/supabase";
 import "react-native-reanimated";
 
@@ -37,7 +38,9 @@ export default function RootLayout() {
               <Stack.Screen name="(driver)" />
               <Stack.Screen name="(emergency)" />
               <Stack.Screen name="(provider)" />
-              <Stack.Screen name="(insurance)" />
+              <Stack.Protected guard={FEATURES.insurance}>
+                <Stack.Screen name="(insurance)" />
+              </Stack.Protected>
             </Stack>
             <StatusBar style="dark" />
           </VehicleProvider>

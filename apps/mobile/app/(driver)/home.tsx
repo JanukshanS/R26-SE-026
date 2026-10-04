@@ -27,6 +27,7 @@ import { isExpiringSoon } from "@lib/insurer-field-format";
 import { useHardwareBack } from "@lib/useHardwareBack";
 import { useT } from "@lib/i18n";
 import { isTripActive } from "@lib/tripRecorder";
+import { FEATURES } from "@lib/features";
 import { useIncompleteUploadStatus } from "@/features/report-accident/hooks/use-incomplete-upload-status";
 import { ClaimUploadReminderModal } from "@/features/report-accident/components/claim-upload-reminder-modal";
 
@@ -92,7 +93,7 @@ export default function DriverHomeScreen() {
   const [vehicleInsurance, setVehicleInsurance] = useState<VehicleInsurance | null | undefined>(undefined);
 
   useEffect(() => {
-    if (!selectedVehicle) {
+    if (!FEATURES.insurance || !selectedVehicle) {
       setVehicleInsurance(null);
       return;
     }
@@ -183,7 +184,7 @@ export default function DriverHomeScreen() {
   const loadHealth = useCallback(() => {
     // No vehicle selected yet — nothing to score, and scoring some other
     // driver's plate would be worse than showing the empty state.
-    if (!vehicleId) {
+    if (!FEATURES.predictiveMaintenance || !vehicleId) {
       setHealth(null);
       setHealthError(false);
       setLoadingHealth(false);
@@ -305,6 +306,7 @@ export default function DriverHomeScreen() {
         </Pressable>
 
         {/* Vehicle health card — taps through to health screen */}
+        {FEATURES.predictiveMaintenance ? (
         <Pressable
           onPress={() => {
             if (!vehicleId) return setShowVehiclePicker(true);
@@ -405,6 +407,7 @@ export default function DriverHomeScreen() {
             </ScrollView>
           </Card>
         </Pressable>
+        ) : null}
 
         {/*
           Still the largest, loudest target on the screen and reachable without
@@ -490,26 +493,36 @@ export default function DriverHomeScreen() {
           </View>
         </View>
 
-        <ObdSourceBadge />
-        <TripCard
-          onNeedsObd={() => {
-            setPairResult(null);
-            setShowObd(true);
-          }}
-        />
+        {FEATURES.obd && FEATURES.predictiveMaintenance ? (
+          <>
+            <ObdSourceBadge />
+            <TripCard
+              onNeedsObd={() => {
+                setPairResult(null);
+                setShowObd(true);
+              }}
+            />
+          </>
+        ) : null}
 
+        {FEATURES.predictiveMaintenance || FEATURES.marketplace || FEATURES.insurance ? (
         <View style={{ gap: spacing.md }}>
           <Text style={{ ...typography.h3, color: palette.text }}>{t("driver.home.vehicleHeading")}</Text>
           <View style={{ flexDirection: "row", gap: spacing.md }}>
+            {FEATURES.predictiveMaintenance ? (
             <Animated.View entering={FadeInDown.delay(180).springify()} style={{ flex: 1 }}>
               <QuickAction icon="Truck" label={t("driver.home.actionService")} onPress={() => router.push("/(driver)/health")} />
             </Animated.View>
+            ) : null}
+            {FEATURES.marketplace ? (
             <Animated.View entering={FadeInDown.delay(240).springify()} style={{ flex: 1 }}>
               {/* No component param — this is the store entrance, not a brake
                   alert, and pinning it to "brake" showed pads to a driver whose
                   brakes are fine. */}
               <QuickAction icon="Package" label={t("driver.home.actionOrderParts")} onPress={() => router.push("/(driver)/order-parts")} />
             </Animated.View>
+            ) : null}
+            {FEATURES.insurance ? (
             <Animated.View entering={FadeInDown.delay(300).springify()} style={{ flex: 1 }}>
               <QuickAction
                 icon="ShieldCheck"
@@ -544,8 +557,10 @@ export default function DriverHomeScreen() {
                 }}
               />
             </Animated.View>
+            ) : null}
           </View>
         </View>
+        ) : null}
       </Screen>
 
       <BottomNavBar activeTab="home" />
@@ -1117,7 +1132,7 @@ export default function DriverHomeScreen() {
         </View>
       </Modal>
 
-      <ClaimUploadReminderModal />
+      {FEATURES.insurance ? <ClaimUploadReminderModal /> : null}
     </View>
   );
 }

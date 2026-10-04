@@ -9,7 +9,8 @@ import { HeaderBar } from "@components/ui/header-bar";
 import { OptionCard } from "@components/ui/option-card";
 import { Screen } from "@components/ui/screen";
 import { palette, radii, spacing, typography } from "@theme/index";
-import { useEmergency, DEMO_VEHICLE } from "@lib/emergencyContext";
+import { useEmergency, incidentVehicleInfo } from "@lib/emergencyContext";
+import { useVehicleOptional } from "@lib/vehicleContext";
 import { getAccessToken } from "@lib/capture-api";
 import { haptics } from "@lib/haptics";
 import { createIncident, submitTriage, runDispatch, DispatchApiError } from "@lib/dispatchApi";
@@ -53,6 +54,7 @@ export default function SafetyCheckScreen() {
     loading: ctxLoading,
     error,
   } = useEmergency();
+  const selectedVehicle = useVehicleOptional()?.selectedVehicle;
 
   /**
    * Every dispatch call needs a session, so a signed-out user would answer the
@@ -99,7 +101,7 @@ export default function SafetyCheckScreen() {
       if (!id) {
         const incident = await createIncident({
           location:    { latitude: driver.latitude, longitude: driver.longitude },
-          vehicleInfo: DEMO_VEHICLE,
+          vehicleInfo: incidentVehicleInfo(selectedVehicle),
           description: "Major accident reported via mobile app",
         });
         id = incident.id;
@@ -152,7 +154,7 @@ export default function SafetyCheckScreen() {
       inFlightRef.current = false;
       setCtxLoading(false);
     }
-  }, [setCtxLoading, setError, setIncidentId, setTriageResult, setDispatchResult, t]);
+  }, [setCtxLoading, setError, setIncidentId, setTriageResult, setDispatchResult, selectedVehicle, t]);
 
   function handleNext() {
     if (!choice) return;

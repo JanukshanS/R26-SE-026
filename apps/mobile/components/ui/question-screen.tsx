@@ -29,6 +29,7 @@ import { useT } from "@lib/i18n";
 import { nextRoute, stepPath, stepPosition, stepTitle, type StepRoute } from "@lib/emergencyFlow";
 import { submitTriage, DispatchApiError } from "@lib/dispatchApi";
 import { readObdFromElm327 } from "@lib/elm327";
+import { FEATURES } from "@lib/features";
 
 type Props = {
   /** Which step this is. Drives the title, the counter and where Next goes. */
@@ -93,7 +94,8 @@ export function useNextStep(route: StepRoute): {
       // incidentId so the stub re-randomizes the vehicle's "current
       // condition" per emergency (otherwise every dispatch would return the
       // same diagnosis for the entire session).
-      const obd = await readObdFromElm327(incidentId);
+      // Without OBD the backend runs questionnaire-only triage (Tier-1).
+      const obd = FEATURES.obd ? await readObdFromElm327(incidentId) : null;
       const responses = buildTriageResponses();
       const triage = await submitTriage({
         incidentId,

@@ -10,6 +10,7 @@ import { palette, typography } from "@theme/index";
 import { useVehicle } from "@lib/vehicleContext";
 import { normalizePlate, plateError } from "@lib/plate-number";
 import { useT } from "@lib/i18n";
+import { FEATURES } from "@lib/features";
 
 /**
  * Optional vehicle step shown right after account creation (the user is already
@@ -55,6 +56,10 @@ export default function AddVehicleScreen() {
       // Insurer/policy are captured next and attached to THIS vehicle by id (not the
       // profile, and not re-derived by guessing "the default vehicle" later) so a driver
       // with a second car can give it a different insurer without ever touching the first.
+      if (!FEATURES.insurance) {
+        router.replace("/(driver)/home");
+        return;
+      }
       router.replace({
         pathname: "/(onboarding)/add-insurer",
         params: { vehicleId: vehicle._id },

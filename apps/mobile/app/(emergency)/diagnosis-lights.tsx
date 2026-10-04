@@ -4,7 +4,8 @@ import { router } from "expo-router";
 import { Icon, type IconName } from "@components/ui/icon";
 import { QuestionScreen, useNextStep } from "@components/ui/question-screen";
 import { palette, radii, spacing, typography } from "@theme/index";
-import { useEmergency, DEMO_VEHICLE } from "@lib/emergencyContext";
+import { useEmergency, incidentVehicleInfo } from "@lib/emergencyContext";
+import { useVehicleOptional } from "@lib/vehicleContext";
 import { createIncident, DispatchApiError } from "@lib/dispatchApi";
 import { getCurrentDriverLocation } from "@lib/driverLocation";
 import { useT } from "@lib/i18n";
@@ -28,6 +29,7 @@ export default function DiagnosisLightsScreen() {
     setLoading, setError, setIncidentId,
     incidentId, loading,
   } = useEmergency();
+  const selectedVehicle = useVehicleOptional()?.selectedVehicle;
 
   // `loading` only disables the button on the next render, which leaves a
   // double-tap window open that would file two incidents.
@@ -61,7 +63,7 @@ export default function DiagnosisLightsScreen() {
       const driver = await getCurrentDriverLocation();
       const incident = await createIncident({
         location:    { latitude: driver.latitude, longitude: driver.longitude },
-        vehicleInfo: DEMO_VEHICLE,
+        vehicleInfo: incidentVehicleInfo(selectedVehicle),
         description: "Roadside assistance requested via mobile app",
       });
       setIncidentId(incident.id);
