@@ -6,7 +6,7 @@ export type ClaimLinkResult = {
   expiresInHours: number;
 };
 
-/** POST /claims/claim-links — mints a stateless, no-app-required link for a
+/** POST /claims/claim-links — mints a short-code, no-app-required link for a
  * claimant to report an accident from a plain mobile browser. See
  * backend/app/api/routes/claims.py::create_claim_link. */
 export async function createClaimLink(params: {
