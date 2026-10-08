@@ -15,6 +15,18 @@ import { ServiceTypeProbabilities, ServiceType } from '../types';
 
 export type TrafficImpactSource = 'client' | 'geo-intelligence' | 'geo-unavailable' | 'default';
 
+/**
+ * Finer-grained origin of the score, for the per-decision log line only. The
+ * response keeps TrafficImpactSource because the dispatch contract and the
+ * mobile app match on its exact values.
+ */
+export type TrafficImpactLogSource =
+  | 'client'
+  | 'geo-intelligence'
+  | 'fallback-timeout'
+  | 'fallback-error'
+  | 'default';
+
 export interface ExecuteDispatchParams {
   incidentId: string;
   maxProviders?: number;
@@ -56,21 +68,40 @@ export async function executeDispatch(params: ExecuteDispatchParams): Promise<Ex
   // unreachable so dispatch never hard-depends on it.
   let trafficImpactScore = params.trafficImpactScore;
   let trafficImpactSource: TrafficImpactSource = trafficImpactScore !== undefined ? 'client' : 'default';
+  let logSource: TrafficImpactLogSource = 'client';
+  let geoLatencyMs: number | null = null;
   if (trafficImpactScore === undefined) {
+    const startedAt = Date.now();
     const geoScore = await fetchTrafficImpactScore({
       latitude: incident.latitude,
       longitude: incident.longitude,
       probabilities: incident.triageResponse.probabilities as unknown as ServiceTypeProbabilities,
       authorization,
     });
+    geoLatencyMs = Date.now() - startedAt;
     if (typeof geoScore === 'number') {
       trafficImpactScore = geoScore;
       trafficImpactSource = 'geo-intelligence';
+      logSource = 'geo-intelligence';
     } else {
       trafficImpactScore = 5;
-      if (geoScore === 'geo-unavailable') trafficImpactSource = 'geo-unavailable';
+      if (geoScore === 'geo-unavailable' || geoScore === 'geo-not-configured') {
+        trafficImpactSource = 'geo-unavailable';
+      }
+      logSource =
+        geoScore === 'geo-timeout' ? 'fallback-timeout'
+        : geoScore === 'geo-not-configured' ? 'default'
+        : 'fallback-error';
     }
   }
+
+  logger.info('Traffic impact resolved', {
+    incidentId,
+    source: logSource,
+    trafficImpactSource,
+    score: trafficImpactScore,
+    latencyMs: geoLatencyMs,
+  });
 
   // A provider already holding a job is not a candidate for another one.
   //
