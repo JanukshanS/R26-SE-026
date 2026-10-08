@@ -1,0 +1,32 @@
+# Keep the EAS upload small enough to finish reliably on flaky networks.
+# EAS already skips node_modules unless you force it; these are local/dev-only.
+
+node_modules/
+.expo/
+dist/
+web-build/
+android/
+ios/
+.git/
+*.tsbuildinfo
+.env
+.env*.local
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+app-example/
+patches/
+docs/
+**/*.md
+**/__tests__/
+**/__mocks__/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
