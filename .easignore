@@ -1,54 +1,52 @@
 # EAS uploads from the git repo root for this monorepo. Only apps/mobile
 # is needed for the Expo Android/iOS build.
+#
+# Leading "/" = repo-root only. Bare "components" would also drop
+# apps/mobile/components and break Metro (@components/*).
 
-# VCS (159MB+ pack files) — must be ignored or uploads stall
+# VCS (159MB+ pack files)
 .git
 .git/
-**/.git
-**/.git/
 
 # Dependencies / caches
-node_modules
-**/node_modules
-**/.expo
-**/.next
-**/.maestro
-**/dist
-**/web-build
-**/coverage
-**/.turbo
-**/.dev-logs
-.dev-logs
+node_modules/
+**/.expo/
+**/.next/
+**/.maestro/
+**/dist/
+**/web-build/
+**/coverage/
+**/.turbo/
+.dev-logs/
 **/*.tsbuildinfo
 
-# Other apps and backend services
-apps/kaduna-web
-apps/dashboard-web
-components
-contracts
-docs
-infra
-scripts
-.github
+# Other apps and backend services (repo root only)
+/apps/kaduna-web/
+/apps/dashboard-web/
+/components/
+/contracts/
+/docs/
+/infra/
+/scripts/
+/.github/
 
 # Local secrets / generated native projects
 **/.env
 **/.env*.local
-**/android
-**/ios
+**/android/
+**/ios/
 **/*.jks
 **/*.p8
 **/*.p12
 **/*.key
 **/*.mobileprovision
 
-# Mobile tests / extras (keep patches/)
-apps/mobile/docs
-apps/mobile/__tests__
-apps/mobile/**/__tests__
-apps/mobile/**/__mocks__
-apps/mobile/**/*.test.ts
-apps/mobile/**/*.test.tsx
-apps/mobile/**/*.spec.ts
-apps/mobile/**/*.spec.tsx
-apps/mobile/app-example
+# Mobile tests / extras (keep patches/ and components/)
+/apps/mobile/docs/
+/apps/mobile/__tests__/
+/apps/mobile/app-example/
+/apps/mobile/**/__mocks__/
+/apps/mobile/**/*.test.ts
+/apps/mobile/**/*.test.tsx
+/apps/mobile/**/*.spec.ts
+/apps/mobile/**/*.spec.tsx
