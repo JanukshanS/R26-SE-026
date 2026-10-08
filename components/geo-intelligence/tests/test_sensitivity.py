@@ -201,3 +201,77 @@ def test_score_flags_holiday_on_new_year_day():
 def test_score_422_on_malformed_date():
     res = client.post("/v1/score", json={**SCORE_BODY, "date": "not-a-date"})
     assert res.status_code == 422
+
+
+# ── Malformed data and calendar coverage ────────────────────────────────────
+
+GOOD_POI = {"hospitals": [{"name": "H", "lat": BASE_LAT, "lng": BASE_LNG}]}
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param("{not json", id="invalid-json"),
+        pytest.param('["a", "list"]', id="wrong-top-level-type"),
+        pytest.param('{"hospitals": [{"name": "H", "lat": 5.0}]}', id="missing-lng"),
+        pytest.param('{"schools": [{"name": "S", "lat": "x", "lng": 80}]}', id="non-numeric"),
+        pytest.param('{"bridges": [{"name": "B", "points": [[5.0]]}]}', id="short-bridge-point"),
+    ],
+)
+def test_malformed_poi_file_degrades_to_neutral(tmp_path, content, caplog):
+    (tmp_path / "poi.json").write_text(content)
+    broken = SensitivityOverlay(poi_path=tmp_path / "poi.json",
+                                holidays_path=tmp_path / "none.json")
+    for _ in range(2):
+        result = broken.evaluate(BASE_LAT, BASE_LNG, hour=8, day_of_week=0)
+        assert result["factor"] == 1.0
+        assert result["data_available"] is False
+    assert broken.status()["poi"] == "unavailable"
+    assert sum("POI overlay disabled" in r.message for r in caplog.records) == 1
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["{not json", '{"holidays": [{"date": "2026-13-45"}]}', '{"no_holidays_key": []}'],
+)
+def test_malformed_holiday_file_drops_only_the_calendar(tmp_path, content, caplog):
+    (tmp_path / "poi.json").write_text(json.dumps(GOOD_POI))
+    (tmp_path / "holidays.json").write_text(content)
+    partial = SensitivityOverlay(poi_path=tmp_path / "poi.json",
+                                 holidays_path=tmp_path / "holidays.json")
+    result = partial.evaluate(BASE_LAT, BASE_LNG, hour=8, day_of_week=0,
+                              incident_date=date(2026, 4, 13))
+    assert result["is_holiday"] is False
+    assert result["data_available"] is True
+    assert result["factor"] > 1.0
+    assert partial.status()["holidays"] == "unavailable"
+    assert partial.status()["holiday_calendar_years"] == []
+    assert sum("Holiday file" in r.message for r in caplog.records) == 1
+
+
+def test_score_survives_a_malformed_poi_file(tmp_path, monkeypatch):
+    (tmp_path / "poi.json").write_text("{truncated")
+    monkeypatch.setattr("src.api.overlay", SensitivityOverlay(
+        poi_path=tmp_path / "poi.json", holidays_path=tmp_path / "holidays.json"))
+    res = client.post("/v1/score", json={**SCORE_BODY, "date": "2026-04-13"})
+    assert res.status_code == 200, res.text
+    sens = res.json()["sensitivity"]
+    assert sens["data_available"] is False
+    assert sens["factor"] == 1.0
+
+
+def test_committed_calendar_covers_2026_and_2027():
+    committed = SensitivityOverlay()
+    assert committed.covers(date(2027, 1, 15))
+    assert committed.status()["holiday_calendar_years"] == [2026, 2027]
+    assert committed.is_holiday(date(2027, 5, 19))  # Vesak
+    assert committed.is_getaway_eve(date(2027, 3, 25))  # before Good Friday + weekend
+    assert committed.is_getaway_eve(date(2027, 3, 19))  # before weekend + Medin Poya Monday
+
+
+def test_dates_outside_the_calendar_get_no_holiday_adjustment():
+    committed = SensitivityOverlay()
+    christmas_2028 = date(2028, 12, 25)
+    assert committed.covers(christmas_2028) is False
+    assert committed.is_holiday(christmas_2028) is False
+    assert committed.is_getaway_eve(date(2028, 12, 22)) is False
