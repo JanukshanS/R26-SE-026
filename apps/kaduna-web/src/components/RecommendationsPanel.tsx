@@ -93,10 +93,11 @@ export default function RecommendationsPanel({
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
           {uncovered} of {rows.length} clusters have no unit of the right kind within {COVERED_KM} km.
           Each row is ranked by the{" "}
-          <span className="text-foreground">vehicle-hours of delay a unit stationed there would
-          avoid</span> — a unit on the cluster reaches an incident sooner, the road clears sooner,
+          <span className="text-foreground">estimated vehicle-hours of delay a unit stationed there
+          would avoid</span> — a unit on the cluster reaches an incident sooner, the road clears sooner,
           and the queue behind it never forms. Across all {rows.length} clusters that is about{" "}
-          {totalSaved.toLocaleString()} vehicle-hours.
+          {totalSaved.toLocaleString()} vehicle-hours, estimated from the scoring model&apos;s own
+          queue maths.
         </p>
         <Button
           size="sm"

@@ -6,15 +6,16 @@ import { useT } from "@/lib/i18n";
 /**
  * Live service status: where hotspot/stat data came from, whether the geo
  * service answers its health check, and whether dispatch is feeding live
- * incidents. Grey dots mean the platform is down and the static research
- * dataset is standing in — the dashboard stays honest about which one it is.
+ * incidents. Grey dots mean the platform is down. When geo is unreachable the
+ * hotspots and stats come from the snapshot bundled with the app, and that pill
+ * turns amber so an operator cannot mistake it for live data.
  */
 export default function DataSourceBadge({
   dataSource,
   geoOk,
   liveCount,
 }: {
-  dataSource: "api" | "static";
+  dataSource: "api" | "static" | null;
   geoOk: boolean;
   liveCount: number;
 }) {
@@ -22,21 +23,23 @@ export default function DataSourceBadge({
   const live = liveCount > 0;
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <Badge
-        variant="outline"
-        className="gap-1.5 font-normal"
-        title={
-          dataSource === "api"
-            ? t("dashboard.source.apiTitle")
-            : t("dashboard.source.staticTitle")
-        }
-      >
-        <span
-          className={`size-1.5 rounded-full ${dataSource === "api" ? "bg-[var(--priority-low)]" : "bg-muted-foreground"}`}
-          aria-hidden
-        />
-        {dataSource === "api" ? t("dashboard.source.apiLabel") : t("dashboard.source.staticLabel")}
-      </Badge>
+      {dataSource === "api" && (
+        <Badge variant="outline" className="gap-1.5 font-normal" title={t("dashboard.source.apiTitle")}>
+          <span className="size-1.5 rounded-full bg-[var(--priority-low)]" aria-hidden />
+          {t("dashboard.source.apiLabel")}
+        </Badge>
+      )}
+      {dataSource === "static" && (
+        <Badge
+          variant="outline"
+          role="status"
+          className="gap-1.5 border-[var(--priority-high)] font-medium text-[var(--priority-high-ink)]"
+          title={t("dashboard.source.staticTitle")}
+        >
+          <span className="size-1.5 rounded-full bg-[var(--priority-high)]" aria-hidden />
+          {t("dashboard.source.staticLabel")}
+        </Badge>
+      )}
       <Badge
         variant="outline"
         className="gap-1.5 font-normal"

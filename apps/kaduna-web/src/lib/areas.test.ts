@@ -20,6 +20,7 @@ test("ops sees everything and lands on the dashboard", () => {
     "/report",
     "/provider",
     "/dashboard",
+    "/insurer",
     "/admin",
   ]);
   assert.equal(roleHome(profile("ops")), "/dashboard");
