@@ -21,7 +21,6 @@ yarn-debug.*
 yarn-error.*
 .DS_Store
 app-example/
-patches/
 docs/
 **/*.md
 **/__tests__/
