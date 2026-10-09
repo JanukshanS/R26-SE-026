@@ -1,3 +1,4 @@
+import { clearanceMinutes } from "./scoring.ts";
 import type { HotspotCluster } from "./types";
 
 /**
@@ -28,7 +29,7 @@ export interface IncidentPoint {
   lat: number;
   lng: number;
   vhl: number;
-  recoveryMin: number;
+  incidentType: string;
 }
 
 export interface Recommendation {
@@ -115,17 +116,24 @@ export function unitForIncident(incidentType: string): string {
 }
 
 /**
+ * Share of an incident's vehicle-hours lost that is avoided when it is cleared
+ * `minutesSaved` sooner. In the deployed queue model both the excess vehicles
+ * and their average delay grow with the clearance time T, so VHL scales with
+ * T squared, and cutting T by d leaves (1 - d/T)^2 of it.
+ */
+export function avoidedShare(minutesSaved: number, clearanceMin: number): number {
+  if (clearanceMin <= 0) return 1;
+  return 1 - (1 - Math.min(minutesSaved / clearanceMin, 1)) ** 2;
+}
+
+/**
  * Rank the clusters by the delay a placement would avoid.
  *
  * A unit stationed on the cluster arrives `nearestKm / 25 km/h` sooner than the
- * nearest capable unit does today. An incident that is cleared that much sooner
- * blocks the road for that much less of its recovery time, so it sheds the same
- * share of the vehicle-hours it was going to cost.
- *
- * The share is taken as linear in the time saved. Deterministic queueing makes
- * the real relationship steeper than linear, because the queue is still growing
- * while the incident stands, so this understates the benefit rather than
- * inflating it.
+ * nearest capable unit does today, which shortens the incident's clearance time
+ * by the same amount. The vehicle-hours avoided follow from the model's own
+ * queue maths (`avoidedShare`). This is an estimate under that model, used to
+ * rank placements, not a measured saving.
  */
 export function buildRecommendations(
   hotspots: HotspotCluster[],
@@ -134,9 +142,6 @@ export function buildRecommendations(
 ): Recommendation[] {
   const meanVhl = incidents.length
     ? incidents.reduce((s, i) => s + i.vhl, 0) / incidents.length
-    : 0;
-  const meanRecovery = incidents.length
-    ? incidents.reduce((s, i) => s + i.recoveryMin, 0) / incidents.length
     : 0;
 
   return hotspots
@@ -164,15 +169,15 @@ export function buildRecommendations(
         (i) => haversineKm(h.lat, h.lng, i.lat, i.lng) * 1000 <= radiusM
       );
 
-      const share = (recoveryMin: number) =>
-        recoveryMin > 0 ? Math.min(minutesSaved / recoveryMin, 1) : 1;
+      const share = (incidentType: string) =>
+        avoidedShare(minutesSaved, clearanceMinutes(incidentType));
 
       // DBSCAN clusters are not circles, so a few have no scored incident
       // inside the radius the map draws. Those fall back to the dataset average
       // rather than reading as a cluster worth nothing.
       const vhlSaved = inCluster.length
-        ? inCluster.reduce((s, i) => s + i.vhl * share(i.recoveryMin), 0)
-        : h.count * meanVhl * share(meanRecovery);
+        ? inCluster.reduce((s, i) => s + i.vhl * share(i.incidentType), 0)
+        : h.count * meanVhl * share(h.incidentType);
 
       return {
         hotspotId: h.id,

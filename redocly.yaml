@@ -1,0 +1,8 @@
+extends:
+  - recommended
+
+rules:
+  # /v1/health is public by design; the geo contract test asserts it carries no security key.
+  security-defined:
+    exceptions:
+      - path: /v1/health

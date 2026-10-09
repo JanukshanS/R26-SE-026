@@ -115,6 +115,38 @@ def test_missing_dataset_degrades_instead_of_raising(tmp_path):
     assert absent.nearest(BASE_LAT, BASE_LNG) is None
 
 
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param("{not json", id="invalid-json"),
+        pytest.param('["a", "list"]', id="wrong-top-level-type"),
+        pytest.param('{"ways": [{"c": "trunk"}]}', id="way-without-geometry"),
+        pytest.param('{"ways": [{"c": "trunk", "g": [[5.0]]}]}', id="short-coordinate"),
+        pytest.param('{"ways": [{"g": [[5.0, 80.0]]}]}', id="way-without-class"),
+    ],
+)
+def test_malformed_dataset_degrades_instead_of_raising(tmp_path, content, caplog):
+    path = tmp_path / "roads.json.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as fh:
+        fh.write(content)
+    broken = RoadNetwork(path)
+    assert broken.status == "not yet loaded"
+    assert broken.nearest(BASE_LAT, BASE_LNG) is None
+    assert broken.nearest(BASE_LAT, BASE_LNG) is None
+    assert broken.status == "unavailable"
+    assert sum("Road index disabled" in r.message for r in caplog.records) == 1
+
+
+def test_score_survives_a_malformed_road_dataset(tmp_path, monkeypatch):
+    path = tmp_path / "roads.json.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as fh:
+        fh.write("{truncated")
+    monkeypatch.setattr("src.roads.network", RoadNetwork(path))
+    res = client.post("/v1/score", json=BODY)
+    assert res.status_code == 200, res.text
+    assert res.json()["road"]["source"] == "default"
+
+
 def test_committed_colombo_dataset_resolves_a_real_road():
     """Guards the committed data file, not just the algorithm."""
     if not network.available:

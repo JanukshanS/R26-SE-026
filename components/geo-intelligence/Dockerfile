@@ -3,8 +3,10 @@
 
 FROM python:3.11-slim
 
+# DEV_AUTH_BYPASS_USER_ID is honoured only under ENV=development
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    ENV=production
 
 WORKDIR /app
 
@@ -18,6 +20,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
 COPY data/ ./data/
+
+# Declared after the dependency layers so a new commit does not rebuild them.
+# Reported by /v1/health; pass with --build-arg GIT_SHA=$(git rev-parse --short HEAD)
+ARG GIT_SHA=unknown
+ENV GIT_SHA=${GIT_SHA}
 
 EXPOSE 5001
 
