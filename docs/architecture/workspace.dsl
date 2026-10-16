@@ -19,7 +19,7 @@ workspace "Kaduna.lk" "Where data travels across the mobile app, the web app, th
             predict  = container "Predictive-Maintenance service" "IT22639776 Herath D M S T - Trip ingestion, RUL / health prediction, OBD fault plans, parts marketplace. Port 5000." "Python + FastAPI"
             claims   = container "Claims-Privacy service" "IT22001252 De Silva R K D H - RETIRED. Logic ported 1:1 into Supabase Edge Functions; still deployed at claims.vps.kaduna.lk with no callers." "Python + FastAPI" "Retired"
 
-            edgefn = container "Supabase Edge Functions" "IT22001252 De Silva R K D H - sign-photo-upload (mints presigned R2 PUT + metadata headers) and complete-capture (finalises a capture)." "Deno / TypeScript"
+            edgefn = container "Supabase Edge Functions" "IT22001252 De Silva R K D H - sign-photo-upload (mints presigned R2 PUT + metadata headers), complete-capture (finalises a capture) and verify-claimant." "Deno / TypeScript"
             gotrue = container "Supabase Auth (GoTrue)" "Platform (shared) - Email+password and Google PKCE. Issues the JWT that every other call carries." "Supabase"
             rest   = container "Supabase PostgREST" "Platform (shared) - RLS-scoped table access for app data." "PostgREST"
 
@@ -76,7 +76,7 @@ workspace "Kaduna.lk" "Where data travels across the mobile app, the web app, th
             deploymentNode "Driver / provider device" "Android or iOS" {
                 containerInstance mobile
             }
-            deploymentNode "Contabo VPS 169.58.147.190" "Dokploy v0.30.2 + Traefik" {
+            deploymentNode "Contabo VPS 169.58.147.190" "Dokploy v0.30.3 + Traefik" {
                 deploymentNode "dispatch.vps.kaduna.lk" "Docker" {
                     containerInstance dispatch
                 }
