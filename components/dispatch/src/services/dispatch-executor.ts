@@ -35,6 +35,8 @@ export interface ExecuteDispatchParams {
    *  decliner or a timed-out provider isn't immediately re-offered the job. */
   excludeProviderIds?: string[];
   authorization?: string;
+  /** Set with trafficImpactScore when the caller already fetched it from geo (the batcher). */
+  trafficImpactSource?: TrafficImpactSource;
 }
 
 export interface ExecuteDispatchOutcome {
@@ -67,8 +69,8 @@ export async function executeDispatch(params: ExecuteDispatchParams): Promise<Ex
   // live from geo-intelligence. Falls back to a neutral 5 if geo is
   // unreachable so dispatch never hard-depends on it.
   let trafficImpactScore = params.trafficImpactScore;
-  let trafficImpactSource: TrafficImpactSource = trafficImpactScore !== undefined ? 'client' : 'default';
-  let logSource: TrafficImpactLogSource = 'client';
+  let trafficImpactSource: TrafficImpactSource = trafficImpactScore !== undefined ? (params.trafficImpactSource ?? 'client') : 'default';
+  let logSource: TrafficImpactLogSource = params.trafficImpactSource === 'geo-intelligence' ? 'geo-intelligence' : 'client';
   let geoLatencyMs: number | null = null;
   if (trafficImpactScore === undefined) {
     const startedAt = Date.now();

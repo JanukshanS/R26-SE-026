@@ -114,7 +114,7 @@ describe("redispatch watchdog", () => {
     const dispatchingCall = mockPrisma.incident.findMany.mock.calls.find(
       ([args]: any[]) => args.where.status === "DISPATCHING",
     );
-    expect(dispatchingCall[0].where.dispatchDecisions).toEqual({ some: {} });
+    expect(dispatchingCall[0].where.dispatchDecisions).toEqual({ some: { accepted: false } });
     expect(mockExecuteDispatch).not.toHaveBeenCalled();
   });
 
