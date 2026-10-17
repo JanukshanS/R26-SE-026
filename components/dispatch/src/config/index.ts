@@ -45,6 +45,8 @@ export const config = {
   dispatch: {
     /** Provider acceptance timeout in seconds */
     timeoutSeconds: parseInt(process.env.DISPATCH_TIMEOUT_SECONDS || '120', 10),
+    /** Pool /dispatch/optimize requests this long and serve the highest geo impact first. 0 = off. Keep <= 7000: the mobile app aborts at 10 s. */
+    batchWindowMs: Math.max(0, parseInt(process.env.DISPATCH_BATCH_WINDOW_MS || '0', 10) || 0),
 
     /** Traffic externality weight (λ) in ECM cost function */
     trafficLambda: parseFloat(process.env.TRAFFIC_LAMBDA || '0.3'),

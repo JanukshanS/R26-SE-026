@@ -9,7 +9,7 @@ import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { dispatchRequestSchema, providerResponseSchema } from '../utils/validators';
 import { assertOwnsProvider } from '../middleware/auth';
-import { executeDispatch } from '../services/dispatch-executor';
+import { queueDispatch } from '../services/dispatch-batcher';
 
 export const dispatchRouter = Router();
 
@@ -31,12 +31,13 @@ dispatchRouter.post('/optimize', async (req, res) => {
 
     const { incidentId, maxProviders } = parsed.data;
 
-    const outcome = await executeDispatch({
+    const { outcome, batch } = await queueDispatch({
       incidentId,
       maxProviders,
       trafficImpactScore: parsed.data.trafficImpactScore,
       authorization: req.headers.authorization,
     });
+    const batchMeta = { batchPosition: batch?.position ?? null, batchSize: batch?.size ?? null };
 
     if (outcome.status === 'no_incident') {
       res.status(404).json({ success: false, error: 'Incident not found', timestamp: new Date().toISOString() });
@@ -53,6 +54,7 @@ dispatchRouter.post('/optimize', async (req, res) => {
     if (outcome.status === 'no_providers') {
       res.status(404).json({
         success: false, error: 'No available providers found',
+        metadata: batchMeta,
         timestamp: new Date().toISOString(),
       });
       return;
@@ -83,6 +85,7 @@ dispatchRouter.post('/optimize', async (req, res) => {
           travelTimeMin: r.estimatedTravelTimeMin,
         })),
         metadata: {
+          ...batchMeta,
           computationTimeMs: result.computationTimeMs,
           trafficImpactScore,
           trafficImpactSource,
