@@ -116,6 +116,7 @@ export async function executeDispatch(params: ExecuteDispatchParams): Promise<Ex
   // both and stranding one driver.
   const busy = await prisma.incident.findMany({
     where: {
+      id: { not: incidentId },
       assignedProviderId: { not: null },
       status: { in: ['PROVIDER_ASSIGNED', 'EN_ROUTE', 'ON_SCENE'] },
     },
