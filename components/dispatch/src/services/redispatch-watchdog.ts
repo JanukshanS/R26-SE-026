@@ -117,7 +117,8 @@ async function tick() {
       where: {
         status: 'DISPATCHING',
         assignedProviderId: null,
-        dispatchDecisions: { some: {} },
+        // Only a refused or timed-out offer: an optimize call still writing its decisions is not stuck.
+        dispatchDecisions: { some: { accepted: false } },
       },
       select: { id: true },
     });
