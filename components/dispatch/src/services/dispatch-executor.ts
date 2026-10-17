@@ -53,7 +53,8 @@ export type ExecuteDispatchResult =
   | ExecuteDispatchOutcome
   | { status: 'no_incident' }
   | { status: 'no_triage' }
-  | { status: 'no_providers' };
+  | { status: 'no_providers' }
+  | { status: 'not_dispatchable' };
 
 export async function executeDispatch(params: ExecuteDispatchParams): Promise<ExecuteDispatchResult> {
   const { incidentId, maxProviders, excludeProviderIds = [], authorization } = params;
@@ -64,6 +65,8 @@ export async function executeDispatch(params: ExecuteDispatchParams): Promise<Ex
   });
   if (!incident) return { status: 'no_incident' };
   if (!incident.triageResponse) return { status: 'no_triage' };
+  // A repeated optimize call must not re-dispatch a job that is accepted, finished or cancelled.
+  if (['EN_ROUTE', 'ON_SCENE', 'RESOLVED', 'CANCELLED'].includes(incident.status)) return { status: 'not_dispatchable' };
 
   // Traffic impact: use the caller's value if supplied, otherwise fetch it
   // live from geo-intelligence. Falls back to a neutral 5 if geo is

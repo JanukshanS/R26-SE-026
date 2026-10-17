@@ -378,8 +378,9 @@ triageRouter.post('/submit', async (req, res) => {
     }
 
     // Move incident → DISPATCHING.
-    await prisma.incident.update({
-      where: { id: incidentId },
+    // A resubmitted triage must not pull an assigned or accepted job back to DISPATCHING.
+    await prisma.incident.updateMany({
+      where: { id: incidentId, status: { in: ['CREATED', 'TRIAGING'] } },
       data:  { status: 'DISPATCHING' },
     });
 

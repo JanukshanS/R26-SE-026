@@ -51,6 +51,10 @@ dispatchRouter.post('/optimize', async (req, res) => {
       });
       return;
     }
+    if (outcome.status === 'not_dispatchable') {
+      res.status(409).json({ success: false, error: 'Incident is already accepted, finished or cancelled', timestamp: new Date().toISOString() });
+      return;
+    }
     if (outcome.status === 'no_providers') {
       res.status(404).json({
         success: false, error: 'No available providers found',
