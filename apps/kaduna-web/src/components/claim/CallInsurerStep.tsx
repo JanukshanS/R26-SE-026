@@ -6,6 +6,7 @@ import { LoaderCircle, MapPin, PhoneCall } from "lucide-react";
 import { useT } from "@/lib/i18n";
 import { ensureClaimSession } from "@/lib/claimFlow/session";
 import { captureLocationSnapshot } from "@/lib/claimFlow/location";
+import { ensureLocationOn, exitToHome } from "@/lib/claimFlow/requireLocation";
 import { findInsuranceCompany, type InsuranceCompany } from "@/lib/claimFlow/insuranceCompanies";
 import type { LocationSnapshot, VerifiedClaimant } from "@/lib/claimFlow/types";
 
@@ -62,6 +63,12 @@ export function CallInsurerStep({
   const onShareLocation = async () => {
     setLocating(true);
     const snap = await captureLocationSnapshot();
+    // Refused or switched off ends the claim; a mere timeout (slow GPS fix,
+    // which captureLocationSnapshot also reports as "unavailable") doesn't.
+    if (snap.locationPermission !== "granted" && !(await ensureLocationOn())) {
+      exitToHome(t("claim.location.required"));
+      return;
+    }
     setLocation(snap);
     setLocating(false);
   };

@@ -6,6 +6,7 @@ import { useT } from "@/lib/i18n";
 import { resolveClaimLinkToken } from "@/lib/claimFlow/claimLinkToken";
 import { captureLocationSnapshot } from "@/lib/claimFlow/location";
 import { ensureClaimSession } from "@/lib/claimFlow/session";
+import { ensureLocationOn, exitToHome } from "@/lib/claimFlow/requireLocation";
 import { getOrCreateCapture, reconcileProgress, updateCapture } from "@/lib/claimFlow/uploadApi";
 import { loadClaimProgress, newClaimProgress, saveClaimProgress, type ClaimProgress } from "@/lib/claimFlow/progress";
 import type { ClaimLinkIdentity, LocationSnapshot, VerifiedClaimant } from "@/lib/claimFlow/types";
@@ -133,6 +134,24 @@ export function ClaimFlow({ token }: { token: string }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  // Every step requires location: checked on each step change and whenever the
+  // tab comes back into view. Not during submit (leaving would interrupt the
+  // final upload; its location was already captured on the way in) or done.
+  const stage = progress?.stage;
+  useEffect(() => {
+    if (!stage || stage === "submit" || stage === "done") return;
+    const check = () =>
+      void ensureLocationOn().then((on) => {
+        if (!on) exitToHome(t("claim.location.required"));
+      });
+    const onVisible = () => {
+      if (document.visibilityState === "visible") check();
+    };
+    check();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [stage, t]);
 
   const update = (patch: Partial<ClaimProgress>) => {
     setProgress((prev) => {

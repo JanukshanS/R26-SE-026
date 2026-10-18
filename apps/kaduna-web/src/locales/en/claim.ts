@@ -71,6 +71,8 @@ const claim: Record<string, string> = {
   "claim.guided.done": "All photos captured",
   "claim.guided.cameraError": "Couldn't access the camera. Check your browser's camera permission and reload.",
   "claim.guided.cameraNotReady": "Camera isn't ready yet — wait a moment and try again.",
+  "claim.location.required":
+    "Turn on location to report an accident. If it's blocked, allow it in your browser's site settings.",
   "claim.guided.uploadFailed": "Couldn't upload that photo.",
   "claim.guided.ready": "Ready",
   "claim.guided.standBack": "Stand about 1.5m from the vehicle",
