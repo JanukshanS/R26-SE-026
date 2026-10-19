@@ -26,6 +26,7 @@ import { getVehicleInsurance, type VehicleInsurance } from "@lib/vehicleInsuranc
 import { isExpiringSoon } from "@lib/insurer-field-format";
 import { useHardwareBack } from "@lib/useHardwareBack";
 import { useT } from "@lib/i18n";
+import { statusTone, type StatusTone } from "@lib/healthTone";
 import { isTripActive } from "@lib/tripRecorder";
 import { useIncompleteUploadStatus } from "@/features/report-accident/hooks/use-incomplete-upload-status";
 import { ClaimUploadReminderModal } from "@/features/report-accident/components/claim-upload-reminder-modal";
@@ -374,17 +375,21 @@ export default function DriverHomeScreen() {
               contentContainerStyle={{ gap: spacing.sm, paddingVertical: spacing.xs * 0.9 }}
             >
               {!vehicleId ? (
-                <HealthAlertPill text={t("driver.home.healthAddVehicle")} danger={false} />
+                <HealthAlertPill text={t("driver.home.healthAddVehicle")} tone={statusTone("No data")} />
               ) : healthError ? (
-                <HealthAlertPill text={t("driver.home.healthLoadFailed")} />
+                <HealthAlertPill
+                  text={t("driver.home.healthLoadFailed")}
+                  tone={{ fg: palette.danger, bg: palette.surfaceMuted, icon: "AlertTriangle" }}
+                />
               ) : loadingHealth || !health ? (
-                <HealthAlertPill text={t("driver.home.healthLoading")} danger={false} />
+                <HealthAlertPill text={t("driver.home.healthLoading")} tone={statusTone("No data")} />
               ) : noData ? (
-                <HealthAlertPill text={t("driver.home.healthNoTrips")} danger={false} />
+                <HealthAlertPill text={t("driver.home.healthNoTrips")} tone={statusTone("No data")} />
               ) : alertComponents.length > 0 ? (
                 alertComponents.map((k) => (
                   <HealthAlertPill
                     key={k}
+                    tone={statusTone(health.components[k].status)}
                     text={t("driver.home.healthAlertPill", {
                       component: t(
                         k === "brake"
@@ -400,7 +405,7 @@ export default function DriverHomeScreen() {
                   />
                 ))
               ) : (
-                <HealthAlertPill text={t("driver.home.healthAllGood")} danger={false} />
+                <HealthAlertPill text={t("driver.home.healthAllGood")} tone={statusTone("Good")} />
               )}
             </ScrollView>
           </Card>
@@ -1122,7 +1127,7 @@ export default function DriverHomeScreen() {
   );
 }
 
-function HealthAlertPill({ text, danger = true }: { text: string; danger?: boolean }) {
+function HealthAlertPill({ text, tone }: { text: string; tone: StatusTone }) {
   return (
     <View
       style={{
@@ -1132,12 +1137,12 @@ function HealthAlertPill({ text, danger = true }: { text: string; danger?: boole
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.sm,
         borderRadius: radii.pill,
-        backgroundColor: danger ? palette.surfaceMuted : palette.successSoft,
+        backgroundColor: tone.bg,
         borderWidth: 1,
-        borderColor: danger ? palette.border : palette.success + "33",
+        borderColor: tone.fg + "33",
       }}
     >
-      <Icon name={danger ? "AlertTriangle" : "CheckCircle"} size={16} color={danger ? palette.danger : palette.success} />
+      <Icon name={tone.icon} size={16} color={tone.fg} />
       <Text style={{ ...typography.caption, color: palette.text, fontWeight: "500" }}>{text}</Text>
     </View>
   );

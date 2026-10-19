@@ -15,12 +15,14 @@ import {
   componentStatusLabel,
   rulToLabel,
   type ComponentHealth,
+  type ComponentStatus,
   type ComponentKey,
   type VehicleHealthResponse,
 } from "@lib/maintenanceApi";
 import { useVehicle } from "@lib/vehicleContext";
 import { useTabBack } from "@lib/useTabBack";
 import { useT } from "@lib/i18n";
+import { statusTone, type StatusTone } from "@lib/healthTone";
 
 const COMPONENT_META: Record<ComponentKey, { labelKey: string; icon: string }> = {
   engine: { labelKey: "driver.health.componentEngine", icon: "Gauge" },
@@ -33,16 +35,10 @@ const COMPONENT_META: Record<ComponentKey, { labelKey: string; icon: string }> =
 const LEFT_COL: ComponentKey[] = ["engine", "tire"];
 const RIGHT_COL: ComponentKey[] = ["brake", "battery"];
 
-function healthColor(pct: number): string {
-  if (pct >= 75) return palette.success;
-  if (pct >= 50) return palette.warning;
-  return palette.danger;
-}
-
 /** Ring/text color for a component — "No data" gets a neutral color, not a
  * false "danger" red from its placeholder 0% score. */
-function statusColor(c: { status: string; health_pct: number }): string {
-  return c.status === "No data" ? palette.textMuted : healthColor(c.health_pct);
+function statusColor(c: { status: ComponentStatus }): string {
+  return statusTone(c.status).fg;
 }
 
 function RingProgress({
@@ -166,7 +162,7 @@ export default function HealthScreen() {
       ? { fg: palette.warning, bg: palette.warningSoft }
       : { fg: palette.textMuted, bg: palette.surfaceMuted };
   const noData = health.overall_status === "No data";
-  const overallColor = statusColor({ status: health.overall_status, health_pct: health.overall_health_pct });
+  const overallColor = statusColor({ status: health.overall_status });
   const allKeys: ComponentKey[] = ["engine", "brake", "tire", "battery"];
   // Only flag components that have crossed the alert threshold (< 35%).
   // "No data" (no trips yet) is not an alert — Fair (50–74%) is also normal.
@@ -426,6 +422,7 @@ export default function HealthScreen() {
                 {alertKeys.map((k) => (
                   <AlertPill
                     key={k}
+                    tone={statusTone(health.components[k].status)}
                     text={t("driver.health.alertPill", {
                       component: t(COMPONENT_META[k].labelKey),
                       status: rulToLabel(health.components[k], t),
@@ -617,7 +614,12 @@ function ComponentCard({
         <Text style={{ ...typography.caption, color: palette.text, fontWeight: "600" }}>
           {label}
         </Text>
-        <Text style={{ fontSize: 11, color, fontWeight: "500" }}>{rul}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+          {component.status !== "No data" ? (
+            <Icon name={statusTone(component.status).icon} size={11} color={color} />
+          ) : null}
+          <Text style={{ fontSize: 11, color, fontWeight: "500" }}>{rul}</Text>
+        </View>
 
         {worstFault ? (
           <View
@@ -738,7 +740,7 @@ function OfflineBadge() {
   );
 }
 
-function AlertPill({ text }: { text: string }) {
+function AlertPill({ text, tone }: { text: string; tone: StatusTone }) {
   return (
     <View
       style={{
@@ -748,13 +750,13 @@ function AlertPill({ text }: { text: string }) {
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.sm,
         borderRadius: radii.pill,
-        backgroundColor: palette.dangerSoft,
+        backgroundColor: tone.bg,
         borderWidth: 1,
-        borderColor: palette.danger + "33",
+        borderColor: tone.fg + "33",
       }}
     >
-      <Icon name="AlertTriangle" size={13} color={palette.danger} />
-      <Text style={{ ...typography.caption, color: palette.danger, fontWeight: "500" }}>{text}</Text>
+      <Icon name={tone.icon} size={13} color={tone.fg} />
+      <Text style={{ ...typography.caption, color: tone.fg, fontWeight: "500" }}>{text}</Text>
     </View>
   );
 }
