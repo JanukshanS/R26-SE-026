@@ -202,7 +202,9 @@ export function rulToLabel(component: ComponentHealth, t: Translate): string {
   if (rul < 2000) return t("driver.health.rulOneWeek");
   if (rul < 4000) return t("driver.health.rulFourWeeks");
   if (rul < 10000) return t("driver.health.rulThousandKm", { value: Math.round(rul / 1000) });
-  return t("driver.health.rulHealthy");
+  // Plenty of distance left, but the part is already Fair/Poor/Critical: name
+  // that status. Calling it "Healthy" contradicted the colour beside it.
+  return componentStatusLabel(component.status, t);
 }
 
 /** Urgency banner copy, e.g. "Action recommend in 4 weeks" */

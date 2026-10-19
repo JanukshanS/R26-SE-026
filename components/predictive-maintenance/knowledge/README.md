@@ -79,7 +79,7 @@ position three is nearly as useful as one at position one. Precision@1 is
 watched because a sharp drop means two sections have started competing to
 answer the same question.
 
-Current: **recall@4 100% (18/18), precision@1 78% (14/18)**.
+Current: **recall@4 100% (33/33), precision@1 85% (28/33)**.
 
 `tests/test_knowledge.py` covers loading, splitting, fingerprinting and the
 relevance floor. Those run offline and free, on the keyword fallback.
