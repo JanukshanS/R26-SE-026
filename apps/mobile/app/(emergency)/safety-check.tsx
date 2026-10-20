@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { callAmbulance } from "@components/ui/ambulance-call";
 import { Button } from "@components/ui/button";
 import { Card } from "@components/ui/card";
 import { ErrorState } from "@components/ui/error-state";
@@ -179,12 +180,6 @@ export default function SafetyCheckScreen() {
     }
   }
 
-  function callAmbulance() {
-    Linking.openURL("tel:1990").catch(() => {
-      Alert.alert(t("emergency.safetyCheck.callFailedTitle"), t("emergency.safetyCheck.callFailedBody"));
-    });
-  }
-
   return (
     <Screen
       footer={
@@ -238,7 +233,7 @@ export default function SafetyCheckScreen() {
 
       {/* "1990 — Emergency Ambulance" tap-to-call directly, matches reference UI */}
       <Pressable
-        onPress={callAmbulance}
+        onPress={() => callAmbulance(t)}
         style={({ pressed }) => ({
           marginTop: spacing.md,
           opacity: pressed ? 0.85 : 1,

@@ -328,6 +328,7 @@ const emergency: Record<string, string> = {
   "emergency.step.smoke": "Smoke",
   "emergency.step.sound": "Sound",
   "emergency.step.whatsWrong": "What's wrong?",
+  "emergency.whatsWrong.ambulanceBar": "Someone hurt? Call 1990",
   "emergency.whatsWrong.diagnoseHeading": "Not sure what it is?",
   "emergency.whatsWrong.diagnoseHint": "A few quick questions and we'll work out what you need. You can skip them at any point and we'll send help with what we have.",
   "emergency.whatsWrong.subtitle": "Pick the closest one. We'll sort out the details after help is on its way.",

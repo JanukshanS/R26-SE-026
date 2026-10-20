@@ -328,6 +328,7 @@ const emergency: Record<string, string> = {
   "emergency.step.smoke": "புகை",
   "emergency.step.sound": "சத்தம்",
   "emergency.step.whatsWrong": "என்ன தவறு?",
+  "emergency.whatsWrong.ambulanceBar": "யாராவது காயமடைந்தார்களா? 1990 அழைக்கவும்",
   "emergency.whatsWrong.diagnoseHeading": "என்ன தவறு என்று தெரியவில்லையா?",
   "emergency.whatsWrong.diagnoseHint": "சில விரைவான கேள்விகள், நீங்கள் எதை வேண்டுமென கண்டுபிடிப்போம். நீங்கள் எப்போது வேண்டுமானாலும் தவிர்த்து விடலாம், நாங்கள் கிடைத்ததை வைத்து உதவி அனுப்புவோம்.",
   "emergency.whatsWrong.subtitle": "மிக அருகில் ஒன்றைத் தேர்ந்தெடுக்கவும். உதவி வழியில் வந்தவுடன் விவரங்களை நாங்கள் தீர்ப்போம்.",
