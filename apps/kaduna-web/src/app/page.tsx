@@ -526,6 +526,9 @@ export default function LandingPage() {
               <Link href="/dashboard" className="hover:text-foreground">
                 {t("landing.footer.dashboard")}
               </Link>
+              <Link href="/privacy" className="hover:text-foreground">
+                {t("landing.footer.privacy")}
+              </Link>
               <a
                 href="mailto:hello@kaduna.lk"
                 className="hover:text-foreground"
