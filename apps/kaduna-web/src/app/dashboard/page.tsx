@@ -108,9 +108,9 @@ const CLAIMS = [
     noteKey: "dashboard.claim.correlationNote",
   },
   {
-    valueKey: "dashboard.claim.reroutingValue",
-    labelKey: "dashboard.claim.reroutingLabel",
-    noteKey: "dashboard.claim.reroutingNote",
+    valueKey: "dashboard.claim.enrichmentValue",
+    labelKey: "dashboard.claim.enrichmentLabel",
+    noteKey: "dashboard.claim.enrichmentNote",
   },
 ];
 

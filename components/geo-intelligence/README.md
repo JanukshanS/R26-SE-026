@@ -4,8 +4,10 @@
 
 Traffic-impact intelligence for Sri Lankan roads. Wraps a 5-factor weighted
 impact-scoring model as a FastAPI service that the dashboard, mobile app, and
-dispatch component consume. The score (1–10) feeds the dispatch optimizer's
-traffic-externality term, so high-impact incidents are prioritised.
+dispatch component consume. The score (1–10) is a triage signal: dispatch uses it
+to scale each candidate provider's travel-time cost when choosing who to send. It
+does not order the incident queue, because impact-ordered dispatch was tested and
+was worse than nearest-first (H2 rejected; see the thesis, §6.1.7).
 
 ## Status
 
@@ -65,6 +67,7 @@ users can rewrite themselves. Every authenticated route is rate-limited per user
 | `ENV` | `production` in the image | `production` |
 | `DEV_AUTH_BYPASS_USER_ID` | unset | unset; honoured only when `ENV=development` |
 | `GEO_ROLE_CLAIM` | `app_metadata.role` | where the access-token hook writes the role |
+| `GEO_ENFORCE_ROLES` | `true` | `false` only until the Supabase access-token hook is enabled, so ops users are not locked out of hotspots and stats |
 | `GEO_RATE_LIMIT_PER_MINUTE` | `120` | `120`; per process, `0` disables |
 | `CORS_ALLOW_ORIGINS` | `https://kaduna.lk,https://www.kaduna.lk,http://localhost:3000` | `https://kaduna.lk,https://www.kaduna.lk` |
 | `GIT_SHA` | `unknown` (Docker build arg) | `--build-arg GIT_SHA=$(git rev-parse --short HEAD)` |
@@ -77,8 +80,11 @@ TOKEN=$(curl -s -X POST "$SUPABASE_URL/auth/v1/token?grant_type=password" \
   -d '{"email":"you@example.com","password":"..."}' | jq -r .access_token)
 ```
 
-**Error responses:** score routes return **400** when `lanes_blocked > total_lanes`
-(`{ "detail": "lanes_blocked cannot exceed total_lanes" }`). `/v1/hotspots` and
+**Error responses:** score routes return **400** when the caller supplies
+`total_lanes` and `lanes_blocked` exceeds it
+(`{ "detail": "lanes_blocked cannot exceed total_lanes" }`). When the server resolves
+the lane count itself, `lanes_blocked` is clamped and `road.lanes_blocked_clamped` is
+set. `/v1/hotspots` and
 `/v1/stats` return **503** when their JSON dataset is missing. Errors use FastAPI
 `{ detail }` bodies, not the platform error envelope.
 
@@ -93,8 +99,8 @@ than the default. `lockout` and `other` use default ISF 0.5.
 ```bash
 curl -X POST http://localhost:5001/v1/score \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{
-  "latitude": 6.9271, "longitude": 79.8612, "road_type": "primary",
-  "total_lanes": 2, "lanes_blocked": 1, "incident_type": "engine_failure",
+  "latitude": 6.9271, "longitude": 79.8612,
+  "lanes_blocked": 1, "incident_type": "engine_failure",
   "hour": 8, "day_of_week": 0 }'
 ```
 
@@ -105,6 +111,9 @@ curl -X POST http://localhost:5001/v1/score \
   "factors": { "capacity_loss": 0.5, "traffic_volume": 0.85, "temporal": 1.0,
                "location": 0.7, "incident_severity": 0.7 },
   "prediction": { "queue_km": 5.0, "vehicle_hours_lost": 150.0, "recovery_min": 30.0 },
+  "road": { "road_type": "trunk", "total_lanes": 4, "source": "osm",
+            "lanes_source": "class_default", "matched_road": "...",
+            "distance_m": 12.0, "lanes_blocked_clamped": false },
   "sensitivity": {
     "factor": 1.12, "adjusted_score": 8.4,
     "nearby": [ { "type": "hospital", "name": "National Hospital", "distance_m": 220,
@@ -113,6 +122,14 @@ curl -X POST http://localhost:5001/v1/score \
   }
 }
 ```
+
+## Road resolution
+
+`road_type` and `total_lanes` are optional. When they are omitted, `src/roads.py`
+matches the incident's GPS position to the nearest road in the committed OpenStreetMap
+extract (`data/roads/`, built by `scripts/download_colombo_roads.py`). The `road` block
+in the response says which road was used and whether the class came from OSM, the
+caller, or the historical `primary`/2-lane fallback (`source: "default"`).
 
 ## Sensitivity overlay
 
@@ -178,6 +195,7 @@ is the canonical version.
 | done | Re-sync to ORIGINAL weights; alias accident types; add uncertainty + timeline endpoints |
 | done | Regenerate `data/hotspots.json`/`stats.json` to the canonical 25-cluster dataset |
 | done | Supabase bearer auth on every route except `/v1/health` |
+| done | Road class and lane count resolved from the incident's GPS position (`src/roads.py`) |
 | done | Dashboard reads hotspots, stats and live incident scores from this API (`apps/kaduna-web/src/lib/geoData.ts`, `liveData.ts`), falling back to static JSON when the service is down |
 | next | Move the dashboard's 500-incident base layer off `public/data/incidents.json` — it is the last static read |
 | next | Calibrate the congestion prediction against SUMO so VHL is absolute rather than a relative index |

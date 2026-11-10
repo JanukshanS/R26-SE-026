@@ -2,7 +2,8 @@
 -- which geo-intelligence reads for its ops-only routes (GEO_ROLE_CLAIM).
 -- Applied to the kaduna project on 2026-10-09. It has no effect until it is
 -- enabled under Authentication > Hooks > Customize Access Token (JWT) Claims.
--- Once tokens carry the role, set GEO_ENFORCE_ROLES=true on geo-intelligence.
+-- GEO_ENFORCE_ROLES defaults to true; geo runs with it set to false until this
+-- hook is enabled, then the override is removed and geo redeployed.
 -- On any error the token is returned unchanged, so a fault never blocks login.
 
 create or replace function public.custom_access_token_hook(event jsonb)
