@@ -23,12 +23,20 @@ node_modules/
 # Other apps and backend services (repo root only)
 /apps/kaduna-web/
 /apps/dashboard-web/
+/apps/promo-video/
+/apps/research-website/
 /components/
 /contracts/
 /docs/
 /infra/
 /scripts/
 /.github/
+
+# Local working files at the repo root (generated reports, scratch output, images)
+/output/
+/outputs/
+/tmp/
+/*.png
 
 # Local secrets / generated native projects
 **/.env
