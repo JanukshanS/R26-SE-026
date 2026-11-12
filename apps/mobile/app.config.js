@@ -33,6 +33,11 @@ const BLUETOOTH_PERMISSIONS = [
 const CAPTURE_PERMISSIONS = ["android.permission.CAMERA", "android.permission.RECORD_AUDIO"];
 // The foreground service only ever runs a claim upload or an OBD trip recording.
 const FOREGROUND_SERVICE_PERMISSIONS = ["android.permission.FOREGROUND_SERVICE_DATA_SYNC"];
+// expo-sensors' library manifest declares ACTIVITY_RECOGNITION for its Pedometer.
+// We only read the accelerometer/gyroscope/magnetometer, which need no
+// permission, and Play treats ACTIVITY_RECOGNITION as a health permission that
+// triggers the Health apps declaration — so strip it from the merged manifest.
+const ALWAYS_BLOCKED_PERMISSIONS = ["android.permission.ACTIVITY_RECOGNITION"];
 
 const SOS_LOCATION_TEXT =
   "Your location is shared with the roadside assistance provider sent to help you.";
@@ -43,6 +48,7 @@ function pluginName(plugin) {
 
 module.exports = ({ config }) => {
   const blocked = [
+    ...ALWAYS_BLOCKED_PERMISSIONS,
     ...(FEATURES.obd ? [] : BLUETOOTH_PERMISSIONS),
     ...(FEATURES.insurance ? [] : CAPTURE_PERMISSIONS),
     ...(FEATURES.obd || FEATURES.insurance ? [] : FOREGROUND_SERVICE_PERMISSIONS),
