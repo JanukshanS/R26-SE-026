@@ -34,6 +34,10 @@ tags:
     description: Mechanics and how they join
   - name: suppliers
     description: Where parts come from, and spend
+  - name: stock
+    description: Shelves and bays, stocktakes, and purchase orders with goods-in
+  - name: assets
+    description: Tools and equipment register, and customers' parts the garage is holding
   - name: internal
     description: "For other Kaduna services (the parts service): mechanics, jobs and received parts"
   - name: owners
@@ -1799,6 +1803,23 @@ paths:
             enum:
               - "true"
               - "false"
+        - name: kind
+          in: query
+          schema:
+            type: string
+            enum:
+              - PART
+              - CONSUMABLE
+        - name: category
+          in: query
+          schema:
+            type: string
+            maxLength: 80
+        - name: locationId
+          in: query
+          schema:
+            type: string
+            maxLength: 64
         - *a2
         - *a3
       responses:
@@ -1900,6 +1921,30 @@ paths:
                   maximum: 99999
                 supplierId:
                   description: Where the part is usually bought
+                  anyOf:
+                    - type: string
+                      minLength: 1
+                      maxLength: 64
+                    - type: "null"
+                kind:
+                  default: PART
+                  description: A consumable is bulk workshop supply (oil, cleaner, fasteners) used without a job
+                  type: string
+                  enum:
+                    - PART
+                    - CONSUMABLE
+                category:
+                  anyOf:
+                    - type: string
+                      maxLength: 80
+                    - type: "null"
+                barcode:
+                  anyOf:
+                    - type: string
+                      maxLength: 64
+                    - type: "null"
+                locationId:
+                  description: Which shelf or bay it is kept on
                   anyOf:
                     - type: string
                       minLength: 1
@@ -2032,22 +2077,41 @@ paths:
                       maxLength: 80
                     - type: "null"
                 unitCost:
-                  default: 0
                   type: number
                   minimum: 0
                   maximum: 99999999
                 unitPrice:
-                  default: 0
                   type: number
                   minimum: 0
                   maximum: 99999999
                 reorderLevel:
-                  default: 0
                   type: number
                   minimum: 0
                   maximum: 99999
                 supplierId:
                   description: Where the part is usually bought
+                  anyOf:
+                    - type: string
+                      minLength: 1
+                      maxLength: 64
+                    - type: "null"
+                kind:
+                  type: string
+                  enum:
+                    - PART
+                    - CONSUMABLE
+                category:
+                  anyOf:
+                    - type: string
+                      maxLength: 80
+                    - type: "null"
+                barcode:
+                  anyOf:
+                    - type: string
+                      maxLength: 64
+                    - type: "null"
+                locationId:
+                  description: Which shelf or bay it is kept on
                   anyOf:
                     - type: string
                       minLength: 1
@@ -2125,6 +2189,7 @@ paths:
                     - PURCHASE
                     - RETURN
                     - ADJUSTMENT
+                    - WORKSHOP_USE
                 note:
                   anyOf:
                     - type: string
@@ -5071,6 +5136,1842 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /api/v1/locations:
+    get:
+      operationId: listLocations
+      tags:
+        - stock
+      summary: Shelves, bays and cabinets
+      description: Garage owner only.
+      parameters:
+        - name: includeInactive
+          in: query
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+      responses:
+        "200":
+          description: By name, with how many parts, tools and held parts each holds
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/StockLocation"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Set up your garage first, or the record is not in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: createLocation
+      tags:
+        - stock
+      summary: Add a location
+      description: Garage owner only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                note:
+                  anyOf:
+                    - type: string
+                      maxLength: 240
+                    - type: "null"
+              required:
+                - name
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/StockLocation"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Set up your garage first, or the record is not in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflicts with the current state (wrong status, stock too low, duplicate)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Validation failed; `details` lists each field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/locations/{id}:
+    patch:
+      operationId: updateLocation
+      tags:
+        - stock
+      summary: Rename or switch off a location
+      description: Garage owner only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                note:
+                  anyOf:
+                    - type: string
+                      maxLength: 240
+                    - type: "null"
+                active:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/StockLocation"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Set up your garage first, or the record is not in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflicts with the current state (wrong status, stock too low, duplicate)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Validation failed; `details` lists each field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/stock-counts:
+    get:
+      operationId: listStockCounts
+      tags:
+        - stock
+      summary: Past stocktakes
+      description: Garage owner only.
+      parameters:
+        - *a2
+        - *a3
+      responses:
+        "200":
+          description: A page of stocktakes, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/StockCount"
+                      total:
+                        type: integer
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                    required:
+                      - items
+                      - total
+                      - limit
+                      - offset
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Set up your garage first, or the record is not in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: createStockCount
+      tags:
+        - stock
+      summary: Record a stocktake
+      description: Each counted part whose quantity differs gets a COUNT stock movement for the difference, so stock matches the shelf and the history still adds up. Garage owner only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  anyOf:
+                    - type: string
+                      maxLength: 240
+                    - type: "null"
+                lines:
+                  minItems: 1
+                  maxItems: 500
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      partId:
+                        type: string
+                        minLength: 1
+                        maxLength: 64
+                      counted:
+                        type: number
+                        minimum: 0
+                        maximum: 99999
+                    required:
+                      - partId
+                      - counted
+                  description: What was counted on the shelf. Parts left out are not touched.
+              required:
+                - lines
+      responses:
+        "201":
+          description: The count, with expected against counted for every line
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/StockCount"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflicts with the current state (wrong status, stock too low, duplicate)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Validation failed; `details` lists each field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/stock-counts/{id}:
+    get:
+      operationId: getStockCount
+      tags:
+        - stock
+      summary: A stocktake
+      description: Garage owner only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/StockCount"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/purchase-orders:
+    get:
+      operationId: listPurchaseOrders
+      tags:
+        - stock
+      summary: Purchase orders
+      description: Garage owner only.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - DRAFT
+              - ORDERED
+              - PARTLY_RECEIVED
+              - RECEIVED
+              - CANCELLED
+        - *a2
+        - *a3
+      responses:
+        "200":
+          description: A page of orders, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/PurchaseOrder"
+                      total:
+                        type: integer
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                    required:
+                      - items
+                      - total
+                      - limit
+                      - offset
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Set up your garage first, or the record is not in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: createPurchaseOrder
+      tags:
+        - stock
+      summary: Start a purchase order
+      description: Created as a draft with a gap-free PO number. Garage owner only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                supplierId:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+                note:
+                  anyOf:
+                    - type: string
+                      maxLength: 500
+                    - type: "null"
+                lines:
+                  minItems: 1
+                  maxItems: 200
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      partId:
+                        type: string
+                        minLength: 1
+                        maxLength: 64
+                      quantity:
+                        type: number
+                        exclusiveMinimum: 0
+                        maximum: 99999
+                      unitCost:
+                        type: number
+                        minimum: 0
+                        maximum: 99999999
+                    required:
+                      - partId
+                      - quantity
+                      - unitCost
+              required:
+                - supplierId
+                - lines
+      responses:
+        "201":
+          description: The draft
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/PurchaseOrder"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflicts with the current state (wrong status, stock too low, duplicate)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Validation failed; `details` lists each field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/purchase-orders/{id}:
+    get:
+      operationId: getPurchaseOrder
+      tags:
+        - stock
+      summary: A purchase order
+      description: Garage owner only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The order
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/PurchaseOrder"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      operationId: updatePurchaseOrder
+      tags:
+        - stock
+      summary: Edit a draft order
+      description: Garage owner only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  anyOf:
+                    - type: string
+                      maxLength: 500
+                    - type: "null"
+                lines:
+                  description: Replaces all lines. Only while the order is still a draft
+                  minItems: 1
+                  maxItems: 200
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      partId:
+                        type: string
+                        minLength: 1
+                        maxLength: 64
+                      quantity:
+                        type: number
+                        exclusiveMinimum: 0
+                        maximum: 99999
+                      unitCost:
+                        type: number
+                        minimum: 0
+                        maximum: 99999999
+                    required:
+                      - partId
+                      - quantity
+                      - unitCost
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/PurchaseOrder"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflicts with the current state (wrong status, stock too low, duplicate)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Validation failed; `details` lists each field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/purchase-orders/{id}/place:
+    post:
+      operationId: placePurchaseOrder
+      tags:
+        - stock
+      summary: Place the order with the supplier
+      description: DRAFT to ORDERED. It can be received but no longer edited. Garage owner only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ordered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/PurchaseOrder"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflicts with the current state (wrong status, stock too low, duplicate)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/purchase-orders/{id}/receive:
+    post:
+      operationId: receivePurchaseOrder
+      tags:
+        - stock
+      summary: Goods in
+      description: Books each delivered quantity into stock as a PURCHASE from the order's supplier at the order price (which becomes the part's cost). Status becomes PARTLY_RECEIVED or RECEIVED. Garage owner only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lines:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      lineId:
+                        type: string
+                        minLength: 1
+                        maxLength: 64
+                      quantity:
+                        type: number
+                        exclusiveMinimum: 0
+                        maximum: 99999
+                    required:
+                      - lineId
+                      - quantity
+                  description: How many of each line arrived. Can be called more than once for a partial delivery
+                note:
+                  anyOf:
+                    - type: string
+                      maxLength: 240
+                    - type: "null"
+              required:
+                - lines
+      responses:
+        "200":
+          description: The order
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/PurchaseOrder"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflicts with the current state (wrong status, stock too low, duplicate)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Validation failed; `details` lists each field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/purchase-orders/{id}/cancel:
+    post:
+      operationId: cancelPurchaseOrder
+      tags:
+        - stock
+      summary: Cancel an order
+      description: Not possible once any stock has been received. Garage owner only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/PurchaseOrder"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflicts with the current state (wrong status, stock too low, duplicate)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/assets:
+    get:
+      operationId: listAssets
+      tags:
+        - assets
+      summary: Tools and equipment
+      description: Garage owner only.
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+        - name: category
+          in: query
+          schema:
+            type: string
+            maxLength: 80
+        - name: status
+          in: query
+          schema:
+            description: "out: checked out; due: service due or overdue; attention: needs repair"
+            type: string
+            enum:
+              - available
+              - out
+              - due
+              - attention
+        - name: includeInactive
+          in: query
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+      responses:
+        "200":
+          description: By name
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Asset"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Set up your garage first, or the record is not in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: createAsset
+      tags:
+        - assets
+      summary: Register an asset
+      description: Garage owner only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 160
+                tag:
+                  description: Your own asset number, unique in the garage, for example AST-014
+                  anyOf:
+                    - type: string
+                      maxLength: 40
+                    - type: "null"
+                category:
+                  anyOf:
+                    - type: string
+                      maxLength: 80
+                    - type: "null"
+                serialNo:
+                  anyOf:
+                    - type: string
+                      maxLength: 80
+                    - type: "null"
+                purchaseDate:
+                  anyOf:
+                    - type: string
+                      pattern: ^\d{4}-\d{2}-\d{2}$
+                    - type: "null"
+                cost:
+                  default: 0
+                  type: number
+                  minimum: 0
+                  maximum: 99999999
+                locationId:
+                  anyOf:
+                    - type: string
+                      minLength: 1
+                      maxLength: 64
+                    - type: "null"
+                condition:
+                  default: GOOD
+                  type: string
+                  enum:
+                    - GOOD
+                    - FAIR
+                    - NEEDS_REPAIR
+                    - RETIRED
+                serviceIntervalDays:
+                  description: Days between services. Sets the next due date after each service
+                  anyOf:
+                    - type: integer
+                      minimum: 1
+                      maximum: 3650
+                    - type: "null"
+                nextServiceDue:
+                  anyOf:
+                    - type: string
+                      pattern: ^\d{4}-\d{2}-\d{2}$
+                    - type: "null"
+                warrantyUntil:
+                  anyOf:
+                    - type: string
+                      pattern: ^\d{4}-\d{2}-\d{2}$
+                    - type: "null"
+                note:
+                  anyOf:
+                    - type: string
+                      maxLength: 1000
+                    - type: "null"
+              required:
+                - name
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/Asset"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflicts with the current state (wrong status, stock too low, duplicate)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Validation failed; `details` lists each field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/assets/{id}:
+    get:
+      operationId: getAsset
+      tags:
+        - assets
+      summary: An asset
+      description: Garage owner only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The asset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/Asset"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      operationId: updateAsset
+      tags:
+        - assets
+      summary: Edit or retire an asset
+      description: Garage owner only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 160
+                tag:
+                  description: Your own asset number, unique in the garage, for example AST-014
+                  anyOf:
+                    - type: string
+                      maxLength: 40
+                    - type: "null"
+                category:
+                  anyOf:
+                    - type: string
+                      maxLength: 80
+                    - type: "null"
+                serialNo:
+                  anyOf:
+                    - type: string
+                      maxLength: 80
+                    - type: "null"
+                purchaseDate:
+                  anyOf:
+                    - type: string
+                      pattern: ^\d{4}-\d{2}-\d{2}$
+                    - type: "null"
+                cost:
+                  default: 0
+                  type: number
+                  minimum: 0
+                  maximum: 99999999
+                locationId:
+                  anyOf:
+                    - type: string
+                      minLength: 1
+                      maxLength: 64
+                    - type: "null"
+                condition:
+                  default: GOOD
+                  type: string
+                  enum:
+                    - GOOD
+                    - FAIR
+                    - NEEDS_REPAIR
+                    - RETIRED
+                serviceIntervalDays:
+                  description: Days between services. Sets the next due date after each service
+                  anyOf:
+                    - type: integer
+                      minimum: 1
+                      maximum: 3650
+                    - type: "null"
+                nextServiceDue:
+                  anyOf:
+                    - type: string
+                      pattern: ^\d{4}-\d{2}-\d{2}$
+                    - type: "null"
+                warrantyUntil:
+                  anyOf:
+                    - type: string
+                      pattern: ^\d{4}-\d{2}-\d{2}$
+                    - type: "null"
+                note:
+                  anyOf:
+                    - type: string
+                      maxLength: 1000
+                    - type: "null"
+                active:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/Asset"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflicts with the current state (wrong status, stock too low, duplicate)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Validation failed; `details` lists each field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/assets/{id}/check-out:
+    post:
+      operationId: checkOutAsset
+      tags:
+        - assets
+      summary: Hand an asset to a mechanic
+      description: Garage owner only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                staffId:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+                note:
+                  anyOf:
+                    - type: string
+                      maxLength: 240
+                    - type: "null"
+              required:
+                - staffId
+      responses:
+        "200":
+          description: Checked out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/Asset"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflicts with the current state (wrong status, stock too low, duplicate)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Validation failed; `details` lists each field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/assets/{id}/check-in:
+    post:
+      operationId: checkInAsset
+      tags:
+        - assets
+      summary: Take an asset back
+      description: Garage owner only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                condition:
+                  type: string
+                  enum:
+                    - GOOD
+                    - FAIR
+                    - NEEDS_REPAIR
+                    - RETIRED
+                note:
+                  anyOf:
+                    - type: string
+                      maxLength: 240
+                    - type: "null"
+      responses:
+        "200":
+          description: Back in the workshop
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/Asset"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflicts with the current state (wrong status, stock too low, duplicate)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Validation failed; `details` lists each field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/assets/{id}/service:
+    post:
+      operationId: recordAssetService
+      tags:
+        - assets
+      summary: Record a service
+      description: Sets the next due date from the date given, or from the asset's service interval. Garage owner only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  anyOf:
+                    - type: string
+                      maxLength: 500
+                    - type: "null"
+                nextServiceDue:
+                  anyOf:
+                    - type: string
+                      pattern: ^\d{4}-\d{2}-\d{2}$
+                    - type: "null"
+                condition:
+                  type: string
+                  enum:
+                    - GOOD
+                    - FAIR
+                    - NEEDS_REPAIR
+                    - RETIRED
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/Asset"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Validation failed; `details` lists each field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/assets/{id}/log:
+    get:
+      operationId: getAssetLog
+      tags:
+        - assets
+      summary: An asset's history
+      description: Garage owner only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Newest first, up to 100
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AssetLog"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/held-parts:
+    get:
+      operationId: listHeldParts
+      tags:
+        - assets
+      summary: Customers' parts the garage is holding
+      description: Garage owner only.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - HELD
+              - FITTED
+              - RETURNED
+              - open
+        - name: q
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        "200":
+          description: Parts still held by default
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/HeldPart"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Set up your garage first, or the record is not in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: createHeldPart
+      tags:
+        - assets
+      summary: Take in a customer's part
+      description: Garage owner only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 160
+                quantity:
+                  default: 1
+                  type: number
+                  exclusiveMinimum: 0
+                  maximum: 99999
+                customerId:
+                  anyOf:
+                    - type: string
+                      minLength: 1
+                      maxLength: 64
+                    - type: "null"
+                vehicleId:
+                  anyOf:
+                    - type: string
+                      minLength: 1
+                      maxLength: 64
+                    - type: "null"
+                jobCardId:
+                  anyOf:
+                    - type: string
+                      minLength: 1
+                      maxLength: 64
+                    - type: "null"
+                locationId:
+                  anyOf:
+                    - type: string
+                      minLength: 1
+                      maxLength: 64
+                    - type: "null"
+                note:
+                  anyOf:
+                    - type: string
+                      maxLength: 500
+                    - type: "null"
+              required:
+                - name
+      responses:
+        "201":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/HeldPart"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Validation failed; `details` lists each field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/held-parts/{id}:
+    patch:
+      operationId: updateHeldPart
+      tags:
+        - assets
+      summary: Edit a held part, or mark it fitted or returned
+      description: Garage owner only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 160
+                quantity:
+                  default: 1
+                  type: number
+                  exclusiveMinimum: 0
+                  maximum: 99999
+                customerId:
+                  anyOf:
+                    - type: string
+                      minLength: 1
+                      maxLength: 64
+                    - type: "null"
+                vehicleId:
+                  anyOf:
+                    - type: string
+                      minLength: 1
+                      maxLength: 64
+                    - type: "null"
+                jobCardId:
+                  anyOf:
+                    - type: string
+                      minLength: 1
+                      maxLength: 64
+                    - type: "null"
+                locationId:
+                  anyOf:
+                    - type: string
+                      minLength: 1
+                      maxLength: 64
+                    - type: "null"
+                note:
+                  anyOf:
+                    - type: string
+                      maxLength: 500
+                    - type: "null"
+                status:
+                  type: string
+                  enum:
+                    - HELD
+                    - FITTED
+                    - RETURNED
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/HeldPart"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not linked to a garage, or a mechanic calling an owner-only operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflicts with the current state (wrong status, stock too low, duplicate)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Validation failed; `details` lists each field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /api/v1/my/visits:
     get:
       operationId: listMyVisits
@@ -5998,6 +7899,23 @@ components:
           type:
             - string
             - "null"
+        kind:
+          enum:
+            - PART
+            - CONSUMABLE
+          description: A consumable is bulk workshop supply used without a job
+        category:
+          type:
+            - string
+            - "null"
+        barcode:
+          type:
+            - string
+            - "null"
+        locationId:
+          type:
+            - string
+            - "null"
       required:
         - id
         - sku
@@ -6010,6 +7928,10 @@ components:
         - active
         - lowStock
         - supplierId
+        - kind
+        - category
+        - barcode
+        - locationId
     StockMovement:
       type: object
       properties:
@@ -6026,6 +7948,8 @@ components:
             - JOB_USE
             - RETURN
             - ADJUSTMENT
+            - WORKSHOP_USE
+            - COUNT
         jobCardId:
           type:
             - string
@@ -7054,6 +8978,381 @@ components:
         - active
         - partCount
         - createdAt
+    StockLocation:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        note:
+          type:
+            - string
+            - "null"
+        active:
+          type: boolean
+        partCount:
+          type:
+            - integer
+            - "null"
+        assetCount:
+          type:
+            - integer
+            - "null"
+        heldCount:
+          type:
+            - integer
+            - "null"
+      required:
+        - id
+        - name
+        - note
+        - active
+        - partCount
+        - assetCount
+        - heldCount
+    StockCount:
+      type: object
+      properties:
+        id:
+          type: string
+        note:
+          type:
+            - string
+            - "null"
+        countedBy:
+          type:
+            - string
+            - "null"
+        createdAt: *a1
+        lineCount:
+          type: integer
+        mismatches:
+          type: integer
+          description: Lines where the count differed from the books
+        netVarianceValue:
+          type: number
+          description: Value of the differences at cost; negative means stock was missing
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              partId:
+                type: string
+              sku:
+                type: string
+              name:
+                type: string
+              expected:
+                type: number
+              counted:
+                type: number
+              variance:
+                type: number
+              varianceValue: *a4
+            required:
+              - partId
+              - sku
+              - name
+              - expected
+              - counted
+              - variance
+              - varianceValue
+      required:
+        - id
+        - note
+        - countedBy
+        - createdAt
+        - lineCount
+        - mismatches
+        - netVarianceValue
+        - lines
+    PurchaseOrder:
+      type: object
+      properties:
+        id:
+          type: string
+        number:
+          type: integer
+        reference:
+          type: string
+          example: PO-7
+        status:
+          enum:
+            - DRAFT
+            - ORDERED
+            - PARTLY_RECEIVED
+            - RECEIVED
+            - CANCELLED
+        note:
+          type:
+            - string
+            - "null"
+        supplierId:
+          type: string
+        supplierName:
+          type: string
+        orderedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        receivedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        createdAt: *a1
+        total: *a4
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              partId:
+                type: string
+              sku:
+                type: string
+              name:
+                type: string
+              quantity:
+                type: number
+              unitCost: *a4
+              receivedQty:
+                type: number
+              lineTotal: *a4
+            required:
+              - id
+              - partId
+              - sku
+              - name
+              - quantity
+              - unitCost
+              - receivedQty
+              - lineTotal
+      required:
+        - id
+        - number
+        - reference
+        - status
+        - note
+        - supplierId
+        - supplierName
+        - orderedAt
+        - receivedAt
+        - createdAt
+        - total
+        - lines
+    Asset:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        tag:
+          type:
+            - string
+            - "null"
+        category:
+          type:
+            - string
+            - "null"
+        serialNo:
+          type:
+            - string
+            - "null"
+        purchaseDate:
+          type:
+            - string
+            - "null"
+          format: date
+        cost: *a4
+        locationId:
+          type:
+            - string
+            - "null"
+        locationName:
+          type:
+            - string
+            - "null"
+        condition:
+          enum:
+            - GOOD
+            - FAIR
+            - NEEDS_REPAIR
+            - RETIRED
+        heldById:
+          type:
+            - string
+            - "null"
+        heldByName:
+          type:
+            - string
+            - "null"
+        checkedOutAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        serviceIntervalDays:
+          type:
+            - integer
+            - "null"
+        nextServiceDue:
+          type:
+            - string
+            - "null"
+          format: date
+        dueInDays:
+          type:
+            - integer
+            - "null"
+          description: Negative when overdue
+        serviceState:
+          oneOf:
+            - enum:
+                - OK
+                - SOON
+                - OVERDUE
+            - type: "null"
+          description: "SOON: due within 14 days"
+        warrantyUntil:
+          type:
+            - string
+            - "null"
+          format: date
+        note:
+          type:
+            - string
+            - "null"
+        active:
+          type: boolean
+        createdAt: *a1
+      required:
+        - id
+        - name
+        - tag
+        - category
+        - serialNo
+        - purchaseDate
+        - cost
+        - locationId
+        - locationName
+        - condition
+        - heldById
+        - heldByName
+        - checkedOutAt
+        - serviceIntervalDays
+        - nextServiceDue
+        - dueInDays
+        - serviceState
+        - warrantyUntil
+        - note
+        - active
+        - createdAt
+    AssetLog:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          enum:
+            - CHECK_OUT
+            - CHECK_IN
+            - SERVICE
+            - CONDITION
+            - NOTE
+        staffName:
+          type:
+            - string
+            - "null"
+        note:
+          type:
+            - string
+            - "null"
+        createdAt: *a1
+      required:
+        - id
+        - type
+        - staffName
+        - note
+        - createdAt
+    HeldPart:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        quantity:
+          type: number
+        customerId:
+          type:
+            - string
+            - "null"
+        customerName:
+          type:
+            - string
+            - "null"
+        vehicleId:
+          type:
+            - string
+            - "null"
+        vehicleLabel:
+          type:
+            - string
+            - "null"
+        jobCardId:
+          type:
+            - string
+            - "null"
+        jobNumber:
+          type:
+            - integer
+            - "null"
+        locationId:
+          type:
+            - string
+            - "null"
+        locationName:
+          type:
+            - string
+            - "null"
+        status:
+          enum:
+            - HELD
+            - FITTED
+            - RETURNED
+        note:
+          type:
+            - string
+            - "null"
+        receivedAt: *a1
+        closedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+      required:
+        - id
+        - name
+        - quantity
+        - customerId
+        - customerName
+        - vehicleId
+        - vehicleLabel
+        - jobCardId
+        - jobNumber
+        - locationId
+        - locationName
+        - status
+        - note
+        - receivedAt
+        - closedAt
     Report:
       type: object
       properties:

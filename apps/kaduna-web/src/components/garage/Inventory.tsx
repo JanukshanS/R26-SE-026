@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Boxes, Package, Percent, Plus, Search, Tags } from "lucide-react";
+import { AlertTriangle, Boxes, MapPin, Package, Percent, Plus, Search, Tags } from "lucide-react";
 
 import { adjustStock, createPart, listMovements, listParts, listSuppliers, updatePart, type Garage, type Part, type SupplierRow } from "@/lib/garageApi";
 import { useI18n, useT } from "@/lib/i18n";
@@ -31,6 +31,7 @@ import {
   useMoney,
   useShortMoney,
 } from "./ui";
+import { LocationSelect, LocationsPanel, useLocations } from "./stockShared";
 
 function stockTone(p: Part) {
   return p.stockQty <= 0 ? "bad" : p.lowStock ? (p.reorderLevel && p.stockQty / p.reorderLevel < 0.5 ? "bad" : "warn") : "ok";
@@ -44,9 +45,13 @@ export default function Inventory({ garage }: { garage: Garage }) {
   const search = useDebounced(q);
   const [lowOnly, setLowOnly] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
+  const [kind, setKind] = useState<"" | "PART" | "CONSUMABLE">("");
+  const [locationId, setLocationId] = useState("");
+  const [placing, setPlacing] = useState(false);
+  const locations = useLocations();
   const parts = useLoad(
-    () => listParts({ q: search || undefined, lowStock: lowOnly || undefined, includeInactive: showInactive || undefined }),
-    [search, lowOnly, showInactive]
+    () => listParts({ q: search || undefined, lowStock: lowOnly || undefined, includeInactive: showInactive || undefined, kind: kind || undefined, locationId: locationId || undefined }),
+    [search, lowOnly, showInactive, kind, locationId]
   );
   // KPIs always describe the whole active catalogue, not the filtered view.
   const all = useLoad(() => listParts({}), [parts.data]);
@@ -55,6 +60,7 @@ export default function Inventory({ garage }: { garage: Garage }) {
   const open = parts.data?.items.find((p) => p.id === openId) ?? null;
 
   const items = all.data?.items ?? [];
+  const categories = [...new Set(items.map((p) => p.category).filter((c): c is string => !!c))].sort();
   const value = items.reduce((s, p) => s + Math.max(0, p.stockQty) * p.unitCost, 0);
   const low = items.filter((p) => p.lowStock);
   const out = items.filter((p) => p.stockQty <= 0).length;
@@ -82,7 +88,19 @@ export default function Inventory({ garage }: { garage: Garage }) {
             {t("garage.parts.lowOnly")}
           </Chip>
           <Chip on={showInactive} onClick={() => setShowInactive((v) => !v)}>{t("garage.parts.showInactive")}</Chip>
+          <Chip on={kind === "CONSUMABLE"} onClick={() => setKind((k) => (k === "CONSUMABLE" ? "" : "CONSUMABLE"))}>{t("garage.stk.kindConsumable")}</Chip>
+          {(locations.data ?? []).length > 0 && (
+            <select value={locationId} onChange={(e) => setLocationId(e.target.value)} aria-label={t("garage.asset.location")} className={`${inputCls} w-auto! py-1.5 text-[13px]`}>
+              <option value="">{t("garage.count.allShelves")}</option>
+              {(locations.data ?? []).map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+          )}
           <div className="flex-1" />
+          <button type="button" onClick={() => setPlacing(true)} className={`${btnSecondary} ${btnSm}`}>
+            <MapPin /> {t("garage.stk.locations")}
+          </button>
           <button type="button" onClick={() => setCreating(true)} className={btnPrimary}>
             <Plus /> {t("garage.parts.new")}
           </button>
@@ -93,7 +111,7 @@ export default function Inventory({ garage }: { garage: Garage }) {
         ) : !parts.data ? (
           <Loading className="p-4!" />
         ) : parts.data.items.length === 0 ? (
-          <Empty title={search || lowOnly ? t("garage.parts.noMatch") : t("garage.parts.emptyTitle")} body={search || lowOnly ? undefined : t("garage.parts.emptyBody")} />
+          <Empty title={search || lowOnly || kind || locationId ? t("garage.parts.noMatch") : t("garage.parts.emptyTitle")} body={search || lowOnly || kind || locationId ? undefined : t("garage.parts.emptyBody")} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -116,7 +134,10 @@ export default function Inventory({ garage }: { garage: Garage }) {
                           <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-canvas text-muted-foreground"><Tags className="size-4" /></span>
                           <div className="min-w-0">
                             <button type="button" className="font-medium hover:underline" onClick={() => setOpenId(p.id)}>{p.name}</button>
-                            {p.brand && <p className="text-xs text-muted-foreground">{p.brand}</p>}
+                            <p className="text-xs text-muted-foreground">
+                              {[p.brand, p.category, locations.data?.find((l) => l.id === p.locationId)?.name].filter(Boolean).join(" · ")}
+                              {p.kind === "CONSUMABLE" && <span className="ml-1.5 inline-block align-middle"><Badge tone="info" dot={false}>{t("garage.stk.kindConsumable")}</Badge></span>}
+                            </p>
                           </div>
                         </div>
                       </td>
@@ -139,7 +160,9 @@ export default function Inventory({ garage }: { garage: Garage }) {
         )}
       </Card>
 
+      <LocationsPanel open={placing} onClose={() => setPlacing(false)} onChanged={() => { locations.reload(); parts.reload(); }} />
       <NewPart
+        categories={categories}
         open={creating}
         onClose={() => setCreating(false)}
         onCreated={(p) => {
@@ -148,7 +171,7 @@ export default function Inventory({ garage }: { garage: Garage }) {
           setOpenId(p.id);
         }}
       />
-      <PartPanel part={open} garage={garage} onClose={() => setOpenId(null)} onChanged={parts.reload} />
+      <PartPanel part={open} garage={garage} categories={categories} locationName={locations.data?.find((l) => l.id === open?.locationId)?.name ?? null} onClose={() => setOpenId(null)} onChanged={parts.reload} />
     </div>
   );
 }
@@ -172,10 +195,11 @@ function SupplierSelect({ suppliers, defaultValue }: { suppliers: SupplierRow[];
   );
 }
 
-function NewPart({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (p: Part) => void }) {
+function NewPart({ open, categories, onClose, onCreated }: { open: boolean; categories: string[]; onClose: () => void; onCreated: (p: Part) => void }) {
   const t = useT();
   const action = useAction();
   const suppliers = useSuppliers(open);
+  const locations = useLocations(open);
   return (
     <Panel open={open} onClose={onClose} title={t("garage.parts.new")} description={t("garage.parts.newBody")}>
       <form
@@ -193,6 +217,10 @@ function NewPart({ open, onClose, onCreated }: { open: boolean; onClose: () => v
               reorderLevel: num(f.get("reorderLevel")) ?? 0,
               openingStock: num(f.get("openingStock")) ?? 0,
               supplierId: text(f.get("supplierId")),
+              kind: f.get("kind") === "CONSUMABLE" ? "CONSUMABLE" : "PART",
+              category: text(f.get("category")),
+              barcode: text(f.get("barcode")),
+              locationId: text(f.get("locationId")),
             })
           );
           if (p) onCreated(p);
@@ -227,6 +255,7 @@ function NewPart({ open, onClose, onCreated }: { open: boolean; onClose: () => v
           <Field label={t("garage.sup.usual")}>
             <SupplierSelect suppliers={suppliers.data ?? []} />
           </Field>
+          <StockFields categories={categories} locations={locations.data ?? []} />
         </Card>
         {action.error && <ErrorNote message={action.error} />}
         <button type="submit" disabled={action.busy !== null} className={`${btnPrimary} w-full`}>
@@ -237,14 +266,15 @@ function NewPart({ open, onClose, onCreated }: { open: boolean; onClose: () => v
   );
 }
 
-function PartPanel({ part, garage, onClose, onChanged }: { part: Part | null; garage: Garage; onClose: () => void; onChanged: () => void }) {
+function PartPanel({ part, garage, categories, locationName, onClose, onChanged }: { part: Part | null; garage: Garage; categories: string[]; locationName: string | null; onClose: () => void; onChanged: () => void }) {
   const t = useT();
   const money = useMoney();
   const { formatDate } = useI18n();
   const action = useAction();
   const moves = useLoad(() => (part ? listMovements(part.id) : Promise.resolve(null)), [part?.id, part?.stockQty]);
-  const [mode, setMode] = useState<"receive" | "adjust" | "edit" | null>(null);
+  const [mode, setMode] = useState<"receive" | "adjust" | "use" | "edit" | null>(null);
   const suppliers = useSuppliers(part !== null);
+  const locations = useLocations(part !== null);
   const supplierName = (id: string | null) => (id ? suppliers.data?.find((s) => s.id === id)?.name ?? null : null);
 
   async function done<T>(key: string, fn: () => Promise<T>) {
@@ -286,12 +316,25 @@ function PartPanel({ part, garage, onClose, onChanged }: { part: Part | null; ga
               {t("garage.sup.usual")}: <span className="font-medium text-foreground">{supplierName(part.supplierId)}</span>
             </p>
           )}
+          {(part.category || part.barcode || locationName || part.kind === "CONSUMABLE") && (
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+              {part.kind === "CONSUMABLE" && <Badge tone="info" dot={false}>{t("garage.stk.kindConsumable")}</Badge>}
+              {part.category && <span>{t("garage.stk.category")}: <span className="font-medium text-foreground">{part.category}</span></span>}
+              {locationName && <span className="inline-flex items-center gap-1"><MapPin className="size-3.5" /> <span className="font-medium text-foreground">{locationName}</span></span>}
+              {part.barcode && <span>{t("garage.stk.barcode")}: <span className="font-mono text-foreground">{part.barcode}</span></span>}
+            </p>
+          )}
           {part.lowStock && <p className="rounded-xl bg-bad-soft px-4 py-2.5 text-sm text-bad">{t("garage.parts.lowWarning", { min: part.reorderLevel })}</p>}
 
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => setMode("receive")} className={`${btnPrimary} ${btnSm}`}>
               {t("garage.parts.receive")}
             </button>
+            {part.kind === "CONSUMABLE" && (
+              <button type="button" onClick={() => setMode("use")} className={`${btnSecondary} ${btnSm}`}>
+                {t("garage.stk.useInWorkshop")}
+              </button>
+            )}
             <button type="button" onClick={() => setMode("adjust")} className={`${btnSecondary} ${btnSm}`}>
               {t("garage.parts.adjust")}
             </button>
@@ -307,6 +350,35 @@ function PartPanel({ part, garage, onClose, onChanged }: { part: Part | null; ga
               {action.busy === "active" && <Spinner />} {part.active ? t("garage.parts.deactivate") : t("garage.parts.reactivate")}
             </button>
           </div>
+
+          {mode === "use" && (
+            <form
+              className="space-y-3 rounded-2xl bg-white p-5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const f = new FormData(e.currentTarget);
+                done("stock", () => adjustStock(part.id, { quantityChange: -Math.abs(num(f.get("qty")) ?? 0), reason: "WORKSHOP_USE", note: text(f.get("note")) }));
+              }}
+            >
+              <p className="text-sm">{t("garage.stk.useBody")}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label={t("garage.stk.qtyUsed")}>
+                  <input name="qty" type="number" step="any" min={0.01} max={part.stockQty} required className={inputCls} />
+                </Field>
+                <Field label={t("garage.field.note")}>
+                  <input name="note" maxLength={240} placeholder={t("garage.stk.useNote")} className={inputCls} />
+                </Field>
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" disabled={action.busy !== null} className={`${btnPrimary} ${btnSm}`}>
+                  {action.busy === "stock" && <Spinner />} {t("garage.action.save")}
+                </button>
+                <button type="button" onClick={() => setMode(null)} className={`${btnSecondary} ${btnSm}`}>
+                  {t("garage.action.cancel")}
+                </button>
+              </div>
+            </form>
+          )}
 
           {(mode === "receive" || mode === "adjust") && (
             <form
@@ -378,6 +450,10 @@ function PartPanel({ part, garage, onClose, onChanged }: { part: Part | null; ga
                     unitPrice: num(f.get("unitPrice")) ?? 0,
                     reorderLevel: num(f.get("reorderLevel")) ?? 0,
                     supplierId: text(f.get("supplierId")),
+                    kind: f.get("kind") === "CONSUMABLE" ? "CONSUMABLE" : "PART",
+                    category: text(f.get("category")),
+                    barcode: text(f.get("barcode")),
+                    locationId: text(f.get("locationId")),
                   })
                 );
               }}
@@ -402,6 +478,7 @@ function PartPanel({ part, garage, onClose, onChanged }: { part: Part | null; ga
               <Field label={t("garage.sup.usual")}>
                 <SupplierSelect suppliers={suppliers.data ?? []} defaultValue={part.supplierId} />
               </Field>
+              <StockFields categories={categories} locations={locations.data ?? []} part={part} />
               <div className="flex gap-2">
                 <button type="submit" disabled={action.busy !== null} className={`${btnPrimary} ${btnSm}`}>
                   {action.busy === "edit" && <Spinner />} {t("garage.action.save")}
@@ -446,5 +523,34 @@ function PartPanel({ part, garage, onClose, onChanged }: { part: Part | null; ga
         </>
       )}
     </Panel>
+  );
+}
+
+/** Kind, category, barcode and shelf: how a part is filed and found. */
+function StockFields({ categories, locations, part }: { categories: string[]; locations: { id: string; name: string; note: string | null; active: boolean; partCount: number | null; assetCount: number | null; heldCount: number | null }[]; part?: Part }) {
+  const t = useT();
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <Field label={t("garage.stk.kind")} hint={t("garage.stk.kindHint")}>
+        <select name="kind" defaultValue={part?.kind ?? "PART"} className={inputCls}>
+          <option value="PART">{t("garage.stk.kindPart")}</option>
+          <option value="CONSUMABLE">{t("garage.stk.kindConsumable")}</option>
+        </select>
+      </Field>
+      <Field label={t("garage.stk.category")}>
+        <input name="category" list="part-categories" maxLength={80} defaultValue={part?.category ?? ""} placeholder={t("garage.stk.categoryPlaceholder")} className={inputCls} />
+        <datalist id="part-categories">
+          {categories.map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
+      </Field>
+      <Field label={t("garage.stk.location")}>
+        <LocationSelect locations={locations} defaultValue={part?.locationId} />
+      </Field>
+      <Field label={t("garage.stk.barcode")}>
+        <input name="barcode" maxLength={64} defaultValue={part?.barcode ?? ""} className={`${inputCls} font-mono`} />
+      </Field>
+    </div>
   );
 }

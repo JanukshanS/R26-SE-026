@@ -3,6 +3,7 @@ import { randomBytes, randomInt } from 'node:crypto';
 
 import { Prisma } from '@prisma/client';
 
+import { config } from '../config';
 import { Db } from '../utils/prisma';
 import { notFound } from '../utils/http';
 
@@ -19,11 +20,13 @@ export function round2(value: Prisma.Decimal): Prisma.Decimal {
  * jobs at the same moment can never receive the same number, with no explicit
  * lock and no read-then-write race.
  */
-export async function takeNumber(db: Db, garageId: string, kind: 'job' | 'invoice'): Promise<number> {
+export async function takeNumber(db: Db, garageId: string, kind: 'job' | 'invoice' | 'purchase'): Promise<number> {
   const rows =
     kind === 'job'
       ? await db.$queryRaw<{ n: number }[]>`UPDATE "garages" SET "next_job_number" = "next_job_number" + 1 WHERE "id" = ${garageId} RETURNING "next_job_number" - 1 AS n`
-      : await db.$queryRaw<{ n: number }[]>`UPDATE "garages" SET "next_invoice_number" = "next_invoice_number" + 1 WHERE "id" = ${garageId} RETURNING "next_invoice_number" - 1 AS n`;
+      : kind === 'purchase'
+        ? await db.$queryRaw<{ n: number }[]>`UPDATE "garages" SET "next_purchase_number" = "next_purchase_number" + 1 WHERE "id" = ${garageId} RETURNING "next_purchase_number" - 1 AS n`
+        : await db.$queryRaw<{ n: number }[]>`UPDATE "garages" SET "next_invoice_number" = "next_invoice_number" + 1 WHERE "id" = ${garageId} RETURNING "next_invoice_number" - 1 AS n`;
   return Number(rows[0].n);
 }
 
@@ -72,3 +75,13 @@ export const newTrackingToken = () => randomBytes(16).toString('base64url');
 /** An invite code a mechanic can read out or type: no 0/O or 1/I to confuse. */
 const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const newInviteCode = () => Array.from({ length: 8 }, () => INVITE_ALPHABET[randomInt(INVITE_ALPHABET.length)]).join('');
+
+export async function assertLocation(db: Db, garageId: string, locationId: string | null | undefined): Promise<void> {
+  if (!locationId) return;
+  const found = await db.stockLocation.findFirst({ where: { id: locationId, garageId, active: true }, select: { id: true } });
+  if (!found) throw notFound('Location');
+}
+
+/** Today's date in garage time, as YYYY-MM-DD, for service-due and warranty checks. */
+export const garageToday = (now = new Date()) => new Date(now.getTime() + config.timeZoneOffsetMinutes * 60_000).toISOString().slice(0, 10);
+export const dateOnlyToDate = (s: string | null | undefined) => (s ? new Date(`${s}T00:00:00.000Z`) : null);

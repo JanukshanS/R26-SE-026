@@ -9,6 +9,7 @@ import report from "./report";
 import provider from "./provider";
 import garage from "./garage";
 import garageModules from "./garageModules";
+import garageStock from "./garageStock";
 import me from "./me";
 import parts from "./parts";
 import ownerGarage from "./ownerGarage";
@@ -33,6 +34,7 @@ const catalogue: Record<string, string> = {
   ...provider,
   ...garage,
   ...garageModules,
+  ...garageStock,
   ...me,
   ...parts,
   ...ownerGarage,

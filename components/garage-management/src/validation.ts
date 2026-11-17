@@ -65,12 +65,27 @@ export const partInput = z.object({
   reorderLevel: z.number().min(0).max(99_999).default(0),
   openingStock: z.number().min(0).max(99_999).default(0),
   supplierId: id.nullish().describe('Where the part is usually bought'),
+  kind: z.enum(['PART', 'CONSUMABLE']).default('PART').describe('A consumable is bulk workshop supply (oil, cleaner, fasteners) used without a job'),
+  category: optionalText(80),
+  barcode: optionalText(64),
+  locationId: id.nullish().describe('Which shelf or bay it is kept on'),
 });
-export const partPatch = partInput.omit({ sku: true, openingStock: true }).partial().extend({ active: z.boolean().optional() });
+// .partial() alone keeps the create defaults (cost 0, price 0, ...), which would silently reset
+// anything a PATCH leaves out. Re-declare those fields without defaults.
+export const partPatch = partInput
+  .omit({ sku: true, openingStock: true })
+  .partial()
+  .extend({
+    unitCost: money.optional(),
+    unitPrice: money.optional(),
+    reorderLevel: partInput.shape.reorderLevel.unwrap().optional(),
+    kind: z.enum(['PART', 'CONSUMABLE']).optional(),
+    active: z.boolean().optional(),
+  });
 
 export const stockAdjustInput = z.object({
   quantityChange: z.number().refine((n) => n !== 0, 'Cannot be zero').describe('Positive adds stock, negative removes it.'),
-  reason: z.enum(['PURCHASE', 'RETURN', 'ADJUSTMENT']),
+  reason: z.enum(['PURCHASE', 'RETURN', 'ADJUSTMENT', 'WORKSHOP_USE']),
   note: optionalText(240),
   supplierId: id.nullish().describe("PURCHASE only: who supplied it. Becomes the part's usual supplier if it has none"),
   unitCost: money.nullish().describe("PURCHASE only: cost per unit. Becomes the part's cost price"),
@@ -118,6 +133,9 @@ export const partsQuery = z.object({
   q: z.string().trim().max(100).optional(),
   lowStock: z.enum(['true', 'false']).optional(),
   includeInactive: z.enum(['true', 'false']).optional(),
+  kind: z.enum(['PART', 'CONSUMABLE']).optional(),
+  category: z.string().trim().max(80).optional(),
+  locationId: z.string().max(64).optional(),
 });
 export const invoicesQuery = z.object({ status: z.enum(['UNPAID', 'PAID', 'VOID']).optional() });
 
@@ -275,3 +293,82 @@ export const internalPartsInput = z.object({
   lines: z.array(z.object({ description: text(200), quantity, unitPrice: money })).min(1).max(50),
   note: text(1000).describe('Added to the job timeline (not shown to the customer)'),
 });
+
+
+// ─── Stock locations, stocktakes, purchase orders ───────────────────────────
+
+export const locationInput = z.object({ name: text(80), note: optionalText(240) });
+export const locationPatch = locationInput.partial().extend({ active: z.boolean().optional() });
+
+export const stockCountInput = z.object({
+  note: optionalText(240),
+  lines: z
+    .array(z.object({ partId: id, counted: z.number().min(0).max(99_999) }))
+    .min(1)
+    .max(500)
+    .describe('What was counted on the shelf. Parts left out are not touched.'),
+});
+
+export const purchaseOrderInput = z.object({
+  supplierId: id,
+  note: optionalText(500),
+  lines: z
+    .array(z.object({ partId: id, quantity: quantity, unitCost: money }))
+    .min(1)
+    .max(200),
+});
+export const purchaseOrderPatch = z.object({
+  note: optionalText(500),
+  lines: purchaseOrderInput.shape.lines.optional().describe('Replaces all lines. Only while the order is still a draft'),
+});
+export const receiveInput = z.object({
+  lines: z
+    .array(z.object({ lineId: id, quantity: quantity }))
+    .min(1)
+    .describe('How many of each line arrived. Can be called more than once for a partial delivery'),
+  note: optionalText(240),
+});
+export const purchaseOrdersQuery = z.object({ status: z.enum(['DRAFT', 'ORDERED', 'PARTLY_RECEIVED', 'RECEIVED', 'CANCELLED']).optional() });
+
+// ─── Assets (tools & equipment) ─────────────────────────────────────────────
+
+const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
+export const assetConditions = ['GOOD', 'FAIR', 'NEEDS_REPAIR', 'RETIRED'] as const;
+export const assetInput = z.object({
+  name: text(160),
+  tag: optionalText(40).describe('Your own asset number, unique in the garage, for example AST-014'),
+  category: optionalText(80),
+  serialNo: optionalText(80),
+  purchaseDate: dateOnly.nullish(),
+  cost: money.default(0),
+  locationId: id.nullish(),
+  condition: z.enum(assetConditions).default('GOOD'),
+  serviceIntervalDays: z.number().int().min(1).max(3650).nullish().describe('Days between services. Sets the next due date after each service'),
+  nextServiceDue: dateOnly.nullish(),
+  warrantyUntil: dateOnly.nullish(),
+  note: optionalText(1000),
+});
+export const assetPatch = assetInput.partial().extend({ active: z.boolean().optional() });
+export const assetsQuery = z.object({
+  q: z.string().trim().max(100).optional(),
+  category: z.string().trim().max(80).optional(),
+  status: z.enum(['available', 'out', 'due', 'attention']).optional().describe('out: checked out; due: service due or overdue; attention: needs repair'),
+  includeInactive: z.enum(['true', 'false']).optional(),
+});
+export const assetCheckOutInput = z.object({ staffId: id, note: optionalText(240) });
+export const assetCheckInInput = z.object({ condition: z.enum(assetConditions).optional(), note: optionalText(240) });
+export const assetServiceInput = z.object({ note: optionalText(500), nextServiceDue: dateOnly.nullish(), condition: z.enum(assetConditions).optional() });
+
+// ─── Customer parts held ────────────────────────────────────────────────────
+
+export const heldInput = z.object({
+  name: text(160),
+  quantity: quantity.default(1),
+  customerId: id.nullish(),
+  vehicleId: id.nullish(),
+  jobCardId: id.nullish(),
+  locationId: id.nullish(),
+  note: optionalText(500),
+});
+export const heldPatch = heldInput.partial().extend({ status: z.enum(['HELD', 'FITTED', 'RETURNED']).optional() });
+export const heldQuery = z.object({ status: z.enum(['HELD', 'FITTED', 'RETURNED', 'open']).optional(), q: z.string().trim().max(100).optional() });

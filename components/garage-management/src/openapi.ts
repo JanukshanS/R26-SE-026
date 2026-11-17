@@ -47,11 +47,13 @@ const responses: Record<string, Json> = {
     unitCost: money, unitPrice: money, stockQty: { type: 'number' }, reorderLevel: { type: 'number' },
     active: { type: 'boolean' }, lowStock: { type: 'boolean', description: 'Active and at or below the reorder level' },
     supplierId: nullable('string'),
+    kind: { enum: ['PART', 'CONSUMABLE'], description: 'A consumable is bulk workshop supply used without a job' },
+    category: nullable('string'), barcode: nullable('string'), locationId: nullable('string'),
   }),
   StockMovement: obj({
     id: { type: 'string' }, partId: { type: 'string' },
     quantityChange: { type: 'number', description: 'Positive into stock, negative out' },
-    reason: { enum: ['PURCHASE', 'JOB_USE', 'RETURN', 'ADJUSTMENT'] }, jobCardId: nullable('string'),
+    reason: { enum: ['PURCHASE', 'JOB_USE', 'RETURN', 'ADJUSTMENT', 'WORKSHOP_USE', 'COUNT'] }, jobCardId: nullable('string'),
     supplierId: nullable('string'), unitCost: nullable('number', { description: 'Cost per unit for purchases and job use' }),
     note: nullable('string'), createdAt: timestamp,
   }),
@@ -186,6 +188,39 @@ const responses: Record<string, Json> = {
   Supplier: obj({
     id: { type: 'string' }, name: { type: 'string' }, contactName: nullable('string'), phone: nullable('string'), email: nullable('string'),
     address: nullable('string'), notes: nullable('string'), active: { type: 'boolean' }, partCount: nullable('integer'), createdAt: timestamp,
+  }),
+  StockLocation: obj({
+    id: { type: 'string' }, name: { type: 'string' }, note: nullable('string'), active: { type: 'boolean' },
+    partCount: nullable('integer'), assetCount: nullable('integer'), heldCount: nullable('integer'),
+  }),
+  StockCount: obj({
+    id: { type: 'string' }, note: nullable('string'), countedBy: nullable('string'), createdAt: timestamp,
+    lineCount: { type: 'integer' }, mismatches: { type: 'integer', description: 'Lines where the count differed from the books' },
+    netVarianceValue: { ...money, description: 'Value of the differences at cost; negative means stock was missing' },
+    lines: { type: 'array', items: obj({ partId: { type: 'string' }, sku: { type: 'string' }, name: { type: 'string' }, expected: { type: 'number' }, counted: { type: 'number' }, variance: { type: 'number' }, varianceValue: money }) },
+  }),
+  PurchaseOrder: obj({
+    id: { type: 'string' }, number: { type: 'integer' }, reference: { type: 'string', example: 'PO-7' },
+    status: { enum: ['DRAFT', 'ORDERED', 'PARTLY_RECEIVED', 'RECEIVED', 'CANCELLED'] }, note: nullable('string'),
+    supplierId: { type: 'string' }, supplierName: { type: 'string' }, orderedAt: nullable('string', { format: 'date-time' }),
+    receivedAt: nullable('string', { format: 'date-time' }), createdAt: timestamp, total: money,
+    lines: { type: 'array', items: obj({ id: { type: 'string' }, partId: { type: 'string' }, sku: { type: 'string' }, name: { type: 'string' }, quantity: { type: 'number' }, unitCost: money, receivedQty: { type: 'number' }, lineTotal: money }) },
+  }),
+  Asset: obj({
+    id: { type: 'string' }, name: { type: 'string' }, tag: nullable('string'), category: nullable('string'), serialNo: nullable('string'),
+    purchaseDate: nullable('string', { format: 'date' }), cost: money, locationId: nullable('string'), locationName: nullable('string'),
+    condition: { enum: ['GOOD', 'FAIR', 'NEEDS_REPAIR', 'RETIRED'] }, heldById: nullable('string'), heldByName: nullable('string'),
+    checkedOutAt: nullable('string', { format: 'date-time' }), serviceIntervalDays: nullable('integer'),
+    nextServiceDue: nullable('string', { format: 'date' }), dueInDays: nullable('integer', { description: 'Negative when overdue' }),
+    serviceState: { oneOf: [{ enum: ['OK', 'SOON', 'OVERDUE'] }, { type: 'null' }], description: 'SOON: due within 14 days' },
+    warrantyUntil: nullable('string', { format: 'date' }), note: nullable('string'), active: { type: 'boolean' }, createdAt: timestamp,
+  }),
+  AssetLog: obj({ id: { type: 'string' }, type: { enum: ['CHECK_OUT', 'CHECK_IN', 'SERVICE', 'CONDITION', 'NOTE'] }, staffName: nullable('string'), note: nullable('string'), createdAt: timestamp }),
+  HeldPart: obj({
+    id: { type: 'string' }, name: { type: 'string' }, quantity: { type: 'number' }, customerId: nullable('string'), customerName: nullable('string'),
+    vehicleId: nullable('string'), vehicleLabel: nullable('string'), jobCardId: nullable('string'), jobNumber: nullable('integer'),
+    locationId: nullable('string'), locationName: nullable('string'), status: { enum: ['HELD', 'FITTED', 'RETURNED'] },
+    note: nullable('string'), receivedAt: timestamp, closedAt: nullable('string', { format: 'date-time' }),
   }),
   Report: obj({
     from: { type: 'string', format: 'date' }, to: { type: 'string', format: 'date' },
@@ -322,7 +357,7 @@ interface Op {
 }
 
 /** Areas only the owner may use, and areas where mechanics may read but not change. */
-const OWNER_TAGS = new Set(['dashboard', 'customers', 'vehicles', 'invoices', 'staff', 'suppliers', 'reports']);
+const OWNER_TAGS = new Set(['dashboard', 'customers', 'vehicles', 'invoices', 'staff', 'suppliers', 'reports', 'stock', 'assets']);
 const OWNER_WRITES_TAGS = new Set(['inventory', 'appointments']);
 
 const errorText: Record<number, string> = {
@@ -653,6 +688,72 @@ const paths: Record<string, Record<string, Op>> = {
     },
     patch: { tag: 'suppliers', summary: 'Edit a supplier', params: [idParam()], body: v.supplierPatch, errors: [422], ok: [200, 'Updated', ref('Supplier')] },
   },
+  '/api/v1/locations': {
+    get: { tag: 'stock', summary: 'Shelves, bays and cabinets', params: queryParams(z.object({ includeInactive: z.enum(['true', 'false']).optional() })), ok: [200, 'By name, with how many parts, tools and held parts each holds', { type: 'array', items: ref('StockLocation') }] },
+    post: { tag: 'stock', summary: 'Add a location', body: v.locationInput, errors: [409, 422], ok: [201, 'Added', ref('StockLocation')] },
+  },
+  '/api/v1/locations/{id}': {
+    patch: { tag: 'stock', summary: 'Rename or switch off a location', params: [idParam()], body: v.locationPatch, errors: [409, 422], ok: [200, 'Updated', ref('StockLocation')] },
+  },
+  '/api/v1/stock-counts': {
+    get: { tag: 'stock', summary: 'Past stocktakes', params: pageParams, ok: [200, 'A page of stocktakes, newest first', pageOf('StockCount')] },
+    post: {
+      tag: 'stock', summary: 'Record a stocktake', body: v.stockCountInput, errors: [404, 409, 422],
+      description: 'Each counted part whose quantity differs gets a COUNT stock movement for the difference, so stock matches the shelf and the history still adds up.',
+      ok: [201, 'The count, with expected against counted for every line', ref('StockCount')],
+    },
+  },
+  '/api/v1/stock-counts/{id}': {
+    get: { tag: 'stock', summary: 'A stocktake', params: [idParam()], errors: [404], ok: [200, 'The count', ref('StockCount')] },
+  },
+  '/api/v1/purchase-orders': {
+    get: { tag: 'stock', summary: 'Purchase orders', params: [...queryParams(v.purchaseOrdersQuery), ...pageParams], ok: [200, 'A page of orders, newest first', pageOf('PurchaseOrder')] },
+    post: { tag: 'stock', summary: 'Start a purchase order', body: v.purchaseOrderInput, errors: [404, 409, 422], description: 'Created as a draft with a gap-free PO number.', ok: [201, 'The draft', ref('PurchaseOrder')] },
+  },
+  '/api/v1/purchase-orders/{id}': {
+    get: { tag: 'stock', summary: 'A purchase order', params: [idParam()], errors: [404], ok: [200, 'The order', ref('PurchaseOrder')] },
+    patch: { tag: 'stock', summary: 'Edit a draft order', params: [idParam()], body: v.purchaseOrderPatch, errors: [404, 409, 422], ok: [200, 'Updated', ref('PurchaseOrder')] },
+  },
+  '/api/v1/purchase-orders/{id}/place': {
+    post: { tag: 'stock', summary: 'Place the order with the supplier', params: [idParam()], errors: [404, 409], description: 'DRAFT to ORDERED. It can be received but no longer edited.', ok: [200, 'Ordered', ref('PurchaseOrder')] },
+  },
+  '/api/v1/purchase-orders/{id}/receive': {
+    post: {
+      tag: 'stock', summary: 'Goods in', params: [idParam()], body: v.receiveInput, errors: [404, 409, 422],
+      description: "Books each delivered quantity into stock as a PURCHASE from the order's supplier at the order price (which becomes the part's cost). Status becomes PARTLY_RECEIVED or RECEIVED.",
+      ok: [200, 'The order', ref('PurchaseOrder')],
+    },
+  },
+  '/api/v1/purchase-orders/{id}/cancel': {
+    post: { tag: 'stock', summary: 'Cancel an order', params: [idParam()], errors: [404, 409], description: 'Not possible once any stock has been received.', ok: [200, 'Cancelled', ref('PurchaseOrder')] },
+  },
+  '/api/v1/assets': {
+    get: { tag: 'assets', summary: 'Tools and equipment', params: queryParams(v.assetsQuery), ok: [200, 'By name', { type: 'array', items: ref('Asset') }] },
+    post: { tag: 'assets', summary: 'Register an asset', body: v.assetInput, errors: [404, 409, 422], ok: [201, 'Registered', ref('Asset')] },
+  },
+  '/api/v1/assets/{id}': {
+    get: { tag: 'assets', summary: 'An asset', params: [idParam()], errors: [404], ok: [200, 'The asset', ref('Asset')] },
+    patch: { tag: 'assets', summary: 'Edit or retire an asset', params: [idParam()], body: v.assetPatch, errors: [404, 409, 422], ok: [200, 'Updated', ref('Asset')] },
+  },
+  '/api/v1/assets/{id}/check-out': {
+    post: { tag: 'assets', summary: 'Hand an asset to a mechanic', params: [idParam()], body: v.assetCheckOutInput, errors: [404, 409, 422], ok: [200, 'Checked out', ref('Asset')] },
+  },
+  '/api/v1/assets/{id}/check-in': {
+    post: { tag: 'assets', summary: 'Take an asset back', params: [idParam()], body: v.assetCheckInInput, errors: [404, 409, 422], ok: [200, 'Back in the workshop', ref('Asset')] },
+  },
+  '/api/v1/assets/{id}/service': {
+    post: { tag: 'assets', summary: 'Record a service', params: [idParam()], body: v.assetServiceInput, errors: [404, 422], description: "Sets the next due date from the date given, or from the asset's service interval.", ok: [200, 'Updated', ref('Asset')] },
+  },
+  '/api/v1/assets/{id}/log': {
+    get: { tag: 'assets', summary: "An asset's history", params: [idParam()], errors: [404], ok: [200, 'Newest first, up to 100', { type: 'array', items: ref('AssetLog') }] },
+  },
+  '/api/v1/held-parts': {
+    get: { tag: 'assets', summary: "Customers' parts the garage is holding", params: queryParams(v.heldQuery), ok: [200, 'Parts still held by default', { type: 'array', items: ref('HeldPart') }] },
+    post: { tag: 'assets', summary: "Take in a customer's part", body: v.heldInput, errors: [404, 422], ok: [201, 'Recorded', ref('HeldPart')] },
+  },
+  '/api/v1/held-parts/{id}': {
+    patch: { tag: 'assets', summary: 'Edit a held part, or mark it fitted or returned', params: [idParam()], body: v.heldPatch, errors: [404, 409, 422], ok: [200, 'Updated', ref('HeldPart')] },
+  },
   '/api/v1/my/visits': {
     get: {
       tag: 'owners', access: 'signedIn', summary: "The caller's cars at garages",
@@ -796,6 +897,30 @@ const operationIds: Record<string, string> = {
   'post /api/v1/suppliers': 'createSupplier',
   'get /api/v1/suppliers/{id}': 'getSupplier',
   'patch /api/v1/suppliers/{id}': 'updateSupplier',
+  'get /api/v1/locations': 'listLocations',
+  'post /api/v1/locations': 'createLocation',
+  'patch /api/v1/locations/{id}': 'updateLocation',
+  'get /api/v1/stock-counts': 'listStockCounts',
+  'post /api/v1/stock-counts': 'createStockCount',
+  'get /api/v1/stock-counts/{id}': 'getStockCount',
+  'get /api/v1/purchase-orders': 'listPurchaseOrders',
+  'post /api/v1/purchase-orders': 'createPurchaseOrder',
+  'get /api/v1/purchase-orders/{id}': 'getPurchaseOrder',
+  'patch /api/v1/purchase-orders/{id}': 'updatePurchaseOrder',
+  'post /api/v1/purchase-orders/{id}/place': 'placePurchaseOrder',
+  'post /api/v1/purchase-orders/{id}/receive': 'receivePurchaseOrder',
+  'post /api/v1/purchase-orders/{id}/cancel': 'cancelPurchaseOrder',
+  'get /api/v1/assets': 'listAssets',
+  'post /api/v1/assets': 'createAsset',
+  'get /api/v1/assets/{id}': 'getAsset',
+  'patch /api/v1/assets/{id}': 'updateAsset',
+  'post /api/v1/assets/{id}/check-out': 'checkOutAsset',
+  'post /api/v1/assets/{id}/check-in': 'checkInAsset',
+  'post /api/v1/assets/{id}/service': 'recordAssetService',
+  'get /api/v1/assets/{id}/log': 'getAssetLog',
+  'get /api/v1/held-parts': 'listHeldParts',
+  'post /api/v1/held-parts': 'createHeldPart',
+  'patch /api/v1/held-parts/{id}': 'updateHeldPart',
   'get /api/v1/reports': 'getReport',
 };
 
@@ -827,6 +952,8 @@ export function buildOpenApi() {
       { name: 'appointments', description: 'Bookings, and checking customers in' },
       { name: 'staff', description: 'Mechanics and how they join' },
       { name: 'suppliers', description: 'Where parts come from, and spend' },
+      { name: 'stock', description: 'Shelves and bays, stocktakes, and purchase orders with goods-in' },
+      { name: 'assets', description: "Tools and equipment register, and customers' parts the garage is holding" },
       { name: 'internal', description: 'For other Kaduna services (the parts service): mechanics, jobs and received parts' },
       { name: 'owners', description: 'Vehicle owners: their cars at any garage, and booking a garage from the Kaduna dashboard' },
       { name: 'reports', description: 'Revenue, jobs, mechanics and inspections over a date range' },

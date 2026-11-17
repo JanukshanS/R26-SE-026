@@ -4,14 +4,18 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import Appointments from "@/components/garage/Appointments";
+import Assets from "@/components/garage/Assets";
 import Customers from "@/components/garage/Customers";
 import GarageSettings from "@/components/garage/GarageSettings";
+import HeldParts from "@/components/garage/HeldParts";
 import GarageShell, { type GarageTab } from "@/components/garage/GarageShell";
 import Inspections from "@/components/garage/Inspections";
 import Inventory from "@/components/garage/Inventory";
 import Invoices from "@/components/garage/Invoices";
 import Jobs from "@/components/garage/Jobs";
 import KadunaJobs from "@/components/garage/KadunaJobs";
+import PurchaseOrders from "@/components/garage/PurchaseOrders";
+import Stocktake from "@/components/garage/Stocktake";
 import Overview from "@/components/garage/Overview";
 import GarageParts from "@/components/parts/GarageParts";
 import Reports from "@/components/garage/Reports";
@@ -23,7 +27,7 @@ import { listAssignedIncidents } from "@/lib/dispatchApi";
 import { GarageApiError, getGarage, type Garage } from "@/lib/garageApi";
 import { useT } from "@/lib/i18n";
 
-const TABS: GarageTab[] = ["overview", "kaduna", "appointments", "jobs", "inspections", "customers", "inventory", "parts", "suppliers", "invoices", "staff", "reports", "settings"];
+const TABS: GarageTab[] = ["overview", "kaduna", "appointments", "jobs", "inspections", "customers", "inventory", "purchaseorders", "parts", "stockcounts", "assets", "held", "suppliers", "invoices", "staff", "reports", "settings"];
 
 /** The section lives in the URL hash (static export: no dynamic routes), so
  *  links, refresh and the back button all land on the same section. */
@@ -138,6 +142,14 @@ function GaragePortal() {
     body = <GarageParts garage={g} owner onOpenJob={openJob} />;
   } else if (tab === "suppliers") {
     body = <Suppliers garage={g} />;
+  } else if (tab === "purchaseorders") {
+    body = <PurchaseOrders garage={g} />;
+  } else if (tab === "stockcounts") {
+    body = <Stocktake garage={g} />;
+  } else if (tab === "assets") {
+    body = <Assets garage={g} />;
+  } else if (tab === "held") {
+    body = <HeldParts />;
   } else if (tab === "staff") {
     body = <Staff garage={g} />;
   } else if (tab === "reports") {

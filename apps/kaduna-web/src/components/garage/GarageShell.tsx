@@ -11,6 +11,7 @@ import {
   LogOut,
   Package,
   PackageCheck,
+  PackageOpen,
   PackagePlus,
   Receipt,
   ScanBarcode,
@@ -64,7 +65,12 @@ export type GarageTab =
   | "stocktake"
   | "payables"
   | "activity"
-  | "warranty";
+  | "warranty"
+  // The garage's own stock-keeping and equipment.
+  | "purchaseorders"
+  | "stockcounts"
+  | "assets"
+  | "held";
 
 const ICONS: Record<GarageTab, LucideIcon> = {
   parts: ShoppingCart,
@@ -79,6 +85,10 @@ const ICONS: Record<GarageTab, LucideIcon> = {
   payables: FileText,
   activity: History,
   warranty: ShieldCheck,
+  purchaseorders: PackagePlus,
+  stockcounts: ListChecks,
+  assets: Wrench,
+  held: PackageOpen,
   overview: LayoutDashboard,
   kaduna: Siren,
   appointments: CalendarDays,
@@ -96,7 +106,7 @@ const ICONS: Record<GarageTab, LucideIcon> = {
 /** The owner's sidebar, in groups. Mechanics get a short list of their own (see /workshop). */
 export const OWNER_NAV: { group: string; tabs: GarageTab[] }[] = [
   { group: "workshop", tabs: ["overview", "kaduna", "appointments", "jobs", "inspections", "customers"] },
-  { group: "stock", tabs: ["inventory", "parts", "suppliers"] },
+  { group: "stock", tabs: ["inventory", "purchaseorders", "parts", "stockcounts", "assets", "held", "suppliers"] },
   { group: "business", tabs: ["invoices", "reports", "staff", "settings"] },
 ];
 

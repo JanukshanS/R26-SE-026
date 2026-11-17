@@ -54,6 +54,44 @@ enum StockReason {
   JOB_USE
   RETURN
   ADJUSTMENT
+  // Bulk supplies used in the workshop rather than billed to a job.
+  WORKSHOP_USE
+  // A stocktake correction.
+  COUNT
+}
+
+enum PartKind {
+  PART
+  CONSUMABLE
+}
+
+enum AssetCondition {
+  GOOD
+  FAIR
+  NEEDS_REPAIR
+  RETIRED
+}
+
+enum AssetLogType {
+  CHECK_OUT
+  CHECK_IN
+  SERVICE
+  CONDITION
+  NOTE
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  PARTLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum HeldStatus {
+  HELD
+  FITTED
+  RETURNED
 }
 
 enum InvoiceStatus {
@@ -101,40 +139,46 @@ enum Approval {
 }
 
 model Garage {
-  id                String   @id @default(uuid())
-  providerId        String   @unique @map("provider_id")
-  name              String
-  phone             String?
-  address           String?
-  labourRate        Decimal  @default(0) @map("labour_rate") @db.Decimal(12, 2)
-  taxRate           Decimal  @default(0) @map("tax_rate") @db.Decimal(5, 2)
-  currency          String   @default("LKR") @db.VarChar(3)
+  id                 String   @id @default(uuid())
+  providerId         String   @unique @map("provider_id")
+  name               String
+  phone              String?
+  address            String?
+  labourRate         Decimal  @default(0) @map("labour_rate") @db.Decimal(12, 2)
+  taxRate            Decimal  @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  currency           String   @default("LKR") @db.VarChar(3)
   // Invoice branding. The logo is a small data: URL (the web app shrinks it first) or an https URL.
-  email             String?
-  registrationNo    String?  @map("registration_no")
-  logoUrl           String?  @map("logo_url")
-  brandColor        String?  @map("brand_color") @db.VarChar(7)
-  invoiceTerms      String?  @map("invoice_terms")
-  invoiceFooter     String?  @map("invoice_footer")
-  bankDetails       String?  @map("bank_details")
+  email              String?
+  registrationNo     String?  @map("registration_no")
+  logoUrl            String?  @map("logo_url")
+  brandColor         String?  @map("brand_color") @db.VarChar(7)
+  invoiceTerms       String?  @map("invoice_terms")
+  invoiceFooter      String?  @map("invoice_footer")
+  bankDetails        String?  @map("bank_details")
   // Online booking: the secret in the customer link (/book?g=…) and the rules
   // for which slots it offers (see services/booking.ts for the shape).
-  bookingToken      String?  @unique @map("booking_token")
-  bookingSettings   Json?    @map("booking_settings")
-  nextJobNumber     Int      @default(1) @map("next_job_number")
-  nextInvoiceNumber Int      @default(1) @map("next_invoice_number")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  bookingToken       String?  @unique @map("booking_token")
+  bookingSettings    Json?    @map("booking_settings")
+  nextJobNumber      Int      @default(1) @map("next_job_number")
+  nextInvoiceNumber  Int      @default(1) @map("next_invoice_number")
+  nextPurchaseNumber Int      @default(1) @map("next_purchase_number")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
-  customers    Customer[]
-  vehicles     Vehicle[]
-  jobCards     JobCard[]
-  parts        Part[]
-  invoices     Invoice[]
-  staff        StaffMember[]
-  appointments Appointment[]
-  suppliers    Supplier[]
-  inspections  Inspection[]
+  customers      Customer[]
+  vehicles       Vehicle[]
+  jobCards       JobCard[]
+  parts          Part[]
+  invoices       Invoice[]
+  staff          StaffMember[]
+  appointments   Appointment[]
+  suppliers      Supplier[]
+  inspections    Inspection[]
+  locations      StockLocation[]
+  stockCounts    StockCount[]
+  purchaseOrders PurchaseOrder[]
+  assets         Asset[]
+  heldItems      HeldItem[]
 
   @@map("garages")
 }
@@ -152,6 +196,7 @@ model Customer {
   vehicles     Vehicle[]
   jobCards     JobCard[]
   appointments Appointment[]
+  heldItems    HeldItem[]
 
   @@index([garageId, phone])
   @@map("customers")
@@ -174,6 +219,7 @@ model Vehicle {
   customer     Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
   jobCards     JobCard[]
   appointments Appointment[]
+  heldItems    HeldItem[]
 
   // NULL plates are distinct in Postgres, so plate-less vehicles never collide.
   @@unique([garageId, plate])
@@ -212,6 +258,7 @@ model JobCard {
   invoices       Invoice[]
   stockMovements StockMovement[]
   updates        JobUpdate[]
+  heldItems      HeldItem[]
   inspection     Inspection?
   appointment    Appointment?
 
@@ -252,16 +299,25 @@ model Part {
   stockQty     Decimal  @default(0) @map("stock_qty") @db.Decimal(10, 2)
   reorderLevel Decimal  @default(0) @map("reorder_level") @db.Decimal(10, 2)
   active       Boolean  @default(true)
+  // A consumable is bulk workshop supply (oil, cleaner, fasteners), used without a job.
+  kind         PartKind @default(PART)
+  category     String?
+  barcode      String?
+  locationId   String?  @map("location_id")
   // Where this part is usually bought, for the reorder list.
   supplierId   String?  @map("supplier_id")
   createdAt    DateTime @default(now()) @map("created_at")
 
-  garage    Garage          @relation(fields: [garageId], references: [id], onDelete: Cascade)
-  supplier  Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  movements StockMovement[]
-  jobItems  JobItem[]
+  garage     Garage              @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  supplier   Supplier?           @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  location   StockLocation?      @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  movements  StockMovement[]
+  jobItems   JobItem[]
+  countLines StockCountLine[]
+  orderLines PurchaseOrderLine[]
 
   @@unique([garageId, sku])
+  @@unique([garageId, barcode])
   @@map("parts")
 }
 
@@ -328,6 +384,7 @@ model StaffMember {
   garage       Garage        @relation(fields: [garageId], references: [id], onDelete: Cascade)
   jobCards     JobCard[]
   appointments Appointment[]
+  assets       Asset[]
 
   @@index([garageId])
   @@map("staff_members")
@@ -437,9 +494,10 @@ model Supplier {
   active      Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at")
 
-  garage    Garage          @relation(fields: [garageId], references: [id], onDelete: Cascade)
-  parts     Part[]
-  movements StockMovement[]
+  garage         Garage          @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  parts          Part[]
+  movements      StockMovement[]
+  purchaseOrders PurchaseOrder[]
 
   @@index([garageId, name])
   @@map("suppliers")
@@ -460,4 +518,159 @@ model OutboxEvent {
 
   @@index([publishedAt, createdAt])
   @@map("outbox_events")
+}
+
+// ─── Stock & assets ────────────────────────────────────────────────────────
+
+/// A shelf, bay, cabinet or tool-room: where parts, tools and held items are kept.
+model StockLocation {
+  id        String   @id @default(uuid())
+  garageId  String   @map("garage_id")
+  name      String
+  note      String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  garage Garage     @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  parts  Part[]
+  assets Asset[]
+  held   HeldItem[]
+
+  @@unique([garageId, name])
+  @@map("stock_locations")
+}
+
+/// One stocktake: what the shelf should have held against what was counted.
+model StockCount {
+  id        String   @id @default(uuid())
+  garageId  String   @map("garage_id")
+  note      String?
+  countedBy String?  @map("counted_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  garage Garage           @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  lines  StockCountLine[]
+
+  @@index([garageId, createdAt])
+  @@map("stock_counts")
+}
+
+model StockCountLine {
+  id       String  @id @default(uuid())
+  countId  String  @map("count_id")
+  partId   String  @map("part_id")
+  expected Decimal @db.Decimal(10, 2)
+  counted  Decimal @db.Decimal(10, 2)
+
+  count StockCount @relation(fields: [countId], references: [id], onDelete: Cascade)
+  part  Part       @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  @@index([countId])
+  @@map("stock_count_lines")
+}
+
+model PurchaseOrder {
+  id         String              @id @default(uuid())
+  garageId   String              @map("garage_id")
+  number     Int
+  supplierId String              @map("supplier_id")
+  status     PurchaseOrderStatus @default(DRAFT)
+  note       String?
+  orderedAt  DateTime?           @map("ordered_at")
+  receivedAt DateTime?           @map("received_at")
+  createdAt  DateTime            @default(now()) @map("created_at")
+
+  garage   Garage              @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  supplier Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  lines    PurchaseOrderLine[]
+
+  @@unique([garageId, number])
+  @@index([garageId, status])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  id          String  @id @default(uuid())
+  orderId     String  @map("order_id")
+  partId      String  @map("part_id")
+  quantity    Decimal @db.Decimal(10, 2)
+  unitCost    Decimal @map("unit_cost") @db.Decimal(12, 2)
+  receivedQty Decimal @default(0) @map("received_qty") @db.Decimal(10, 2)
+
+  order PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  part  Part          @relation(fields: [partId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@map("purchase_order_lines")
+}
+
+/// Workshop equipment and tools the garage owns: lifts, scanners, jacks, compressors, hand tools.
+model Asset {
+  id                  String         @id @default(uuid())
+  garageId            String         @map("garage_id")
+  name                String
+  tag                 String?
+  category            String?
+  serialNo            String?        @map("serial_no")
+  purchaseDate        DateTime?      @map("purchase_date") @db.Date
+  cost                Decimal        @default(0) @db.Decimal(12, 2)
+  locationId          String?        @map("location_id")
+  condition           AssetCondition @default(GOOD)
+  // Who has it out right now. Null = in the workshop.
+  heldById            String?        @map("held_by_id")
+  checkedOutAt        DateTime?      @map("checked_out_at")
+  serviceIntervalDays Int?           @map("service_interval_days")
+  nextServiceDue      DateTime?      @map("next_service_due") @db.Date
+  warrantyUntil       DateTime?      @map("warranty_until") @db.Date
+  note                String?
+  active              Boolean        @default(true)
+  createdAt           DateTime       @default(now()) @map("created_at")
+
+  garage   Garage         @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  location StockLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  heldBy   StaffMember?   @relation(fields: [heldById], references: [id], onDelete: SetNull)
+  logs     AssetLog[]
+
+  @@unique([garageId, tag])
+  @@index([garageId, active])
+  @@map("assets")
+}
+
+model AssetLog {
+  id        String       @id @default(uuid())
+  assetId   String       @map("asset_id")
+  type      AssetLogType
+  staffName String?      @map("staff_name")
+  note      String?
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId, createdAt])
+  @@map("asset_logs")
+}
+
+/// A part the customer owns that the garage is holding: brought in to be fitted, or kept for a job. Never sellable stock.
+model HeldItem {
+  id         String     @id @default(uuid())
+  garageId   String     @map("garage_id")
+  name       String
+  quantity   Decimal    @default(1) @db.Decimal(10, 2)
+  customerId String?    @map("customer_id")
+  vehicleId  String?    @map("vehicle_id")
+  jobCardId  String?    @map("job_card_id")
+  locationId String?    @map("location_id")
+  status     HeldStatus @default(HELD)
+  note       String?
+  receivedAt DateTime   @default(now()) @map("received_at")
+  closedAt   DateTime?  @map("closed_at")
+
+  garage   Garage         @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  customer Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  vehicle  Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  jobCard  JobCard?       @relation(fields: [jobCardId], references: [id], onDelete: SetNull)
+  location StockLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  @@index([garageId, status])
+  @@map("held_items")
 }

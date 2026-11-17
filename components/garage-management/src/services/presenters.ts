@@ -75,6 +75,10 @@ export const presentPart = (p: Part) => ({
   active: p.active,
   lowStock: p.active && p.stockQty.lte(p.reorderLevel),
   supplierId: p.supplierId,
+  kind: p.kind,
+  category: p.category,
+  barcode: p.barcode,
+  locationId: p.locationId,
 });
 
 export const presentMovement = (m: StockMovement) => ({
@@ -241,4 +245,137 @@ export const presentSupplier = (s: Supplier & { _count?: { parts: number } }) =>
   active: s.active,
   partCount: s._count?.parts ?? null,
   createdAt: s.createdAt,
+});
+
+// ─── Stock & assets ──────────────────────────────────────────────────────────
+
+const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+
+export const presentLocation = (l: { id: string; name: string; note: string | null; active: boolean; _count?: { parts: number; assets: number; held: number } }) => ({
+  id: l.id,
+  name: l.name,
+  note: l.note,
+  active: l.active,
+  partCount: l._count?.parts ?? null,
+  assetCount: l._count?.assets ?? null,
+  heldCount: l._count?.held ?? null,
+});
+
+type CountRow = { id: string; note: string | null; countedBy: string | null; createdAt: Date; lines: { partId: string; expected: Prisma.Decimal; counted: Prisma.Decimal; part: Part }[] };
+export const presentStockCount = (c: CountRow) => {
+  const lines = c.lines.map((l) => {
+    const variance = l.counted.sub(l.expected);
+    return {
+      partId: l.partId,
+      sku: l.part.sku,
+      name: l.part.name,
+      expected: num(l.expected),
+      counted: num(l.counted),
+      variance: num(variance),
+      varianceValue: num(variance.mul(l.part.unitCost)),
+    };
+  });
+  return {
+    id: c.id,
+    note: c.note,
+    countedBy: c.countedBy,
+    createdAt: c.createdAt,
+    lineCount: lines.length,
+    mismatches: lines.filter((l) => l.variance !== 0).length,
+    netVarianceValue: Math.round(lines.reduce((s, l) => s + (l.varianceValue ?? 0), 0) * 100) / 100,
+    lines,
+  };
+};
+
+type OrderRow = {
+  id: string; number: number; status: string; note: string | null; supplierId: string; orderedAt: Date | null; receivedAt: Date | null; createdAt: Date;
+  supplier: Supplier;
+  lines: { id: string; partId: string; quantity: Prisma.Decimal; unitCost: Prisma.Decimal; receivedQty: Prisma.Decimal; part: Part }[];
+};
+export const presentOrder = (o: OrderRow) => {
+  const lines = o.lines.map((l) => ({
+    id: l.id,
+    partId: l.partId,
+    sku: l.part.sku,
+    name: l.part.name,
+    quantity: num(l.quantity),
+    unitCost: num(l.unitCost),
+    receivedQty: num(l.receivedQty),
+    lineTotal: Math.round(l.quantity.mul(l.unitCost).toNumber() * 100) / 100,
+  }));
+  return {
+    id: o.id,
+    number: o.number,
+    reference: `PO-${o.number}`,
+    status: o.status,
+    note: o.note,
+    supplierId: o.supplierId,
+    supplierName: o.supplier.name,
+    orderedAt: o.orderedAt,
+    receivedAt: o.receivedAt,
+    createdAt: o.createdAt,
+    total: Math.round(lines.reduce((s, l) => s + l.lineTotal, 0) * 100) / 100,
+    lines,
+  };
+};
+
+type AssetRow = {
+  id: string; name: string; tag: string | null; category: string | null; serialNo: string | null; purchaseDate: Date | null; cost: Prisma.Decimal; locationId: string | null;
+  condition: string; heldById: string | null; checkedOutAt: Date | null; serviceIntervalDays: number | null; nextServiceDue: Date | null; warrantyUntil: Date | null;
+  note: string | null; active: boolean; createdAt: Date;
+  location: { id: string; name: string } | null; heldBy: { id: string; name: string } | null;
+};
+export const presentAsset = (a: AssetRow, dueInDays: number | null) => ({
+  id: a.id,
+  name: a.name,
+  tag: a.tag,
+  category: a.category,
+  serialNo: a.serialNo,
+  purchaseDate: day(a.purchaseDate),
+  cost: num(a.cost),
+  locationId: a.locationId,
+  locationName: a.location?.name ?? null,
+  condition: a.condition,
+  heldById: a.heldById,
+  heldByName: a.heldBy?.name ?? null,
+  checkedOutAt: a.checkedOutAt,
+  serviceIntervalDays: a.serviceIntervalDays,
+  nextServiceDue: day(a.nextServiceDue),
+  dueInDays,
+  serviceState: dueInDays == null ? null : dueInDays < 0 ? 'OVERDUE' : dueInDays <= 14 ? 'SOON' : 'OK',
+  warrantyUntil: day(a.warrantyUntil),
+  note: a.note,
+  active: a.active,
+  createdAt: a.createdAt,
+});
+
+export const presentAssetLog = (l: { id: string; type: string; staffName: string | null; note: string | null; createdAt: Date }) => ({
+  id: l.id,
+  type: l.type,
+  staffName: l.staffName,
+  note: l.note,
+  createdAt: l.createdAt,
+});
+
+type HeldRow = {
+  id: string; name: string; quantity: Prisma.Decimal; customerId: string | null; vehicleId: string | null; jobCardId: string | null; locationId: string | null;
+  status: string; note: string | null; receivedAt: Date; closedAt: Date | null;
+  customer: { name: string } | null; vehicle: { plate: string | null; make: string | null; model: string | null } | null; jobCard: { number: number } | null; location: { name: string } | null;
+};
+export const presentHeld = (h: HeldRow) => ({
+  id: h.id,
+  name: h.name,
+  quantity: num(h.quantity),
+  customerId: h.customerId,
+  customerName: h.customer?.name ?? null,
+  vehicleId: h.vehicleId,
+  vehicleLabel: h.vehicle ? [h.vehicle.plate, [h.vehicle.make, h.vehicle.model].filter(Boolean).join(' ')].filter(Boolean).join(' · ') || null : null,
+  jobCardId: h.jobCardId,
+  jobNumber: h.jobCard?.number ?? null,
+  locationId: h.locationId,
+  locationName: h.location?.name ?? null,
+  status: h.status,
+  note: h.note,
+  receivedAt: h.receivedAt,
+  closedAt: h.closedAt,
 });

@@ -16,7 +16,7 @@ partRouter.get(
     const { items, total } = await inventory.listParts(
       prisma,
       req.garage!.id,
-      { q: query.q, lowStock: query.lowStock === 'true', includeInactive: query.includeInactive === 'true' },
+      { q: query.q, lowStock: query.lowStock === 'true', includeInactive: query.includeInactive === 'true', kind: query.kind, category: query.category, locationId: query.locationId },
       limit,
       offset,
     );

@@ -87,13 +87,17 @@ export interface Part {
   active: boolean;
   lowStock: boolean;
   supplierId: string | null;
+  kind: "PART" | "CONSUMABLE";
+  category: string | null;
+  barcode: string | null;
+  locationId: string | null;
 }
 
 export interface StockMovement {
   id: string;
   partId: string;
   quantityChange: number;
-  reason: "PURCHASE" | "JOB_USE" | "RETURN" | "ADJUSTMENT";
+  reason: "PURCHASE" | "JOB_USE" | "RETURN" | "ADJUSTMENT" | "WORKSHOP_USE" | "COUNT";
   jobCardId: string | null;
   supplierId: string | null;
   unitCost: number | null;
@@ -519,16 +523,20 @@ export type PartInput = {
   reorderLevel: number;
   openingStock: number;
   supplierId?: string | null;
+  kind?: "PART" | "CONSUMABLE";
+  category?: string | null;
+  barcode?: string | null;
+  locationId?: string | null;
 };
 export type StockInput = {
   quantityChange: number;
-  reason: "PURCHASE" | "RETURN" | "ADJUSTMENT";
+  reason: "PURCHASE" | "RETURN" | "ADJUSTMENT" | "WORKSHOP_USE";
   note?: string | null;
   supplierId?: string | null;
   unitCost?: number | null;
 };
 
-export const listParts = (opts: { q?: string; lowStock?: boolean; includeInactive?: boolean; limit?: number } = {}) =>
+export const listParts = (opts: { q?: string; lowStock?: boolean; includeInactive?: boolean; limit?: number; kind?: "PART" | "CONSUMABLE"; category?: string; locationId?: string } = {}) =>
   get<Page<Part>>(`/api/v1/parts${qs({ limit: 200, ...opts })}`);
 export const createPart = (input: PartInput) => send<Part>("POST", "/api/v1/parts", input);
 export const updatePart = (id: string, input: Partial<Omit<PartInput, "sku" | "openingStock">> & { active?: boolean }) =>
@@ -663,3 +671,154 @@ export const getPublicBooking = (token: string) => pub<PublicBooking>(`/bookings
 /** Whether the job's car belongs to a Kaduna member (who then follows it in their app); registered null: can't tell. */
 export const getJobOwnerLink = (jobId: string) => get<{ plate: string | null; registered: boolean | null }>(`/api/v1/job-cards/${jobId}/owner-link`);
 export const cancelPublicBooking = (token: string) => pub<PublicBooking>(`/bookings/${encodeURIComponent(token)}/cancel`, { method: "POST" });
+
+// ─── Stock locations, stocktakes, purchase orders ────────────────────────
+
+export interface StockLocation {
+  id: string;
+  name: string;
+  note: string | null;
+  active: boolean;
+  partCount: number | null;
+  assetCount: number | null;
+  heldCount: number | null;
+}
+export const listLocations = (includeInactive = false) => get<StockLocation[]>(`/api/v1/locations${qs({ includeInactive: includeInactive || undefined })}`);
+export const createLocation = (input: { name: string; note?: string | null }) => send<StockLocation>("POST", "/api/v1/locations", input);
+export const updateLocation = (id: string, input: { name?: string; note?: string | null; active?: boolean }) => send<StockLocation>("PATCH", `/api/v1/locations/${id}`, input);
+
+export interface StockCountLine {
+  partId: string;
+  sku: string;
+  name: string;
+  expected: number;
+  counted: number;
+  variance: number;
+  varianceValue: number;
+}
+export interface StockCount {
+  id: string;
+  note: string | null;
+  countedBy: string | null;
+  createdAt: string;
+  lineCount: number;
+  mismatches: number;
+  netVarianceValue: number;
+  lines: StockCountLine[];
+}
+export const listStockCounts = () => get<Page<StockCount>>("/api/v1/stock-counts?limit=30");
+export const createStockCount = (input: { note?: string | null; lines: { partId: string; counted: number }[] }) => send<StockCount>("POST", "/api/v1/stock-counts", input);
+
+export type PurchaseStatus = "DRAFT" | "ORDERED" | "PARTLY_RECEIVED" | "RECEIVED" | "CANCELLED";
+export interface PurchaseLine {
+  id: string;
+  partId: string;
+  sku: string;
+  name: string;
+  quantity: number;
+  unitCost: number;
+  receivedQty: number;
+  lineTotal: number;
+}
+export interface PurchaseOrder {
+  id: string;
+  number: number;
+  reference: string;
+  status: PurchaseStatus;
+  note: string | null;
+  supplierId: string;
+  supplierName: string;
+  orderedAt: string | null;
+  receivedAt: string | null;
+  createdAt: string;
+  total: number;
+  lines: PurchaseLine[];
+}
+export type PurchaseOrderInput = { supplierId: string; note?: string | null; lines: { partId: string; quantity: number; unitCost: number }[] };
+export const listPurchaseOrders = (status?: PurchaseStatus) => get<Page<PurchaseOrder>>(`/api/v1/purchase-orders${qs({ status, limit: 100 })}`);
+export const createPurchaseOrder = (input: PurchaseOrderInput) => send<PurchaseOrder>("POST", "/api/v1/purchase-orders", input);
+export const updatePurchaseOrder = (id: string, input: { note?: string | null; lines?: PurchaseOrderInput["lines"] }) => send<PurchaseOrder>("PATCH", `/api/v1/purchase-orders/${id}`, input);
+export const placePurchaseOrder = (id: string) => send<PurchaseOrder>("POST", `/api/v1/purchase-orders/${id}/place`);
+export const receivePurchaseOrder = (id: string, lines: { lineId: string; quantity: number }[]) => send<PurchaseOrder>("POST", `/api/v1/purchase-orders/${id}/receive`, { lines });
+export const cancelPurchaseOrder = (id: string) => send<PurchaseOrder>("POST", `/api/v1/purchase-orders/${id}/cancel`);
+
+// ─── Tools & equipment ───────────────────────────────────────────────────
+
+export type AssetCondition = "GOOD" | "FAIR" | "NEEDS_REPAIR" | "RETIRED";
+export interface Asset {
+  id: string;
+  name: string;
+  tag: string | null;
+  category: string | null;
+  serialNo: string | null;
+  purchaseDate: string | null;
+  cost: number;
+  locationId: string | null;
+  locationName: string | null;
+  condition: AssetCondition;
+  heldById: string | null;
+  heldByName: string | null;
+  checkedOutAt: string | null;
+  serviceIntervalDays: number | null;
+  nextServiceDue: string | null;
+  dueInDays: number | null;
+  serviceState: "OK" | "SOON" | "OVERDUE" | null;
+  warrantyUntil: string | null;
+  note: string | null;
+  active: boolean;
+  createdAt: string;
+}
+export interface AssetLog {
+  id: string;
+  type: "CHECK_OUT" | "CHECK_IN" | "SERVICE" | "CONDITION" | "NOTE";
+  staffName: string | null;
+  note: string | null;
+  createdAt: string;
+}
+export type AssetInput = {
+  name: string;
+  tag?: string | null;
+  category?: string | null;
+  serialNo?: string | null;
+  purchaseDate?: string | null;
+  cost?: number;
+  locationId?: string | null;
+  condition?: AssetCondition;
+  serviceIntervalDays?: number | null;
+  nextServiceDue?: string | null;
+  warrantyUntil?: string | null;
+  note?: string | null;
+};
+export const listAssets = (opts: { q?: string; category?: string; status?: "available" | "out" | "due" | "attention"; includeInactive?: boolean } = {}) =>
+  get<Asset[]>(`/api/v1/assets${qs(opts)}`);
+export const createAsset = (input: AssetInput) => send<Asset>("POST", "/api/v1/assets", input);
+export const updateAsset = (id: string, input: Partial<AssetInput> & { active?: boolean }) => send<Asset>("PATCH", `/api/v1/assets/${id}`, input);
+export const checkOutAsset = (id: string, input: { staffId: string; note?: string | null }) => send<Asset>("POST", `/api/v1/assets/${id}/check-out`, input);
+export const checkInAsset = (id: string, input: { condition?: AssetCondition; note?: string | null }) => send<Asset>("POST", `/api/v1/assets/${id}/check-in`, input);
+export const serviceAsset = (id: string, input: { note?: string | null; nextServiceDue?: string | null; condition?: AssetCondition }) => send<Asset>("POST", `/api/v1/assets/${id}/service`, input);
+export const getAssetLog = (id: string) => get<AssetLog[]>(`/api/v1/assets/${id}/log`);
+
+// ─── Customer parts held ─────────────────────────────────────────────────
+
+export type HeldStatus = "HELD" | "FITTED" | "RETURNED";
+export interface HeldPart {
+  id: string;
+  name: string;
+  quantity: number;
+  customerId: string | null;
+  customerName: string | null;
+  vehicleId: string | null;
+  vehicleLabel: string | null;
+  jobCardId: string | null;
+  jobNumber: number | null;
+  locationId: string | null;
+  locationName: string | null;
+  status: HeldStatus;
+  note: string | null;
+  receivedAt: string;
+  closedAt: string | null;
+}
+export type HeldInput = { name: string; quantity?: number; customerId?: string | null; vehicleId?: string | null; jobCardId?: string | null; locationId?: string | null; note?: string | null };
+export const listHeldParts = (status?: HeldStatus | "open") => get<HeldPart[]>(`/api/v1/held-parts${qs({ status })}`);
+export const createHeldPart = (input: HeldInput) => send<HeldPart>("POST", "/api/v1/held-parts", input);
+export const updateHeldPart = (id: string, input: Partial<HeldInput> & { status?: HeldStatus }) => send<HeldPart>("PATCH", `/api/v1/held-parts/${id}`, input);
