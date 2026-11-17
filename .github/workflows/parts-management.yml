@@ -1,0 +1,45 @@
+name: Parts Management
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - "components/parts-management/**"
+      - "contracts/parts-management.openapi.yaml"
+      - ".github/workflows/parts-management.yml"
+  pull_request:
+    paths:
+      - "components/parts-management/**"
+      - "contracts/parts-management.openapi.yaml"
+      - ".github/workflows/parts-management.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: components/parts-management
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: components/parts-management/package-lock.json
+
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Type-check
+        run: npm run lint
+      # Starts its own throwaway Postgres (embedded-postgres) and applies the
+      # real migrations, so no database service is needed here. Also fails if
+      # contracts/parts-management.openapi.yaml is stale.
+      - name: Tests
+        run: npm test
+
+  contract-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npx --yes @redocly/cli@2.60.0 lint contracts/parts-management.openapi.yaml

@@ -1,0 +1,463 @@
+// ============================================================================
+// Garage Management — Prisma Database Schema
+// ============================================================================
+//
+// A workshop system for Kaduna.lk service providers: customers and their
+// vehicles, appointments, job cards with labour and parts, digital
+// inspections the customer approves, a parts inventory with suppliers,
+// mechanics, and invoices.
+//
+//   Tenancy: every row carries garage_id (directly or through its parent) and
+//   every query filters by it, so many garages share one database without
+//   seeing each other's data. A garage belongs to exactly one dispatch
+//   Provider (provider_id), found from the caller's Supabase profile.
+//   Mechanics reach the garage through their StaffMember row instead.
+//
+//   Money is Decimal, never Float. Numbers people read ("Job #42", "Invoice
+//   #17") are per garage and gap-free, handed out by an atomic UPDATE on the
+//   garage row (see takeNumber in services/shared.ts).
+//
+//   Lives in its own Postgres schema (?schema=garage in DATABASE_URL), so it can
+//   never collide with dispatch or the app's tables in the same Supabase project.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum JobStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_PARTS
+  READY
+  CLOSED
+  CANCELLED
+}
+
+enum JobSource {
+  WALK_IN
+  KADUNA_DISPATCH
+}
+
+enum ItemKind {
+  LABOUR
+  PART
+}
+
+enum StockReason {
+  PURCHASE
+  JOB_USE
+  RETURN
+  ADJUSTMENT
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PAID
+  VOID
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  OTHER
+}
+
+enum AppointmentStatus {
+  BOOKED
+  CONFIRMED
+  ARRIVED
+  CANCELLED
+  NO_SHOW
+}
+
+enum AppointmentSource {
+  STAFF
+  ONLINE
+}
+
+enum InspectionStatus {
+  DRAFT
+  SENT
+}
+
+enum CheckResult {
+  NOT_CHECKED
+  OK
+  ATTENTION
+  URGENT
+}
+
+enum Approval {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+model Garage {
+  id                String   @id @default(uuid())
+  providerId        String   @unique @map("provider_id")
+  name              String
+  phone             String?
+  address           String?
+  labourRate        Decimal  @default(0) @map("labour_rate") @db.Decimal(12, 2)
+  taxRate           Decimal  @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  currency          String   @default("LKR") @db.VarChar(3)
+  // Invoice branding. The logo is a small data: URL (the web app shrinks it first) or an https URL.
+  email             String?
+  registrationNo    String?  @map("registration_no")
+  logoUrl           String?  @map("logo_url")
+  brandColor        String?  @map("brand_color") @db.VarChar(7)
+  invoiceTerms      String?  @map("invoice_terms")
+  invoiceFooter     String?  @map("invoice_footer")
+  bankDetails       String?  @map("bank_details")
+  // Online booking: the secret in the customer link (/book?g=…) and the rules
+  // for which slots it offers (see services/booking.ts for the shape).
+  bookingToken      String?  @unique @map("booking_token")
+  bookingSettings   Json?    @map("booking_settings")
+  nextJobNumber     Int      @default(1) @map("next_job_number")
+  nextInvoiceNumber Int      @default(1) @map("next_invoice_number")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  customers    Customer[]
+  vehicles     Vehicle[]
+  jobCards     JobCard[]
+  parts        Part[]
+  invoices     Invoice[]
+  staff        StaffMember[]
+  appointments Appointment[]
+  suppliers    Supplier[]
+  inspections  Inspection[]
+
+  @@map("garages")
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  garageId  String   @map("garage_id")
+  name      String
+  phone     String?
+  email     String?
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  garage       Garage        @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  vehicles     Vehicle[]
+  jobCards     JobCard[]
+  appointments Appointment[]
+
+  @@index([garageId, phone])
+  @@map("customers")
+}
+
+model Vehicle {
+  id         String   @id @default(uuid())
+  garageId   String   @map("garage_id")
+  customerId String?  @map("customer_id")
+  // Normalised ("CAB-1234"). Optional: a car imported from a dispatch job may have none.
+  plate      String?
+  make       String?
+  model      String?
+  year       Int?
+  odometerKm Int?     @map("odometer_km")
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  garage       Garage        @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  customer     Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  jobCards     JobCard[]
+  appointments Appointment[]
+
+  // NULL plates are distinct in Postgres, so plate-less vehicles never collide.
+  @@unique([garageId, plate])
+  @@index([garageId, customerId])
+  @@map("vehicles")
+}
+
+model JobCard {
+  id                 String    @id @default(uuid())
+  garageId           String    @map("garage_id")
+  number             Int
+  customerId         String?   @map("customer_id")
+  vehicleId          String?   @map("vehicle_id")
+  status             JobStatus @default(OPEN)
+  source             JobSource @default(WALK_IN)
+  // The dispatch Incident this job came from, when imported from a Kaduna job.
+  dispatchIncidentId String?   @map("dispatch_incident_id")
+  complaint          String?
+  diagnosis          String?
+  odometerIn         Int?      @map("odometer_in")
+  // Free-text name kept for jobs from before staff accounts; mechanicId is the real link.
+  assignedTo         String?   @map("assigned_to")
+  mechanicId         String?   @map("mechanic_id")
+  // Secret for the customer's read-only tracking link. Resetting it revokes a shared link.
+  trackingToken      String    @unique @map("tracking_token")
+  promisedAt         DateTime? @map("promised_at")
+  closedAt           DateTime? @map("closed_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  garage         Garage          @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  customer       Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  vehicle        Vehicle?        @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  mechanic       StaffMember?    @relation(fields: [mechanicId], references: [id], onDelete: SetNull)
+  items          JobItem[]
+  invoices       Invoice[]
+  stockMovements StockMovement[]
+  updates        JobUpdate[]
+  inspection     Inspection?
+  appointment    Appointment?
+
+  @@unique([garageId, number])
+  @@unique([garageId, dispatchIncidentId])
+  @@index([garageId, status])
+  @@index([garageId, mechanicId])
+  @@map("job_cards")
+}
+
+model JobItem {
+  id          String   @id @default(uuid())
+  jobCardId   String   @map("job_card_id")
+  kind        ItemKind
+  description String
+  quantity    Decimal  @default(1) @db.Decimal(10, 2)
+  unitPrice   Decimal  @default(0) @map("unit_price") @db.Decimal(12, 2)
+  // Set when the line uses a part from inventory, which then reduces its stock.
+  partId      String?  @map("part_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  jobCard JobCard @relation(fields: [jobCardId], references: [id], onDelete: Cascade)
+  part    Part?   @relation(fields: [partId], references: [id], onDelete: SetNull)
+
+  @@index([jobCardId])
+  @@map("job_items")
+}
+
+model Part {
+  id           String   @id @default(uuid())
+  garageId     String   @map("garage_id")
+  sku          String
+  name         String
+  brand        String?
+  unitCost     Decimal  @default(0) @map("unit_cost") @db.Decimal(12, 2)
+  unitPrice    Decimal  @default(0) @map("unit_price") @db.Decimal(12, 2)
+  // Only ever changed alongside a StockMovement, so the history always adds up.
+  stockQty     Decimal  @default(0) @map("stock_qty") @db.Decimal(10, 2)
+  reorderLevel Decimal  @default(0) @map("reorder_level") @db.Decimal(10, 2)
+  active       Boolean  @default(true)
+  // Where this part is usually bought, for the reorder list.
+  supplierId   String?  @map("supplier_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  garage    Garage          @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  supplier  Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  movements StockMovement[]
+  jobItems  JobItem[]
+
+  @@unique([garageId, sku])
+  @@map("parts")
+}
+
+model StockMovement {
+  id             String      @id @default(uuid())
+  garageId       String      @map("garage_id")
+  partId         String      @map("part_id")
+  quantityChange Decimal     @map("quantity_change") @db.Decimal(10, 2)
+  reason         StockReason
+  jobCardId      String?     @map("job_card_id")
+  // Who a PURCHASE came from and what each unit cost, for supplier spend.
+  supplierId     String?     @map("supplier_id")
+  unitCost       Decimal?    @map("unit_cost") @db.Decimal(12, 2)
+  note           String?
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  part     Part      @relation(fields: [partId], references: [id], onDelete: Cascade)
+  jobCard  JobCard?  @relation(fields: [jobCardId], references: [id], onDelete: SetNull)
+  supplier Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  @@index([partId, createdAt])
+  @@index([supplierId, createdAt])
+  @@map("stock_movements")
+}
+
+model Invoice {
+  id            String         @id @default(uuid())
+  garageId      String         @map("garage_id")
+  jobCardId     String         @map("job_card_id")
+  number        Int
+  status        InvoiceStatus  @default(UNPAID)
+  // Copied at issue time so later price or catalogue edits never change a sent invoice.
+  lines         Json
+  subtotal      Decimal        @db.Decimal(12, 2)
+  tax           Decimal        @db.Decimal(12, 2)
+  total         Decimal        @db.Decimal(12, 2)
+  paymentMethod PaymentMethod? @map("payment_method")
+  issuedAt      DateTime       @default(now()) @map("issued_at")
+  paidAt        DateTime?      @map("paid_at")
+
+  garage  Garage  @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  jobCard JobCard @relation(fields: [jobCardId], references: [id], onDelete: Cascade)
+
+  @@unique([garageId, number])
+  @@index([garageId, status])
+  @@index([jobCardId])
+  @@map("invoices")
+}
+
+/// A mechanic. The garage owner is the dispatch provider and has no row here.
+/// A mechanic signs in with their own Kaduna account and joins with the
+/// invite code the owner gives them, which sets userId.
+model StaffMember {
+  id         String    @id @default(uuid())
+  garageId   String    @map("garage_id")
+  name       String
+  phone      String?
+  active     Boolean   @default(true)
+  userId     String?   @unique @map("user_id")
+  inviteCode String?   @unique @map("invite_code")
+  joinedAt   DateTime? @map("joined_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  garage       Garage        @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  jobCards     JobCard[]
+  appointments Appointment[]
+
+  @@index([garageId])
+  @@map("staff_members")
+}
+
+/// A job's timeline: every status change, plus notes the workshop posts.
+/// Public updates are what the customer sees on the tracking link.
+model JobUpdate {
+  id        String     @id @default(uuid())
+  jobCardId String     @map("job_card_id")
+  status    JobStatus?
+  note      String?
+  author    String?
+  public    Boolean    @default(true)
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  jobCard JobCard @relation(fields: [jobCardId], references: [id], onDelete: Cascade)
+
+  @@index([jobCardId, createdAt])
+  @@map("job_updates")
+}
+
+/// A digital vehicle inspection, at most one per job. Sending it asks the
+/// customer to approve or decline each item that has a price.
+model Inspection {
+  id        String           @id @default(uuid())
+  garageId  String           @map("garage_id")
+  jobCardId String           @unique @map("job_card_id")
+  status    InspectionStatus @default(DRAFT)
+  summary   String?
+  sentAt    DateTime?        @map("sent_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  garage  Garage           @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  jobCard JobCard          @relation(fields: [jobCardId], references: [id], onDelete: Cascade)
+  items   InspectionItem[]
+
+  @@index([garageId, status])
+  @@map("inspections")
+}
+
+model InspectionItem {
+  id           String      @id @default(uuid())
+  inspectionId String      @map("inspection_id")
+  category     String
+  name         String
+  result       CheckResult @default(NOT_CHECKED)
+  note         String?
+  // Price of the recommended work. Items with one go to the customer for approval.
+  estimate     Decimal?    @db.Decimal(12, 2)
+  approval     Approval?
+  decidedAt    DateTime?   @map("decided_at")
+  // Set once approved work has been added to the job as a labour line.
+  jobItemId    String?     @map("job_item_id")
+  sortOrder    Int         @default(0) @map("sort_order")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@index([inspectionId, sortOrder])
+  @@map("inspection_items")
+}
+
+/// A booked visit. Checking it in turns it into a job card.
+model Appointment {
+  id           String            @id @default(uuid())
+  garageId     String            @map("garage_id")
+  customerId   String?           @map("customer_id")
+  vehicleId    String?           @map("vehicle_id")
+  // For people not saved as customers yet; check-in creates the records.
+  customerName String?           @map("customer_name")
+  phone        String?
+  plate        String?
+  service      String
+  notes        String?
+  startsAt     DateTime          @map("starts_at")
+  durationMin  Int               @default(60) @map("duration_min")
+  status       AppointmentStatus @default(BOOKED)
+  source       AppointmentSource @default(STAFF)
+  // Lets a customer who booked online view or cancel their booking.
+  publicToken  String?           @unique @map("public_token")
+  mechanicId   String?           @map("mechanic_id")
+  jobCardId    String?           @unique @map("job_card_id")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  garage   Garage       @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  customer Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  vehicle  Vehicle?     @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  mechanic StaffMember? @relation(fields: [mechanicId], references: [id], onDelete: SetNull)
+  jobCard  JobCard?     @relation(fields: [jobCardId], references: [id], onDelete: SetNull)
+
+  @@index([garageId, startsAt])
+  @@map("appointments")
+}
+
+model Supplier {
+  id          String   @id @default(uuid())
+  garageId    String   @map("garage_id")
+  name        String
+  contactName String?  @map("contact_name")
+  phone       String?
+  email       String?
+  address     String?
+  notes       String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  garage    Garage          @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  parts     Part[]
+  movements StockMovement[]
+
+  @@index([garageId, name])
+  @@map("suppliers")
+}
+
+/// Domain events written in the same transaction as the change they describe.
+/// Nothing consumes them yet: they let other services (predictive maintenance
+/// taking a completed service as a baseline, analytics, notifications) be fed
+/// later by a relay that publishes unpublished rows, without this service ever
+/// calling them inline or losing an event if it crashes mid-request.
+model OutboxEvent {
+  id          String    @id @default(uuid())
+  garageId    String    @map("garage_id")
+  eventType   String    @map("event_type")
+  payload     Json
+  createdAt   DateTime  @default(now()) @map("created_at")
+  publishedAt DateTime? @map("published_at")
+
+  @@index([publishedAt, createdAt])
+  @@map("outbox_events")
+}

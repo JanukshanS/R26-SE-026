@@ -1,0 +1,44 @@
+{
+  "name": "parts-management-service",
+  "version": "1.0.0",
+  "description": "Spare parts shop system for Kaduna.lk: inventory and stock control, counter sales, purchasing, and garage trade orders with delivery or pickup",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "npx nodemon --exec ts-node src/index.ts",
+    "db:local": "node scripts/local-db.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "openapi": "ts-node scripts/export-openapi.ts",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0",
+    "cors": "2.8.6",
+    "dotenv": "17.4.2",
+    "express": "4.21.2",
+    "helmet": "8.1.0",
+    "jsonwebtoken": "9.0.3",
+    "jwks-rsa": "3.2.2",
+    "winston": "3.19.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/cors": "2.8.19",
+    "@types/express": "4.17.25",
+    "@types/jsonwebtoken": "9.0.10",
+    "@types/node": "18.19.130",
+    "@types/supertest": "7.2.0",
+    "embedded-postgres": "17.10.0-beta.17",
+    "nodemon": "3.1.14",
+    "prisma": "5.22.0",
+    "supertest": "7.2.2",
+    "ts-node": "10.9.2",
+    "typescript": "5.7.3",
+    "vitest": "4.1.9",
+    "yaml": "2.8.1"
+  }
+}

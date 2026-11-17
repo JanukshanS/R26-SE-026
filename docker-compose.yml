@@ -40,6 +40,46 @@ services:
       DATABASE_URL: ${CLAIMS_DATABASE_URL:?set CLAIMS_DATABASE_URL in .env}
       SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
 
+  # Workshop management for service providers. Own Postgres schema (garage);
+  # reads incidents from dispatch over the internal network for job imports.
+  garage-management:
+    build: ./components/garage-management
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "3002"
+      DATABASE_URL: ${GARAGE_DATABASE_URL:?set GARAGE_DATABASE_URL in .env}
+      SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?set SUPABASE_ANON_KEY in .env}
+      DISPATCH_URL: http://dispatch:3001
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in .env}
+
+  # Spare parts shops: inventory, counter sales, purchasing and garage trade.
+  # Own Postgres schema (parts); asks garage-management who a caller is to a
+  # garage, and uses its /internal API (shared secret) for jobs and mechanics.
+  parts-management:
+    build: ./components/parts-management
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "3003"
+      DATABASE_URL: ${PARTS_DATABASE_URL:?set PARTS_DATABASE_URL in .env}
+      SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?set SUPABASE_ANON_KEY in .env}
+      GARAGE_URL: http://garage-management:3002
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in .env}
+      # Part photos and documents. Local disk (the volume below) until an S3
+      # bucket is set up: then FILES_DRIVER=s3 and the S3_* settings in .env.
+      PUBLIC_URL: https://parts.${BASE_DOMAIN:-kaduna.lk}
+      FILES_DRIVER: ${FILES_DRIVER:-local}
+      FILES_DIR: /data/files
+    volumes:
+      - parts-files:/data/files
+    depends_on:
+      - garage-management
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -57,6 +97,8 @@ services:
       - geo-intelligence
       - predictive-maintenance
       - claims-privacy
+      - garage-management
+      - parts-management
 
 # Supabase's direct database endpoint (db.<ref>.supabase.co) resolves to IPv6
 # only. Compose networks are IPv4-only unless asked otherwise, so without this
@@ -72,3 +114,4 @@ networks:
 volumes:
   caddy-data:
   caddy-config:
+  parts-files:

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 /* Public privacy policy. Google Play requires a non-PDF, login-free page that
    applies to this app specifically, so it is a plain static route with no
@@ -90,9 +91,7 @@ export default function PrivacyPage() {
     <div className="min-h-screen bg-background text-foreground [--radius:0.9rem]">
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="font-display text-xl font-bold tracking-tight">
-            Kaduna<span className="text-primary">.lk</span>
-          </Link>
+          <Link href="/" aria-label="Kaduna.lk"><BrandLogo height={40} /></Link>
           <Link
             href="/"
             className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"

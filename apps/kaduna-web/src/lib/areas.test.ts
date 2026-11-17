@@ -10,15 +10,16 @@ function profile(role: Role, provider_id: string | null = null): Profile {
 const hrefs = (p: Profile | null) => areasFor(p).map((a) => a.href);
 
 test("a driver sees only the driver areas", () => {
-  assert.deepEqual(hrefs(profile("driver")), ["/app", "/report"]);
+  assert.deepEqual(hrefs(profile("driver")), ["/app", "/#get-help", "/seller"]);
   assert.equal(roleHome(profile("driver")), "/app");
 });
 
 test("ops sees everything and lands on the dashboard", () => {
   assert.deepEqual(hrefs(profile("ops")), [
     "/app",
-    "/report",
-    "/provider",
+    "/#get-help",
+    "/provider/garage",
+    "/seller",
     "/dashboard",
     "/insurer",
     "/admin",
@@ -30,8 +31,8 @@ test("a linked provider_id grants the provider area even while the role is drive
   // How mobile onboarding actually leaves an account: provider_id is
   // client-writable, role is not, so it stays "driver" until admin_set_role.
   const linked = profile("driver", "prov-1");
-  assert.deepEqual(hrefs(linked), ["/app", "/report", "/provider"]);
-  assert.equal(roleHome(linked), "/provider");
+  assert.deepEqual(hrefs(linked), ["/app", "/#get-help", "/provider/garage", "/seller"]);
+  assert.equal(roleHome(linked), "/provider/garage");
 });
 
 test("an ops account keeps the dashboard even when linked to a provider", () => {
@@ -39,7 +40,7 @@ test("an ops account keeps the dashboard even when linked to a provider", () => 
 });
 
 test("no profile yet is treated as a plain driver, never as an operator", () => {
-  assert.deepEqual(hrefs(null), ["/app", "/report"]);
+  assert.deepEqual(hrefs(null), ["/app", "/#get-help", "/seller"]);
   assert.equal(roleHome(null), "/app");
   assert.equal(roleHome(undefined), "/app");
 });

@@ -1,0 +1,1189 @@
+// ============================================================================
+// Parts Management — Prisma Database Schema
+// ============================================================================
+//
+// A spare parts shop system for Kaduna.lk: the shop's inventory and stock
+// control, counter sales, purchasing from its suppliers, and trade with
+// garages (orders for a job, delivered or collected, on account or paid on
+// handover).
+//
+//   Tenancy: every row carries shop_id (directly or through its parent) and
+//   every query filters by it. A shop belongs to the Kaduna account that set
+//   it up (owner_user_id); the same person can also drive, run a garage or be
+//   a mechanic.
+//
+//   Stock: Part.stock_qty only ever changes together with a StockMovement, so
+//   the history always adds up to what's on the shelf.
+//
+//   Garages live in the garage-management service. This service keeps their
+//   id and a snapshot of what it shows (name, job number, vehicle), and talks
+//   to that service to check who is calling, find mechanics and put received
+//   parts on the job.
+//
+//   Money is Decimal. Numbers people read (sale #, order #, PO #) are per shop
+//   and gap-free, handed out by an atomic UPDATE on the shop row.
+//
+//   Own Postgres schema (?schema=parts in DATABASE_URL).
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Shop {
+  id                       String   @id @default(uuid())
+  ownerUserId              String   @unique @map("owner_user_id")
+  // As they sign in, for approvals and the activity log.
+  ownerName                String?  @map("owner_name")
+  name                     String
+  phone                    String?
+  email                    String?
+  address                  String?
+  city                     String?
+  registrationNo           String?  @map("registration_no")
+  openingHours             String?  @map("opening_hours")
+  delivers                 Boolean  @default(true)
+  deliveryNote             String?  @map("delivery_note")
+  currency                 String   @default("LKR") @db.VarChar(3)
+  taxRate                  Decimal  @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  receiptFooter            String?  @map("receipt_footer")
+  // VAT registration number: needed to issue tax invoices.
+  vatNumber                String?  @map("vat_number")
+  // Thermal roll width (58mm, 80mm) or A4.
+  receiptWidth             String   @default("80mm") @map("receipt_width")
+  // Discounts deeper than this (percent off the list price) need a manager.
+  maxDiscountPct           Decimal  @default(10) @map("max_discount_pct") @db.Decimal(5, 2)
+  // true: cash can't be taken without an open cash drawer.
+  requireCashSession       Boolean  @default(false) @map("require_cash_session")
+  // The owner's approval PIN (scrypt), for discounts, voids and refunds at the counter.
+  ownerPinHash             String?  @map("owner_pin_hash")
+  // false: hidden from garages and no new garage orders.
+  active                   Boolean  @default(true)
+  nextSaleNumber           Int      @default(1) @map("next_sale_number")
+  nextOrderNumber          Int      @default(1) @map("next_order_number")
+  nextPurchaseNumber       Int      @default(1) @map("next_purchase_number")
+  nextReturnNumber         Int      @default(1) @map("next_return_number")
+  nextSessionNumber        Int      @default(1) @map("next_session_number")
+  nextQuoteNumber          Int      @default(1) @map("next_quote_number")
+  nextCountNumber          Int      @default(1) @map("next_count_number")
+  nextSupplierReturnNumber Int      @default(1) @map("next_supplier_return_number")
+  nextBarcodeNumber        Int      @default(1) @map("next_barcode_number")
+  nextClaimNumber          Int      @default(1) @map("next_claim_number")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  parts           Part[]
+  movements       StockMovement[]
+  suppliers       Supplier[]
+  purchases       PurchaseOrder[]
+  sales           Sale[]
+  accounts        TradeAccount[]
+  orders          GarageOrder[]
+  staff           ShopStaff[]
+  audit           AuditEvent[]
+  sessions        CashSession[]
+  drafts          SaleDraft[]
+  counts          StockCount[]
+  supplierEntries SupplierEntry[]
+  supplierReturns SupplierReturn[]
+  locations       Location[]
+  storeCredits    StoreCredit[]
+  claims          WarrantyClaim[]
+  returnRules     ReturnRule[]
+
+  @@index([active, city])
+  @@map("shops")
+}
+
+// ─── Inventory ──────────────────────────────────────────────────────────────
+
+model Part {
+  id                 String   @id @default(uuid())
+  shopId             String   @map("shop_id")
+  sku                String
+  name               String
+  // A longer description, e.g. "Front brake pads, ceramic, with wear sensor".
+  description        String?
+  brand              String?
+  category           String?
+  // The carmaker's number, and the part maker's own.
+  oemNumber          String?  @map("oem_number")
+  partNumber         String?  @map("part_number")
+  // Other numbers this part is known by (supersessions, equivalents).
+  crossRefs          String[] @default([]) @map("cross_refs")
+  barcode            String?
+  // Where new stock goes, and where the counter takes from first.
+  defaultLocationId  String   @map("default_location_id")
+  // Free labels, lower case: "fast-moving", "fragile".
+  tags               String[] @default([])
+  // [{ name, value }]: thread size, voltage, length…
+  specs              Json     @default("[]")
+  // The specs as one lower-case line, for search.
+  specsText          String   @default("") @map("specs_text")
+  unit               String   @default("pcs")
+  costPrice          Decimal  @default(0) @map("cost_price") @db.Decimal(12, 2)
+  retailPrice        Decimal  @default(0) @map("retail_price") @db.Decimal(12, 2)
+  // What garages with a trade account pay; null: the retail price.
+  tradePrice         Decimal? @map("trade_price") @db.Decimal(12, 2)
+  stockQty           Decimal  @default(0) @map("stock_qty") @db.Decimal(10, 2)
+  reorderLevel       Decimal  @default(0) @map("reorder_level") @db.Decimal(10, 2)
+  reorderQty         Decimal  @default(0) @map("reorder_qty") @db.Decimal(10, 2)
+  // Fits any vehicle (oil, bulbs, wipers by size…): skips fitment filtering.
+  universal          Boolean  @default(false)
+  // Shown to garages in the online catalogue.
+  listed             Boolean  @default(true)
+  active             Boolean  @default(true)
+  supplierId         String?  @map("supplier_id")
+  notes              String?
+  // VAT percent for this part; null: the shop's rate, 0: exempt.
+  taxRate            Decimal? @map("tax_rate") @db.Decimal(5, 2)
+  // Months of warranty from the day it's sold; null: none.
+  warrantyMonths     Int?     @map("warranty_months")
+  // Refundable deposit until the old unit comes back (batteries, alternators…).
+  coreCharge         Decimal? @map("core_charge") @db.Decimal(12, 2)
+  // Each unit has a serial number, asked for at the counter.
+  serialized         Boolean  @default(false)
+  // Sold by measure (litres, metres): any quantity, with quick amounts at the counter.
+  fractional         Boolean  @default(false)
+  // Quick amounts for the counter, e.g. [0.5, 1, 4].
+  quickQtys          Json     @default("[]") @map("quick_qtys")
+  // Bought in a bigger unit than it's sold in: a 208 L drum, a box of 10.
+  purchaseUnit       String?  @map("purchase_unit")
+  // How many of the selling unit are in one purchase unit (208, 10); 1 when the same.
+  purchaseFactor     Decimal  @default(1) @map("purchase_factor") @db.Decimal(10, 3)
+  // A sealed pack that can be opened into a loose part: a 4 L bottle into litres.
+  breaksIntoId       String?  @map("breaks_into_id")
+  breaksIntoQty      Decimal? @map("breaks_into_qty") @db.Decimal(10, 3)
+  // A kit: sold as one, takes its components out of stock.
+  isKit              Boolean  @default(false) @map("is_kit")
+  // Months of the warranty that are free; after that a replacement is charged pro rata. null: all free.
+  warrantyFreeMonths Int?     @map("warranty_free_months")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  shop            Shop                @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  supplier        Supplier?           @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  defaultLocation Location            @relation("DefaultLocation", fields: [defaultLocationId], references: [id], onDelete: Restrict)
+  stock           PartStock[]
+  files           PartFile[]
+  substitutes     PartSubstitute[]    @relation("PartSubstitutes")
+  substituteOf    PartSubstitute[]    @relation("SubstituteFor")
+  breaksInto      Part?               @relation("BreakBulk", fields: [breaksIntoId], references: [id], onDelete: SetNull)
+  openedFrom      Part[]              @relation("BreakBulk")
+  kitComponents   KitComponent[]      @relation("Kit")
+  inKits          KitComponent[]      @relation("KitPart")
+  claims          WarrantyClaim[]
+  countLines      StockCountLine[]
+  fitments        PartFitment[]
+  movements       StockMovement[]
+  purchaseItems   PurchaseOrderItem[]
+  saleItems       SaleItem[]
+  orderItems      GarageOrderItem[]
+
+  @@unique([shopId, sku])
+  @@unique([shopId, barcode])
+  @@index([shopId, name])
+  @@index([shopId, oemNumber])
+  @@index([shopId, partNumber])
+  @@map("parts")
+}
+
+/// A vehicle the part fits. Years are inclusive; null means open-ended.
+model PartFitment {
+  id       String  @id @default(uuid())
+  partId   String  @map("part_id")
+  make     String
+  model    String
+  yearFrom Int?    @map("year_from")
+  yearTo   Int?    @map("year_to")
+  // Engine or variant, e.g. "1.5 hybrid".
+  note     String?
+
+  part Part @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  @@index([partId])
+  @@index([make, model])
+  @@map("part_fitments")
+}
+
+enum StockReason {
+  OPENING
+  PURCHASE
+  SALE
+  GARAGE_ORDER
+  RETURN
+  ADJUSTMENT
+  DAMAGED
+  STOCKTAKE
+  VOID
+  RETURN_TO_SUPPLIER
+  // Between two locations of the shop (a pair: out of one, into the other).
+  MOVE
+  // A sealed pack opened into loose stock (a pair: the pack out, the loose part in).
+  BREAK_BULK
+  // A replacement given under warranty, or one a supplier sent back.
+  WARRANTY
+}
+
+model StockMovement {
+  id               String      @id @default(uuid())
+  shopId           String      @map("shop_id")
+  partId           String      @map("part_id")
+  quantityChange   Decimal     @map("quantity_change") @db.Decimal(10, 2)
+  reason           StockReason
+  // Cost per unit at the time, for stock value and profit.
+  unitCost         Decimal?    @map("unit_cost") @db.Decimal(12, 2)
+  // What caused it: sale, return, purchase order or garage order.
+  saleId           String?     @map("sale_id")
+  returnId         String?     @map("return_id")
+  purchaseId       String?     @map("purchase_id")
+  orderId          String?     @map("order_id")
+  countId          String?     @map("count_id")
+  supplierReturnId String?     @map("supplier_return_id")
+  // Where in the shop; the name as it was then.
+  locationId       String?     @map("location_id")
+  locationName     String?     @map("location_name")
+  note             String?
+  byName           String?     @map("by_name")
+  createdAt        DateTime    @default(now()) @map("created_at")
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  part Part @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  @@index([partId, createdAt])
+  @@index([shopId, createdAt])
+  @@map("stock_movements")
+}
+
+// ─── Purchasing ─────────────────────────────────────────────────────────────
+
+/// Who the shop buys from: distributors, importers, other shops.
+model Supplier {
+  id          String   @id @default(uuid())
+  shopId      String   @map("shop_id")
+  name        String
+  contactName String?  @map("contact_name")
+  phone       String?
+  email       String?
+  address     String?
+  notes       String?
+  // Days the shop has to pay a bill, when the bill gives no due date.
+  paymentDays Int      @default(30) @map("payment_days")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  shop      Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  parts     Part[]
+  purchases PurchaseOrder[]
+  entries   SupplierEntry[]
+  returns   SupplierReturn[]
+
+  @@index([shopId, name])
+  @@map("suppliers")
+}
+
+enum PurchaseStatus {
+  DRAFT
+  ORDERED
+  PARTLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id         String         @id @default(uuid())
+  shopId     String         @map("shop_id")
+  number     Int
+  supplierId String         @map("supplier_id")
+  status     PurchaseStatus @default(DRAFT)
+  expectedAt DateTime?      @map("expected_at")
+  note       String?
+  orderedAt  DateTime?      @map("ordered_at")
+  receivedAt DateTime?      @map("received_at")
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+
+  shop     Shop                @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  supplier Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  items    PurchaseOrderItem[]
+
+  @@unique([shopId, number])
+  @@index([shopId, status])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id           String  @id @default(uuid())
+  purchaseId   String  @map("purchase_id")
+  // Position on the order, so it prints in the order it was written.
+  line         Int     @default(0)
+  partId       String  @map("part_id")
+  quantity     Decimal @db.Decimal(10, 2)
+  unitCost     Decimal @map("unit_cost") @db.Decimal(12, 2)
+  receivedQty  Decimal @default(0) @map("received_qty") @db.Decimal(10, 2)
+  // Quantity and cost are per purchase unit; each holds this many selling units.
+  purchaseUnit String? @map("purchase_unit")
+  unitFactor   Decimal @default(1) @map("unit_factor") @db.Decimal(10, 3)
+
+  purchase PurchaseOrder @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  part     Part          @relation(fields: [partId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseId])
+  @@map("purchase_order_items")
+}
+
+// ─── Counter sales ──────────────────────────────────────────────────────────
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  OTHER
+  // Charged to a trade or customer account.
+  ACCOUNT
+  // Store credit: a voucher the shop issued (an exchange, a return).
+  VOUCHER
+}
+
+model Sale {
+  id              String    @id @default(uuid())
+  shopId          String    @map("shop_id")
+  number          Int
+  customerName    String?   @map("customer_name")
+  customerPhone   String?   @map("customer_phone")
+  customerAddress String?   @map("customer_address")
+  // The buyer's VAT number, on a tax invoice.
+  customerVatNo   String?   @map("customer_vat_no")
+  plate           String?
+  // ACCOUNT payments go on this account's ledger.
+  accountId       String?   @map("account_id")
+  taxInvoice      Boolean   @default(false) @map("tax_invoice")
+  subtotal        Decimal   @db.Decimal(12, 2)
+  // Line discounts plus the discount off the whole sale.
+  discount        Decimal   @default(0) @db.Decimal(12, 2)
+  tax             Decimal   @default(0) @db.Decimal(12, 2)
+  total           Decimal   @db.Decimal(12, 2)
+  // Cash handed over, for the change on the receipt.
+  tendered        Decimal?  @db.Decimal(12, 2)
+  note            String?
+  cashierUserId   String?   @map("cashier_user_id")
+  cashierName     String?   @map("cashier_name")
+  // Who approved a discount past the shop's limit.
+  approvedByName  String?   @map("approved_by_name")
+  draftId         String?   @map("draft_id")
+  // An exchange: the sale whose items came back for these.
+  exchangeOfId    String?   @map("exchange_of_id")
+  voidedAt        DateTime? @map("voided_at")
+  voidedByName    String?   @map("voided_by_name")
+  voidReason      String?   @map("void_reason")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  shop     Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  account  TradeAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  items    SaleItem[]
+  payments SalePayment[]
+  returns  SaleReturn[]
+
+  @@unique([shopId, number])
+  @@index([shopId, createdAt])
+  @@index([shopId, customerPhone])
+  @@index([accountId])
+  @@map("sales")
+}
+
+/// How a sale was paid; a sale can be split across methods.
+model SalePayment {
+  id            String        @id @default(uuid())
+  saleId        String        @map("sale_id")
+  method        PaymentMethod
+  amount        Decimal       @db.Decimal(12, 2)
+  reference     String?
+  // CASH: the drawer it went into.
+  cashSessionId String?       @map("cash_session_id")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  sale    Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  session CashSession? @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
+
+  @@index([saleId])
+  @@index([cashSessionId])
+  @@map("sale_payments")
+}
+
+enum SaleLineKind {
+  PART
+  // A free-text item.
+  OTHER
+  // The refundable deposit on a part with a core charge.
+  CORE
+}
+
+model SaleItem {
+  id            String       @id @default(uuid())
+  saleId        String       @map("sale_id")
+  // Position on the receipt.
+  line          Int          @default(0)
+  kind          SaleLineKind @default(PART)
+  partId        String?      @map("part_id")
+  description   String
+  quantity      Decimal      @db.Decimal(10, 2)
+  // The price charged per unit, and the shop's list price at the time.
+  unitPrice     Decimal      @map("unit_price") @db.Decimal(12, 2)
+  listPrice     Decimal?     @map("list_price") @db.Decimal(12, 2)
+  // Off this line.
+  discount      Decimal      @default(0) @db.Decimal(12, 2)
+  taxRate       Decimal      @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  tax           Decimal      @default(0) @db.Decimal(12, 2)
+  // Cost at the time of sale, for profit.
+  unitCost      Decimal      @default(0) @map("unit_cost") @db.Decimal(12, 2)
+  returnedQty   Decimal      @default(0) @map("returned_qty") @db.Decimal(10, 2)
+  serialNumber  String?      @map("serial_number")
+  warrantyUntil DateTime?    @map("warranty_until")
+
+  sale Sale  @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  part Part? @relation(fields: [partId], references: [id], onDelete: SetNull)
+
+  @@index([saleId])
+  @@index([serialNumber])
+  @@map("sale_items")
+}
+
+/// Goods brought back from a counter sale. Restocked unless damaged.
+model SaleReturn {
+  id             String        @id @default(uuid())
+  shopId         String        @map("shop_id")
+  saleId         String        @map("sale_id")
+  number         Int
+  // [{ saleItemId, description, quantity, unitPrice, restock }]
+  lines          Json
+  total          Decimal       @db.Decimal(12, 2)
+  refundMethod   PaymentMethod @map("refund_method")
+  reason         String?
+  byName         String?       @map("by_name")
+  approvedByName String?       @map("approved_by_name")
+  cashSessionId  String?       @map("cash_session_id")
+  // Restocking fee kept back, and whether a return rule was overridden.
+  fee            Decimal       @default(0) @db.Decimal(12, 2)
+  overridden     Boolean       @default(false)
+  // VOUCHER refunds: the store credit issued.
+  storeCreditId  String?       @map("store_credit_id")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  sale    Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  session CashSession? @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
+
+  @@unique([shopId, number])
+  @@index([saleId])
+  @@map("sale_returns")
+}
+
+// ─── Trade with garages ─────────────────────────────────────────────────────
+
+enum AccountKind {
+  // A Kaduna garage: opened when the garage adds the shop.
+  GARAGE
+  // Anyone else the shop gives credit to: a fleet, a local mechanic, a regular.
+  CUSTOMER
+}
+
+/// Someone who buys from the shop on account. A GARAGE account is created when
+/// the garage adds the shop; a CUSTOMER account by the shop. The shop sets the
+/// terms. creditLimit 0: everything is paid on handover.
+model TradeAccount {
+  id            String      @id @default(uuid())
+  shopId        String      @map("shop_id")
+  kind          AccountKind @default(GARAGE)
+  // GARAGE only.
+  garageId      String?     @map("garage_id")
+  // The garage's or customer's name, phone and address.
+  garageName    String      @map("garage_name")
+  garagePhone   String?     @map("garage_phone")
+  garageAddress String?     @map("garage_address")
+  creditLimit   Decimal     @default(0) @map("credit_limit") @db.Decimal(12, 2)
+  paymentDays   Int         @default(30) @map("payment_days")
+  // No new orders on account (they become pay on handover).
+  onHold        Boolean     @default(false) @map("on_hold")
+  // false: the garage removed the shop from its list (history is kept).
+  linked        Boolean     @default(true)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  shop    Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  entries AccountEntry[]
+  orders  GarageOrder[]
+  sales   Sale[]
+
+  @@unique([shopId, garageId])
+  @@index([garageId])
+  @@map("trade_accounts")
+}
+
+enum EntryKind {
+  // An order handed over on account (+).
+  CHARGE
+  // Money received from the garage (−).
+  PAYMENT
+  // A correction either way, e.g. a credit note.
+  ADJUSTMENT
+}
+
+/// The account's ledger. The balance (what the garage owes) is the sum.
+model AccountEntry {
+  id            String         @id @default(uuid())
+  accountId     String         @map("account_id")
+  kind          EntryKind
+  amount        Decimal        @db.Decimal(12, 2)
+  orderId       String?        @map("order_id")
+  // A counter sale charged to the account (or its return or void).
+  saleId        String?        @map("sale_id")
+  method        PaymentMethod?
+  reference     String?
+  note          String?
+  byName        String?        @map("by_name")
+  cashSessionId String?        @map("cash_session_id")
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  account TradeAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  session CashSession? @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, createdAt])
+  @@map("account_entries")
+}
+
+enum OrderStatus {
+  REQUESTED
+  QUOTED
+  CONFIRMED
+  READY
+  COMPLETED
+  DECLINED
+  CANCELLED
+}
+
+enum Fulfilment {
+  DELIVERY
+  PICKUP
+}
+
+enum PickupBy {
+  MECHANIC
+  VEHICLE_OWNER
+}
+
+enum PaymentTerms {
+  ACCOUNT
+  ON_HANDOVER
+}
+
+/// A garage ordering parts from the shop, usually for one job.
+///
+///   REQUESTED → (shop prices it) → QUOTED → (garage accepts) → CONFIRMED
+///                                  ↘ CONFIRMED at once when every line is a
+///                                    catalogue part at the trade price
+///   CONFIRMED → READY (packed, or out for delivery) → COMPLETED
+///   Before COMPLETED the shop can DECLINE and the garage can CANCEL.
+///
+/// Handover: a 6-digit code that only the receiving side sees (the garage for
+/// a delivery, the collector for a pickup). The shop types it in to complete.
+model GarageOrder {
+  id              String         @id @default(uuid())
+  shopId          String         @map("shop_id")
+  accountId       String         @map("account_id")
+  garageId        String         @map("garage_id")
+  // Per shop: the shop's order number.
+  number          Int
+  status          OrderStatus    @default(REQUESTED)
+  // The job it's for, in the garage service, with what the shop needs to see.
+  jobCardId       String?        @map("job_card_id")
+  jobNumber       Int?           @map("job_number")
+  vehiclePlate    String?        @map("vehicle_plate")
+  vehicleMake     String?        @map("vehicle_make")
+  vehicleModel    String?        @map("vehicle_model")
+  vehicleYear     Int?           @map("vehicle_year")
+  fulfilment      Fulfilment
+  deliveryAddress String?        @map("delivery_address")
+  pickupBy        PickupBy?      @map("pickup_by")
+  // MECHANIC: their garage staff id, Kaduna account and how to reach them.
+  pickupStaffId   String?        @map("pickup_staff_id")
+  pickupUserId    String?        @map("pickup_user_id")
+  pickupName      String?        @map("pickup_name")
+  pickupPhone     String?        @map("pickup_phone")
+  // VEHICLE_OWNER: the job's plate, letters and digits only.
+  pickupPlate     String?        @map("pickup_plate")
+  handoverCode    String         @map("handover_code")
+  // Settled when the order is confirmed: on account if the credit allows it.
+  paymentTerms    PaymentTerms?  @map("payment_terms")
+  paidAt          DateTime?      @map("paid_at")
+  paymentMethod   PaymentMethod? @map("payment_method")
+  // Paid in cash on handover: the drawer it went into.
+  cashSessionId   String?        @map("cash_session_id")
+  handedOverBy    String?        @map("handed_over_by")
+  note            String?
+  sellerNote      String?        @map("seller_note")
+  quotedAt        DateTime?      @map("quoted_at")
+  confirmedAt     DateTime?      @map("confirmed_at")
+  readyAt         DateTime?      @map("ready_at")
+  completedAt     DateTime?      @map("completed_at")
+  // Putting the parts on the garage job after handover: retried until done.
+  jobSync         String         @default("NONE") @map("job_sync")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  shop    Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  account TradeAccount      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  session CashSession?      @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
+  items   GarageOrderItem[]
+
+  @@unique([shopId, number])
+  @@index([shopId, status])
+  @@index([garageId, status])
+  @@index([jobCardId])
+  @@index([pickupUserId])
+  @@index([pickupPlate])
+  @@index([jobSync])
+  @@map("garage_orders")
+}
+
+model GarageOrderItem {
+  id          String   @id @default(uuid())
+  orderId     String   @map("order_id")
+  // Position on the order.
+  line        Int      @default(0)
+  partId      String?  @map("part_id")
+  description String
+  partNumber  String?  @map("part_number")
+  quantity    Decimal  @db.Decimal(10, 2)
+  // The trade price when ordered from the catalogue; null until the shop prices a request.
+  unitPrice   Decimal? @map("unit_price") @db.Decimal(12, 2)
+  available   Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  order GarageOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  part  Part?       @relation(fields: [partId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@map("garage_order_items")
+}
+
+// ─── Staff and audit ────────────────────────────────────────────────────────
+
+enum StaffRole {
+  // Everything but staff and shop settings.
+  MANAGER
+  // The counter: sales, held sales and quotes, payments, garage handovers.
+  CASHIER
+  // The stockroom: parts, stock counts, purchasing, receiving.
+  STOREKEEPER
+}
+
+/// Someone who works at the shop. The owner adds them by email; they get in by
+/// signing in to Kaduna with that email (userId is filled in the first time).
+model ShopStaff {
+  id         String    @id @default(uuid())
+  shopId     String    @map("shop_id")
+  email      String
+  userId     String?   @map("user_id")
+  name       String
+  phone      String?
+  role       StaffRole
+  // Approval PIN (scrypt), for managers approving at the counter.
+  pinHash    String?   @map("pin_hash")
+  active     Boolean   @default(true)
+  lastSeenAt DateTime? @map("last_seen_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, email])
+  @@index([userId])
+  @@index([email])
+  @@map("shop_staff")
+}
+
+/// Who did what: sales, voids, refunds, stock and price changes, cash,
+/// payments and staff changes. Never edited.
+model AuditEvent {
+  id          String   @id @default(uuid())
+  shopId      String   @map("shop_id")
+  actorUserId String?  @map("actor_user_id")
+  actorName   String   @map("actor_name")
+  action      String
+  entity      String?
+  entityId    String?  @map("entity_id")
+  summary     String
+  amount      Decimal? @db.Decimal(12, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, createdAt])
+  @@index([shopId, action])
+  @@map("audit_events")
+}
+
+// ─── Cash drawer ────────────────────────────────────────────────────────────
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+}
+
+/// One person's cash drawer, from the opening float to the count at close.
+/// Every cash payment, refund and payout made while it's open is booked to
+/// it, so the expected cash at close adds up.
+model CashSession {
+  id           String            @id @default(uuid())
+  shopId       String            @map("shop_id")
+  number       Int
+  userId       String            @map("user_id")
+  userName     String            @map("user_name")
+  status       CashSessionStatus @default(OPEN)
+  openingFloat Decimal           @map("opening_float") @db.Decimal(12, 2)
+  openedAt     DateTime          @default(now()) @map("opened_at")
+  closedAt     DateTime?         @map("closed_at")
+  closedByName String?           @map("closed_by_name")
+  expectedCash Decimal?          @map("expected_cash") @db.Decimal(12, 2)
+  countedCash  Decimal?          @map("counted_cash") @db.Decimal(12, 2)
+  note         String?
+
+  shop            Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  movements       CashMovement[]
+  salePayments    SalePayment[]
+  returns         SaleReturn[]
+  accountEntries  AccountEntry[]
+  orders          GarageOrder[]
+  supplierEntries SupplierEntry[]
+
+  @@unique([shopId, number])
+  @@index([shopId, userId, status])
+  @@index([shopId, openedAt])
+  @@map("cash_sessions")
+}
+
+enum CashMovementKind {
+  PAY_IN
+  PAY_OUT
+}
+
+/// Cash in or out of a drawer that isn't a sale: change brought in, petty
+/// cash, cash given back for a voided sale.
+model CashMovement {
+  id        String           @id @default(uuid())
+  sessionId String           @map("session_id")
+  kind      CashMovementKind
+  amount    Decimal          @db.Decimal(12, 2)
+  reason    String
+  byName    String           @map("by_name")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  session CashSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("cash_movements")
+}
+
+// ─── Held sales and quotations ──────────────────────────────────────────────
+
+enum DraftKind {
+  // Parked at the counter, to finish later.
+  HELD
+  // A priced quotation for the customer; numbered.
+  QUOTE
+}
+
+enum DraftStatus {
+  OPEN
+  CONVERTED
+  CANCELLED
+}
+
+model SaleDraft {
+  id            String      @id @default(uuid())
+  shopId        String      @map("shop_id")
+  kind          DraftKind
+  // QUOTE: per shop, gap-free.
+  number        Int?
+  status        DraftStatus @default(OPEN)
+  customerName  String?     @map("customer_name")
+  customerPhone String?     @map("customer_phone")
+  plate         String?
+  // The sale as entered (items, discounts, customer), to pick up again.
+  input         Json
+  subtotal      Decimal     @db.Decimal(12, 2)
+  discount      Decimal     @db.Decimal(12, 2)
+  tax           Decimal     @db.Decimal(12, 2)
+  total         Decimal     @db.Decimal(12, 2)
+  validUntil    DateTime?   @map("valid_until")
+  createdByName String      @map("created_by_name")
+  saleId        String?     @map("sale_id")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, kind, number])
+  @@index([shopId, kind, status])
+  @@map("sale_drafts")
+}
+
+// ─── Stocktakes ─────────────────────────────────────────────────────────────
+
+enum CountStatus {
+  OPEN
+  POSTED
+  CANCELLED
+}
+
+/// A full or partial stock count. Each counted line remembers the shelf stock
+/// at the moment it was counted, so sales made while the count is going on
+/// don't show up as losses.
+model StockCount {
+  id            String      @id @default(uuid())
+  shopId        String      @map("shop_id")
+  number        Int
+  status        CountStatus @default(OPEN)
+  category      String?
+  location      String?
+  note          String?
+  createdByName String      @map("created_by_name")
+  postedByName  String?     @map("posted_by_name")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  postedAt      DateTime?   @map("posted_at")
+
+  shop  Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  lines StockCountLine[]
+
+  @@unique([shopId, number])
+  @@index([shopId, status])
+  @@map("stock_counts")
+}
+
+model StockCountLine {
+  id            String    @id @default(uuid())
+  countId       String    @map("count_id")
+  partId        String    @map("part_id")
+  // Stock when the count started, and when this line was counted.
+  expectedQty   Decimal   @map("expected_qty") @db.Decimal(10, 2)
+  stockAtCount  Decimal?  @map("stock_at_count") @db.Decimal(10, 2)
+  countedQty    Decimal?  @map("counted_qty") @db.Decimal(10, 2)
+  countedAt     DateTime? @map("counted_at")
+  countedByName String?   @map("counted_by_name")
+  // What posting changed the stock by.
+  adjustment    Decimal?  @db.Decimal(10, 2)
+  // The location counted.
+  locationId    String    @map("location_id")
+
+  count    StockCount @relation(fields: [countId], references: [id], onDelete: Cascade)
+  part     Part       @relation(fields: [partId], references: [id], onDelete: Cascade)
+  location Location   @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@unique([countId, partId, locationId])
+  @@index([partId])
+  @@map("stock_count_lines")
+}
+
+// ─── What the shop owes its suppliers ───────────────────────────────────────
+
+enum SupplierEntryKind {
+  // A supplier's invoice (+ owed).
+  BILL
+  // Paid to the supplier (−).
+  PAYMENT
+  // Goods sent back: a credit from the supplier (−).
+  RETURN
+  // A correction either way.
+  ADJUSTMENT
+}
+
+/// The supplier's ledger. The balance (what the shop owes) is the sum.
+model SupplierEntry {
+  id            String            @id @default(uuid())
+  shopId        String            @map("shop_id")
+  supplierId    String            @map("supplier_id")
+  kind          SupplierEntryKind
+  amount        Decimal           @db.Decimal(12, 2)
+  // The supplier's invoice number, or the payment's cheque or transfer number.
+  reference     String?
+  billDate      DateTime?         @map("bill_date")
+  dueDate       DateTime?         @map("due_date")
+  purchaseId    String?           @map("purchase_id")
+  returnId      String?           @map("return_id")
+  method        PaymentMethod?
+  cashSessionId String?           @map("cash_session_id")
+  note          String?
+  byName        String?           @map("by_name")
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  shop     Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  supplier Supplier     @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  session  CashSession? @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
+
+  @@index([supplierId, createdAt])
+  @@index([shopId, kind])
+  @@map("supplier_entries")
+}
+
+/// Stock sent back to a supplier: faulty, wrong or surplus.
+model SupplierReturn {
+  id         String   @id @default(uuid())
+  shopId     String   @map("shop_id")
+  number     Int
+  supplierId String   @map("supplier_id")
+  purchaseId String?  @map("purchase_id")
+  // [{ partId, sku, name, quantity, unitCost }]
+  lines      Json
+  total      Decimal  @db.Decimal(12, 2)
+  reason     String?
+  byName     String?  @map("by_name")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  shop     Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  @@unique([shopId, number])
+  @@index([supplierId])
+  @@map("supplier_returns")
+}
+
+// ─── Where stock is, files, substitutes ─────────────────────────────────────
+
+/// A place in the shop that holds stock: a shelf or bin ("A3-02"), a back
+/// store, a van. Names are the shop's own.
+model Location {
+  id        String   @id @default(uuid())
+  shopId    String   @map("shop_id")
+  name      String
+  note      String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  shop       Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  stock      PartStock[]
+  defaultFor Part[]           @relation("DefaultLocation")
+  countLines StockCountLine[]
+
+  @@unique([shopId, name])
+  @@map("locations")
+}
+
+/// How many of a part are at a location. Part.stockQty is always their sum.
+model PartStock {
+  partId     String   @map("part_id")
+  locationId String   @map("location_id")
+  qty        Decimal  @default(0) @db.Decimal(10, 2)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  part     Part     @relation(fields: [partId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@id([partId, locationId])
+  @@index([locationId])
+  @@map("part_stock")
+}
+
+enum PartFileKind {
+  IMAGE
+  DOCUMENT
+  // A web link: a maker's datasheet, a fitting video.
+  LINK
+}
+
+enum PartFileStatus {
+  // Upload started, not confirmed yet.
+  PENDING
+  READY
+}
+
+/// A photo, document or link on a part. Uploaded files live in the file
+/// store (local disk or S3, see services/storage.ts) under storageKey.
+model PartFile {
+  id          String         @id @default(uuid())
+  partId      String         @map("part_id")
+  kind        PartFileKind
+  status      PartFileStatus @default(READY)
+  name        String
+  url         String?
+  storageKey  String?        @map("storage_key")
+  contentType String?        @map("content_type")
+  size        Int?
+  // The photo shown for the part.
+  primary     Boolean        @default(false)
+  byName      String?        @map("by_name")
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  part Part @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  @@index([partId])
+  @@map("part_files")
+}
+
+/// Parts that can stand in for each other (another brand, a superseded
+/// number). Stored both ways round.
+model PartSubstitute {
+  id           String   @id @default(uuid())
+  partId       String   @map("part_id")
+  substituteId String   @map("substitute_id")
+  note         String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  part       Part @relation("PartSubstitutes", fields: [partId], references: [id], onDelete: Cascade)
+  substitute Part @relation("SubstituteFor", fields: [substituteId], references: [id], onDelete: Cascade)
+
+  @@unique([partId, substituteId])
+  @@index([substituteId])
+  @@map("part_substitutes")
+}
+
+// ─── Kits, store credit, warranty claims, return rules ──────────────────────
+
+/// One part of a kit: the kit takes `quantity` of it out of stock per kit sold.
+model KitComponent {
+  id          String  @id @default(uuid())
+  kitId       String  @map("kit_id")
+  componentId String  @map("component_id")
+  quantity    Decimal @db.Decimal(10, 3)
+
+  kit       Part @relation("Kit", fields: [kitId], references: [id], onDelete: Cascade)
+  component Part @relation("KitPart", fields: [componentId], references: [id], onDelete: Restrict)
+
+  @@unique([kitId, componentId])
+  @@index([componentId])
+  @@map("kit_components")
+}
+
+enum StoreCreditStatus {
+  ACTIVE
+  USED
+  CANCELLED
+}
+
+/// Store credit: money the shop owes a walk-in customer, spent at the counter
+/// with its code. Issued by a return or an exchange.
+model StoreCredit {
+  id            String            @id @default(uuid())
+  shopId        String            @map("shop_id")
+  code          String
+  customerName  String?           @map("customer_name")
+  customerPhone String?           @map("customer_phone")
+  amount        Decimal           @db.Decimal(12, 2)
+  balance       Decimal           @db.Decimal(12, 2)
+  status        StoreCreditStatus @default(ACTIVE)
+  expiresAt     DateTime?         @map("expires_at")
+  note          String?
+  byName        String?           @map("by_name")
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  shop    Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  entries StoreCreditEntry[]
+
+  @@unique([shopId, code])
+  @@index([shopId, status])
+  @@map("store_credits")
+}
+
+/// The credit's ledger: issued (+), spent or paid out (−).
+model StoreCreditEntry {
+  id            String         @id @default(uuid())
+  creditId      String         @map("credit_id")
+  amount        Decimal        @db.Decimal(12, 2)
+  // ISSUE, REDEEM, CASH_OUT, RESTORE (a voided sale gives it back), CANCEL.
+  kind          String
+  saleId        String?        @map("sale_id")
+  returnId      String?        @map("return_id")
+  method        PaymentMethod?
+  cashSessionId String?        @map("cash_session_id")
+  byName        String?        @map("by_name")
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  credit StoreCredit @relation(fields: [creditId], references: [id], onDelete: Cascade)
+
+  @@index([creditId])
+  @@index([cashSessionId])
+  @@map("store_credit_entries")
+}
+
+enum ClaimStatus {
+  // Brought back, being looked at.
+  OPEN
+  REPLACED
+  REFUNDED
+  REPAIRED
+  REJECTED
+}
+
+enum SupplierClaimStatus {
+  NONE
+  // Sent to the supplier, waiting.
+  PENDING
+  CREDITED
+  REPLACED
+  REJECTED
+}
+
+/// A customer bringing a part back under warranty, and the shop's own claim
+/// on its supplier for the faulty unit.
+model WarrantyClaim {
+  id                String              @id @default(uuid())
+  shopId            String              @map("shop_id")
+  number            Int
+  saleId            String?             @map("sale_id")
+  saleItemId        String?             @map("sale_item_id")
+  partId            String?             @map("part_id")
+  serialNumber      String?             @map("serial_number")
+  customerName      String?             @map("customer_name")
+  customerPhone     String?             @map("customer_phone")
+  fault             String
+  // At the time of the claim.
+  soldAt            DateTime?           @map("sold_at")
+  warrantyUntil     DateTime?           @map("warranty_until")
+  covered           Boolean             @default(false)
+  status            ClaimStatus         @default(OPEN)
+  // What the customer paid towards a replacement (pro rata).
+  charged           Decimal             @default(0) @db.Decimal(12, 2)
+  replacementSaleId String?             @map("replacement_sale_id")
+  refundReturnId    String?             @map("refund_return_id")
+  outcomeNote       String?             @map("outcome_note")
+  supplierId        String?             @map("supplier_id")
+  supplierStatus    SupplierClaimStatus @default(NONE) @map("supplier_status")
+  supplierCredit    Decimal?            @map("supplier_credit") @db.Decimal(12, 2)
+  supplierNote      String?             @map("supplier_note")
+  sentAt            DateTime?           @map("sent_at")
+  createdByName     String              @map("created_by_name")
+  resolvedByName    String?             @map("resolved_by_name")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  resolvedAt        DateTime?           @map("resolved_at")
+
+  shop Shop  @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  part Part? @relation(fields: [partId], references: [id], onDelete: SetNull)
+
+  @@unique([shopId, number])
+  @@index([shopId, status])
+  @@index([shopId, supplierStatus])
+  @@map("warranty_claims")
+}
+
+/// What can come back, by category (or the shop's default with no category).
+model ReturnRule {
+  id         String   @id @default(uuid())
+  shopId     String   @map("shop_id")
+  // null: every category without its own rule.
+  category   String?
+  returnable Boolean  @default(true)
+  // Days after the sale; null: any time.
+  days       Int?
+  // Percent kept back on a return.
+  feePct     Decimal  @default(0) @map("fee_pct") @db.Decimal(5, 2)
+  note       String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, category])
+  @@map("return_rules")
+}
