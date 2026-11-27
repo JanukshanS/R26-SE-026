@@ -15,8 +15,11 @@ export type Profile = {
  *  redirect, the portal header and the dashboard rail, so they can't drift. */
 export const AREAS: { href: string; label: string; roles: Role[] }[] = [
   { href: "/app", label: "My Kaduna", roles: ["driver", "provider", "ops"] },
-  { href: "/report", label: "Report", roles: ["driver", "provider", "ops"] },
-  { href: "/provider", label: "Provider", roles: ["provider", "ops"] },
+  // Requesting roadside help lives on the home page now (the old /report page is no longer linked).
+  { href: "/#get-help", label: "Get help", roles: ["driver", "provider", "ops"] },
+  { href: "/provider/garage", label: "Garage", roles: ["provider", "ops"] },
+  // Any account can run a parts shop; opening it the first time sets one up.
+  { href: "/seller", label: "Parts shop", roles: ["driver", "provider", "ops"] },
   { href: "/dashboard", label: "Operations", roles: ["ops"] },
   { href: "/insurer", label: "Insurer", roles: ["ops"] },
   { href: "/admin", label: "Admin", roles: ["ops"] },
@@ -37,13 +40,17 @@ export function isProvider(profile: Profile | null | undefined): boolean {
 /** Where an account lands after signing in: its most specific area. */
 export function roleHome(profile: Profile | null | undefined): string {
   if (profile?.role === "ops") return "/dashboard";
-  return isProvider(profile) ? "/provider" : "/app";
+  return isProvider(profile) ? "/provider/garage" : "/app";
 }
+
+/** Areas opened by a provider link rather than by role. The old /provider
+ *  roadside console is parked until the per-stakeholder dashboards land. */
+const PROVIDER_AREAS = ["/provider/garage"];
 
 /** The areas this account may enter, in nav order. */
 export function areasFor(profile: Profile | null | undefined): typeof AREAS {
   const role = profile?.role ?? "driver";
   return AREAS.filter(
-    (a) => a.roles.includes(role) || (a.href === "/provider" && isProvider(profile))
+    (a) => a.roles.includes(role) || (PROVIDER_AREAS.includes(a.href) && isProvider(profile))
   );
 }

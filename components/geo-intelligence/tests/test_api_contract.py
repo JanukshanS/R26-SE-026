@@ -8,12 +8,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api import DATA_DIR, app
-from src.auth import require_user
+from src.auth import require_ops, require_user
 
 # These tests are about the API contract, not authentication. Overriding the
-# dependency keeps them offline — the real one fetches the Supabase JWKS.
-# Token verification itself is covered by tests/test_auth.py.
+# dependencies keeps them offline — the real one fetches the Supabase JWKS.
+# Token verification and the ops role check are covered by tests/test_auth.py.
 app.dependency_overrides[require_user] = lambda: "test-user"
+app.dependency_overrides[require_ops] = lambda: "test-user"
 
 client = TestClient(app)
 
@@ -40,6 +41,46 @@ def test_health_payload_shape():
     assert data["status"] == "ok"
     assert data["service"] == "geo-intelligence"
     assert "version" in data
+
+
+def test_health_reports_build_identity(monkeypatch):
+    from src import __version__
+
+    monkeypatch.delenv("GIT_SHA", raising=False)
+    data = client.get("/v1/health").json()
+    assert data["version"] == __version__
+    assert data["commit"] == "unknown"
+
+    monkeypatch.setenv("GIT_SHA", "3c158f0")
+    assert client.get("/v1/health").json()["commit"] == "3c158f0"
+
+
+def test_pyproject_takes_its_version_from_the_package():
+    pyproject = (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text()
+    assert 'dynamic = ["version"]' in pyproject
+    assert 'path = "src/__init__.py"' in pyproject
+
+
+def test_health_reports_dataset_state_without_loading_it(monkeypatch):
+    from src import api, roads
+    from src.sensitivity import SensitivityOverlay
+
+    fresh_overlay, fresh_roads = SensitivityOverlay(), roads.RoadNetwork()
+    monkeypatch.setattr(api, "overlay", fresh_overlay)
+    monkeypatch.setattr(roads, "network", fresh_roads)
+
+    cold = client.get("/v1/health").json()
+    assert cold["datasets"] == {
+        "road_index": "not yet loaded",
+        "poi": "not yet loaded",
+        "holidays": "not yet loaded",
+    }
+    assert cold["holiday_calendar_years"] == []
+
+    with TestClient(app):
+        warm = client.get("/v1/health").json()
+    assert warm["datasets"] == {"road_index": "loaded", "poi": "loaded", "holidays": "loaded"}
+    assert warm["holiday_calendar_years"] == [2026, 2027]
 
 
 def test_health_weights_match_original_contract():

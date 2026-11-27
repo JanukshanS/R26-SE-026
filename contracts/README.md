@@ -25,5 +25,7 @@ OpenAPI 3.1 specifications and shared schema definitions that components publish
 | geo-intelligence | `geo-intelligence.openapi.yaml` | published |
 | predictive-maintenance | `predictive-maintenance.openapi.yaml` | published |
 | claims-privacy | _to be added_ | pending |
+| garage-management | `garage-management.openapi.yaml` (generated: `npm run openapi`) | published |
+| parts-management | `parts-management.openapi.yaml` (generated: `npm run openapi`) | published |
 | auth | _removed — replaced by Supabase Auth_ | n/a |
 | vehicle-service | _removed — replaced by Supabase Postgres_ | n/a |

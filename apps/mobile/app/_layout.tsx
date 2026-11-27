@@ -6,6 +6,7 @@ import { palette } from "@theme/index";
 import { I18nProvider } from "@lib/i18n";
 import { VehicleProvider } from "@lib/vehicleContext";
 import { FEATURES } from "@lib/features";
+import { LocationRequiredModal } from "@/components/location-required-modal";
 import "@lib/supabase";
 import "react-native-reanimated";
 
@@ -43,6 +44,7 @@ export default function RootLayout() {
               </Stack.Protected>
             </Stack>
             <StatusBar style="dark" />
+            <LocationRequiredModal />
           </VehicleProvider>
         </I18nProvider>
       </SafeAreaProvider>

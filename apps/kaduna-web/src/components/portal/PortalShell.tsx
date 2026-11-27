@@ -7,6 +7,7 @@ import LanguagePicker from "@/components/LanguagePicker";
 import { areasFor, useAuth } from "@/lib/auth";
 import { useT } from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 export type PortalTab = { label: string; href: string };
 
@@ -45,9 +46,7 @@ export default function PortalShell({
     <div className={`bg-background text-foreground [--radius:0.9rem] ${stretch ? "min-h-screen lg:flex lg:h-screen lg:flex-col lg:overflow-hidden" : "min-h-screen"}`}>
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
         <div className={`mx-auto flex flex-wrap items-center gap-x-5 gap-y-3 px-4 py-3.5 sm:px-6 ${fullWidth ? "max-w-full" : "max-w-6xl"}`}>
-          <Link href="/" className="font-display text-xl font-bold tracking-tight">
-            Kaduna<span className="text-primary">.lk</span>
-          </Link>
+          <Link href="/" aria-label="Kaduna.lk"><BrandLogo height={40} /></Link>
 
           <nav aria-label={t("portal.nav.areas")} className="flex items-center gap-1 overflow-x-auto">
             {areas.map((a) => {

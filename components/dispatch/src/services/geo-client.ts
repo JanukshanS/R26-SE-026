@@ -4,9 +4,10 @@
  * Fetches the 1-10 traffic-impact score for an incident from the geo-intelligence
  * service so the ECM optimizer's externality term reflects real congestion impact
  * rather than a flat default. Never throws to the caller: it degrades gracefully,
- * returning `'geo-unavailable'` when geo answered with an error status (a reached
- * but refusing service, e.g. 503 from a deploy missing SUPABASE_URL) and null when
- * it could not be reached at all (timeout, connection refused).
+ * returning `'geo-not-configured'` when geo answered 503 (on /v1/score that is only
+ * raised by a deploy missing SUPABASE_URL), `'geo-unavailable'` for any other error
+ * status, `'geo-timeout'` when no answer arrived within GEO_TIMEOUT_MS, and null
+ * when it could not be reached at all or sent no numeric score.
  */
 import {
   mapServiceTypeToIncidentType,
@@ -17,7 +18,9 @@ import { logger } from '../utils/logger';
 import { ServiceTypeProbabilities } from '../types';
 
 /** A score, or the reason there isn't one. */
-export type GeoScoreResult = number | 'geo-unavailable' | null;
+export type GeoScoreResult = number | 'geo-unavailable' | 'geo-not-configured' | 'geo-timeout' | null;
+
+const GEO_TIMEOUT_MS = 2000;
 
 const COLOMBO_WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -94,17 +97,21 @@ export async function fetchTrafficImpactScore(ctx: GeoScoreContext): Promise<Geo
         ...(ctx.authorization ? { Authorization: ctx.authorization } : {}),
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(2000),
+      signal: AbortSignal.timeout(GEO_TIMEOUT_MS),
     });
     if (!res.ok) {
       logger.warn(
         `Geo score HTTP ${res.status}; geo reached but refused, falling back to default traffic score`,
       );
-      return 'geo-unavailable';
+      return res.status === 503 ? 'geo-not-configured' : 'geo-unavailable';
     }
     const data = (await res.json()) as { score?: number };
     return typeof data.score === 'number' ? data.score : null;
   } catch (err: any) {
+    if (err?.name === 'TimeoutError') {
+      logger.warn(`Geo-intelligence did not answer within ${GEO_TIMEOUT_MS}ms; falling back to default`);
+      return 'geo-timeout';
+    }
     logger.warn(`Geo-intelligence unreachable (${err?.message ?? err}); falling back to default`);
     return null;
   }

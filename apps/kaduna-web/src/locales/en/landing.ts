@@ -6,6 +6,7 @@ const landing: Record<string, string> = {
   "landing.download.meta": "Android 10+ · ~58 MB · free",
   "landing.download.title": "Kaduna.lk is in beta on Android.",
   "landing.footer.dashboard": "Ops dashboard",
+  "landing.footer.privacy": "Privacy policy",
   "landing.footer.tagline":
     "Roadside assistance for Colombo that understands the breakdown before help is sent.",
   "landing.hero.eyebrow": "Roadside assistance · Colombo",

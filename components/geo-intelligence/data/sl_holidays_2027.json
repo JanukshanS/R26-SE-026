@@ -1,0 +1,30 @@
+{
+  "note": "Sri Lanka public holidays 2027 for the sensitivity overlay (src/sensitivity.py). Declared by Extraordinary Gazette No. 2493/05 of 16 June 2026 (Ministry of Public Administration, Provincial Councils and Local Government, Holidays Act No. 29 of 1971). Verified 2026-10-08 against the Central Bank of Sri Lanka list (cbsl.gov.lk/en/about/about-the-bank/bank-holidays-2027), cross-checked with blog.govdoc.lk/the-list-of-public-and-bank-holidays-for-the-year-2027-has-been-released. 2027 has 12 Poya days. Islamic festival days (verified=false) may be adjusted by the Colombo Grand Mosque after moon sighting - re-check near each date. The overlay logic is data-driven: correcting a date here changes behaviour without any code change.",
+  "holidays": [
+    {"date": "2027-01-15", "name": "Tamil Thai Pongal Day", "verified": true},
+    {"date": "2027-01-22", "name": "Duruthu Full Moon Poya Day", "verified": true},
+    {"date": "2027-02-04", "name": "Independence Day", "verified": true},
+    {"date": "2027-02-20", "name": "Navam Full Moon Poya Day", "verified": true},
+    {"date": "2027-03-06", "name": "Maha Shivaratri Day", "verified": true},
+    {"date": "2027-03-10", "name": "Eid al-Fitr (Ramazan Festival Day)", "verified": false},
+    {"date": "2027-03-22", "name": "Medin Full Moon Poya Day", "verified": true},
+    {"date": "2027-03-26", "name": "Good Friday", "verified": true},
+    {"date": "2027-04-13", "name": "Day prior to Sinhala & Tamil New Year", "verified": true},
+    {"date": "2027-04-14", "name": "Sinhala & Tamil New Year Day", "verified": true},
+    {"date": "2027-04-20", "name": "Bak Full Moon Poya Day", "verified": true},
+    {"date": "2027-05-01", "name": "May Day", "verified": true},
+    {"date": "2027-05-17", "name": "Eid al-Adha (Hadji Festival Day)", "verified": false},
+    {"date": "2027-05-19", "name": "Vesak Full Moon Poya Day", "verified": true},
+    {"date": "2027-05-20", "name": "Day following Vesak Poya", "verified": true},
+    {"date": "2027-06-18", "name": "Poson Full Moon Poya Day", "verified": true},
+    {"date": "2027-07-18", "name": "Esala Full Moon Poya Day", "verified": true},
+    {"date": "2027-08-15", "name": "Milad-un-Nabi (Holy Prophet's Birthday)", "verified": false},
+    {"date": "2027-08-16", "name": "Nikini Full Moon Poya Day", "verified": true},
+    {"date": "2027-09-15", "name": "Binara Full Moon Poya Day", "verified": true},
+    {"date": "2027-10-15", "name": "Vap Full Moon Poya Day", "verified": true},
+    {"date": "2027-10-28", "name": "Deepavali Festival Day", "verified": true},
+    {"date": "2027-11-13", "name": "Il Full Moon Poya Day", "verified": true},
+    {"date": "2027-12-13", "name": "Unduvap Full Moon Poya Day", "verified": true},
+    {"date": "2027-12-25", "name": "Christmas Day", "verified": true}
+  ]
+}

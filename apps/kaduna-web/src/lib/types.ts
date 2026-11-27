@@ -73,15 +73,6 @@ export interface Stats {
   byIncidentType: Record<string, number>;
 }
 
-export interface ModelConfig {
-  weights: Record<string, number>;
-  roadCapacity: Record<string, number>;
-  roadLocationFactor: Record<string, number>;
-  incidentSeverity: Record<string, number>;
-  hourMultiplier: Record<string, number>;
-  dayMultiplier: Record<string, number>;
-}
-
 export interface WhatIfInput {
   roadType: string;
   totalLanes: number;

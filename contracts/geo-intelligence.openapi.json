@@ -2,13 +2,23 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Kaduna.lk — Geo-Intelligence Service",
-    "description": "Traffic-impact intelligence for Sri Lankan roads. Scores incidents on a 1–10 priority scale; serves precomputed hotspot clusters for the Colombo metropolitan area. v0.1 error bodies use FastAPI `{ detail }`; not yet platform standard envelope.",
+    "description": "Traffic-impact intelligence for Sri Lankan roads. Scores incidents on a 1–10 priority scale; serves precomputed hotspot clusters for the Colombo metropolitan area. Error bodies use FastAPI `{ detail }`; not yet platform standard envelope. /v1/score is open to every authenticated user (dispatch forwards the driver's token); the operator routes (/v1/score/uncertainty, /v1/score/timeline, /v1/hotspots, /v1/stats) require the `ops` role claim. Every authenticated route is rate-limited per user (default 120 requests/minute).",
     "contact": {
       "name": "Asath M M",
       "email": "it22633422@my.sliit.lk"
     },
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
+  "servers": [
+    {
+      "url": "https://geo.vps.kaduna.lk",
+      "description": "Production"
+    },
+    {
+      "url": "http://localhost:5001",
+      "description": "Local development"
+    }
+  ],
   "paths": {
     "/v1/health": {
       "get": {
@@ -95,6 +105,27 @@
                       "detail": "Invalid or expired token."
                     }
                   }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Per-user rate limit exceeded (GEO_RATE_LIMIT_PER_MINUTE, default 120)",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the next request is allowed",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "example": {
+                  "detail": "Rate limit exceeded."
                 }
               }
             }
@@ -190,6 +221,40 @@
                       "detail": "Invalid or expired token."
                     }
                   }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Token valid but lacks the ops role claim (GEO_ROLE_CLAIM, default app_metadata.role)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "example": {
+                  "detail": "This route requires the ops role."
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Per-user rate limit exceeded (GEO_RATE_LIMIT_PER_MINUTE, default 120)",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the next request is allowed",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "example": {
+                  "detail": "Rate limit exceeded."
                 }
               }
             }
@@ -291,6 +356,40 @@
               }
             }
           },
+          "403": {
+            "description": "Token valid but lacks the ops role claim (GEO_ROLE_CLAIM, default app_metadata.role)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "example": {
+                  "detail": "This route requires the ops role."
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Per-user rate limit exceeded (GEO_RATE_LIMIT_PER_MINUTE, default 120)",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the next request is allowed",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "example": {
+                  "detail": "Rate limit exceeded."
+                }
+              }
+            }
+          },
           "503": {
             "description": "Auth backend not configured (SUPABASE_URL unset)",
             "content": {
@@ -362,6 +461,40 @@
                       "detail": "Invalid or expired token."
                     }
                   }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Token valid but lacks the ops role claim (GEO_ROLE_CLAIM, default app_metadata.role)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "example": {
+                  "detail": "This route requires the ops role."
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Per-user rate limit exceeded (GEO_RATE_LIMIT_PER_MINUTE, default 120)",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the next request is allowed",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "example": {
+                  "detail": "Rate limit exceeded."
                 }
               }
             }
@@ -438,6 +571,40 @@
               }
             }
           },
+          "403": {
+            "description": "Token valid but lacks the ops role claim (GEO_ROLE_CLAIM, default app_metadata.role)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "example": {
+                  "detail": "This route requires the ops role."
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Per-user rate limit exceeded (GEO_RATE_LIMIT_PER_MINUTE, default 120)",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the next request is allowed",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorDetail"
+                },
+                "example": {
+                  "detail": "Rate limit exceeded."
+                }
+              }
+            }
+          },
           "503": {
             "description": "Auth backend not configured (SUPABASE_URL unset), or stats dataset unavailable",
             "content": {
@@ -470,7 +637,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "Supabase Auth access token, ES256, verified against the project JWKS endpoint."
+        "description": "Supabase Auth access token, ES256, verified against the project JWKS endpoint. Operator routes also require the role at GEO_ROLE_CLAIM (default app_metadata.role) to be `ops`; a token without the claim is refused."
       }
     },
     "schemas": {
@@ -514,10 +681,29 @@
             "type": "string",
             "title": "Version"
           },
+          "commit": {
+            "type": "string",
+            "title": "Commit",
+            "description": "Git commit the image was built from, or 'unknown'"
+          },
           "weights": {
             "additionalProperties": true,
             "type": "object",
             "title": "Weights"
+          },
+          "datasets": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Datasets",
+            "description": "road_index, poi, holidays: loaded | not yet loaded | unavailable (missing or malformed; the score degrades rather than failing)"
+          },
+          "holiday_calendar_years": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Holiday Calendar Years",
+            "description": "Years the holiday calendar covers; dates outside them get no holiday or getaway-eve adjustment"
           }
         },
         "type": "object",
@@ -525,7 +711,10 @@
           "status",
           "service",
           "version",
-          "weights"
+          "commit",
+          "weights",
+          "datasets",
+          "holiday_calendar_years"
         ],
         "title": "HealthResponse"
       },

@@ -5,6 +5,7 @@ const landing: Record<string, string> = {
   "landing.download.meta": "Android 10+ · ~58 MB · இலவசம்",
   "landing.download.title": "Kaduna.lk Android-இல் பீட்டா பதிப்பில் உள்ளது.",
   "landing.footer.dashboard": "செயல்பாட்டு டாஷ்போர்டு",
+  "landing.footer.privacy": "தனியுரிமைக் கொள்கை",
   "landing.footer.tagline": "சேவை அனுப்பப்படுவதற்கு முன்பே பழுதை புரிந்துகொள்ளும் கொழும்பு சாலையோர உதவி.",
   "landing.hero.eyebrow": "சாலையோர உதவி · கொழும்பு",
   "landing.hero.howLink": "இது எப்படி வேலை செய்கிறது ↓",

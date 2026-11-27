@@ -8,8 +8,14 @@
 #   mobile (Expo web)     http://localhost:8090  (Expo/React Native)
 #   mobile (Expo dev server, real QR — separate visible window) port 8081
 #
-# NOT started here: dispatch and claims-privacy. Both need a running
-# Postgres (dispatch also needs Redis) which this script doesn't manage.
+# NOT started here: dispatch, claims-privacy, garage-management and
+# parts-management. All need a running Postgres (dispatch also needs Redis)
+# which this script doesn't manage. For the garage and parts services:
+#   cd components/garage-management && npm run db:local   (local Postgres, leave running)
+#   cd components/garage-management && npm run dev         (port 3002)
+#   cd components/parts-management  && npm run dev         (port 3003)
+# with DATABASE_URL and INTERNAL_API_TOKEN set in each (see their .env.example;
+# the token must match).
 # Once you have Postgres/Redis available, see the commented-out section
 # near the bottom for how to bring them up too.
 #
@@ -112,6 +118,7 @@ NEXT_PUBLIC_SUPABASE_KEY=$SUPABASE_KEY
 NEXT_PUBLIC_GEO_URL=http://localhost:5001
 NEXT_PUBLIC_DISPATCH_URL=http://localhost:3001
 NEXT_PUBLIC_MAINTENANCE_URL=http://localhost:5000
+NEXT_PUBLIC_GARAGE_URL=http://localhost:3002
 ENVEOF
 (
   cd "$WEB_DIR" || exit 1

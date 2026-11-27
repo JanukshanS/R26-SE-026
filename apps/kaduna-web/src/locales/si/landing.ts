@@ -6,6 +6,7 @@ const landing: Record<string, string> = {
   "landing.download.meta": "Android 10+ · ~58 MB · නිදහස්",
   "landing.download.title": "Kaduna.lk Android හි beta පිටුවේ ඇත.",
   "landing.footer.dashboard": "Ops dashboard",
+  "landing.footer.privacy": "රහස්‍යතා ප්‍රතිපත්තිය",
   "landing.footer.tagline":
     "කොලඹ සඳහා මග අසිද්ධ ඉවත්කිරීම සහාය සේවාව, ඉවත්කිරීම ඉතිරි කරන්න අවබෝධ කරයි.",
   "landing.hero.eyebrow": "මග අසිද්ධ ඉවත්කිරීම සහාය · කොලඹ",

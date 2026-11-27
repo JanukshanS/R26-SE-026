@@ -226,6 +226,11 @@ const insurance: Record<string, string> = {
   "insurance.upload.submittedMessage":
     "Your claim has been submitted. We're validating your photos — you'll be notified once it's ready for review.",
   "insurance.upload.title": "Upload Accident Details",
+  "insurance.location.requiredTitle": "Location required",
+  "insurance.location.openSettings": "Open settings",
+  "insurance.location.off": "Your phone's location is turned off. Turn it on to report an accident.",
+  "insurance.location.blocked":
+    "Kaduna isn't allowed to use your location. Allow it in Settings → Apps → Kaduna → Permissions to report an accident.",
 };
 
 export default insurance;

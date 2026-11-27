@@ -6,6 +6,9 @@ import signin from "./signin";
 import app from "./app";
 import report from "./report";
 import provider from "./provider";
+import garage from "./garage";
+import garageModules from "./garageModules";
+import me from "./me";
 import dashboard from "./dashboard";
 import insurer from "./insurer";
 import admin from "./admin";
@@ -19,6 +22,9 @@ const catalogue: Record<string, string> = {
   ...app,
   ...report,
   ...provider,
+  ...garage,
+  ...garageModules,
+  ...me,
   ...dashboard,
   ...insurer,
   ...admin,

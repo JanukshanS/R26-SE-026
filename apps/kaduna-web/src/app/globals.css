@@ -110,6 +110,19 @@
 }
 /* ---break---  */
 @theme inline {
+  /* Garage workspace status tones (light surfaces only — /provider/garage). */
+  --color-canvas:     #f7f4ef;
+  --color-brand-soft: #ffeee3;
+  --color-ok:         #16a36a;
+  --color-ok-soft:    #e5f6ee;
+  --color-info:       #2f6feb;
+  --color-info-soft:  #e8f0fe;
+  --color-vio:        #8b5cf6;
+  --color-vio-soft:   #f1ebfe;
+  --color-warn:       #c98500;
+  --color-warn-soft:  #fff5db;
+  --color-bad:        #e5484d;
+  --color-bad-soft:   #fdecec;
   --font-sans: "Geist", "Geist Fallback", var(--font-noto-sinhala), var(--font-noto-tamil), ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
   --font-display: var(--font-bricolage), "Geist", "Geist Fallback", var(--font-noto-sinhala), var(--font-noto-tamil), ui-sans-serif, system-ui, sans-serif;

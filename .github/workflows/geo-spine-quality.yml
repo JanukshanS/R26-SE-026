@@ -1,46 +1,109 @@
 name: Geo Spine Quality
 
 on:
+  push:
+    branches: [dev]
+    paths:
+      - "components/geo-intelligence/**"
+      - "components/dispatch/**"
+      - "contracts/**"
+      - "apps/kaduna-web/**"
+      - "redocly.yaml"
+      - "scripts/test-fast.sh"
+      - "docker-compose.yml"
+      - ".github/workflows/geo-spine-quality.yml"
   pull_request:
     paths:
       - "components/geo-intelligence/**"
       - "components/dispatch/**"
       - "contracts/**"
+      - "apps/kaduna-web/**"
+      - "redocly.yaml"
       - "scripts/test-fast.sh"
       - "docker-compose.yml"
+      - ".github/workflows/geo-spine-quality.yml"
 
 jobs:
   fast-unit:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: kaduna
+          POSTGRES_PASSWORD: kaduna_ci
+          POSTGRES_DB: dispatch_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kaduna -d dispatch_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            components/geo-intelligence/requirements.txt
+            components/geo-intelligence/requirements-dev.txt
 
       - name: Geo tests
         working-directory: components/geo-intelligence
         run: |
           python -m venv .venv
-          .venv/bin/pip install -r requirements.txt pytest httpx
+          .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
           .venv/bin/python -m pytest -q tests/
 
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: npm
+          cache-dependency-path: components/dispatch/package-lock.json
 
       - name: Dispatch vitest
         working-directory: components/dispatch
+        env:
+          DATABASE_URL: postgresql://kaduna:kaduna_ci@localhost:5432/dispatch_db?schema=dispatch
         run: |
           npm ci
+          npx prisma generate
+          npx prisma migrate deploy
+          npm run prisma:seed
           npm test -- --run
+
+  web-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: apps/kaduna-web/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: apps/kaduna-web/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm -C apps/kaduna-web install --frozen-lockfile
+
+      - name: Type-check
+        run: pnpm -C apps/kaduna-web exec tsc --noEmit
+
+      - name: Web tests
+        run: pnpm -C apps/kaduna-web test
 
   contract-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npx --yes @redocly/cli@latest lint contracts/geo-intelligence.openapi.yaml
+      - run: npx --yes @redocly/cli@2.60.0 lint contracts/geo-intelligence.openapi.yaml
 
   data-parity-gate:
     runs-on: ubuntu-latest

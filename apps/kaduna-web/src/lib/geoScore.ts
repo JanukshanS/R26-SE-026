@@ -5,6 +5,7 @@ import {
   mapServiceTypeToIncidentType,
   mapServiceTypeToLanesBlocked,
 } from "./geo-service-mapping";
+import { colomboTime } from "./colomboTime";
 import { authHeaders } from "./supabase";
 
 const GEO_URL = process.env.NEXT_PUBLIC_GEO_URL ?? "http://localhost:5001";
@@ -89,8 +90,7 @@ const cache = new Map<string, Promise<GeoScore | null>>();
  * input is varied.
  */
 export function scoreIncident(req: ScoreRequest): Promise<GeoScore | null> {
-  const hour = req.at.getHours();
-  const dayOfWeek = (req.at.getDay() + 6) % 7; // JS Sun=0..Sat=6 -> model Mon=0..Sun=6
+  const { hour, dayOfWeek, date } = colomboTime(req.at);
   const key = `${req.id}:${hour}:${dayOfWeek}`;
 
   const hit = cache.get(key);
@@ -116,7 +116,7 @@ export function scoreIncident(req: ScoreRequest): Promise<GeoScore | null> {
           day_of_week: dayOfWeek,
           // Without a date the overlay cannot know about holidays or the eve
           // of a long weekend, so those components could never fire.
-          date: req.at.toISOString().slice(0, 10),
+          date,
         }),
         signal: AbortSignal.timeout(8000),
       });

@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import datetime
 import json
+import logging
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import List, Optional
 
@@ -22,16 +24,38 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from .auth import require_user
+from . import __version__
+from .auth import require_ops
 from .impact_scoring import (
     ImpactScoringModel,
     IncidentInput,
     PriorityLevel,
 )
 from . import roads
+from .ratelimit import rate_limit
 from .sensitivity import overlay
 
+logger = logging.getLogger(__name__)
+
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+
+DEFAULT_CORS_ORIGINS = "https://kaduna.lk,https://www.kaduna.lk,http://localhost:3000"
+
+
+def _cors_origins() -> list[str]:
+    raw = os.getenv("CORS_ALLOW_ORIGINS", DEFAULT_CORS_ORIGINS)
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Load the road index and overlay data before serving, so the first scoring
+    request (the dispatch spine, on a 2 s budget) does not pay for the load."""
+    if not roads.network.available:
+        logger.warning("Road index unavailable: every incident will use the primary/2-lane fallback")
+    if not overlay.data_available:
+        logger.warning("POI dataset unavailable: sensitivity overlay degrades to factor 1.0")
+    yield
 
 app = FastAPI(
     title="Kaduna.lk — Geo-Intelligence Service",
@@ -40,13 +64,14 @@ app = FastAPI(
         "Scores incidents on a 1–10 priority scale; serves precomputed hotspot "
         "clusters for the Colombo metropolitan area."
     ),
-    version="0.1.0",
+    version=__version__,
     contact={"name": "Asath M M", "email": "it22633422@my.sliit.lk"},
+    lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -296,20 +321,50 @@ class HealthResponse(BaseModel):
     status: str
     service: str
     version: str
+    commit: str = Field(..., description="Git commit the image was built from, or 'unknown'")
     weights: dict
+    datasets: dict = Field(
+        ...,
+        description=(
+            "road_index, poi, holidays: loaded | not yet loaded | unavailable "
+            "(missing or malformed; the score degrades rather than failing)"
+        ),
+    )
+    holiday_calendar_years: List[int] = Field(
+        ...,
+        description=(
+            "Years the holiday calendar covers; dates outside them get no "
+            "holiday or getaway-eve adjustment"
+        ),
+    )
 
 
 @app.get("/v1/health", response_model=HealthResponse, tags=["meta"])
 def health() -> HealthResponse:
+    """Reports dataset state without loading anything, so it stays cheap."""
+    overlay_status = overlay.status()
     return HealthResponse(
         status="ok",
         service="geo-intelligence",
         version=app.version,
+        commit=os.getenv("GIT_SHA", "").strip() or "unknown",
         weights=model.WEIGHTS,
+        datasets={
+            "road_index": roads.network.status,
+            "poi": overlay_status["poi"],
+            "holidays": overlay_status["holidays"],
+        },
+        holiday_calendar_years=overlay_status["holiday_calendar_years"],
     )
 
 
-@app.post("/v1/score", response_model=ScoreResponse, tags=["scoring"], dependencies=[Depends(require_user)])
+# Every authenticated caller may score: dispatch forwards the driver's own token.
+SCORING = [Depends(rate_limit)]
+# Operator analytics: only the ops-gated dashboard reads these.
+OPS_ONLY = [Depends(require_ops), Depends(rate_limit)]
+
+
+@app.post("/v1/score", response_model=ScoreResponse, tags=["scoring"], dependencies=SCORING)
 def score(req: ScoreRequest) -> ScoreResponse:
     incident, road = _to_incident(req)
     result = model.score(incident)
@@ -364,7 +419,7 @@ class UncertaintyResponse(BaseModel):
     "/v1/score/uncertainty",
     response_model=UncertaintyResponse,
     tags=["scoring"],
-    dependencies=[Depends(require_user)],
+    dependencies=OPS_ONLY,
 )
 def score_uncertainty(req: ScoreRequest) -> UncertaintyResponse:
     """90% confidence band on the impact score via Monte-Carlo over the two
@@ -378,7 +433,7 @@ class TimelineRequest(ScoreRequest):
     step_min: int = Field(10, ge=1, le=60, description="Sampling interval in minutes")
 
 
-@app.post("/v1/score/timeline", tags=["scoring"], dependencies=[Depends(require_user)])
+@app.post("/v1/score/timeline", tags=["scoring"], dependencies=OPS_ONLY)
 def score_timeline(req: TimelineRequest) -> dict:
     """Relative congestion-impact curve over time since the incident: the queue
     builds while the incident is active, then drains — a rise-then-decay profile."""
@@ -392,7 +447,7 @@ def score_timeline(req: TimelineRequest) -> dict:
     "/v1/hotspots",
     response_model=List[HotspotCluster],
     tags=["spatial"],
-    dependencies=[Depends(require_user)],
+    dependencies=OPS_ONLY,
 )
 def hotspots() -> List[HotspotCluster]:
     path = DATA_DIR / "hotspots.json"
@@ -402,7 +457,7 @@ def hotspots() -> List[HotspotCluster]:
     return [_hotspot_from_row(row, i) for i, row in enumerate(raw)]
 
 
-@app.get("/v1/stats", tags=["meta"], dependencies=[Depends(require_user)])
+@app.get("/v1/stats", tags=["meta"], dependencies=OPS_ONLY)
 def stats() -> dict:
     path = DATA_DIR / "stats.json"
     if not path.exists():

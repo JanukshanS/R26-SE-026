@@ -25,7 +25,7 @@ import { downloadIncidentsCsv } from "@/lib/exportCsv";
 import { fetchHotspots, fetchStats, fetchGeoHealth, type DataSource } from "@/lib/geoData";
 import { useT } from "@/lib/i18n";
 import type { Recommendation } from "@/lib/recommendations";
-import type { Blackspot, HotspotCluster, Incident, ModelConfig, Stats } from "@/lib/types";
+import type { Blackspot, HotspotCluster, Incident, Stats } from "@/lib/types";
 
 const Map = dynamic(() => import("@/components/Map"), { ssr: false });
 
@@ -165,7 +165,6 @@ export default function OperationsPage() {
   const [hotspots, setHotspots] = useState<HotspotCluster[]>([]);
   const [blackspots, setBlackspots] = useState<Blackspot[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [model, setModel] = useState<ModelConfig | null>(null);
   const [selected, setSelected] = useState<Incident | null>(null);
   const [filters, setFilters] = useState(NO_FILTERS);
   // Incidents only to begin with. With every layer on at once the heatmap
@@ -183,7 +182,7 @@ export default function OperationsPage() {
   const [focus, setFocus] = useState<{ lat: number; lng: number; radiusM: number } | null>(null);
   const [live, setLive] = useState<Incident[]>([]);
   const [liveOn, setLiveOn] = useState(false);
-  const [dataSource, setDataSource] = useState<DataSource>("static");
+  const [dataSource, setDataSource] = useState<DataSource | null>(null);
   const [geoOk, setGeoOk] = useState(false);
 
   useEffect(() => {
@@ -191,15 +190,13 @@ export default function OperationsPage() {
       fetch("/data/incidents.json").then((r) => r.json()),
       fetchHotspots(),
       fetchStats(),
-      fetch("/data/model.json").then((r) => r.json()),
       fetch("/data/blackspots.json")
         .then((r) => r.json())
         .catch(() => [] as Blackspot[]),
-    ]).then(([inc, hotResult, statsResult, mod, bs]) => {
+    ]).then(([inc, hotResult, statsResult, bs]) => {
       setIncidents(inc);
       setHotspots(hotResult.data);
       setStats(statsResult.data);
-      setModel(mod);
       setBlackspots(bs);
       setDataSource(
         hotResult.source === "api" && statsResult.source === "api" ? "api" : "static"
@@ -298,7 +295,7 @@ export default function OperationsPage() {
   const shownCount = shown.length;
 
   const isMap = tab === "Live map";
-  const loading = !stats || !model;
+  const loading = !stats;
 
   const priorityFilter = (
     <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t("dashboard.filter.priorityLabel")}>
@@ -523,7 +520,7 @@ export default function OperationsPage() {
             <Skeleton className="h-96 w-full" />
           ) : (
             <div className="rounded-xl border border-border bg-card p-4 md:p-6">
-              {tab === "What-if" && <WhatIfSimulator model={model} />}
+              {tab === "What-if" && <WhatIfSimulator />}
               {tab === "Model accuracy" && <ValidationPanel />}
               {tab === "Where to station" && (
                 <RecommendationsPanel

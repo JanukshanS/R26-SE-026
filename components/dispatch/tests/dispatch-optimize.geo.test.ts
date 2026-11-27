@@ -28,6 +28,7 @@ vi.mock("../src/utils/prisma", () => ({ prisma: mockPrisma }));
 import { dispatchRouter } from "../src/routes/dispatch.routes";
 import { ECMProvider, runDispatchOptimizer } from "../src/services/dispatch-optimizer";
 import { SERVICE_TYPES, ServiceTypeProbabilities } from "../src/types";
+import { logger } from "../src/utils/logger";
 
 function probFor(serviceType: string, value = 1.0): ServiceTypeProbabilities {
   return Object.fromEntries(
@@ -119,7 +120,7 @@ describe("POST /api/v1/dispatch/optimize — geo-intelligence wiring", () => {
     expect(breakdown.trafficExternalityCost).toBeGreaterThan(0);
   });
 
-  it("falls back to default score 5 when geo returns null (timeout/unreachable)", async () => {
+  it("falls back to default score 5 when geo returns null (unreachable)", async () => {
     mockFetchGeo.mockResolvedValueOnce(null);
     const res = await request(makeApp())
       .post("/api/v1/dispatch/optimize")
@@ -190,6 +191,48 @@ describe("POST /api/v1/dispatch/optimize — geo-intelligence wiring", () => {
     expect(mockPrisma.dispatchDecision.create).toHaveBeenCalled();
     const payload = mockPrisma.dispatchDecision.create.mock.calls[0][0].data;
     expect(payload.trafficImpactScore).toBe(7);
+  });
+});
+
+describe("POST /api/v1/dispatch/optimize — traffic impact source log", () => {
+  function sourceLogs() {
+    return vi
+      .mocked(logger.info)
+      .mock.calls.filter(([message]) => message === "Traffic impact resolved")
+      .map(([, meta]) => meta as Record<string, unknown>);
+  }
+
+  beforeEach(() => {
+    vi.spyOn(logger, "info").mockImplementation(() => logger);
+  });
+
+  it.each([
+    [7.8, "geo-intelligence", "geo-intelligence", 7.8],
+    ["geo-timeout", "fallback-timeout", "default", 5],
+    [null, "fallback-error", "default", 5],
+    ["geo-unavailable", "fallback-error", "geo-unavailable", 5],
+    ["geo-not-configured", "default", "geo-unavailable", 5],
+  ])("logs geo result %s as source %s", async (geoResult, source, responseSource, score) => {
+    mockFetchGeo.mockResolvedValueOnce(geoResult);
+    const res = await request(makeApp())
+      .post("/api/v1/dispatch/optimize")
+      .send({ incidentId: INCIDENT_ID });
+
+    expect(res.body.data.metadata.trafficImpactSource).toBe(responseSource);
+    const logs = sourceLogs();
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({ incidentId: INCIDENT_ID, source, trafficImpactSource: responseSource, score });
+    expect(logs[0].latencyMs).toEqual(expect.any(Number));
+  });
+
+  it("logs a client-supplied score without a geo latency", async () => {
+    await request(makeApp())
+      .post("/api/v1/dispatch/optimize")
+      .send({ incidentId: INCIDENT_ID, trafficImpactScore: 9 });
+
+    expect(sourceLogs()).toEqual([
+      expect.objectContaining({ incidentId: INCIDENT_ID, source: "client", score: 9, latencyMs: null }),
+    ]);
   });
 });
 

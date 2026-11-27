@@ -35,14 +35,14 @@ export SUPABASE_URL=https://<project>.supabase.co
 
 ## Endpoints
 
-| Method | Path | Purpose |
-|---|---|---|
-| `GET`  | `/v1/health` | Liveness + active model weights |
-| `POST` | `/v1/score` | Score one incident → priority + factor breakdown + queue/VHL/recovery |
-| `POST` | `/v1/score/uncertainty` | 90% confidence band on the score (Monte-Carlo over duration + lanes-blocked) |
-| `POST` | `/v1/score/timeline` | Relative congestion-impact curve over time (rise-then-decay) |
-| `GET`  | `/v1/hotspots` | Precomputed Colombo hotspot clusters |
-| `GET`  | `/v1/stats` | Precomputed dataset stats |
+| Method | Path | Who | Purpose |
+|---|---|---|---|
+| `GET`  | `/v1/health` | public | Liveness, version + commit, active weights, dataset load state, holiday-calendar years |
+| `POST` | `/v1/score` | any signed-in user | Score one incident → priority + factor breakdown + queue/VHL/recovery |
+| `POST` | `/v1/score/uncertainty` | `ops` | 90% confidence band on the score (Monte-Carlo over duration + lanes-blocked) |
+| `POST` | `/v1/score/timeline` | `ops` | Relative congestion-impact curve over time (rise-then-decay) |
+| `GET`  | `/v1/hotspots` | `ops` | Precomputed Colombo hotspot clusters |
+| `GET`  | `/v1/stats` | `ops` | Precomputed dataset stats |
 
 ## Authentication
 
@@ -50,6 +50,24 @@ Every route except `GET /v1/health` requires `Authorization: Bearer <supabase-ac
 — the ES256 access token Supabase Auth issues to the dashboard or mobile app, verified
 against `${SUPABASE_URL}/auth/v1/.well-known/jwks.json` (`src/auth.py`). Missing or bad
 token → **401**; `SUPABASE_URL` unset → **503**.
+
+`/v1/score` stays open to every signed-in user because dispatch forwards the driver's
+own token. The operator routes answer **403** unless the token's role claim is `ops`;
+a token without the claim is refused. Supabase does not put the `profiles.role` value
+in its tokens by itself: a Custom Access Token hook (or `app_metadata.role` set with
+the service role) has to. Never point `GEO_ROLE_CLAIM` at `user_metadata`, which
+users can rewrite themselves. Every authenticated route is rate-limited per user
+(**429** with `Retry-After`).
+
+| Env var | Default | Production |
+|---|---|---|
+| `SUPABASE_URL` | unset (data routes 503) | the project URL |
+| `ENV` | `production` in the image | `production` |
+| `DEV_AUTH_BYPASS_USER_ID` | unset | unset; honoured only when `ENV=development` |
+| `GEO_ROLE_CLAIM` | `app_metadata.role` | where the access-token hook writes the role |
+| `GEO_RATE_LIMIT_PER_MINUTE` | `120` | `120`; per process, `0` disables |
+| `CORS_ALLOW_ORIGINS` | `https://kaduna.lk,https://www.kaduna.lk,http://localhost:3000` | `https://kaduna.lk,https://www.kaduna.lk` |
+| `GIT_SHA` | `unknown` (Docker build arg) | `--build-arg GIT_SHA=$(git rev-parse --short HEAD)` |
 
 Get a token for curl by signing in against your project's auth endpoint:
 
@@ -61,7 +79,7 @@ TOKEN=$(curl -s -X POST "$SUPABASE_URL/auth/v1/token?grant_type=password" \
 
 **Error responses:** score routes return **400** when `lanes_blocked > total_lanes`
 (`{ "detail": "lanes_blocked cannot exceed total_lanes" }`). `/v1/hotspots` and
-`/v1/stats` return **503** when their JSON dataset is missing. v0.1 uses FastAPI
+`/v1/stats` return **503** when their JSON dataset is missing. Errors use FastAPI
 `{ detail }` bodies, not the platform error envelope.
 
 `incident_type` accepts the public vocabulary (`major_accident`, `minor_accident`,
@@ -102,15 +120,18 @@ curl -X POST http://localhost:5001/v1/score \
 multiplier (max +35%) for incidents near hospitals (exp-decay ≤1.2 km), schools
 (150 m, weekday school hours only), bridges (≤100 m of an OSM `bridge=yes` way),
 and marketplaces (200 m, weekends/dawn), plus a **getaway-eve** boost on working
-days that precede a 3+ day holiday run (`data/sl_holidays_2026.json` — lunar dates
-marked unverified, confirm against the gazette). Pass the optional `date` field
-(ISO 8601) to enable the calendar component.
+days that precede a 3+ day holiday run (`data/sl_holidays_<year>.json`, 2026 and
+2027 — Islamic festival dates marked unverified, confirm after moon sighting). Pass
+the optional `date` field (ISO 8601) to enable the calendar component. A date in a
+year with no file gets no holiday adjustment; `/v1/health` lists the covered years
+in `holiday_calendar_years`, so add the next year's file before it starts.
 
 The base 5-factor score is **unchanged** — the overlay reports `factor` and
 `adjusted_score` separately, per the July 2026 research consensus (overlay, not a
 6th weighted factor, pending SUMO re-validation). POI data: OpenStreetMap via
 `python scripts/download_colombo_poi.py` → `data/poi/colombo_poi.json`; if the
-file is missing the overlay degrades to `factor: 1.0, data_available: false`.
+file is missing or malformed the overlay degrades to `factor: 1.0, data_available: false`
+(a malformed road or holiday file likewise drops only that dataset, logged once).
 
 ## Model & validation
 

@@ -643,6 +643,17 @@ function DispatchCard({
 
 type Stage = "where" | "questions" | "submit" | "done";
 
+/** What the landing page's problem tiles mean, as a starting description. */
+const PROBLEM_PRESETS: Record<string, string> = {
+  start: "The car won't start.",
+  tyre: "Flat tyre.",
+  fuel: "Ran out of fuel.",
+  heat: "Engine overheating or smoking.",
+  lock: "Locked out, the keys are inside the car.",
+  other: "",
+  accident: "Accident: the vehicle needs a tow.",
+};
+
 function ReportFlow() {
   const t = useT();
   const [stage, setStage] = useState<Stage>("where");
@@ -656,6 +667,14 @@ function ReportFlow() {
   const [vehicleId, setVehicleId] = useState<string | null>(null);
   const [plate, setPlate] = useState("");
   const [description, setDescription] = useState("");
+
+  // Arriving from the landing page's "what happened" steps (/report?problem=…):
+  // start the description with what was picked. Plain English, which the
+  // triage reads best; the driver can edit or add to it.
+  useEffect(() => {
+    const preset = PROBLEM_PRESETS[new URLSearchParams(window.location.search).get("problem") ?? ""];
+    if (preset) setDescription((d) => d || preset);
+  }, []);
 
   const loadVehicles = useCallback(() => {
     setVehiclesError(null);

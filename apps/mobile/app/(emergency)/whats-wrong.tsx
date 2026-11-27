@@ -21,6 +21,7 @@
 import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { AmbulanceBar } from "@components/ui/ambulance-call";
 import { HeaderBar } from "@components/ui/header-bar";
 import { Icon, type IconName } from "@components/ui/icon";
 import { Screen } from "@components/ui/screen";
@@ -122,6 +123,8 @@ export default function WhatsWrongScreen() {
           {t("emergency.whatsWrong.subtitle")}
         </Text>
       </View>
+
+      <AmbulanceBar />
 
       <TileGrid tiles={FAST} onPick={choose} delayFrom={0} t={t} />
 

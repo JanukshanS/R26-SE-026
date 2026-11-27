@@ -215,17 +215,20 @@ describe("HTTP behavior and graceful degradation", () => {
 
   it("distinguishes a 503 misconfiguration from an unreachable service", async () => {
     mockFetchJson(503, { detail: "SUPABASE_URL is not configured." });
-    await expect(fetchTrafficImpactScore(MALABE)).resolves.toBe("geo-unavailable");
+    await expect(fetchTrafficImpactScore(MALABE)).resolves.toBe("geo-not-configured");
     expect(vi.mocked(logger.warn).mock.calls.at(-1)?.[0]).toContain("503");
 
-    vi.mocked(fetch).mockRejectedValueOnce(
-      Object.assign(new Error("TimeoutError"), { name: "TimeoutError" }),
-    );
+    vi.mocked(fetch).mockRejectedValueOnce(new Error("ECONNREFUSED"));
     await expect(fetchTrafficImpactScore(MALABE)).resolves.toBeNull();
   });
 
-  it("returns null on fetch timeout", async () => {
+  it("reports geo-timeout on fetch timeout, not an unreachable service", async () => {
     vi.mocked(fetch).mockRejectedValueOnce(Object.assign(new Error("TimeoutError"), { name: "TimeoutError" }));
+    await expect(fetchTrafficImpactScore(MALABE)).resolves.toBe("geo-timeout");
+  });
+
+  it("returns null when geo answers without a numeric score", async () => {
+    mockFetchJson(200, { score: "high" });
     await expect(fetchTrafficImpactScore(MALABE)).resolves.toBeNull();
   });
 

@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import * as Location from 'expo-location';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -39,6 +38,7 @@ import { loadClaimVehicleId, saveClaimVehicleId } from '@/lib/claim-vehicle-stor
 import { getClaimUploadProgressSnapshot, subscribeClaimUploadProgress } from '@/lib/claim-upload-progress-bus';
 import { computeClaimBundleUploadKey, isClaimReportSubmittedLocked } from '@/lib/claim-upload-dedupe';
 import { captureLocationSnapshot } from '@/lib/location-snapshot-store';
+import { ensureLocationOn, exitToHome } from '@/lib/require-location';
 import {
   CAPTURE_ACTION_BLUE_SOFT,
   INSURANCE_BORDER_SOFT,
@@ -440,12 +440,12 @@ export default function InsuranceHomeScreen() {
     }
     setCallingInsurer(true);
     try {
-      try {
-        // Android-only: shows the native "Location Accuracy" dialog when device
-        // location / high-accuracy mode isn't already on. No-op on iOS.
-        await Location.enableNetworkProviderAsync();
-      } catch {
-        // User tapped "No, thanks" (or provider unavailable) — proceed with the call regardless.
+      // Location is required for the whole claim — if it's blocked or switched
+      // off, end the flow instead of calling anyway.
+      const locationStatus = await ensureLocationOn();
+      if (locationStatus !== 'ok') {
+        exitToHome(locationStatus);
+        return;
       }
 
       const existing = await loadInsurerCallMeta();

@@ -165,7 +165,7 @@ const dashboard: Record<string, string> = {
   "dashboard.source.liveTitle": "டிஸ்பேட்ச் சேவையிலிருந்து நேரடி சம்பவங்களைப் பெறுகிறது",
   "dashboard.source.noLiveLabel": "நேரடி அறிக்கைகள் இல்லை",
   "dashboard.source.noLiveTitle": "நேரடி பின்-எண்ட் இல்லை — நிலையான தரவுக் கூட்டத்தை காட்டுகிறது",
-  "dashboard.source.staticLabel": "சேமிக்கப்பட்ட தரவு",
+  "dashboard.source.staticLabel": "ஆஃப் லைன் தரவு",
   "dashboard.source.staticTitle": "ஜியோ API அடைய முடியவில்லை — நிலையான தரவுக் கூட்டத்தை காட்டுகிறது",
   "dashboard.stats.byIncidentType": "சம்பவ வகை வாரியாக சராசரி தாக்கம்",
   "dashboard.stats.byRoadType": "சாலை வகை வாரியாக சராசரி தாக்கம்",

@@ -209,6 +209,11 @@ const insurance: Record<string, string> = {
   "insurance.upload.statusSubmitted": "பிடிக்கப்பட்டு சமர்ப்பிக்கப்பட்டது",
   "insurance.upload.submittedMessage": "உங்கள் கோரிக்கை சமர்ப்பிக்கப்பட்டது. உங்கள் புகைப்படங்களை நாங்கள் சரிபார்த்து வருகின்றோம் — தயாரானதும் உங்களுக்கு அறிவிப்போம்.",
   "insurance.upload.title": "விபத்து விவரங்களைப் பதிவேற்றவும்",
+  "insurance.location.requiredTitle": "இருப்பிடம் (Location) தேவை",
+  "insurance.location.openSettings": "Settings-ஐத் திறக்கவும்",
+  "insurance.location.off": "உங்கள் தொலைபேசியின் இருப்பிடம் (Location) முடக்கப்பட்டுள்ளது. விபத்தைப் புகாரளிக்க அதை இயக்கவும்.",
+  "insurance.location.blocked":
+    "உங்கள் இருப்பிடத்தைப் பயன்படுத்த Kaduna-க்கு அனுமதி இல்லை. விபத்தைப் புகாரளிக்க Settings → Apps → Kaduna → Permissions இல் அனுமதிக்கவும்.",
 };
 
 export default insurance;

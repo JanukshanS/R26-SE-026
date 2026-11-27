@@ -21,23 +21,31 @@ Overlay components (each a bounded additive boost, total capped at +35%):
 * Getaway eve — a working day whose following 3+ days are all non-working
   (a holiday extending a weekend into a long break): outbound leisure traffic
   stacks onto the evening peak; boost 0.10. An ordinary Friday does NOT
-  qualify. Holiday dates load from data/sl_holidays_2026.json.
+  qualify. Holiday dates load from every data/sl_holidays_<year>.json; a date
+  in a year with no file is never treated as a holiday or getaway eve, and the
+  covered years are reported by /v1/health.
 
 POI data loads from data/poi/colombo_poi.json (OpenStreetMap via
-scripts/download_colombo_poi.py). If either data file is missing the overlay
-degrades gracefully to factor 1.0 and flags ``data_available: false``.
+scripts/download_colombo_poi.py). A missing or malformed POI file degrades the
+overlay to factor 1.0 and flags ``data_available: false``; a missing or
+malformed holiday file drops the calendar component. Neither fails the score.
 """
 from __future__ import annotations
 
 import json
+import logging
 import math
 from datetime import date as date_type, timedelta
 from pathlib import Path
 from typing import Optional
 
+logger = logging.getLogger(__name__)
+
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 POI_PATH = DATA_DIR / "poi" / "colombo_poi.json"
-HOLIDAYS_PATH = DATA_DIR / "sl_holidays_2026.json"
+HOLIDAYS_GLOB = "sl_holidays_*.json"
+
+POINT_POI_KINDS = ("hospitals", "schools", "markets")
 
 EARTH_RADIUS_M = 6_371_000.0
 
@@ -68,32 +76,83 @@ def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     return 2 * EARTH_RADIUS_M * math.asin(math.sqrt(a))
 
 
+def _read_poi(path: Path) -> dict:
+    """Parse the POI file down to the fields evaluate() reads, so a malformed
+    entry fails here, once, instead of inside every scoring request."""
+    raw = json.loads(path.read_text())
+    poi = {
+        kind: [
+            {"name": e["name"], "lat": float(e["lat"]), "lng": float(e["lng"])}
+            for e in raw.get(kind, [])
+        ]
+        for kind in POINT_POI_KINDS
+    }
+    poi["bridges"] = [
+        {"name": b["name"], "points": [(float(lat), float(lng)) for lat, lng in b["points"]]}
+        for b in raw.get("bridges", [])
+    ]
+    return poi
+
+
+def _read_holidays(path: Path) -> set[date_type]:
+    raw = json.loads(path.read_text())
+    return {date_type.fromisoformat(h["date"]) for h in raw["holidays"]}
+
+
+def _load_status(loaded: bool, data) -> str:
+    if not loaded:
+        return "not yet loaded"
+    return "loaded" if data is not None else "unavailable"
+
+
 class SensitivityOverlay:
     """Loads POI + holiday data once and scores proximity boosts per incident."""
 
-    def __init__(self, poi_path: Path = POI_PATH, holidays_path: Path = HOLIDAYS_PATH):
+    def __init__(self, poi_path: Path = POI_PATH, holidays_path: Optional[Path] = None):
         self._poi_path = poi_path
         self._holidays_path = holidays_path
         self._poi: Optional[dict] = None
         self._holidays: Optional[set[date_type]] = None
+        self._holiday_years: set[int] = set()
         self._loaded = False
+
+    def _holiday_files(self) -> list[Path]:
+        if self._holidays_path is not None:
+            return [self._holidays_path]
+        return sorted(DATA_DIR.glob(HOLIDAYS_GLOB))
 
     def _load(self) -> None:
         if self._loaded:
             return
         self._loaded = True
         if self._poi_path.exists():
-            self._poi = json.loads(self._poi_path.read_text())
-        if self._holidays_path.exists():
-            raw = json.loads(self._holidays_path.read_text())
-            self._holidays = {
-                date_type.fromisoformat(h["date"]) for h in raw.get("holidays", [])
-            }
+            try:
+                self._poi = _read_poi(self._poi_path)
+            except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+                logger.warning("POI overlay disabled, %s unreadable: %r", self._poi_path, exc)
+        for path in self._holiday_files():
+            if not path.exists():
+                continue
+            try:
+                days = _read_holidays(path)
+            except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+                logger.warning("Holiday file %s skipped, unreadable: %r", path, exc)
+                continue
+            self._holidays = (self._holidays or set()) | days
+            self._holiday_years |= {d.year for d in days}
 
     @property
     def data_available(self) -> bool:
         self._load()
         return self._poi is not None
+
+    def status(self) -> dict:
+        """Load state of each dataset, without triggering a load."""
+        return {
+            "poi": _load_status(self._loaded, self._poi),
+            "holidays": _load_status(self._loaded, self._holidays),
+            "holiday_calendar_years": sorted(self._holiday_years),
+        }
 
     # ── Calendar ─────────────────────────────────────────────────────────────
 
@@ -107,12 +166,17 @@ class SensitivityOverlay:
             return False
         return day in self._holidays
 
+    def covers(self, day: date_type) -> bool:
+        """Whether the calendar holds this date's year. Outside it a holiday is
+        indistinguishable from a working day, so the calendar component is skipped."""
+        self._load()
+        return day.year in self._holiday_years
+
     def is_getaway_eve(self, day: date_type) -> bool:
         """A working day followed by at least three consecutive non-working days
         (holiday-extended weekend) — the evening everyone leaves town. An
         ordinary Friday before a plain two-day weekend does not qualify."""
-        self._load()
-        if self._holidays is None:
+        if not self.covers(day):
             return False
         if self._is_non_working(day):
             return False
@@ -227,7 +291,7 @@ class SensitivityOverlay:
 
         is_holiday = False
         is_getaway = False
-        if incident_date is not None and self._holidays is not None:
+        if incident_date is not None and self.covers(incident_date):
             is_holiday = self.is_holiday(incident_date)
             is_getaway = self.is_getaway_eve(incident_date)
             if is_getaway:

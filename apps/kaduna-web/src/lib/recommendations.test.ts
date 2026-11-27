@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   COVERED_KM,
+  avoidedShare,
   buildRecommendations,
   haversineKm,
   recommendationText,
@@ -24,7 +25,7 @@ const provider = (o: Partial<ProviderPoint> = {}): ProviderPoint => ({
   latitude: 6.9271, longitude: 79.8612, ...o,
 });
 const incident = (o: Partial<IncidentPoint> = {}): IncidentPoint => ({
-  lat: 6.9271, lng: 79.8612, vhl: 20, recoveryMin: 60, ...o,
+  lat: 6.9271, lng: 79.8612, vhl: 20, incidentType: "engine_failure", ...o,
 });
 
 test("haversine matches a known Colombo distance", () => {
@@ -52,10 +53,11 @@ test("a cluster past the cap saves the capped travel time", () => {
   const far = provider({ latitude: 7.4, longitude: 80.4 });
   const [r] = buildRecommendations([hotspot()], [far], [incident()]);
   assert.equal(r.covered, false);
-  // 10 km at 25 km/h is 24 minutes, which is 40% of a 60-minute recovery.
+  // 10 km at 25 km/h is 24 minutes off a 60-minute engine-failure clearance,
+  // which leaves (1 - 0.4)^2 = 36% of the delay and avoids 64% of 20.
   assert.equal(r.minutesSaved, 24);
   assert.equal(r.matchedIncidents, 1);
-  assert.equal(r.vhlSaved, 8);
+  assert.equal(r.vhlSaved, 12.8);
 });
 
 test("no capable unit anywhere is treated as a total gap, not skipped", () => {
@@ -64,15 +66,15 @@ test("no capable unit anywhere is treated as a total gap, not skipped", () => {
     [hotspot()], [provider({ type: "LOCKSMITH" })], [incident()]
   );
   assert.equal(r.nearestKm, null);
-  assert.equal(r.vhlSaved, 8);
+  assert.equal(r.vhlSaved, 12.8);
   assert.match(recommendationText(r), /No mobile mechanic is registered anywhere\./);
 });
 
 test("time saved never sheds more than the whole incident", () => {
   const far = provider({ latitude: 7.4, longitude: 80.4 });
-  // Clears in 10 minutes, so arriving 24 minutes sooner still only avoids the
-  // one incident's worth of delay.
-  const [r] = buildRecommendations([hotspot()], [far], [incident({ recoveryMin: 10 })]);
+  // Runs out of fuel and clears in 20 minutes, so arriving 24 minutes sooner
+  // still only avoids the one incident's worth of delay.
+  const [r] = buildRecommendations([hotspot()], [far], [incident({ incidentType: "fuel_empty" })]);
   assert.equal(r.vhlSaved, 20);
 });
 
@@ -82,7 +84,28 @@ test("a cluster with no incident inside its radius falls back to the average", (
     [hotspot({ count: 12, lat: 7.2, lng: 80.2 })], [far], [incident()]
   );
   assert.equal(r.matchedIncidents, 0);
-  assert.equal(r.vhlSaved, 96);
+  // 12 incidents at the dataset mean of 20, with the cluster's own clearance time.
+  assert.equal(r.vhlSaved, 153.6);
+});
+
+test("the avoided share follows the quadratic queue, on clearance time", () => {
+  assert.equal(avoidedShare(0, 60), 0);
+  assert.equal(avoidedShare(30, 60), 0.75);
+  assert.equal(avoidedShare(60, 60), 1);
+  assert.equal(avoidedShare(90, 60), 1);
+  // A major accident blocks for 120 minutes, so 24 minutes sooner avoids
+  // 1 - 0.8^2 = 36% of it, not a share of the queue's drain time.
+  assert.ok(Math.abs(avoidedShare(24, 120) - 0.36) < 1e-12);
+});
+
+test("each incident is costed on its own clearance time", () => {
+  const far = provider({ latitude: 7.4, longitude: 80.4 });
+  const [r] = buildRecommendations(
+    [hotspot()], [far],
+    [incident(), incident({ incidentType: "accident_major" })]
+  );
+  // 20 * 0.64 for the engine failure plus 20 * 0.36 for the major accident.
+  assert.equal(r.vhlSaved, 20);
 });
 
 test("busier and worse-served clusters rank first", () => {

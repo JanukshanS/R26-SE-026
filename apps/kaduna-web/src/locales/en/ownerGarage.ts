@@ -1,0 +1,56 @@
+/** The vehicle owner's garage visits, booking a garage and the vehicle switcher — en. Flat map of fully-qualified key → string. */
+const ownerGarage: Record<string, string> = {
+  "me.tab.garage": "Garage visits",
+  "me.sub.garage": "Repairs and bookings at any garage on Kaduna.",
+  "me.switcher.label": "Showing",
+
+  "me.garage.thisCar": "This car",
+  "me.garage.allCars": "All my cars",
+  "me.garage.atGarage": "At the garage now",
+  "me.garage.noneActive": "Not at a garage right now",
+  "me.garage.noneActiveBody": "When any garage on Kaduna opens a job for this car, you'll follow it here as it happens: status, approvals and the bill.",
+  "me.garage.noVehicles": "Add your car under Vehicles. Garages that work on it then show up here.",
+  "me.garage.mechanic": "with {{name}}",
+  "me.garage.approvals_one": "{{count}} recommended job needs your OK",
+  "me.garage.approvals_other": "{{count}} recommended jobs need your OK",
+  "me.garage.ready": "Ready to collect",
+  "me.garage.paid": "paid",
+  "me.garage.toPay": "to pay",
+  "me.garage.follow": "Follow the job",
+  "me.garage.call": "Call",
+  "me.garage.upcoming": "Upcoming bookings",
+  "me.garage.noBookings": "No bookings",
+  "me.garage.noBookingsBody": "Book a service at any garage that takes online bookings.",
+  "me.garage.history": "Past visits",
+  "me.garage.cancel": "Cancel booking",
+  "me.garage.cancelConfirm": "Cancel this booking? The garage will be told.",
+
+  "me.garage.book": "Book a garage",
+  "me.garage.search": "Search garages by name or area",
+  "me.garage.noGarages": "No garages taking bookings yet",
+  "me.garage.noMatch": "No garages match",
+  "me.garage.noGaragesBody": "Garages appear here once they turn on online booking in their Kaduna garage system.",
+  "me.garage.otherGarage": "Another garage",
+  "me.garage.service": "What do you need?",
+  "me.garage.servicePlaceholder": "e.g. Full service, brake noise",
+  "me.garage.day": "Day",
+  "me.garage.time": "Time",
+  "me.garage.noSlots": "No free times in the next two weeks. Call the garage instead.",
+  "me.garage.yourName": "Your name",
+  "me.garage.notes": "Anything the garage should know",
+  "me.garage.notesPlaceholder": "e.g. Squeaking when braking, AC not cold",
+  "me.garage.pickTime": "Pick a time",
+  "me.garage.confirm": "Book {{when}}",
+
+  "me.alert.carReady": "Your {{vehicle}} is ready",
+  "me.alert.carReadyBody": "Collect it from {{garage}}",
+  "me.overview.atGarageNow": "At {{garage}}",
+  "me.quick.bookBody": "Any garage with online booking",
+
+  // The garage's side
+  "garage.book.listed": "Show in the Kaduna app",
+  "garage.book.listedHint": "Drivers can find your garage and book from their Kaduna dashboard, as well as through your link.",
+  "garage.job.ownerFollows": "Kaduna member: follows this job in their app",
+};
+
+export default ownerGarage;

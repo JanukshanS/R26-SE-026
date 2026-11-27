@@ -9,7 +9,7 @@
 # at the VPS, deploys set BASE_DOMAIN=<dashed-ip>.sslip.io, which resolves to
 # the server automatically and still gets real Let's Encrypt certificates.
 #
-# DNS: point A records for dispatch, geo, predict and claims at the VPS IP,
+# DNS: point A records for dispatch, geo, predict, claims, garage and parts at the VPS IP,
 # then drop BASE_DOMAIN from .env to go back to the default.
 
 {
@@ -43,4 +43,16 @@ predict.{$BASE_DOMAIN:kaduna.lk} {
 claims.{$BASE_DOMAIN:kaduna.lk} {
 	import common
 	reverse_proxy claims-privacy:8000
+}
+
+garage.{$BASE_DOMAIN:kaduna.lk} {
+	import common
+	# Service-to-service only (the parts service, over the private network).
+	respond /internal/* 404
+	reverse_proxy garage-management:3002
+}
+
+parts.{$BASE_DOMAIN:kaduna.lk} {
+	import common
+	reverse_proxy parts-management:3003
 }

@@ -9,10 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
-import { calculateImpactScore } from "@/lib/scoring";
+import { calculateImpactScore, clearanceMinutes, priorityFor } from "@/lib/scoring";
+import { colomboTime } from "@/lib/colomboTime";
 import { scoreAtLocation, type AdHocScore } from "@/lib/geoScore";
 import { useT } from "@/lib/i18n";
-import type { ModelConfig, WhatIfInput } from "@/lib/types";
+import type { WhatIfInput } from "@/lib/types";
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), { ssr: false });
 
@@ -26,15 +27,15 @@ const ROAD_TYPES = ["motorway", "trunk", "primary", "secondary", "tertiary", "re
  * not having a bespoke entry is bounded. Durations are literature-anchored and
  * are the numbers the police session was asked to correct.
  */
-const INCIDENT_TYPES: Array<{ value: string; labelKey: string; clearMin: number }> = [
-  { value: "accident_major", labelKey: "dashboard.incidentType.accidentMajor", clearMin: 120 },
-  { value: "engine_failure", labelKey: "dashboard.incidentType.engineFailure", clearMin: 60 },
-  { value: "accident_minor", labelKey: "dashboard.incidentType.accidentMinor", clearMin: 45 },
-  { value: "overheating", labelKey: "dashboard.incidentType.overheating", clearMin: 40 },
-  { value: "flat_tire", labelKey: "dashboard.incidentType.flatTyre", clearMin: 30 },
-  { value: "battery_dead", labelKey: "dashboard.incidentType.flatBattery", clearMin: 25 },
-  { value: "fuel_empty", labelKey: "dashboard.incidentType.outOfFuel", clearMin: 20 },
-  { value: "other", labelKey: "dashboard.incidentType.other", clearMin: 45 },
+const INCIDENT_TYPES: Array<{ value: string; labelKey: string }> = [
+  { value: "accident_major", labelKey: "dashboard.incidentType.accidentMajor" },
+  { value: "engine_failure", labelKey: "dashboard.incidentType.engineFailure" },
+  { value: "accident_minor", labelKey: "dashboard.incidentType.accidentMinor" },
+  { value: "overheating", labelKey: "dashboard.incidentType.overheating" },
+  { value: "flat_tire", labelKey: "dashboard.incidentType.flatTyre" },
+  { value: "battery_dead", labelKey: "dashboard.incidentType.flatBattery" },
+  { value: "fuel_empty", labelKey: "dashboard.incidentType.outOfFuel" },
+  { value: "other", labelKey: "dashboard.incidentType.other" },
 ];
 const DAYS = [
   "dashboard.day.mon",
@@ -67,7 +68,7 @@ const titled = (s: string) => s.replace(/_/g, " ");
  * recompute as controls move — there is no submit step, so the panel reads as
  * a live instrument rather than a form.
  */
-export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
+export default function WhatIfSimulator() {
   const t = useT();
   const [input, setInput] = useState<WhatIfInput>({
     roadType: "primary",
@@ -92,7 +93,6 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
     }
     let cancelled = false;
     setAsking(true);
-    const today = new Date();
     scoreAtLocation({
       latitude: pin.latitude,
       longitude: pin.longitude,
@@ -101,7 +101,7 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
       lanesBlocked: input.lanesBlocked,
       hour: input.hour,
       dayOfWeek: input.dayOfWeek,
-      date: today.toISOString().slice(0, 10),
+      date: colomboTime(new Date()).date,
     }).then((r) => {
       if (cancelled) return;
       setLive(r);
@@ -112,17 +112,19 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
     };
   }, [pin, input]);
 
-  const result = useMemo(() => calculateImpactScore(input, model), [input, model]);
+  const result = useMemo(() => calculateImpactScore(input), [input]);
   const blocked = Math.min(input.lanesBlocked, input.totalLanes);
 
   // With a pin the service is authoritative: it resolved the road under the
   // point and applied the sensitive-location overlay, neither of which the
-  // in-browser model can do.
+  // in-browser model can do. The band follows the score shown, so an overlay
+  // that lifts the score lifts the band with it.
   const usingService = Boolean(pin && live);
+  const liveScore = live?.sensitivity?.adjusted_score ?? live?.score ?? 0;
   const shown = usingService
     ? {
-        score: live!.sensitivity?.adjusted_score ?? live!.score,
-        priority: live!.priority as string,
+        score: liveScore,
+        priority: priorityFor(liveScore) as string,
         queueKm: live!.prediction.queue_km ?? 0,
         vhl: live!.prediction.vehicle_hours_lost ?? 0,
         recoveryMin: live!.prediction.recovery_min ?? 0,
@@ -178,7 +180,7 @@ export default function WhatIfSimulator({ model }: { model: ModelConfig }) {
                 <SelectItem key={it.value} value={it.value}>
                   {t(it.labelKey)}
                   <span className="ml-1.5 text-muted-foreground">
-                    {t("dashboard.whatIf.clearMin", { minutes: it.clearMin })}
+                    {t("dashboard.whatIf.clearMin", { minutes: clearanceMinutes(it.value) })}
                   </span>
                 </SelectItem>
               ))}

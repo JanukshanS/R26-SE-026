@@ -165,7 +165,7 @@ const dashboard: Record<string, string> = {
   "dashboard.source.liveTitle": "සැකසුම් සේවයෙන් සජීවී සිදුවීම් ලැබෙමින්",
   "dashboard.source.noLiveLabel": "සජීවී වාර්තා නැත",
   "dashboard.source.noLiveTitle": "සජීවී backend නැත — ස්ථිතික දත්ත පෙන්වයි",
-  "dashboard.source.staticLabel": "සුරැකිය දත්ත",
+  "dashboard.source.staticLabel": "Offline දත්ත",
   "dashboard.source.staticTitle": "Geo API නොපැමිණි — ස්ථිතික දත්ත පෙන්වයි",
   "dashboard.stats.byIncidentType": "සිදුවීම් වර්ගය අනුව සාමාන්‍ය බලපෑම",
   "dashboard.stats.byRoadType": "මාර්ග වර්ගය අනුව සාමාන්‍ය බලපෑම",

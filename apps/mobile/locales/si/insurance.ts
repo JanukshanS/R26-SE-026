@@ -209,6 +209,11 @@ const insurance: Record<string, string> = {
   "insurance.upload.statusSubmitted": "\ග\ත\්\ත\ා \ස\හ \ඉ\ද\ි\ර\ි\ප\ත\් \ක\ර \ඇ\ත",
   "insurance.upload.submittedMessage": "\ඔ\බ\ේ \ප\්\‍\ර\ත\ි\ඥ\ා\ව \ඉ\ද\ි\ර\ි\ප\ත\් \ක\ර \ඇ\ත. \අ\ප\ි \ඔ\බ\ේ \ඡ\ා\ය\ා\ර\ූ\ප \ස\ත\්\‍\ය\ා\ප\න\ය \ක\ර\ම\ි\න\් \ස\ි\ට\ි\ම\ු \— \ස\ූ\ද\ා\න\ම\් \ව\ූ \ව\ි\ග\ස \ඔ\බ\ට \ද\ැ\න\ු\ම\් \ද\ෙ\න\්\න\ෙ\ම\ු.",
   "insurance.upload.title": "\අ\න\ත\ු\ර\ු \ව\ි\ස\්\ත\ර \උ\ඩ\ු\ග\ත \ක\ර\න\්\න",
+  "insurance.location.requiredTitle": "ස්ථානය (Location) අවශ්‍යයි",
+  "insurance.location.openSettings": "Settings විවෘත කරන්න",
+  "insurance.location.off": "ඔබේ දුරකථනයේ ස්ථානය (Location) අක්‍රිය කර ඇත. අනතුරක් වාර්තා කිරීමට එය සක්‍රිය කරන්න.",
+  "insurance.location.blocked":
+    "Kaduna හට ඔබේ ස්ථානය භාවිත කිරීමට ඉඩ නැත. අනතුරක් වාර්තා කිරීමට Settings → Apps → Kaduna → Permissions හි ඉඩ දෙන්න.",
 };
 
 export default insurance;

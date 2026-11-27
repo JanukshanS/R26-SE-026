@@ -40,10 +40,13 @@ from __future__ import annotations
 
 import gzip
 import json
+import logging
 import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "roads" / "colombo_roads.json.gz"
 
@@ -125,22 +128,31 @@ class RoadNetwork:
             with opener(self._path, "rt", encoding="utf-8") as fh:  # type: ignore[operator]
                 doc = json.load(fh)
             ways = doc.get("ways") or []
-        except (OSError, ValueError, json.JSONDecodeError):
+            # Precompute each way's bounding box once; the query prefilter is four
+            # float comparisons per way, which is what keeps the brute-force scan cheap.
+            for way in ways:
+                lats = [p[0] for p in way["g"]]
+                lngs = [p[1] for p in way["g"]]
+                way["bb"] = (min(lats), max(lats), min(lngs), max(lngs))
+                if not isinstance(way["c"], str):
+                    raise TypeError("way without a road class")
+        except (OSError, ValueError, KeyError, IndexError, TypeError, AttributeError) as exc:
+            logger.warning("Road index disabled, %s unreadable: %r", self._path, exc)
             self._ways = None
             return
-
-        # Precompute each way's bounding box once; the query prefilter is four
-        # float comparisons per way, which is what keeps the brute-force scan cheap.
-        for way in ways:
-            lats = [p[0] for p in way["g"]]
-            lngs = [p[1] for p in way["g"]]
-            way["bb"] = (min(lats), max(lats), min(lngs), max(lngs))
         self._ways = ways or None
 
     @property
     def available(self) -> bool:
         self._load()
         return bool(self._ways)
+
+    @property
+    def status(self) -> str:
+        """Load state for /v1/health, without triggering a load."""
+        if not self._loaded:
+            return "not yet loaded"
+        return "loaded" if self._ways else "unavailable"
 
     @property
     def way_count(self) -> int:
