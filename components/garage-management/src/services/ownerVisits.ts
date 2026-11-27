@@ -126,7 +126,7 @@ export async function visitsFor(db: Db, owned: OwnedVehicle[], now = new Date())
 
 // ─── Finding a garage to book ───────────────────────────────────────────────
 
-const isListed = (g: { bookingToken: string | null; bookingSettings: Prisma.JsonValue }) => {
+export const isListed = (g: { bookingToken: string | null; bookingSettings: Prisma.JsonValue }) => {
   if (!g.bookingToken) return false;
   const s = readSettings(g);
   return s.enabled && s.listed;

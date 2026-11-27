@@ -35,6 +35,8 @@ export default function DriverLayout() {
         */}
         <Stack.Screen name="home" options={{ animation: "fade" }} />
         <Stack.Screen name="profile" options={{ animation: "fade" }} />
+        <Stack.Screen name="garages" options={{ animation: "fade" }} />
+        <Stack.Screen name="parts" options={{ animation: "fade" }} />
         <Stack.Screen name="auth" />
         <Stack.Screen name="manage-vehicles" />
 

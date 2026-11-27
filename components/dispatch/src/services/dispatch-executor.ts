@@ -9,7 +9,8 @@
 import { prisma } from '../utils/prisma';
 import { argmaxServiceType } from './bayesian-engine';
 import { logger } from '../utils/logger';
-import { runDispatchOptimizer, ECMProvider } from './dispatch-optimizer';
+import { config } from '../config';
+import { haversineDistanceKm, runDispatchOptimizer, ECMProvider } from './dispatch-optimizer';
 import { fetchTrafficImpactScore } from './geo-client';
 import { ServiceTypeProbabilities, ServiceType } from '../types';
 
@@ -126,6 +127,8 @@ export async function executeDispatch(params: ExecuteDispatchParams): Promise<Ex
   });
   const unavailableIds = Array.from(new Set([
     ...excludeProviderIds,
+    // Review/demo accounts stay out of real dispatch (DISPATCH_EXCLUDED_PROVIDER_IDS).
+    ...config.dispatch.excludedProviderIds,
     ...busy.map((i) => i.assignedProviderId as string),
   ]));
 
@@ -150,7 +153,7 @@ export async function executeDispatch(params: ExecuteDispatchParams): Promise<Ex
     incident.triageResponse.probabilities as unknown as ServiceTypeProbabilities,
   ).serviceType;
 
-  const dbProviders = await prisma.provider.findMany({
+  const candidates = await prisma.provider.findMany({
     where: {
       status: 'AVAILABLE',
       capabilities: { has: predicted },
@@ -158,6 +161,17 @@ export async function executeDispatch(params: ExecuteDispatchParams): Promise<Ex
     },
     take: maxProviders,
   });
+
+  // Out of range is not a candidate either: a provider 150 km away is not help
+  // for a driver stranded in Colombo, and escalating to ops is the honest outcome.
+  const maxKm = config.dispatch.maxDistanceKm;
+  const incidentPoint = { latitude: incident.latitude, longitude: incident.longitude };
+  const dbProviders = maxKm > 0
+    ? candidates.filter((p) => haversineDistanceKm(incidentPoint, { latitude: p.latitude, longitude: p.longitude }) <= maxKm)
+    : candidates;
+  if (candidates.length > 0 && dbProviders.length === 0) {
+    logger.warn('Capable providers exist but all are out of range', { incidentId, predictedServiceType: predicted, maxDistanceKm: maxKm, capable: candidates.length });
+  }
 
   if (dbProviders.length === 0) {
     // Nobody in the fleet can do this job right now. Escalating is the honest

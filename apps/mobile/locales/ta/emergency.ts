@@ -166,6 +166,8 @@ const emergency: Record<string, string> = {
   "emergency.engineState.startsRoughTitle": "தொடங்குகிறது ஆனால் மோசமாக இயங்குகிறது",
   "emergency.error.withCode": "{{message}} ({{status}})",
   "emergency.error.withStatus": "{{message}} (HTTP {{status}})",
+  "emergency.error.noLocation": "உங்கள் இருப்பிடத்தைப் பெற முடியவில்லை. இருப்பிடத்தை (GPS) இயக்கி, Kaduna அதைப் பயன்படுத்த அனுமதித்து, மீண்டும் முயற்சிக்கவும். அவசரநிலையில் 1990 ஐ அழைக்கவும்.",
+  "emergency.error.noLocationTitle": "இருப்பிடம் தேவை",
   "emergency.gearDetail.clutchSoftDesc": "கிளட்ச் ஹைட்ராலிக் செயலிழப்பு",
   "emergency.gearDetail.clutchSoftTitle": "கிளட்ச் பேடல் மென்மையானது / தரையில் கீழே விழுகிறது",
   "emergency.gearDetail.grindingDesc": "சின்க்ரோஸ் தேய்ந்துவிட்டது / கிளட்ச் வெளியேறவில்லை",

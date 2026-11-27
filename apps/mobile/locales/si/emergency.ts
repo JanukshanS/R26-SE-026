@@ -166,6 +166,8 @@ const emergency: Record<string, string> = {
   "emergency.engineState.startsRoughTitle": "ඇරඹුණි නමුත් මැදිවීම් ඇතිවේ",
   "emergency.error.withCode": "{{message}} ({{status}})",
   "emergency.error.withStatus": "{{message}} (HTTP {{status}})",
+  "emergency.error.noLocation": "ඔබගේ ස්ථානය ලබා ගැනීමට නොහැකි විය. ස්ථාන (GPS) සක්‍රිය කර, Kaduna හට එය භාවිත කිරීමට ඉඩ දී, නැවත උත්සාහ කරන්න. හදිසි අවස්ථාවකදී 1990 අමතන්න.",
+  "emergency.error.noLocationTitle": "ස්ථානය අවශ්‍යයි",
   "emergency.gearDetail.clutchSoftDesc": "ක්ලච් හයිඩ්‍රොලික් අසාර්ථකවීම",
   "emergency.gearDetail.clutchSoftTitle": "ක්ලච් පෑඩල් මෘදු / පහළට යයි",
   "emergency.gearDetail.grindingDesc": "සින්ක්‍රෝස් නිරාවරණය / ක්ලච් ඉවත් නොවීම",

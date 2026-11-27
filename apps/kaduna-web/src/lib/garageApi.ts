@@ -822,3 +822,18 @@ export type HeldInput = { name: string; quantity?: number; customerId?: string |
 export const listHeldParts = (status?: HeldStatus | "open") => get<HeldPart[]>(`/api/v1/held-parts${qs({ status })}`);
 export const createHeldPart = (input: HeldInput) => send<HeldPart>("POST", "/api/v1/held-parts", input);
 export const updateHeldPart = (id: string, input: Partial<HeldInput> & { status?: HeldStatus }) => send<HeldPart>("PATCH", `/api/v1/held-parts/${id}`, input);
+
+// ─── Calls to garages (admin) ────────────────────────────────────────────
+
+export interface GarageCallStats {
+  from: string;
+  to: string;
+  total: number;
+  uniqueCallers: number;
+  garagesCalled: number;
+  byGarage: { garageId: string; name: string | null; phone: string | null; address: string | null; calls: number; lastCallAt: string | null }[];
+  byDay: { date: string; calls: number }[];
+  recent: { id: string; garageId: string; garageName: string; userId: string; source: string; phone: string | null; createdAt: string }[];
+}
+/** Kaduna administrators only. Days are YYYY-MM-DD (UTC), both inclusive. */
+export const getGarageCallStats = (from?: string, to?: string) => get<GarageCallStats>(`/api/v1/admin/garage-calls${qs({ from, to })}`);

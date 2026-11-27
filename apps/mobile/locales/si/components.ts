@@ -28,6 +28,8 @@ const components: Record<string, string> = {
   "components.nav.maintenance": "නඩත්තුව",
   "components.nav.profile": "පැතිකඩ",
   "components.nav.store": "වෙළඳසැල",
+  "components.nav.garages": "ගරාජ",
+  "components.nav.parts": "අමතර කොටස්",
   "components.obd.live": "සජීවී ELM327",
   "components.obd.simulated": "ආදර්ශිත OBD-II",
   "components.simTrips.allFailed": "සියලුම ගමන්වාර අප්ලෝඩ් කිරීම අසාර්ථක විය.",

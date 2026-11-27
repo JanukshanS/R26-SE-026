@@ -33,7 +33,7 @@ import { haptics } from "@lib/haptics";
 import {
   createIncident, submitTriage, runDispatch, DispatchApiError,
 } from "@lib/dispatchApi";
-import { getCurrentDriverLocation } from "@lib/driverLocation";
+import { getDispatchLocation, LocationUnavailableError } from "@lib/driverLocation";
 import { useT } from "@lib/i18n";
 
 function buildFastPathDefaults() {
@@ -97,7 +97,7 @@ export default function QuickDispatchScreen() {
     inFlightRef.current = true;
     setError(null);
     try {
-      const driver = await getCurrentDriverLocation();
+      const driver = await getDispatchLocation();
       let id = incidentIdRef.current;
       if (!id) {
         const incident = await createIncident({
@@ -134,9 +134,11 @@ export default function QuickDispatchScreen() {
       router.replace("/(emergency)/connected");
     } catch (err) {
       if (!mounted.current) return;
-      const msg = err instanceof DispatchApiError
-        ? t("emergency.error.withStatus", { message: err.message, status: err.status })
-        : (err as Error).message;
+      const msg = err instanceof LocationUnavailableError
+        ? t("emergency.error.noLocation")
+        : err instanceof DispatchApiError
+          ? t("emergency.error.withStatus", { message: err.message, status: err.status })
+          : (err as Error).message;
       haptics.error();
       setError(msg);
     } finally {

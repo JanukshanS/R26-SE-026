@@ -12,7 +12,7 @@ import cors from 'cors';
 import express, { RequestHandler } from 'express';
 import helmet from 'helmet';
 
-import { authenticate, ownerOnly, ownerWrites, requireGarage, requireProviderAccount } from './middleware/auth';
+import { authenticate, ownerOnly, ownerWrites, requireGarage, requireOps, requireProviderAccount } from './middleware/auth';
 import { appointmentRouter } from './routes/appointment.routes';
 import { bookingSettingsRouter, publicBookingRouter } from './routes/booking.routes';
 import { customerRouter, vehicleRouter } from './routes/customer.routes';
@@ -20,6 +20,7 @@ import { garageRouter } from './routes/garage.routes';
 import { dashboardRouter, invoiceRouter } from './routes/invoice.routes';
 import { inspectionRouter, jobRouter } from './routes/job.routes';
 import { assetRouter } from './routes/asset.routes';
+import { adminRouter, callRouter } from './routes/call.routes';
 import { heldRouter } from './routes/held.routes';
 import { partRouter } from './routes/part.routes';
 import { locationRouter, purchaseOrderRouter, stockCountRouter } from './routes/stock.routes';
@@ -63,6 +64,8 @@ export function createApp(opts: { authenticate?: RequestHandler } = {}) {
   v1.use('/repairs', repairsRouter);
   v1.use('/staff/join', joinRouter);
   v1.use('/my', ownerRouter);
+  v1.use('/garage-calls', callRouter);
+  v1.use('/admin', requireOps, adminRouter);
   v1.use('/garage', requireProviderAccount, garageRouter);
   // Everything below acts for the caller's garage.
   v1.use(requireGarage);

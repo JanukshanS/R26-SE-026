@@ -45,6 +45,12 @@ export const config = {
   dispatch: {
     /** Provider acceptance timeout in seconds */
     timeoutSeconds: parseInt(process.env.DISPATCH_TIMEOUT_SECONDS || '120', 10),
+    /** Never offer a job to a provider further than this from the incident (km). 0 = no limit.
+     *  A provider 150 km away is not help; escalating is more honest than sending them. */
+    maxDistanceKm: Math.max(0, parseFloat(process.env.DISPATCH_MAX_DISTANCE_KM || '50') || 0),
+    /** Provider ids that must never receive real jobs, e.g. store-review and demo accounts
+     *  (comma-separated). They can still sign in and use the app. */
+    excludedProviderIds: (process.env.DISPATCH_EXCLUDED_PROVIDER_IDS || '').split(',').map((s) => s.trim()).filter(Boolean),
     /** Pool /dispatch/optimize requests this long and serve the highest geo impact first. 0 = off. Keep <= 7000: the mobile app aborts at 10 s. */
     batchWindowMs: Math.max(0, parseInt(process.env.DISPATCH_BATCH_WINDOW_MS || '0', 10) || 0),
 

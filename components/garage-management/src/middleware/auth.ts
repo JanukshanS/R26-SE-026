@@ -34,6 +34,8 @@ declare global {
     interface Request {
       userId?: string;
       providerId?: string;
+      /** profiles.role: 'ops' is a Kaduna administrator. */
+      platformRole?: string;
       authToken?: string;
       garage?: Garage;
       role?: 'OWNER' | 'MECHANIC';
@@ -84,21 +86,23 @@ function verify(token: string): Promise<string> {
 
 const PROVIDER_CACHE_TTL_MS = 60_000;
 const NO_PROVIDER_CACHE_TTL_MS = 10_000;
-const providerCache = new Map<string, { providerId: string | null; expiresAt: number }>();
+type ProfileLink = { providerId: string | null; role: string | null };
+const providerCache = new Map<string, ProfileLink & { expiresAt: number }>();
 
-async function lookupProviderId(userId: string, token: string): Promise<string | null> {
+async function lookupProfile(userId: string, token: string): Promise<ProfileLink> {
   const cached = providerCache.get(userId);
-  if (cached && cached.expiresAt > Date.now()) return cached.providerId;
-  const url = `${config.supabaseUrl}/rest/v1/profiles?select=provider_id&id=eq.${encodeURIComponent(userId)}`;
+  if (cached && cached.expiresAt > Date.now()) return { providerId: cached.providerId, role: cached.role };
+  const url = `${config.supabaseUrl}/rest/v1/profiles?select=provider_id,role&id=eq.${encodeURIComponent(userId)}`;
   const response = await fetch(url, {
     headers: { apikey: config.supabaseAnonKey, Authorization: `Bearer ${token}` },
     signal: AbortSignal.timeout(3000),
   });
   if (!response.ok) throw new Error(`profile lookup HTTP ${response.status}`);
-  const rows = (await response.json()) as { provider_id?: string | null }[];
+  const rows = (await response.json()) as { provider_id?: string | null; role?: string | null }[];
   const providerId = rows?.[0]?.provider_id ?? null;
-  providerCache.set(userId, { providerId, expiresAt: Date.now() + (providerId ? PROVIDER_CACHE_TTL_MS : NO_PROVIDER_CACHE_TTL_MS) });
-  return providerId;
+  const role = rows?.[0]?.role ?? null;
+  providerCache.set(userId, { providerId, role, expiresAt: Date.now() + (providerId || role === 'ops' ? PROVIDER_CACHE_TTL_MS : NO_PROVIDER_CACHE_TTL_MS) });
+  return { providerId, role };
 }
 
 /**
@@ -132,7 +136,9 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   }
   let providerId: string | null;
   try {
-    providerId = await lookupProviderId(req.userId, token);
+    const profile = await lookupProfile(req.userId, token);
+    providerId = profile.providerId;
+    req.platformRole = profile.role ?? undefined;
   } catch (err) {
     logger.warn(`Provider lookup failed: ${(err as Error).message}`);
     deny(res, 502, 'Could not verify your provider account');
@@ -201,3 +207,12 @@ export function ownerWrites(req: Request, res: Response, next: NextFunction): vo
 
 /** Who to credit on the job timeline: the mechanic's name, or null for the owner ("the workshop"). */
 export const authorOf = (req: Request): string | null => (req.role === 'MECHANIC' ? req.staff?.name ?? null : null);
+
+/** Kaduna administrators only (profiles.role = 'ops'): platform-wide figures such as garage call counts. */
+export function requireOps(req: Request, res: Response, next: NextFunction): void {
+  if (req.platformRole !== 'ops') {
+    deny(res, 403, 'Only Kaduna administrators can see this');
+    return;
+  }
+  next();
+}

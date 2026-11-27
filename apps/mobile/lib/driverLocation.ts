@@ -117,3 +117,36 @@ export async function getCurrentDriverLocation(
     return FALLBACK_LOCATION;
   }
 }
+
+/** Thrown when an SOS cannot get a real GPS fix. Screens show `emergency.error.noLocation`. */
+export class LocationUnavailableError extends Error {
+  constructor() {
+    super("We couldn't get your location. Turn on location (GPS), allow Kaduna to use it, and try again.");
+    this.name = "LocationUnavailableError";
+  }
+}
+
+/**
+ * The driver's real position, for filing a roadside request.
+ *
+ * Unlike getCurrentDriverLocation this never returns FALLBACK_LOCATION: a
+ * request filed at the Colombo centroid sends a tow truck to the wrong place
+ * with nothing on screen to say so. If there is no fix it asks once for
+ * permission / to switch location on (the Android system dialog), tries
+ * again, and otherwise throws LocationUnavailableError so the screen can tell
+ * the driver what to fix (and offer 1990).
+ */
+export async function getDispatchLocation(): Promise<DriverLocation> {
+  const first = await getCurrentDriverLocation();
+  if (first.isReal) return first;
+  try {
+    // Lazy: require-location pulls in expo-router, which this module must not need at import time.
+    const { ensureLocationOn } = await import("./require-location");
+    await ensureLocationOn();
+  } catch {
+    // No prompt available (web, old OS): the fresh read below decides.
+  }
+  const second = await getCurrentDriverLocation({ forceFresh: true });
+  if (second.isReal) return second;
+  throw new LocationUnavailableError();
+}

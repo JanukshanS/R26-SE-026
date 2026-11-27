@@ -372,3 +372,14 @@ export const heldInput = z.object({
 });
 export const heldPatch = heldInput.partial().extend({ status: z.enum(['HELD', 'FITTED', 'RETURNED']).optional() });
 export const heldQuery = z.object({ status: z.enum(['HELD', 'FITTED', 'RETURNED', 'open']).optional(), q: z.string().trim().max(100).optional() });
+
+// ─── Calls to garages ───────────────────────────────────────────────────────
+
+export const callInput = z.object({
+  garageId: id,
+  source: z.enum(['app', 'web']).default('app').describe('Where the call was started'),
+});
+export const callStatsQuery = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional().describe('First day (UTC). Defaults to 30 days before `to`'),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional().describe('Last day (UTC), inclusive. Defaults to now'),
+});

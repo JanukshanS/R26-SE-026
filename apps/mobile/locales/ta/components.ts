@@ -28,6 +28,8 @@ const components: Record<string, string> = {
   "components.nav.maintenance": "பராமரிப்பு",
   "components.nav.profile": "சுயவிவரம்",
   "components.nav.store": "கடை",
+  "components.nav.garages": "கேரேஜ்கள்",
+  "components.nav.parts": "உதிரிபாகங்கள்",
   "components.obd.live": "Live ELM327",
   "components.obd.simulated": "Simulated OBD-II",
   "components.simTrips.allFailed": "ஒவ்வொரு பயணமும் பதிவேற்றத்தை தவறியது.",

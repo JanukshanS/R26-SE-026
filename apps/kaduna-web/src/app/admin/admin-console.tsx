@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import PortalShell, { EmptyCard } from "@/components/portal/PortalShell";
 import { GaragesTab, PartsTab } from "@/app/admin/marketplace-tabs";
+import { CallsTab } from "@/app/admin/calls-tab";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -20,12 +21,13 @@ import { supabase } from "@/lib/supabase";
 import { CompaniesTab } from "@/components/insurer/admin/CompaniesTab";
 import { API_BASE } from "@/lib/insurer/api";
 
-const TAB_LABELS = ["Users", "Providers", "Parts", "Garages", "Insurers"] as const;
+const TAB_LABELS = ["Users", "Providers", "Calls", "Parts", "Garages", "Insurers"] as const;
 type Tab = (typeof TAB_LABELS)[number];
 
 const TAB_KEYS: Record<Tab, string> = {
   Users: "admin.tabs.users",
   Providers: "admin.tabs.providers",
+  Calls: "admin.tabs.calls",
   Parts: "admin.tabs.parts",
   Garages: "admin.tabs.garages",
   Insurers: "admin.tabs.insurers",
@@ -745,6 +747,8 @@ export default function AdminConsole() {
           reload={loadProviders}
           profiles={profiles}
         />
+      ) : tab === "Calls" ? (
+        <CallsTab />
       ) : tab === "Parts" ? (
         <PartsTab />
       ) : tab === "Garages" ? (

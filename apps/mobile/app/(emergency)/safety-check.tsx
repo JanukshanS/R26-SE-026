@@ -15,7 +15,7 @@ import { useVehicleOptional } from "@lib/vehicleContext";
 import { getAccessToken } from "@lib/capture-api";
 import { haptics } from "@lib/haptics";
 import { createIncident, submitTriage, runDispatch, DispatchApiError } from "@lib/dispatchApi";
-import { getCurrentDriverLocation } from "@lib/driverLocation";
+import { getCurrentDriverLocation, getDispatchLocation, LocationUnavailableError } from "@lib/driverLocation";
 import { useT } from "@lib/i18n";
 
 type Choice = "CRASH" | "MINOR" | "NONE" | null;
@@ -95,7 +95,7 @@ export default function SafetyCheckScreen() {
     setCtxLoading(true);
     setError(null);
     try {
-      const driver = await getCurrentDriverLocation();
+      const driver = await getDispatchLocation();
       // Resume rather than restart: a retry after a failed dispatch must not
       // file a second incident (and a second triage) for the same accident.
       let id = crashIncidentIdRef.current;
@@ -146,9 +146,11 @@ export default function SafetyCheckScreen() {
 
       router.replace("/(emergency)/connected");
     } catch (err) {
-      const msg = err instanceof DispatchApiError
-        ? t("emergency.error.withCode", { message: err.message, status: err.status })
-        : (err as Error).message;
+      const msg = err instanceof LocationUnavailableError
+        ? t("emergency.error.noLocation")
+        : err instanceof DispatchApiError
+          ? t("emergency.error.withCode", { message: err.message, status: err.status })
+          : (err as Error).message;
       haptics.error();
       setError(msg);
     } finally {

@@ -34,6 +34,10 @@ tags:
     description: Mechanics and how they join
   - name: suppliers
     description: Where parts come from, and spend
+  - name: calls
+    description: Customers calling garages through Kaduna
+  - name: admin
+    description: Platform figures for Kaduna administrators
   - name: stock
     description: Shelves and bays, stocktakes, and purchase orders with goods-in
   - name: assets
@@ -6972,6 +6976,129 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /api/v1/garage-calls:
+    post:
+      operationId: logGarageCall
+      tags:
+        - calls
+      summary: Log a call to a listed garage
+      description: Call this when the customer taps Call, then dial the phone number returned. A repeat from the same caller within two minutes returns the earlier call (200) instead of counting a new one (201).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                garageId:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+                source:
+                  default: app
+                  description: Where the call was started
+                  type: string
+                  enum:
+                    - app
+                    - web
+              required:
+                - garageId
+      responses:
+        "201":
+          description: Logged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/GarageCall"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in this garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflicts with the current state (wrong status, stock too low, duplicate)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Validation failed; `details` lists each field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/admin/garage-calls:
+    get:
+      operationId: getGarageCallStats
+      tags:
+        - admin
+      summary: Calls to garages, for the admin dashboard
+      description: Kaduna administrators only (profiles.role = 'ops').
+      parameters:
+        - name: from
+          in: query
+          schema:
+            description: First day (UTC). Defaults to 30 days before `to`
+            type: string
+            pattern: ^\d{4}-\d{2}-\d{2}$
+        - name: to
+          in: query
+          schema:
+            description: Last day (UTC), inclusive. Defaults to now
+            type: string
+            pattern: ^\d{4}-\d{2}-\d{2}$
+      responses:
+        "200":
+          description: Totals, per garage, per day and the latest calls
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    const: true
+                  data:
+                    $ref: "#/components/schemas/GarageCallStats"
+                  timestamp: *a1
+                required:
+                  - success
+                  - data
+                  - timestamp
+        "401":
+          description: Missing or invalid Supabase token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not allowed (for example, a dispatch job assigned to another provider)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Validation failed; `details` lists each field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /api/v1/my/visits:
     get:
       operationId: listMyVisits
@@ -9353,6 +9480,124 @@ components:
         - note
         - receivedAt
         - closedAt
+    GarageCall:
+      type: object
+      properties:
+        id:
+          type: string
+        garageId:
+          type: string
+        garageName:
+          type: string
+        phone:
+          type: string
+          description: The number to dial
+        counted:
+          type: boolean
+          description: false when this repeats the same caller's call from the last two minutes
+        createdAt: *a1
+      required:
+        - id
+        - garageId
+        - garageName
+        - phone
+        - counted
+        - createdAt
+    GarageCallStats:
+      type: object
+      properties:
+        from: *a1
+        to: *a1
+        total:
+          type: integer
+        uniqueCallers:
+          type: integer
+        garagesCalled:
+          type: integer
+        byGarage:
+          type: array
+          items:
+            type: object
+            properties:
+              garageId:
+                type: string
+              name:
+                type:
+                  - string
+                  - "null"
+              phone:
+                type:
+                  - string
+                  - "null"
+              address:
+                type:
+                  - string
+                  - "null"
+              calls:
+                type: integer
+              lastCallAt:
+                type:
+                  - string
+                  - "null"
+                format: date-time
+            required:
+              - garageId
+              - name
+              - phone
+              - address
+              - calls
+              - lastCallAt
+        byDay:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              calls:
+                type: integer
+            required:
+              - date
+              - calls
+        recent:
+          type: array
+          description: Newest first, up to 50
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              garageId:
+                type: string
+              garageName:
+                type: string
+              userId:
+                type: string
+              source:
+                type: string
+              phone:
+                type:
+                  - string
+                  - "null"
+              createdAt: *a1
+            required:
+              - id
+              - garageId
+              - garageName
+              - userId
+              - source
+              - phone
+              - createdAt
+      required:
+        - from
+        - to
+        - total
+        - uniqueCallers
+        - garagesCalled
+        - byGarage
+        - byDay
+        - recent
     Report:
       type: object
       properties:

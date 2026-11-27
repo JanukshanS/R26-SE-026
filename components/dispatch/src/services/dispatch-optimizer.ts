@@ -39,7 +39,7 @@ import { logger } from '../utils/logger';
 /**
  * Haversine distance between two GPS coordinates (km).
  */
-function haversineDistanceKm(a: Location, b: Location): number {
+export function haversineDistanceKm(a: Location, b: Location): number {
   const R = 6371;
   const dLat = (b.latitude - a.latitude) * Math.PI / 180;
   const dLon = (b.longitude - a.longitude) * Math.PI / 180;

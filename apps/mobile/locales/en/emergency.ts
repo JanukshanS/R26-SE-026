@@ -166,6 +166,8 @@ const emergency: Record<string, string> = {
   "emergency.engineState.startsRoughTitle": "Starts but runs rough",
   "emergency.error.withCode": "{{message}} ({{status}})",
   "emergency.error.withStatus": "{{message}} (HTTP {{status}})",
+  "emergency.error.noLocation": "We couldn't get your location. Turn on location (GPS), allow Kaduna to use it, and try again. In an emergency, call 1990.",
+  "emergency.error.noLocationTitle": "Location needed",
   "emergency.gearDetail.clutchSoftDesc": "Clutch hydraulic failure",
   "emergency.gearDetail.clutchSoftTitle": "Clutch pedal soft / sinks to the floor",
   "emergency.gearDetail.grindingDesc": "Synchros worn / clutch not disengaging",

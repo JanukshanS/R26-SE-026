@@ -498,6 +498,18 @@ export default function DriverHomeScreen() {
           </View>
         </View>
 
+        <View style={{ gap: spacing.md }}>
+          <Text style={{ ...typography.h3, color: palette.text }}>{t("driver.home.carCareHeading")}</Text>
+          <View style={{ flexDirection: "row", gap: spacing.md }}>
+            <Animated.View entering={FadeInDown.delay(180).springify()} style={{ flex: 1 }}>
+              <QuickAction icon="Warehouse" label={t("driver.home.actionGarages")} onPress={() => router.push("/(driver)/garages")} />
+            </Animated.View>
+            <Animated.View entering={FadeInDown.delay(240).springify()} style={{ flex: 1 }}>
+              <QuickAction icon="Package" label={t("driver.home.actionParts")} onPress={() => router.push("/(driver)/parts")} />
+            </Animated.View>
+          </View>
+        </View>
+
         {FEATURES.obd && FEATURES.predictiveMaintenance ? (
           <>
             <ObdSourceBadge />

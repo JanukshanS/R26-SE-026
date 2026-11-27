@@ -180,6 +180,8 @@ model Garage {
   assets         Asset[]
   heldItems      HeldItem[]
 
+  calls GarageCall[]
+
   @@map("garages")
 }
 
@@ -673,4 +675,23 @@ model HeldItem {
 
   @@index([garageId, status])
   @@map("held_items")
+}
+
+/// A customer tapped "Call" on a listed garage. The admin dashboard counts these to see how many leads the platform sends each garage.
+model GarageCall {
+  id        String   @id @default(uuid())
+  garageId  String   @map("garage_id")
+  // The Kaduna account that called. Kept so repeat calls and unique callers can be told apart.
+  userId    String   @map("user_id")
+  // Where the call started: the mobile app or the website.
+  source    String   @default("app")
+  // The number that was dialled, as listed at the time.
+  phone     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  garage Garage @relation(fields: [garageId], references: [id], onDelete: Cascade)
+
+  @@index([garageId, createdAt])
+  @@index([createdAt])
+  @@map("garage_calls")
 }

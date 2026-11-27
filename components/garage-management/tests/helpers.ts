@@ -15,6 +15,7 @@ export const app: express.Express = createApp({
     const provider = req.header('x-test-provider') || undefined;
     req.userId = req.header('x-test-user') ?? `user-${provider}`;
     req.providerId = provider;
+    req.platformRole = req.header('x-test-role') || undefined;
     next();
   },
 });
@@ -63,3 +64,6 @@ export async function newMechanic(owner: ReturnType<typeof as>, name = 'Kasun Si
   if (joined.status !== 200) throw new Error(`join failed: ${joined.status} ${JSON.stringify(joined.body)}`);
   return { member, userId, client: mechanic };
 }
+
+/** A Kaduna administrator (profiles.role = 'ops'). */
+export const asOps = (userId = `ops-${randomUUID()}`) => client({ 'x-test-user': userId, 'x-test-role': 'ops' });

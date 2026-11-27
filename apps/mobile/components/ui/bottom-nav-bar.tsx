@@ -17,19 +17,21 @@ export const NAV_BAR_HEIGHT = 56;
 // top half of the button is not tappable.
 const EMERGENCY_OVERHANG = 28;
 
-type TabKey = "home" | "maintenance" | "store" | "profile";
+type TabKey = "home" | "maintenance" | "store" | "garages" | "parts" | "profile";
 type TabDef = { key: TabKey; labelKey: string; icon: IconName };
 
 const TABS_LEFT: TabDef[] = [
   { key: "home", labelKey: "components.nav.home", icon: "House" },
-  ...(FEATURES.predictiveMaintenance
-    ? [{ key: "maintenance", labelKey: "components.nav.maintenance", icon: "Wrench" } as TabDef]
-    : []),
+  // Garages take the maintenance slot when predictive maintenance is off (the v1 build).
+  FEATURES.predictiveMaintenance
+    ? ({ key: "maintenance", labelKey: "components.nav.maintenance", icon: "Wrench" } as TabDef)
+    : ({ key: "garages", labelKey: "components.nav.garages", icon: "Warehouse" } as TabDef),
 ];
 const TABS_RIGHT: TabDef[] = [
-  ...(FEATURES.marketplace
-    ? [{ key: "store", labelKey: "components.nav.store", icon: "Store" } as TabDef]
-    : []),
+  // Spare parts from Kaduna's parts shops; the old predictive-maintenance store only when its flag is on.
+  FEATURES.marketplace
+    ? ({ key: "store", labelKey: "components.nav.store", icon: "Store" } as TabDef)
+    : ({ key: "parts", labelKey: "components.nav.parts", icon: "Package" } as TabDef),
   { key: "profile", labelKey: "components.nav.profile", icon: "User" },
 ];
 
@@ -41,6 +43,8 @@ const TAB_PATHS: Record<TabKey, string> = {
   home: "/home",
   maintenance: "/health",
   store: "/marketplace",
+  garages: "/garages",
+  parts: "/parts",
   profile: "/profile",
 };
 
@@ -150,6 +154,8 @@ function TabItem({ tab, active }: { tab: TabDef; active: boolean }) {
         if (tab.key === "home") router.replace("/(driver)/home");
         if (tab.key === "maintenance") router.replace("/(driver)/health");
         if (tab.key === "store") router.replace("/(driver)/marketplace");
+        if (tab.key === "garages") router.replace("/(driver)/garages");
+        if (tab.key === "parts") router.replace("/(driver)/parts");
         if (tab.key === "profile") router.replace("/(driver)/profile");
       }}
       accessibilityRole="tab"

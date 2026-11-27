@@ -7,7 +7,7 @@ import { palette, radii, spacing, typography } from "@theme/index";
 import { useEmergency, incidentVehicleInfo } from "@lib/emergencyContext";
 import { useVehicleOptional } from "@lib/vehicleContext";
 import { createIncident, DispatchApiError } from "@lib/dispatchApi";
-import { getCurrentDriverLocation } from "@lib/driverLocation";
+import { getDispatchLocation, LocationUnavailableError } from "@lib/driverLocation";
 import { useT } from "@lib/i18n";
 
 const LIGHTS: { id: string; icon: IconName; labelKey: string }[] = [
@@ -60,7 +60,7 @@ export default function DiagnosisLightsScreen() {
     setLoading(true);
     setError(null);
     try {
-      const driver = await getCurrentDriverLocation();
+      const driver = await getDispatchLocation();
       const incident = await createIncident({
         location:    { latitude: driver.latitude, longitude: driver.longitude },
         vehicleInfo: incidentVehicleInfo(selectedVehicle),
@@ -69,6 +69,11 @@ export default function DiagnosisLightsScreen() {
       setIncidentId(incident.id);
       goNext();
     } catch (err) {
+      if (err instanceof LocationUnavailableError) {
+        setError(t("emergency.error.noLocation"));
+        Alert.alert(t("emergency.error.noLocationTitle"), t("emergency.error.noLocation"));
+        return;
+      }
       const raw = (err as Error).message;
       // authHeaders() throws this before the request leaves the device.
       if (!(err instanceof DispatchApiError) && raw.includes("signed in")) {

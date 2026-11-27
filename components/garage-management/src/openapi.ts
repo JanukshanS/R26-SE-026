@@ -222,6 +222,18 @@ const responses: Record<string, Json> = {
     locationId: nullable('string'), locationName: nullable('string'), status: { enum: ['HELD', 'FITTED', 'RETURNED'] },
     note: nullable('string'), receivedAt: timestamp, closedAt: nullable('string', { format: 'date-time' }),
   }),
+  GarageCall: obj({
+    id: { type: 'string' }, garageId: { type: 'string' }, garageName: { type: 'string' },
+    phone: { type: 'string', description: 'The number to dial' },
+    counted: { type: 'boolean', description: 'false when this repeats the same caller\'s call from the last two minutes' },
+    createdAt: timestamp,
+  }),
+  GarageCallStats: obj({
+    from: timestamp, to: timestamp, total: { type: 'integer' }, uniqueCallers: { type: 'integer' }, garagesCalled: { type: 'integer' },
+    byGarage: { type: 'array', items: obj({ garageId: { type: 'string' }, name: nullable('string'), phone: nullable('string'), address: nullable('string'), calls: { type: 'integer' }, lastCallAt: nullable('string', { format: 'date-time' }) }) },
+    byDay: { type: 'array', items: obj({ date: { type: 'string', format: 'date' }, calls: { type: 'integer' } }) },
+    recent: { type: 'array', description: 'Newest first, up to 50', items: obj({ id: { type: 'string' }, garageId: { type: 'string' }, garageName: { type: 'string' }, userId: { type: 'string' }, source: { type: 'string' }, phone: nullable('string'), createdAt: timestamp }) },
+  }),
   Report: obj({
     from: { type: 'string', format: 'date' }, to: { type: 'string', format: 'date' },
     totals: obj({
@@ -754,6 +766,20 @@ const paths: Record<string, Record<string, Op>> = {
   '/api/v1/held-parts/{id}': {
     patch: { tag: 'assets', summary: 'Edit a held part, or mark it fitted or returned', params: [idParam()], body: v.heldPatch, errors: [404, 409, 422], ok: [200, 'Updated', ref('HeldPart')] },
   },
+  '/api/v1/garage-calls': {
+    post: {
+      tag: 'calls', access: 'signedIn', summary: 'Log a call to a listed garage', body: v.callInput, errors: [404, 409, 422],
+      description: 'Call this when the customer taps Call, then dial the phone number returned. A repeat from the same caller within two minutes returns the earlier call (200) instead of counting a new one (201).',
+      ok: [201, 'Logged', ref('GarageCall')],
+    },
+  },
+  '/api/v1/admin/garage-calls': {
+    get: {
+      tag: 'admin', access: 'signedIn', summary: 'Calls to garages, for the admin dashboard', params: queryParams(v.callStatsQuery), errors: [403, 422],
+      description: "Kaduna administrators only (profiles.role = 'ops').",
+      ok: [200, 'Totals, per garage, per day and the latest calls', ref('GarageCallStats')],
+    },
+  },
   '/api/v1/my/visits': {
     get: {
       tag: 'owners', access: 'signedIn', summary: "The caller's cars at garages",
@@ -921,6 +947,8 @@ const operationIds: Record<string, string> = {
   'get /api/v1/held-parts': 'listHeldParts',
   'post /api/v1/held-parts': 'createHeldPart',
   'patch /api/v1/held-parts/{id}': 'updateHeldPart',
+  'post /api/v1/garage-calls': 'logGarageCall',
+  'get /api/v1/admin/garage-calls': 'getGarageCallStats',
   'get /api/v1/reports': 'getReport',
 };
 
@@ -952,6 +980,8 @@ export function buildOpenApi() {
       { name: 'appointments', description: 'Bookings, and checking customers in' },
       { name: 'staff', description: 'Mechanics and how they join' },
       { name: 'suppliers', description: 'Where parts come from, and spend' },
+      { name: 'calls', description: 'Customers calling garages through Kaduna' },
+      { name: 'admin', description: 'Platform figures for Kaduna administrators' },
       { name: 'stock', description: 'Shelves and bays, stocktakes, and purchase orders with goods-in' },
       { name: 'assets', description: "Tools and equipment register, and customers' parts the garage is holding" },
       { name: 'internal', description: 'For other Kaduna services (the parts service): mechanics, jobs and received parts' },

@@ -11,11 +11,15 @@
  * link to a screen that no longer exists.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { posix } from "node:path";
 import { describe, expect, it } from "vitest";
 import { flowSteps, stepPath, type FlowState, type Q1MLIntent } from "../lib/emergencyFlow";
 
-const ROOT = join(__dirname, "..");
+// Forward slashes on every OS: route slugs and the "/(emergency)/" checks below
+// compare against URL-style paths, and Windows' backslashes made every route
+// look dangling (and the emergency checks silently match nothing).
+const join = posix.join;
+const ROOT = join(__dirname.replace(/\\/g, "/"), "..");
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {

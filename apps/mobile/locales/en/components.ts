@@ -28,6 +28,8 @@ const components: Record<string, string> = {
   "components.nav.maintenance": "Maintenance",
   "components.nav.profile": "Profile",
   "components.nav.store": "Store",
+  "components.nav.garages": "Garages",
+  "components.nav.parts": "Parts",
   "components.obd.live": "Live ELM327",
   "components.obd.simulated": "Simulated OBD-II",
   "components.simTrips.allFailed": "Every trip failed to upload.",
